@@ -1,0 +1,26 @@
+{
+  "name": "@lumen/trpc",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./router": "./src/router.ts"
+  },
+  "scripts": {
+    "lint": "biome lint --write .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lumen/db": "workspace:^",
+    "@trpc/server": "^11.7.1",
+    "drizzle-orm": "^0.37.0"
+  },
+  "devDependencies": {
+    "@lumen/configs": "workspace:^",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
