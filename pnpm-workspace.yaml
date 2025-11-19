@@ -4,5 +4,7 @@ packages:
 
 onlyBuiltDependencies:
   - '@biomejs/biome'
+  - esbuild
   - lefthook
   - sharp
+

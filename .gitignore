@@ -27,6 +27,9 @@ out/
 build
 dist
 
+# Drizzle
+packages/db/drizzle/
+
 
 # Debug
 npm-debug.log*

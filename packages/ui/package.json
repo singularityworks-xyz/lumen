@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@lumen/configs": "workspace:^",
-    "@types/node": "^22.19.1",
+    "@types/node": "^24.10.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "babel-plugin-react-compiler": "^1.0.0",
