@@ -4,6 +4,10 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src"],
+  "baseUrl": ".",
+  "paths": {
+    "@/*": ["./*"]
+  },
+  "include": ["src", "lib"],
   "exclude": ["node_modules", "dist"]
 }
