@@ -1,5 +1,8 @@
+import { createLogger } from "@lumen/logger";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+
+const logger = createLogger({ name: "web:env" });
 
 export const env = createEnv({
   /*
@@ -36,4 +39,14 @@ export const env = createEnv({
    * If validation fails, the app will crash immediately.
    */
   skipValidation: false,
+  onValidationError: (error) => {
+    logger.error({ error }, "Environment validation failed");
+    throw error;
+  },
+  onInvalidAccess: (key) => {
+    logger.error({ key }, "Invalid environment variable access");
+    throw new Error(`Invalid environment variable access: ${key}`);
+  },
 });
+
+logger.debug("Web environment variables loaded");
