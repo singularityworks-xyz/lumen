@@ -35,5 +35,8 @@
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
       "pnpm dlx ultracite fix"
     ]
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3"
   }
 }
