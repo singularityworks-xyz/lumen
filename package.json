@@ -24,7 +24,6 @@
     "lefthook": "^2.0.4",
     "lint-staged": "^16.2.7",
     "turbo": "^2.6.1",
-    "typescript": "^5.9.3",
     "ultracite": "6.3.4"
   },
   "engines": {
@@ -37,6 +36,8 @@
     ]
   },
   "dependencies": {
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "next": "^16.0.3",
+    "typescript": "^5.9.3"
   }
 }

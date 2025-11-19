@@ -11,6 +11,12 @@ importers:
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
+      next:
+        specifier: ^16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.6
@@ -36,9 +42,6 @@ importers:
       turbo:
         specifier: ^2.6.1
         version: 2.6.1
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       ultracite:
         specifier: 6.3.4
         version: 6.3.4(typescript@5.9.3)
