@@ -13,7 +13,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "lumen",
+  title: "Lumen — Work, illuminated",
   description: "Shedding light on the singularity",
 };
 

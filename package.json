@@ -6,7 +6,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "check": "turbo run check",
+    "check": "turbo run check && pnpm dlx sherif@latest --fix .",
     "check:ci": "biome ci .",
     "check-types": "turbo run check-types"
   },
