@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.6",
+    "babel-plugin-react-compiler": "^1.0.0",
     "lefthook": "^2.0.4",
     "lint-staged": "^16.2.6",
     "turbo": "^2.6.1",
