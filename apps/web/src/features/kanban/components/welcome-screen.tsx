@@ -16,8 +16,9 @@ export const WelcomeScreen = memo(() => {
   }
 
   const handleNewBoard = () => {
+    const boardId = `board-${Date.now()}`;
     const newBoard = {
-      id: `board-${Date.now()}`,
+      id: boardId,
       name: "New Board",
       description: "New project board",
       created_by: "user1",
@@ -25,21 +26,21 @@ export const WelcomeScreen = memo(() => {
       columns: [
         {
           id: `col-1-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "To Do",
           position: 0,
           tasks: [],
         },
         {
           id: `col-2-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "In Progress",
           position: 1,
           tasks: [],
         },
         {
           id: `col-3-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "Done",
           position: 2,
           tasks: [],

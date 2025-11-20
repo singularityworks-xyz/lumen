@@ -3,6 +3,7 @@
 import { Command, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useKanbanStore } from "../store/kanban-store";
+import { calculateBoardDimensions } from "../utils";
 
 type ContextMenuProps = {
   x: number;
@@ -16,8 +17,9 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   );
 
   const handleNewBoard = useCallback(() => {
+    const boardId = `board-${Date.now()}`;
     const newBoard = {
-      id: `board-${Date.now()}`,
+      id: boardId,
       name: "New Board",
       description: "New project board",
       created_by: "user1",
@@ -25,21 +27,21 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       columns: [
         {
           id: `col-1-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "To Do",
           position: 0,
           tasks: [],
         },
         {
           id: `col-2-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "In Progress",
           position: 1,
           tasks: [],
         },
         {
           id: `col-3-${Math.random()}`,
-          board_id: `board-${Date.now()}`,
+          board_id: boardId,
           name: "Done",
           position: 2,
           tasks: [],
@@ -47,9 +49,10 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       ],
     };
 
+    const dimensions = calculateBoardDimensions(newBoard);
     useKanbanStore.getState().addBoard(newBoard, {
-      x: x - 400,
-      y: y - 300,
+      x: x - dimensions.width / 2,
+      y: y - dimensions.height / 2,
     });
     onClose();
   }, [x, y, onClose]);

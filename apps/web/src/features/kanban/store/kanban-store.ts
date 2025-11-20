@@ -3,6 +3,7 @@ import { enableMapSet } from "immer";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Board, BoardNode, Column, Task, Workspace } from "../types";
+import { calculateBoardDimensions } from "../utils";
 
 enableMapSet();
 
@@ -144,6 +145,9 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           }
         }
 
+        // Calculate proper dimensions based on board content
+        const dimensions = calculateBoardDimensions(board);
+
         const newNode: Node<BoardNode["data"]> = {
           id: board.id,
           type: "board",
@@ -152,11 +156,11 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
             board,
             isSelected: false,
           },
-          width: 1400,
-          height: 800,
+          width: dimensions.width,
+          height: dimensions.height,
           style: {
-            width: 1400,
-            height: 800,
+            width: dimensions.width,
+            height: dimensions.height,
             zIndex: maxZIndex + 1,
           },
         };
