@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit2, Plus, Trash2 } from "lucide-react";
+import { Edit2, MoveRight, Plus, Trash2 } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 
 type ColumnContextMenuProps = {
@@ -9,6 +9,7 @@ type ColumnContextMenuProps = {
   onRename?: () => void;
   onRemove?: () => void;
   onAddTask?: () => void;
+  onMoveToBoard?: () => void;
   onClose: () => void;
 };
 
@@ -19,6 +20,7 @@ export const ColumnContextMenu = memo(
     onRename,
     onRemove,
     onAddTask,
+    onMoveToBoard,
     onClose,
   }: ColumnContextMenuProps) => {
     const menuRef = useRef<HTMLDivElement>(null);
@@ -84,6 +86,23 @@ export const ColumnContextMenu = memo(
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 <span>Rename</span>
+              </button>
+              <div className="my-0.5 h-px bg-border/50" />
+            </>
+          )}
+
+          {onMoveToBoard && (
+            <>
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                onClick={() => {
+                  onMoveToBoard();
+                  onClose();
+                }}
+                type="button"
+              >
+                <MoveRight className="h-3.5 w-3.5" />
+                <span>Move to board</span>
               </button>
               <div className="my-0.5 h-px bg-border/50" />
             </>

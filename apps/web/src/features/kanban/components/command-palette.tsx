@@ -12,6 +12,8 @@ export const CommandPalette = memo(() => {
   const setShowCommandPalette = useKanbanStore(
     (state) => state.setShowCommandPalette
   );
+  const boards = useKanbanStore((state) => state.boards);
+  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export const CommandPalette = memo(() => {
       id: boardId,
       name: "New Board",
       description: "New project board",
+      workspace_id: currentWorkspace?.id ?? "",
       created_by: "user1",
       created_at: new Date().toISOString(),
       columns: [
@@ -84,7 +87,9 @@ export const CommandPalette = memo(() => {
       id: "search",
       label: "Search Tasks",
       icon: Search,
-      action: () => console.log("Search"),
+      action: () => {
+        // TODO: Implement task search functionality
+      },
     },
     {
       id: "quick-action",
@@ -97,6 +102,36 @@ export const CommandPalette = memo(() => {
   const filteredCommands = commands.filter((cmd) =>
     cmd.label.toLowerCase().includes(query.toLowerCase())
   );
+
+  const workspaceBoards = currentWorkspace
+    ? boards.filter(
+        (board) =>
+          !board.workspace_id || board.workspace_id === currentWorkspace.id
+      )
+    : boards;
+
+  const searchResults =
+    query.trim().length === 0
+      ? []
+      : workspaceBoards.flatMap((board) =>
+          (board.columns || []).flatMap((column) =>
+            (column.tasks || [])
+              .filter((task) => {
+                const q = query.toLowerCase();
+                return (
+                  task.title.toLowerCase().includes(q) ||
+                  (task.description || "").toLowerCase().includes(q) ||
+                  (task.tags || []).some((tag) => tag.toLowerCase().includes(q))
+                );
+              })
+              .map((task) => ({
+                boardName: board.name,
+                columnName: column.name,
+                taskTitle: task.title,
+                taskId: task.id,
+              }))
+          )
+        );
 
   return (
     <>
@@ -133,31 +168,62 @@ export const CommandPalette = memo(() => {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {filteredCommands.length > 0 ? (
-              <div className="py-2">
-                {filteredCommands.map((cmd) => {
-                  const Icon = cmd.icon;
+            {(() => {
+              if (query.trim().length === 0) {
+                if (filteredCommands.length > 0) {
                   return (
-                    <button
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                      key={cmd.id}
-                      onClick={() => {
-                        cmd.action?.();
-                        setQuery("");
-                      }}
-                      type="button"
-                    >
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <span>{cmd.label}</span>
-                    </button>
+                    <div className="py-2">
+                      {filteredCommands.map((cmd) => {
+                        const Icon = cmd.icon;
+                        return (
+                          <button
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                            key={cmd.id}
+                            onClick={() => {
+                              cmd.action?.();
+                              setQuery("");
+                            }}
+                            type="button"
+                          >
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            <span>{cmd.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
-                })}
-              </div>
-            ) : (
-              <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-                No commands found
-              </div>
-            )}
+                }
+                return (
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+                    No commands found
+                  </div>
+                );
+              }
+              if (searchResults.length > 0) {
+                return (
+                  <div className="py-2">
+                    {searchResults.map((result) => (
+                      <div
+                        className="flex flex-col gap-0.5 px-4 py-2 text-sm"
+                        key={result.taskId}
+                      >
+                        <div className="font-medium text-card-foreground">
+                          {result.taskTitle}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {result.boardName} • {result.columnName}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+                  No tasks match "{query}"
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

@@ -3,8 +3,17 @@
 import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
 import { GripVertical, Plus, X } from "lucide-react";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/src/components/ui/dialog";
+import { Input } from "@/src/components/ui/input";
+import { Textarea } from "@/src/components/ui/textarea";
 import { useKanbanStore } from "../store/kanban-store";
 import type { BoardNode } from "../types";
 import { KanbanBoard } from "./kanban-board";
@@ -27,8 +36,15 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const toggleBoardSelection = useKanbanStore(
       (state) => state.toggleBoardSelection
     );
+    const updateBoard = useKanbanStore((state) => state.updateBoard);
     const { getNode, setNodes } = useReactFlow();
     const { board, isSelected } = data as BoardNode["data"];
+
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editedName, setEditedName] = useState(board.name);
+    const [editedDescription, setEditedDescription] = useState(
+      board.description ?? ""
+    );
 
     const isMultiSelected = selectedBoardIds.has(id);
 
@@ -205,6 +221,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       document.body.style.overflow = "";
     };
 
+    const handleOpenEdit = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setEditedName(board.name);
+      setEditedDescription(board.description ?? "");
+      setIsEditDialogOpen(true);
+    };
+
+    const handleSaveEdit = () => {
+      const name = editedName.trim() || "Untitled Board";
+      const description = editedDescription.trim() || undefined;
+      updateBoard(board.id, { name, description });
+      setIsEditDialogOpen(false);
+    };
+
     return (
       <>
         <Resizer
@@ -271,14 +301,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <h3 className="truncate font-semibold text-foreground text-xs">
-                  {board.name}
-                </h3>
-                {board.description && (
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {board.description}
-                  </p>
-                )}
+                <button
+                  className="w-full text-left"
+                  onClick={handleOpenEdit}
+                  type="button"
+                >
+                  <h3 className="truncate font-semibold text-foreground text-xs">
+                    {board.name}
+                  </h3>
+                  {board.description && (
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {board.description}
+                    </p>
+                  )}
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -318,6 +354,53 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             <KanbanBoard board={board} />
           </div>
         </div>
+
+        <Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Board</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label
+                  className="font-medium text-card-foreground text-sm"
+                  htmlFor="board-name"
+                >
+                  Name
+                </label>
+                <Input
+                  id="board-name"
+                  onChange={(e) => setEditedName(e.target.value)}
+                  value={editedName}
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  className="font-medium text-card-foreground text-sm"
+                  htmlFor="board-description"
+                >
+                  Description
+                </label>
+                <Textarea
+                  id="board-description"
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Add a short description..."
+                  rows={3}
+                  value={editedDescription}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => setIsEditDialogOpen(false)}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }

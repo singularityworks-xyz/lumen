@@ -1,7 +1,17 @@
 "use client";
 
-import { Building2, Check, Plus } from "lucide-react";
+import { Building2, Check, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/src/components/ui/alert-dialog";
 import { Button } from "@/src/components/ui/button";
 import {
   Dialog,
@@ -31,10 +41,17 @@ export function WorkspaceSelector() {
     (state) => state.setCurrentWorkspace
   );
   const addWorkspace = useKanbanStore((state) => state.addWorkspace);
+  const deleteWorkspace = useKanbanStore((state) => state.deleteWorkspace);
+  const resetWorkspace = useKanbanStore((state) => state.resetWorkspace);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("");
+  const [showDangerDialog, setShowDangerDialog] = useState(false);
+
+  const defaultWorkspaceId = workspaces[0]?.id;
+  const isDefaultCurrent =
+    currentWorkspace != null && currentWorkspace.id === defaultWorkspaceId;
 
   const handleCreateWorkspace = () => {
     if (!newWorkspaceName.trim()) {
@@ -53,6 +70,21 @@ export function WorkspaceSelector() {
     setShowCreateDialog(false);
     setNewWorkspaceName("");
     setNewWorkspaceDescription("");
+  };
+
+  const handleConfirmWorkspaceDanger = () => {
+    if (!currentWorkspace) {
+      setShowDangerDialog(false);
+      return;
+    }
+
+    if (isDefaultCurrent) {
+      resetWorkspace(currentWorkspace.id);
+    } else {
+      deleteWorkspace(currentWorkspace.id);
+    }
+
+    setShowDangerDialog(false);
   };
 
   return (
@@ -112,6 +144,26 @@ export function WorkspaceSelector() {
               <Plus className="h-4 w-4" />
               <span>Create Workspace</span>
             </DropdownMenuItem>
+            {currentWorkspace && (
+              <>
+                <DropdownMenuSeparator className="my-2 bg-border/50" />
+                <div className="px-2 pb-1">
+                  <Button
+                    className="w-full justify-start gap-2 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => setShowDangerDialog(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>
+                      {isDefaultCurrent
+                        ? "Reset Default Workspace"
+                        : "Delete Workspace"}
+                    </span>
+                  </Button>
+                </div>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -179,6 +231,33 @@ export function WorkspaceSelector() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog onOpenChange={setShowDangerDialog} open={showDangerDialog}>
+        <AlertDialogContent className="rounded-2xl border-2 border-border/50 bg-card/95 shadow-[0_4px_24px_rgba(0,0,0,0.2),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md sm:max-w-[425px] dark:shadow-[0_4px_24px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-xl">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              {isDefaultCurrent
+                ? "Reset Default Workspace"
+                : "Delete Workspace"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isDefaultCurrent
+                ? "This will remove all boards in your default workspace, but keep the workspace itself."
+                : "This will permanently delete the current workspace and all of its boards. This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 border-border/50 border-t pt-4">
+            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-lg bg-destructive text-destructive-foreground shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-destructive/90 dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+              onClick={handleConfirmWorkspaceDanger}
+            >
+              {isDefaultCurrent ? "Reset" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -6,26 +6,32 @@ import {
   MiniMap,
   type Node,
   type OnEdgesChange,
+  type OnMove,
   type OnNodesChange,
   ReactFlow,
   SelectionMode,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { useKanbanStore } from "../store/kanban-store";
-import type { BoardNode } from "../types";
+import type { Board, BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
+import { BulkActionsBar } from "./bulk-actions-bar";
 import { CustomControls } from "./custom-controls";
+import { RightControls } from "./right-controls";
 import { WelcomeScreen } from "./welcome-screen";
 import { WorkspaceSelector } from "./workspace-selector";
 
 type KanbanNode = Node<BoardNode["data"]>;
 
 export function KanbanCanvas() {
-  const nodes = useKanbanStore((state) => state.nodes);
+  const workspaceId = useKanbanStore(
+    (state) => state.currentWorkspace?.id ?? null
+  );
+  const allNodes = useKanbanStore((state) => state.nodes);
+  const boards = useKanbanStore((state) => state.boards);
   const edges = useKanbanStore((state) => state.edges);
   const showMiniMap = useKanbanStore((state) => state.showMiniMap);
   const setNodes = useKanbanStore((state) => state.setNodes);
@@ -37,27 +43,56 @@ export function KanbanCanvas() {
   const clearBoardSelection = useKanbanStore(
     (state) => state.clearBoardSelection
   );
+  const viewport = useKanbanStore((state) => state.viewport);
+  const setViewport = useKanbanStore((state) => state.setViewport);
+  const nodes = useMemo(() => {
+    if (!workspaceId) {
+      return allNodes;
+    }
+
+    const workspaceBoardIds = new Set(
+      boards
+        .filter((board: Board) => {
+          const boardWorkspaceId = board.workspace_id;
+          return !boardWorkspaceId || boardWorkspaceId === workspaceId;
+        })
+        .map((board) => board.id)
+    );
+
+    return allNodes.filter((node) => workspaceBoardIds.has(node.id));
+  }, [allNodes, boards, workspaceId]);
+
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
   const isUpdatingFromStore = useRef(false);
 
-  useHotkeys(
-    "v",
-    () => {
-      setInteractionMode(interactionMode === "drag" ? "select" : "drag");
-    },
-    { preventDefault: true }
-  );
+  useEffect(() => {
+    const handleToggleMode = (event: KeyboardEvent) => {
+      if (
+        !event.repeat &&
+        event.key.toLowerCase() === "v" &&
+        !(event.metaKey || event.ctrlKey)
+      ) {
+        event.preventDefault();
+        setInteractionMode(interactionMode === "drag" ? "select" : "drag");
+      }
+    };
 
-  useHotkeys(
-    "escape",
-    () => {
-      if (interactionMode === "select") {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && interactionMode === "select") {
+        event.preventDefault();
         clearBoardSelection();
       }
-    },
-    { preventDefault: true }
-  );
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      handleToggleMode(event);
+      handleEscape(event);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [interactionMode, clearBoardSelection, setInteractionMode]);
 
   const handleNodesChange: OnNodesChange<KanbanNode> = useCallback(
     (changes) => {
@@ -106,6 +141,16 @@ export function KanbanCanvas() {
       setEdges(localEdges);
     },
     [onEdgesChange, setEdges, localEdges]
+  );
+
+  const handleMoveEnd: OnMove = useCallback(
+    (_event, viewportState) => {
+      if (!viewportState) {
+        return;
+      }
+      setViewport(viewportState);
+    },
+    [setViewport]
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: required
@@ -165,10 +210,10 @@ export function KanbanCanvas() {
     <div className="h-full w-full">
       <ReactFlow
         className="bg-background"
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        defaultViewport={viewport}
         edges={localEdges}
         elementsSelectable={interactionMode === "select"}
-        fitView
+        fitView={nodes.length === 0}
         maxZoom={3}
         minZoom={0.1}
         nodeOrigin={[0, 0]}
@@ -177,6 +222,7 @@ export function KanbanCanvas() {
         nodesDraggable={interactionMode === "drag"}
         nodeTypes={nodeTypes}
         onEdgesChange={handleEdgesChange}
+        onMoveEnd={handleMoveEnd}
         onNodesChange={handleNodesChange}
         panOnDrag={interactionMode === "drag"}
         panOnScroll={interactionMode === "drag"}
@@ -214,6 +260,8 @@ export function KanbanCanvas() {
       </ReactFlow>
       <WelcomeScreen />
       <WorkspaceSelector />
+      <RightControls />
+      <BulkActionsBar />
     </div>
   );
 }

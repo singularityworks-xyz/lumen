@@ -45,6 +45,7 @@ export type Board = {
   id: string;
   name: string;
   description?: string;
+  workspace_id: string;
   created_by: string;
   created_at: string;
   columns?: Column[];

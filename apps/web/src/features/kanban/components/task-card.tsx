@@ -64,7 +64,11 @@ export const TaskCard = memo(
     if (showCheckbox) {
       return (
         <div
-          className={`cursor-default rounded border bg-card p-2 transition-all hover:scale-[1.01] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
+          className={`cursor-default rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
+            isSelected
+              ? "border-primary shadow-lg"
+              : "border-border/40 dark:border-border/70"
+          }`}
         >
           <div className="flex items-start gap-1.5">
             {showCheckbox && (
@@ -154,7 +158,11 @@ export const TaskCard = memo(
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: refactor later
       // biome-ignore lint/a11y/noStaticElementInteractions: TODO: refactor later
       <div
-        className={`cursor-move rounded border bg-card p-2 transition-all hover:scale-[1.01] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
+        className={`cursor-move rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
+          isSelected
+            ? "border-primary shadow-lg"
+            : "border-border/40 dark:border-border/70"
+        }`}
         draggable
         onDragStart={handleDragStart}
       >

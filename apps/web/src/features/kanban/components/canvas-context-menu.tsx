@@ -15,6 +15,7 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   const setShowCommandPalette = useKanbanStore(
     (state) => state.setShowCommandPalette
   );
+  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
 
   const handleNewBoard = useCallback(() => {
     const boardId = `board-${Date.now()}`;
@@ -22,6 +23,7 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       id: boardId,
       name: "New Board",
       description: "New project board",
+      workspace_id: currentWorkspace?.id ?? "",
       created_by: "user1",
       created_at: new Date().toISOString(),
       columns: [
@@ -55,7 +57,7 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       y: y - dimensions.height / 2,
     });
     onClose();
-  }, [x, y, onClose]);
+  }, [x, y, onClose, currentWorkspace?.id]);
 
   const handleSearch = useCallback(() => {
     setShowCommandPalette(true);

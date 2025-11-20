@@ -15,6 +15,7 @@ export const FloatingNavbar = memo(() => {
   const setInteractionMode = useKanbanStore(
     (state) => state.setInteractionMode
   );
+  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
 
   const handleNewBoard = () => {
     const boardId = `board-${Date.now()}`;
@@ -22,6 +23,7 @@ export const FloatingNavbar = memo(() => {
       id: boardId,
       name: "New Board",
       description: "New project board",
+      workspace_id: currentWorkspace?.id ?? "",
       created_by: "user1",
       created_at: new Date().toISOString(),
       columns: [

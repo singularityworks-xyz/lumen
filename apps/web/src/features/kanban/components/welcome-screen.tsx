@@ -9,9 +9,18 @@ import { HelpDialog } from "./help-dialog";
 
 export const WelcomeScreen = memo(() => {
   const boards = useKanbanStore((state) => state.boards);
+  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  if (boards.length > 0) {
+  const hasBoardsInCurrentWorkspace =
+    currentWorkspace == null
+      ? boards.length > 0
+      : boards.some(
+          (board) =>
+            !board.workspace_id || board.workspace_id === currentWorkspace.id
+        );
+
+  if (hasBoardsInCurrentWorkspace) {
     return null;
   }
 
@@ -21,6 +30,7 @@ export const WelcomeScreen = memo(() => {
       id: boardId,
       name: "New Board",
       description: "New project board",
+      workspace_id: currentWorkspace?.id ?? "",
       created_by: "user1",
       created_at: new Date().toISOString(),
       columns: [

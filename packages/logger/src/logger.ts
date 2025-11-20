@@ -9,6 +9,10 @@ export type LoggerOptions = {
   pretty?: boolean;
 };
 
+function isBrowser(): boolean {
+  return typeof window !== "undefined";
+}
+
 export function createLogger(options: LoggerOptions = {}): pino.Logger {
   const {
     name = "lumen",
@@ -18,6 +22,21 @@ export function createLogger(options: LoggerOptions = {}): pino.Logger {
   } = options;
 
   const isProduction = process.env.NODE_ENV === "production";
+
+  if (isBrowser()) {
+    return pino({
+      name,
+      level,
+      base: {
+        ...base,
+        env: process.env.NODE_ENV,
+      },
+      browser: {
+        asObject: true,
+      },
+      timestamp: pino.stdTimeFunctions.isoTime,
+    });
+  }
 
   if (isProduction || !pretty) {
     return pino({
@@ -34,17 +53,15 @@ export function createLogger(options: LoggerOptions = {}): pino.Logger {
     });
   }
 
-  return pino(
-    {
-      name,
-      level,
-      base: {
-        ...base,
-        env: process.env.NODE_ENV,
-      },
-      timestamp: pino.stdTimeFunctions.isoTime,
+  return pino({
+    name,
+    level,
+    base: {
+      ...base,
+      env: process.env.NODE_ENV,
     },
-    pino.transport({
+    timestamp: pino.stdTimeFunctions.isoTime,
+    transport: {
       target: "pino-pretty",
       options: {
         colorize: true,
@@ -52,8 +69,8 @@ export function createLogger(options: LoggerOptions = {}): pino.Logger {
         ignore: "pid,hostname",
         singleLine: false,
       },
-    })
-  );
+    },
+  });
 }
 
 export const logger = createLogger();
