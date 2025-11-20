@@ -61,11 +61,11 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
 
   return (
     <div
-      className="fixed z-50 w-48 overflow-hidden rounded-lg border border-border/50 bg-card/95 shadow-xl backdrop-blur-md dark:border-white/20"
+      className="fixed z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
       style={{ top: y, left: x }}
     >
       <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs transition-colors hover:bg-secondary/70"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
         onClick={handleNewBoard}
         type="button"
       >
@@ -73,7 +73,7 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
         New Board
       </button>
       <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs transition-colors hover:bg-secondary/70"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
         onClick={handleSearch}
         type="button"
       >

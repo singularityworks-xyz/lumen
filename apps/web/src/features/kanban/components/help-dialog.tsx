@@ -15,15 +15,15 @@ type HelpDialogProps = {
 };
 
 const Kbd = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/50 bg-muted px-1.5 font-medium font-mono text-[10px] shadow-sm">
+  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border-2 border-border/50 bg-muted px-1.5 font-medium font-mono text-[10px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">
     {children}
   </kbd>
 );
 
 export const HelpDialog = memo(({ open, onClose }: HelpDialogProps) => (
   <Dialog onOpenChange={onClose} open={open}>
-    <DialogContent className="max-w-3xl gap-0 p-0">
-      <DialogHeader className="space-y-0 border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-6 py-4">
+    <DialogContent className="max-w-3xl gap-0 border-2 border-border/50 p-0 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+      <DialogHeader className="space-y-0 border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-6 py-4 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
         <DialogTitle className="font-semibold text-lg">
           Keyboard Shortcuts
         </DialogTitle>
@@ -167,7 +167,7 @@ export const HelpDialog = memo(({ open, onClose }: HelpDialogProps) => (
         </div>
       </div>
 
-      <div className="border-t bg-muted/30 px-6 py-3">
+      <div className="border-t bg-muted/30 px-6 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           <strong className="text-foreground">Tip:</strong> Press <Kbd>V</Kbd>{" "}
           to quickly toggle between modes. Boards clicked are brought to front

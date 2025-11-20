@@ -68,11 +68,11 @@ export const FloatingNavbar = memo(() => {
   };
 
   return (
-    <div className="-translate-x-1/2 fixed bottom-4 left-1/2 z-40 flex items-center gap-1 rounded-full border border-border/50 bg-card/95 px-1.5 py-1.5 shadow-xl backdrop-blur-md dark:border-white/20">
+    <div className="-translate-x-1/2 fixed bottom-4 left-1/2 z-40 flex items-center gap-1 rounded-full border-2 border-border/50 bg-card/95 px-1.5 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
       {currentWorkspace && <WorkspaceSelector />}
 
       <Button
-        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
+        className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={handleNewBoard}
         size="sm"
         title="New Board"
@@ -83,7 +83,7 @@ export const FloatingNavbar = memo(() => {
       </Button>
 
       <Button
-        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
+        className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={() => setShowCommandPalette(true)}
         size="sm"
         title="Search (Cmd+K)"
@@ -96,10 +96,10 @@ export const FloatingNavbar = memo(() => {
       <div className="h-3.5 w-px bg-border/60" />
 
       <Button
-        className={`gap-1.5 rounded-full transition-colors ${
+        className={`gap-1.5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] ${
           interactionMode === "select"
             ? "bg-primary/90 text-primary-foreground hover:bg-primary"
-            : "text-foreground hover:bg-secondary/70"
+            : "bg-card/50 text-foreground hover:bg-secondary/70"
         }`}
         onClick={() =>
           setInteractionMode(interactionMode === "drag" ? "select" : "drag")
@@ -125,7 +125,7 @@ export const FloatingNavbar = memo(() => {
       <div className="h-3.5 w-px bg-border/60" />
 
       <Button
-        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
+        className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={toggleTheme}
         size="sm"
         title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
@@ -139,7 +139,7 @@ export const FloatingNavbar = memo(() => {
       </Button>
 
       <Button
-        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
+        className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={() => setShowMenu(!showMenu)}
         size="sm"
         title="More"
@@ -149,9 +149,9 @@ export const FloatingNavbar = memo(() => {
       </Button>
 
       {showMenu && (
-        <div className="absolute right-0 bottom-full mb-2 w-40 overflow-hidden rounded-lg border border-border/50 bg-card/95 shadow-lg backdrop-blur-md dark:border-white/20">
+        <div className="absolute right-0 bottom-full mb-2 w-40 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
           <Button
-            className="w-full justify-start gap-1.5 text-foreground hover:bg-secondary/70"
+            className="w-full justify-start gap-1.5 bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
             size="sm"
             variant="ghost"
           >
@@ -159,7 +159,7 @@ export const FloatingNavbar = memo(() => {
             <span className="text-[11px]">Settings</span>
           </Button>
           <Button
-            className="w-full justify-start gap-1.5 text-foreground hover:bg-secondary/70"
+            className="w-full justify-start gap-1.5 bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
             size="sm"
             variant="ghost"
           >

@@ -4,7 +4,6 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Board, BoardNode, Column, Task, Workspace } from "../types";
 
-// Enable Immer's MapSet plugin for Set support
 enableMapSet();
 
 type InteractionMode = "drag" | "select";
@@ -67,10 +66,8 @@ type KanbanActions = {
   setInteractionMode: (mode: InteractionMode) => void;
   toggleBoardSelection: (boardId: string) => void;
   clearBoardSelection: () => void;
-  initializeWithMockData: (workspaces: Workspace[], boards: Board[]) => void;
 };
 
-// Helper function to update all affected nodes after board changes
 function updateAffectedNodes(state: KanbanState, boards: Board[]): void {
   for (const node of state.nodes) {
     const board = boards.find((b) => b.id === node.id);
@@ -80,7 +77,6 @@ function updateAffectedNodes(state: KanbanState, boards: Board[]): void {
   }
 }
 
-// Helper function to update tasks in bulk
 function updateTasksInBoards(
   boards: Board[],
   taskIds: string[],
@@ -99,7 +95,6 @@ function updateTasksInBoards(
   }
 }
 
-// Helper function to delete tasks from boards
 function deleteTasksFromBoards(boards: Board[], taskIds: string[]): void {
   for (const board of boards) {
     for (const column of board.columns || []) {
@@ -141,7 +136,6 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
       set((state) => {
         state.boards.push(board);
 
-        // Calculate initial z-index based on existing nodes
         let maxZIndex = 0;
         for (const node of state.nodes) {
           const currentZ = node.style?.zIndex || 0;
@@ -417,13 +411,10 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
         if (board?.columns) {
           const columnIndex = board.columns.findIndex((c) => c.id === columnId);
           if (columnIndex !== -1) {
-            // Remove the column from its current position
             const [column] = board.columns.splice(columnIndex, 1);
             if (column) {
-              // Insert it at the new position
               board.columns.splice(newPosition, 0, column);
 
-              // Update position values for all columns
               for (let i = 0; i < board.columns.length; i++) {
                 const col = board.columns[i];
                 if (col) {
@@ -505,30 +496,6 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
     clearBoardSelection: () =>
       set((state) => {
         state.selectedBoardIds.clear();
-      }),
-
-    initializeWithMockData: (workspaces, boards) =>
-      set((state) => {
-        state.workspaces = workspaces;
-        state.currentWorkspace = workspaces[0] || null;
-        state.boards = boards;
-
-        state.nodes = boards.map((board, index) => ({
-          id: board.id,
-          type: "board",
-          position: { x: 20 + index * 1450, y: 20 },
-          data: {
-            board,
-            isSelected: false,
-          },
-          width: 1400,
-          height: 800,
-          style: {
-            width: 1400,
-            height: 800,
-            zIndex: index + 1,
-          },
-        }));
       }),
   }))
 );

@@ -241,13 +241,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         {/** biome-ignore lint/a11y/useSemanticElements: TODO: fl */}
         <div
           aria-pressed={isSelected || selected || isMultiSelected}
-          className={`h-full w-full overflow-hidden rounded bg-card shadow-lg transition-all ${
+          className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
-              ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4)] ring-2 ring-gray-500/20"
+              ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
               : // biome-ignore lint/style/noNestedTernary: TODO: fix later
                 isSelected || selected
-                ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3)]"
-                : "border border-border"
+                ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+                : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
         `}
           onClick={handleClick}
@@ -261,7 +261,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           role="button"
           tabIndex={0}
         >
-          <div className="flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:hover:bg-zinc-800/95">
+          <div className="flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-zinc-800/95">
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
@@ -277,7 +277,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             </div>
             <div className="flex items-center gap-1.5">
               <Button
-                className="nodrag h-6 gap-1 rounded-full bg-primary/90 px-2.5 text-primary-foreground hover:bg-primary"
+                className="nodrag h-6 gap-1 rounded-full bg-primary/90 px-2.5 text-primary-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.4)]"
                 onClick={handleAddTask}
                 size="sm"
                 variant="ghost"
@@ -286,7 +286,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
               <Button
-                className="nodrag h-5 w-5 shrink-0 rounded-full p-0.5 hover:bg-destructive/20"
+                className="nodrag h-5 w-5 shrink-0 rounded-full bg-card/50 p-0.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-destructive/20 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
                 onClick={handleRemove}
                 size="sm"
                 variant="ghost"

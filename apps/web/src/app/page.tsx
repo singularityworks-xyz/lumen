@@ -8,12 +8,8 @@ import { CanvasContextMenu } from "@/src/features/kanban/components/canvas-conte
 import { CommandPalette } from "@/src/features/kanban/components/command-palette";
 import { FloatingNavbar } from "@/src/features/kanban/components/floating-navbar";
 import { RightControls } from "@/src/features/kanban/components/right-controls";
-import { useKanbanInit } from "@/src/features/kanban/hooks/use-kanban-init";
 
 export default function KanbanPage() {
-  // Initialize the store with mock data for now
-  useKanbanInit();
-
   return (
     <ThemeProvider>
       <div className="relative h-screen w-full overflow-hidden bg-background">

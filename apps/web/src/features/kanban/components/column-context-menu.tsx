@@ -50,7 +50,7 @@ export const ColumnContextMenu = memo(
 
     return (
       <div
-        className="fade-in-0 zoom-in-95 fixed z-50 w-40 animate-in rounded-md border border-border bg-popover shadow-md duration-100"
+        className="fade-in-0 zoom-in-95 fixed z-50 w-40 animate-in rounded-md border-2 border-border/50 bg-popover shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] duration-100 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         ref={menuRef}
         style={{
           left: `${x}px`,
@@ -60,7 +60,7 @@ export const ColumnContextMenu = memo(
         <div className="p-1">
           {onAddTask && (
             <button
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
               onClick={() => {
                 onAddTask();
                 onClose();
@@ -75,7 +75,7 @@ export const ColumnContextMenu = memo(
           {onRename && (
             <>
               <button
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
                 onClick={() => {
                   onRename();
                   onClose();
@@ -91,7 +91,7 @@ export const ColumnContextMenu = memo(
 
           {onRemove && (
             <button
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-xs transition-colors hover:bg-destructive/10"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/10 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
               onClick={() => {
                 onRemove();
                 onClose();

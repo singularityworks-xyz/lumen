@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Background,
+  BackgroundVariant,
   MiniMap,
   type Node,
   type OnEdgesChange,
@@ -17,6 +19,7 @@ import { useKanbanStore } from "../store/kanban-store";
 import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { CustomControls } from "./custom-controls";
+import { WelcomeScreen } from "./welcome-screen";
 
 type KanbanNode = Node<BoardNode["data"]>;
 
@@ -104,6 +107,7 @@ export function KanbanCanvas() {
     [onEdgesChange, setEdges, localEdges]
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: required
   useEffect(() => {
     isUpdatingFromStore.current = true;
     const mutableNodes = nodes.map((node) => {
@@ -132,11 +136,12 @@ export function KanbanCanvas() {
       return mutableNode;
     });
     setLocalNodes(mutableNodes);
-  }, [nodes, setLocalNodes]);
+  }, [nodes]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: required
   useEffect(() => {
     setLocalEdges(edges);
-  }, [edges, setLocalEdges]);
+  }, [edges]);
 
   return (
     <div className="h-full w-full">
@@ -166,10 +171,16 @@ export function KanbanCanvas() {
         zoomActivationKeyCode={interactionMode === "drag" ? "Space" : null}
         zoomOnScroll={interactionMode === "drag"}
       >
+        <Background
+          className="opacity-30"
+          color="currentColor"
+          gap={20}
+          variant={BackgroundVariant.Dots}
+        />
         <CustomControls />
         {showMiniMap && (
           <MiniMap
-            className="border! rounded-lg! border-border/50! bg-card/95! shadow-xl! backdrop-blur-md!"
+            className="rounded-lg! border-2! border-border/50! bg-card/95! shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]! backdrop-blur-md! dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]!"
             maskColor="var(--background)"
             nodeColor={(node) => {
               if (node.data?.isSelected || node.selected) {
@@ -183,6 +194,7 @@ export function KanbanCanvas() {
           />
         )}
       </ReactFlow>
+      <WelcomeScreen />
     </div>
   );
 }

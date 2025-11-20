@@ -12,4 +12,5 @@ export { KanbanColumn } from "./kanban-column";
 export { RightControls } from "./right-controls";
 export { TaskCard } from "./task-card";
 export { TaskDetailModal } from "./task-detail-modal";
+export { WelcomeScreen } from "./welcome-screen";
 export { WorkspaceSelector } from "./workspace-selector";
