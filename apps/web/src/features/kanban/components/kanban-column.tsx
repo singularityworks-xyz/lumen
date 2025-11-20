@@ -1,9 +1,14 @@
 /** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: ignore */
 "use client";
 
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { memo, useCallback, useState } from "react";
 import { useKanbanStore } from "../store/kanban-store";
 import type { Column, Task } from "../types";
+import { ColumnContextMenu } from "./column-context-menu";
+import { DeleteColumnDialog } from "./delete-column-dialog";
+import { RenameColumnDialog } from "./rename-column-dialog";
 import { TaskCard } from "./task-card";
 
 type KanbanColumnProps = {
@@ -14,11 +19,38 @@ type KanbanColumnProps = {
 export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   const [_isHovered, setIsHovered] = useState(false);
   const [_isDragOver, setIsDragOver] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    type: "header" | "body";
+  } | null>(null);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const draggedTask = useKanbanStore((state) => state.draggedTask);
   const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
   const moveTask = useKanbanStore((state) => state.moveTask);
   const selectedTasks = useKanbanStore((state) => state.selectedTasks);
+  const updateColumn = useKanbanStore((state) => state.updateColumn);
+  const deleteColumn = useKanbanStore((state) => state.deleteColumn);
+  const setCreateTaskColumnId = useKanbanStore(
+    (state) => state.setCreateTaskColumnId
+  );
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const tasks = column.tasks || [];
   const taskCount = tasks.length;
@@ -52,14 +84,49 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
     [draggedTask, column.id, boardId, moveTask, setDraggedTask]
   );
 
+  const handleHeaderContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, type: "header" });
+  }, []);
+
+  const handleBodyContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, type: "body" });
+  }, []);
+
+  const handleAddTask = useCallback(() => {
+    setCreateTaskColumnId(column.id);
+  }, [column.id, setCreateTaskColumnId]);
+
+  const handleRename = useCallback(
+    (newName: string) => {
+      updateColumn(boardId, column.id, { name: newName });
+    },
+    [boardId, column.id, updateColumn]
+  );
+
+  const handleRemove = useCallback(() => {
+    deleteColumn(boardId, column.id);
+  }, [boardId, column.id, deleteColumn]);
+
   return (
     <section
       aria-label={`Column: ${column.name}`}
       className="flex max-h-full min-w-[285px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      ref={setNodeRef}
+      style={style}
     >
-      <div className="bg-zinc-100/90 px-2.5 py-2 dark:bg-zinc-800/90">
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
+      <div
+        className="cursor-grab bg-zinc-100/90 px-2.5 py-2 active:cursor-grabbing dark:bg-zinc-800/90"
+        onContextMenu={handleHeaderContextMenu}
+        {...attributes}
+        {...listeners}
+      >
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-card-foreground text-xs">
             {column.name}
@@ -73,6 +140,7 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
       <section
         aria-label="Task drop zone"
         className="min-h-40 flex-1 space-y-1.5 overflow-y-auto p-2 transition-all"
+        onContextMenu={handleBodyContextMenu}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -92,6 +160,47 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
           </div>
         )}
       </section>
+
+      {contextMenu && contextMenu.type === "header" && (
+        <ColumnContextMenu
+          onClose={() => setContextMenu(null)}
+          onRemove={() => {
+            setContextMenu(null);
+            setShowDeleteDialog(true);
+          }}
+          onRename={() => {
+            setContextMenu(null);
+            setShowRenameDialog(true);
+          }}
+          x={contextMenu.x}
+          y={contextMenu.y}
+        />
+      )}
+
+      {contextMenu && contextMenu.type === "body" && (
+        <ColumnContextMenu
+          onAddTask={handleAddTask}
+          onClose={() => setContextMenu(null)}
+          x={contextMenu.x}
+          y={contextMenu.y}
+        />
+      )}
+
+      {showRenameDialog && (
+        <RenameColumnDialog
+          currentName={column.name}
+          onClose={() => setShowRenameDialog(false)}
+          onRename={handleRename}
+        />
+      )}
+
+      {showDeleteDialog && (
+        <DeleteColumnDialog
+          columnName={column.name}
+          onClose={() => setShowDeleteDialog(false)}
+          onConfirm={handleRemove}
+        />
+      )}
     </section>
   );
 });

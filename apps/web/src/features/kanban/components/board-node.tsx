@@ -8,6 +8,7 @@ import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
 import type { BoardNode } from "../types";
 import { KanbanBoard } from "./kanban-board";
+import styles from "./styles/board-node.module.css";
 
 type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
 
@@ -21,7 +22,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const { getNode, setNodes } = useReactFlow();
     const { board, isSelected } = data as BoardNode["data"];
 
-    const contentDimensions = useMemo(() => {
+    const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const columns = board.columns || [];
       const columnCount = columns.length;
 
@@ -29,6 +30,32 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const COLUMN_GAP = 12;
       const BOARD_PADDING = 24;
       const HEADER_HEIGHT = 42;
+      const TASK_HEIGHT = 120;
+      const TASK_GAP = 8;
+      const COLUMN_PADDING = 24;
+      const COLUMN_HEADER = 56;
+      const SKELETON_COLUMN_WIDTH = 225;
+      const minWidth = COLUMN_WIDTH + BOARD_PADDING + 20;
+      const minHeight = HEADER_HEIGHT + COLUMN_HEADER + 220 + BOARD_PADDING;
+      const maxTaskCount = Math.max(
+        ...columns.map((c) => c.tasks?.length || 0),
+        0
+      );
+
+      const maxWidth =
+        columnCount * COLUMN_WIDTH +
+        (columnCount > 0 ? columnCount * COLUMN_GAP : 0) +
+        (columnCount > 0 ? COLUMN_GAP : 0) +
+        SKELETON_COLUMN_WIDTH +
+        BOARD_PADDING * 2;
+
+      const maxHeight =
+        HEADER_HEIGHT +
+        COLUMN_HEADER +
+        (maxTaskCount + 2) * TASK_HEIGHT +
+        (maxTaskCount + 2 - 1) * TASK_GAP +
+        COLUMN_PADDING +
+        BOARD_PADDING;
 
       const contentWidth =
         columnCount * COLUMN_WIDTH +
@@ -38,19 +65,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       let maxColumnHeight = 0;
       for (const column of columns) {
         const taskCount = column.tasks?.length || 0;
-        const TASK_HEIGHT = 120;
-        const TASK_GAP = 8;
-        const COLUMN_PADDING = 24;
-        const ADD_BUTTON_HEIGHT = 36;
-        const COLUMN_HEADER = 56;
-
         const columnHeight =
           COLUMN_HEADER +
           (taskCount > 0
             ? taskCount * TASK_HEIGHT + (taskCount - 1) * TASK_GAP
             : 160) +
-          COLUMN_PADDING +
-          ADD_BUTTON_HEIGHT;
+          COLUMN_PADDING;
 
         maxColumnHeight = Math.max(maxColumnHeight, columnHeight);
       }
@@ -58,8 +78,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const contentHeight = maxColumnHeight + HEADER_HEIGHT + BOARD_PADDING;
 
       return {
-        width: Math.max(contentWidth, 800),
-        height: Math.max(contentHeight, 600),
+        minDimensions: {
+          width: minWidth,
+          height: minHeight,
+        },
+        maxDimensions: {
+          width: maxWidth,
+          height: maxHeight,
+        },
+        contentDimensions: {
+          width: Math.max(contentWidth, minWidth),
+          height: Math.max(contentHeight, minHeight),
+        },
       };
     }, [board.columns]);
 
@@ -69,8 +99,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         return;
       }
 
-      const currentWidth = node.width || 800;
-      const currentHeight = node.height || 600;
+      const currentWidth = node.width || minDimensions.width;
+      const currentHeight = node.height || minDimensions.height;
 
       const shouldGrow =
         contentDimensions.width > currentWidth ||
@@ -80,14 +110,23 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         setNodes((nodes) =>
           nodes.map((n) => {
             if (n.id === String(id)) {
+              const newWidth = Math.min(
+                Math.max(currentWidth, contentDimensions.width),
+                maxDimensions.width
+              );
+              const newHeight = Math.min(
+                Math.max(currentHeight, contentDimensions.height),
+                maxDimensions.height
+              );
+
               return {
                 ...n,
-                width: Math.max(currentWidth, contentDimensions.width),
-                height: Math.max(currentHeight, contentDimensions.height),
+                width: newWidth,
+                height: newHeight,
                 style: {
                   ...n.style,
-                  width: Math.max(currentWidth, contentDimensions.width),
-                  height: Math.max(currentHeight, contentDimensions.height),
+                  width: newWidth,
+                  height: newHeight,
                 },
               };
             }
@@ -95,7 +134,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           })
         );
       }
-    }, [id, contentDimensions, getNode, setNodes]);
+    }, [
+      id,
+      contentDimensions,
+      minDimensions,
+      maxDimensions,
+      getNode,
+      setNodes,
+    ]);
 
     const handleRemove = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -114,6 +160,23 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       }
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+      e.stopPropagation();
+    };
+
+    const handleMouseEnter = () => {
+      document.body.style.overflow = "hidden";
+    };
+
+    const handleMouseLeave = () => {
+      document.body.style.overflow = "";
+    };
+
     return (
       <>
         <Resizer
@@ -124,8 +187,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             borderWidth: 0,
             opacity: 0,
           }}
-          minHeight={400}
-          minWidth={600}
+          maxHeight={maxDimensions.height}
+          maxWidth={maxDimensions.width}
+          minHeight={minDimensions.height}
+          minWidth={minDimensions.width}
         />
 
         {selected && (
@@ -205,9 +270,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             </div>
           </div>
 
+          {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: required */}
+          {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
           <div
-            className="nodrag overflow-hidden p-3"
-            style={{ height: "calc(100% - 42px)" }}
+            className={`nodrag overflow-x-auto overflow-y-auto p-3 ${styles.boardContent}`}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onPointerDown={handlePointerDown}
+            onWheel={handleWheel}
+            onWheelCapture={handleWheel}
+            style={{
+              height: "calc(100% - 42px)",
+            }}
           >
             <KanbanBoard board={board} />
           </div>

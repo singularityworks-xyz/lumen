@@ -1,0 +1,111 @@
+"use client";
+
+import { Edit2, Plus, Trash2 } from "lucide-react";
+import { memo, useEffect, useRef } from "react";
+
+type ColumnContextMenuProps = {
+  x: number;
+  y: number;
+  onRename?: () => void;
+  onRemove?: () => void;
+  onAddTask?: () => void;
+  onClose: () => void;
+};
+
+export const ColumnContextMenu = memo(
+  ({
+    x,
+    y,
+    onRename,
+    onRemove,
+    onAddTask,
+    onClose,
+  }: ColumnContextMenuProps) => {
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (
+          menuRef.current &&
+          !menuRef.current.contains(event.target as Node)
+        ) {
+          onClose();
+        }
+      };
+
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key === "Escape") {
+          onClose();
+        }
+      };
+
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleEscape);
+      };
+    }, [onClose]);
+
+    return (
+      <div
+        className="fade-in-0 zoom-in-95 fixed z-50 w-40 animate-in rounded-md border border-border bg-popover shadow-md duration-100"
+        ref={menuRef}
+        style={{
+          left: `${x}px`,
+          top: `${y}px`,
+        }}
+      >
+        <div className="p-1">
+          {onAddTask && (
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onAddTask();
+                onClose();
+              }}
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Task</span>
+            </button>
+          )}
+
+          {onRename && (
+            <>
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={() => {
+                  onRename();
+                  onClose();
+                }}
+                type="button"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+                <span>Rename</span>
+              </button>
+              <div className="my-0.5 h-px bg-border/50" />
+            </>
+          )}
+
+          {onRemove && (
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-xs transition-colors hover:bg-destructive/10"
+              onClick={() => {
+                onRemove();
+                onClose();
+              }}
+              type="button"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Remove</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+);
+
+ColumnContextMenu.displayName = "ColumnContextMenu";

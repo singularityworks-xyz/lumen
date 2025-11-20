@@ -47,6 +47,7 @@ type KanbanActions = {
     updates: Partial<Column>
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
+  moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
   toggleTaskSelection: (taskId: string) => void;
   clearTaskSelection: () => void;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
@@ -361,6 +362,36 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           const node = state.nodes.find((n) => n.id === boardId);
           if (node) {
             node.data.board = board;
+          }
+        }
+      }),
+
+    moveColumn: (boardId, columnId, newPosition) =>
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
+      set((state) => {
+        const board = state.boards.find((b) => b.id === boardId);
+        if (board?.columns) {
+          const columnIndex = board.columns.findIndex((c) => c.id === columnId);
+          if (columnIndex !== -1) {
+            // Remove the column from its current position
+            const [column] = board.columns.splice(columnIndex, 1);
+            if (column) {
+              // Insert it at the new position
+              board.columns.splice(newPosition, 0, column);
+
+              // Update position values for all columns
+              for (let i = 0; i < board.columns.length; i++) {
+                const col = board.columns[i];
+                if (col) {
+                  col.position = i;
+                }
+              }
+
+              const node = state.nodes.find((n) => n.id === boardId);
+              if (node) {
+                node.data.board = board;
+              }
+            }
           }
         }
       }),
