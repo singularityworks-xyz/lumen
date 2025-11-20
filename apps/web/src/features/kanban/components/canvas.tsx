@@ -6,10 +6,12 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   ReactFlow,
+  SelectionMode,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
 import { useCallback, useEffect, useRef } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import "@xyflow/react/dist/style.css";
 import { useKanbanStore } from "../store/kanban-store";
 import type { BoardNode } from "../types";
@@ -24,9 +26,34 @@ export function KanbanCanvas() {
   const showMiniMap = useKanbanStore((state) => state.showMiniMap);
   const setNodes = useKanbanStore((state) => state.setNodes);
   const setEdges = useKanbanStore((state) => state.setEdges);
+  const interactionMode = useKanbanStore((state) => state.interactionMode);
+  const setInteractionMode = useKanbanStore(
+    (state) => state.setInteractionMode
+  );
+  const clearBoardSelection = useKanbanStore(
+    (state) => state.clearBoardSelection
+  );
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
   const isUpdatingFromStore = useRef(false);
+
+  useHotkeys(
+    "v",
+    () => {
+      setInteractionMode(interactionMode === "drag" ? "select" : "drag");
+    },
+    { preventDefault: true }
+  );
+
+  useHotkeys(
+    "escape",
+    () => {
+      if (interactionMode === "select") {
+        clearBoardSelection();
+      }
+    },
+    { preventDefault: true }
+  );
 
   const handleNodesChange: OnNodesChange<KanbanNode> = useCallback(
     (changes) => {
@@ -117,18 +144,27 @@ export function KanbanCanvas() {
         className="bg-background"
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         edges={localEdges}
-        elementsSelectable
+        elementsSelectable={interactionMode === "select"}
         fitView
         maxZoom={3}
         minZoom={0.1}
         nodeOrigin={[0, 0]}
         nodes={localNodes}
         nodesConnectable={false}
-        nodesDraggable
+        nodesDraggable={interactionMode === "drag"}
         nodeTypes={nodeTypes}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
+        panOnDrag={interactionMode === "drag"}
+        panOnScroll={interactionMode === "drag"}
         proOptions={{ hideAttribution: true }}
+        selectionKeyCode={interactionMode === "select" ? null : "Meta"}
+        selectionMode={
+          interactionMode === "select" ? SelectionMode.Partial : undefined
+        }
+        selectionOnDrag={interactionMode === "select"}
+        zoomActivationKeyCode={interactionMode === "drag" ? "Space" : null}
+        zoomOnScroll={interactionMode === "drag"}
       >
         <CustomControls />
         {showMiniMap && (

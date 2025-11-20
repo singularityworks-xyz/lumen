@@ -1,7 +1,13 @@
 import type { Edge, Node } from "@xyflow/react";
+import { enableMapSet } from "immer";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Board, BoardNode, Column, Task, Workspace } from "../types";
+
+// Enable Immer's MapSet plugin for Set support
+enableMapSet();
+
+type InteractionMode = "drag" | "select";
 
 type KanbanState = {
   workspaces: Workspace[];
@@ -10,11 +16,13 @@ type KanbanState = {
   nodes: Node<BoardNode["data"]>[];
   edges: Edge[];
   selectedBoardId: string | null;
+  selectedBoardIds: Set<string>;
   draggedTask: Task | null;
   selectedTasks: Set<string>;
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskColumnId: string | null;
+  interactionMode: InteractionMode;
 };
 
 type KanbanActions = {
@@ -24,6 +32,7 @@ type KanbanActions = {
   removeBoard: (boardId: string) => void;
   updateBoard: (boardId: string, updates: Partial<Board>) => void;
   setSelectedBoard: (boardId: string | null) => void;
+  bringBoardToFront: (boardId: string) => void;
   updateNodePosition: (
     nodeId: string,
     position: { x: number; y: number }
@@ -55,6 +64,9 @@ type KanbanActions = {
   setShowCommandPalette: (show: boolean) => void;
   setShowMiniMap: (show: boolean) => void;
   setCreateTaskColumnId: (columnId: string | null) => void;
+  setInteractionMode: (mode: InteractionMode) => void;
+  toggleBoardSelection: (boardId: string) => void;
+  clearBoardSelection: () => void;
   initializeWithMockData: (workspaces: Workspace[], boards: Board[]) => void;
 };
 
@@ -106,11 +118,13 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
     nodes: [],
     edges: [],
     selectedBoardId: null,
+    selectedBoardIds: new Set(),
     draggedTask: null,
     selectedTasks: new Set(),
     showCommandPalette: false,
     showMiniMap: false,
     createTaskColumnId: null,
+    interactionMode: "drag" as InteractionMode,
 
     setCurrentWorkspace: (workspace) =>
       set((state) => {
@@ -127,6 +141,15 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
       set((state) => {
         state.boards.push(board);
 
+        // Calculate initial z-index based on existing nodes
+        let maxZIndex = 0;
+        for (const node of state.nodes) {
+          const currentZ = node.style?.zIndex || 0;
+          if (typeof currentZ === "number" && currentZ > maxZIndex) {
+            maxZIndex = currentZ;
+          }
+        }
+
         const newNode: Node<BoardNode["data"]> = {
           id: board.id,
           type: "board",
@@ -140,6 +163,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           style: {
             width: 1400,
             height: 800,
+            zIndex: maxZIndex + 1,
           },
         };
 
@@ -186,6 +210,26 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
 
         for (const node of state.nodes) {
           node.data.isSelected = node.id === boardId;
+        }
+      }),
+
+    bringBoardToFront: (boardId) =>
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: fl
+      set((state) => {
+        let maxZIndex = 0;
+        for (const node of state.nodes) {
+          const currentZ = node.style?.zIndex || 0;
+          if (typeof currentZ === "number" && currentZ > maxZIndex) {
+            maxZIndex = currentZ;
+          }
+        }
+
+        const node = state.nodes.find((n) => n.id === boardId);
+        if (node) {
+          if (!node.style) {
+            node.style = {};
+          }
+          node.style.zIndex = maxZIndex + 1;
         }
       }),
 
@@ -441,6 +485,28 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
         state.createTaskColumnId = columnId;
       }),
 
+    setInteractionMode: (mode) =>
+      set((state) => {
+        state.interactionMode = mode;
+        if (mode === "drag") {
+          state.selectedBoardIds.clear();
+        }
+      }),
+
+    toggleBoardSelection: (boardId) =>
+      set((state) => {
+        if (state.selectedBoardIds.has(boardId)) {
+          state.selectedBoardIds.delete(boardId);
+        } else {
+          state.selectedBoardIds.add(boardId);
+        }
+      }),
+
+    clearBoardSelection: () =>
+      set((state) => {
+        state.selectedBoardIds.clear();
+      }),
+
     initializeWithMockData: (workspaces, boards) =>
       set((state) => {
         state.workspaces = workspaces;
@@ -460,6 +526,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           style: {
             width: 1400,
             height: 800,
+            zIndex: index + 1,
           },
         }));
       }),

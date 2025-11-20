@@ -16,11 +16,21 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
   ({ id, data, selected }) => {
     const removeBoard = useKanbanStore((state) => state.removeBoard);
     const setSelectedBoard = useKanbanStore((state) => state.setSelectedBoard);
+    const bringBoardToFront = useKanbanStore(
+      (state) => state.bringBoardToFront
+    );
     const setCreateTaskColumnId = useKanbanStore(
       (state) => state.setCreateTaskColumnId
     );
+    const interactionMode = useKanbanStore((state) => state.interactionMode);
+    const selectedBoardIds = useKanbanStore((state) => state.selectedBoardIds);
+    const toggleBoardSelection = useKanbanStore(
+      (state) => state.toggleBoardSelection
+    );
     const { getNode, setNodes } = useReactFlow();
     const { board, isSelected } = data as BoardNode["data"];
+
+    const isMultiSelected = selectedBoardIds.has(id);
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const columns = board.columns || [];
@@ -148,8 +158,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       removeBoard(id);
     };
 
-    const handleClick = () => {
-      setSelectedBoard(id);
+    const handleClick = (e: React.MouseEvent) => {
+      bringBoardToFront(id);
+
+      if (interactionMode === "select") {
+        e.stopPropagation();
+        if (e.metaKey || e.ctrlKey) {
+          toggleBoardSelection(id);
+        } else {
+          useKanbanStore.getState().clearBoardSelection();
+          toggleBoardSelection(id);
+        }
+      } else {
+        setSelectedBoard(id);
+      }
     };
 
     const handleAddTask = (e: React.MouseEvent) => {
@@ -181,7 +203,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       <>
         <Resizer
           handleClassName="!w-8 !h-8 !opacity-0"
-          isVisible={selected}
+          isVisible={selected || isSelected || isMultiSelected}
           lineClassName="!border-0"
           lineStyle={{
             borderWidth: 0,
@@ -193,7 +215,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           minWidth={minDimensions.width}
         />
 
-        {selected && (
+        {(selected || isSelected || isMultiSelected) && (
           <div className="pointer-events-none absolute right-0 bottom-0 z-10">
             <div className="relative h-8 w-8">
               <div className="absolute right-0 bottom-0 h-3 w-3 animate-pulse rounded-full bg-primary/30" />
@@ -218,17 +240,21 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
         {/** biome-ignore lint/a11y/useSemanticElements: TODO: fl */}
         <div
-          aria-pressed={isSelected || selected}
+          aria-pressed={isSelected || selected || isMultiSelected}
           className={`h-full w-full overflow-hidden rounded bg-card shadow-lg transition-all ${
-            isSelected || selected
-              ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3)]"
-              : "border border-border"
+            isMultiSelected
+              ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4)] ring-2 ring-gray-500/20"
+              : // biome-ignore lint/style/noNestedTernary: TODO: fix later
+                isSelected || selected
+                ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3)]"
+                : "border border-border"
           }
         `}
           onClick={handleClick}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
+              // @ts-expect-error: TODO: fix later
               handleClick();
             }
           }}

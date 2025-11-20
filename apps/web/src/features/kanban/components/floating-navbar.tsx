@@ -1,6 +1,16 @@
 "use client";
 
-import { Command, LogOut, Menu, Moon, Plus, Settings, Sun } from "lucide-react";
+import {
+  Command,
+  Hand,
+  LogOut,
+  Menu,
+  Moon,
+  MousePointer2,
+  Plus,
+  Settings,
+  Sun,
+} from "lucide-react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "../hooks/use-theme";
@@ -14,6 +24,10 @@ export const FloatingNavbar = memo(() => {
     (state) => state.setShowCommandPalette
   );
   const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
+  const interactionMode = useKanbanStore((state) => state.interactionMode);
+  const setInteractionMode = useKanbanStore(
+    (state) => state.setInteractionMode
+  );
 
   const handleNewBoard = () => {
     const newBoard = {
@@ -77,6 +91,35 @@ export const FloatingNavbar = memo(() => {
       >
         <Command className="h-3.5 w-3.5" />
         <span className="hidden text-[11px] sm:inline">Search</span>
+      </Button>
+
+      <div className="h-3.5 w-px bg-border/60" />
+
+      <Button
+        className={`gap-1.5 rounded-full transition-colors ${
+          interactionMode === "select"
+            ? "bg-primary/90 text-primary-foreground hover:bg-primary"
+            : "text-foreground hover:bg-secondary/70"
+        }`}
+        onClick={() =>
+          setInteractionMode(interactionMode === "drag" ? "select" : "drag")
+        }
+        size="sm"
+        title={
+          interactionMode === "drag"
+            ? "Switch to Select Mode (V)"
+            : "Switch to Drag Mode (V)"
+        }
+        variant="ghost"
+      >
+        {interactionMode === "drag" ? (
+          <Hand className="h-3.5 w-3.5" />
+        ) : (
+          <MousePointer2 className="h-3.5 w-3.5" />
+        )}
+        <span className="hidden text-[11px] sm:inline">
+          {interactionMode === "drag" ? "Drag" : "Select"}
+        </span>
       </Button>
 
       <div className="h-3.5 w-px bg-border/60" />
