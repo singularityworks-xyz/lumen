@@ -106,10 +106,17 @@ function deleteTasksFromBoards(boards: Board[], taskIds: string[]): void {
   }
 }
 
+const defaultWorkspace: Workspace = {
+  id: crypto.randomUUID(),
+  name: "Default Workspace",
+  description: "Your default workspace",
+  created_at: new Date().toISOString(),
+};
+
 export const useKanbanStore = create<KanbanState & KanbanActions>()(
   immer((set, _get) => ({
-    workspaces: [],
-    currentWorkspace: null,
+    workspaces: [defaultWorkspace],
+    currentWorkspace: defaultWorkspace,
     boards: [],
     nodes: [],
     edges: [],

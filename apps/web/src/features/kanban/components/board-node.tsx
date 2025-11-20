@@ -183,8 +183,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     };
 
     const handleWheel = (e: React.WheelEvent) => {
+      // If Ctrl/Meta is pressed, prevent browser zoom but allow canvas zoom
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        // Don't stop propagation - let it bubble up to ReactFlow for canvas zoom
+        return;
+      }
+      // For normal scrolling, stop propagation to prevent canvas pan
       e.stopPropagation();
-      e.preventDefault();
     };
 
     const handlePointerDown = (e: React.PointerEvent) => {

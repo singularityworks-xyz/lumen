@@ -20,6 +20,7 @@ import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { CustomControls } from "./custom-controls";
 import { WelcomeScreen } from "./welcome-screen";
+import { WorkspaceSelector } from "./workspace-selector";
 
 type KanbanNode = Node<BoardNode["data"]>;
 
@@ -143,6 +144,23 @@ export function KanbanCanvas() {
     setLocalEdges(edges);
   }, [edges]);
 
+  useEffect(() => {
+    const handleWheel = (e: Event) => {
+      const wheelEvent = e as WheelEvent;
+      if (wheelEvent.ctrlKey || wheelEvent.metaKey) {
+        e.preventDefault();
+      }
+    };
+
+    const canvas = document.querySelector(".react-flow");
+    if (canvas) {
+      canvas.addEventListener("wheel", handleWheel, { passive: false });
+      return () => {
+        canvas.removeEventListener("wheel", handleWheel);
+      };
+    }
+  }, []);
+
   return (
     <div className="h-full w-full">
       <ReactFlow
@@ -168,8 +186,8 @@ export function KanbanCanvas() {
           interactionMode === "select" ? SelectionMode.Partial : undefined
         }
         selectionOnDrag={interactionMode === "select"}
-        zoomActivationKeyCode={interactionMode === "drag" ? "Space" : null}
-        zoomOnScroll={interactionMode === "drag"}
+        zoomActivationKeyCode="Control"
+        zoomOnScroll
       >
         <Background
           className="opacity-30"
@@ -195,6 +213,7 @@ export function KanbanCanvas() {
         )}
       </ReactFlow>
       <WelcomeScreen />
+      <WorkspaceSelector />
     </div>
   );
 }

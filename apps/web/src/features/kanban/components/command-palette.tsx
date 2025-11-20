@@ -113,8 +113,8 @@ export const CommandPalette = memo(() => {
       />
 
       <div className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 w-full max-w-md">
-        <div className="overflow-hidden rounded border border-border bg-card shadow-2xl">
-          <div className="flex items-center gap-2 border-border border-b px-4 py-3">
+        <div className="overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center gap-2 border-border border-b px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               autoFocus
@@ -124,7 +124,7 @@ export const CommandPalette = memo(() => {
               value={query}
             />
             <button
-              className="text-muted-foreground hover:text-foreground"
+              className="rounded-full bg-card/50 p-1 text-muted-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:text-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
               onClick={() => setShowCommandPalette(false)}
               type="button"
             >
@@ -139,7 +139,7 @@ export const CommandPalette = memo(() => {
                   const Icon = cmd.icon;
                   return (
                     <button
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60"
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
                       key={cmd.id}
                       onClick={() => {
                         cmd.action?.();

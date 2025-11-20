@@ -70,7 +70,6 @@ export const WelcomeScreen = memo(() => {
               <div className="text-center">
                 <div className="mb-4 flex items-center justify-center">
                   <div className="relative h-16 w-16">
-                    {/* Light mode logo */}
                     <Image
                       alt="Lumen Logo"
                       className="object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] dark:hidden"
@@ -78,7 +77,6 @@ export const WelcomeScreen = memo(() => {
                       priority
                       src="/lumen.svg"
                     />
-                    {/* Dark mode logo */}
                     <Image
                       alt="Lumen Logo"
                       className="hidden object-contain drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] dark:block"
@@ -91,6 +89,12 @@ export const WelcomeScreen = memo(() => {
                 <h1 className="bg-linear-to-b from-foreground/90 to-foreground/60 bg-clip-text font-bold text-5xl text-transparent">
                   Lumen
                 </h1>
+                <p className="mt-2 text-muted-foreground/60 text-xs">
+                  by{" "}
+                  <span className="font-semibold text-foreground/80">
+                    Singularity Works
+                  </span>
+                </p>
                 <p className="mt-3 text-muted-foreground text-sm">
                   Your infinite canvas for project management
                 </p>
