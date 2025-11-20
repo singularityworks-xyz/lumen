@@ -51,27 +51,30 @@ export const BulkActionsBar = memo(() => {
 
   return (
     <div className="fixed right-0 bottom-0 left-0 z-40 md:right-4 md:bottom-4 md:left-4">
-      <div className="rounded-t border border-border bg-card p-4 shadow-lg backdrop-blur-sm md:rounded">
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="flex items-center gap-2">
-            <Badge className="rounded-full" variant="secondary">
+      <div className="rounded-t border border-border/50 bg-card/95 px-3 py-2.5 shadow-xl backdrop-blur-md md:rounded-full dark:border-white/20">
+        <div className="flex flex-col items-center justify-between gap-2 md:flex-row md:gap-3">
+          <div className="flex items-center gap-1.5">
+            <Badge
+              className="rounded-full px-2 py-0.5 text-[10px]"
+              variant="secondary"
+            >
               {selectedCount} selected
             </Badge>
-            <p className="hidden text-muted-foreground text-xs sm:block">
-              Select multiple tasks to bulk manage them
+            <p className="hidden text-[11px] text-muted-foreground sm:block">
+              Bulk manage tasks
             </p>
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
+          <div className="flex w-full flex-wrap items-center justify-end gap-1.5 md:w-auto">
             <div className="relative">
               <Button
-                className="gap-2 rounded-full"
+                className="gap-1.5 rounded-full"
                 onClick={() => setShowPriorityMenu(!showPriorityMenu)}
                 size="sm"
                 variant="outline"
               >
-                <Tag className="h-4 w-4" />
-                <span className="hidden text-xs sm:inline">Priority</span>
+                <Tag className="h-3.5 w-3.5" />
+                <span className="hidden text-[11px] sm:inline">Priority</span>
               </Button>
 
               {showPriorityMenu && (
@@ -87,10 +90,10 @@ export const BulkActionsBar = memo(() => {
                     }}
                     type="button"
                   />
-                  <div className="absolute right-0 bottom-full z-50 mb-2 overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+                  <div className="absolute right-0 bottom-full z-50 mb-2 overflow-hidden rounded-lg border border-border/50 bg-card/95 shadow-xl backdrop-blur-md dark:border-white/20">
                     {(["low", "medium", "high"] as const).map((priority) => (
                       <button
-                        className="w-full px-4 py-2 text-left text-sm capitalize transition-colors hover:bg-secondary/40"
+                        className="w-full px-3 py-1.5 text-left text-xs capitalize transition-colors hover:bg-secondary/70"
                         key={priority}
                         onClick={() => handlePriorityChange(priority)}
                         type="button"
@@ -105,12 +108,12 @@ export const BulkActionsBar = memo(() => {
 
             <div className="relative">
               <Button
-                className="gap-2 rounded-full"
+                className="gap-1.5 rounded-full"
                 onClick={() => setShowProgressMenu(!showProgressMenu)}
                 size="sm"
                 variant="outline"
               >
-                <span className="text-xs">Progress</span>
+                <span className="text-[11px]">Progress</span>
               </Button>
 
               {showProgressMenu && (
@@ -126,11 +129,11 @@ export const BulkActionsBar = memo(() => {
                     }}
                     type="button"
                   />
-                  <div className="absolute right-0 bottom-full z-50 mb-2 min-w-40 overflow-hidden rounded-lg border border-border bg-card p-2 shadow-lg">
+                  <div className="absolute right-0 bottom-full z-50 mb-2 min-w-40 overflow-hidden rounded-lg border border-border/50 bg-card/95 p-1.5 shadow-xl backdrop-blur-md dark:border-white/20">
                     <div className="flex flex-wrap gap-1">
                       {[0, 25, 50, 75, 100].map((progress) => (
                         <button
-                          className="rounded-full bg-secondary/40 px-2 py-1 text-xs transition-colors hover:bg-primary/40"
+                          className="rounded-full bg-secondary/40 px-1.5 py-0.5 text-[10px] transition-colors hover:bg-primary/40"
                           key={progress}
                           onClick={() => handleProgressChange(progress)}
                           type="button"
@@ -145,13 +148,13 @@ export const BulkActionsBar = memo(() => {
             </div>
 
             <Button
-              className="gap-2 rounded-full"
+              className="gap-1.5 rounded-full"
               onClick={() => setShowDeleteDialog(true)}
               size="sm"
               variant="destructive"
             >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden text-xs sm:inline">Delete</span>
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden text-[11px] sm:inline">Delete</span>
             </Button>
 
             <AlertDialog
@@ -182,7 +185,7 @@ export const BulkActionsBar = memo(() => {
               size="sm"
               variant="ghost"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, Plus, X } from "lucide-react";
 import { memo, useEffect, useMemo } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
@@ -15,6 +15,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
   ({ id, data, selected }) => {
     const removeBoard = useKanbanStore((state) => state.removeBoard);
     const setSelectedBoard = useKanbanStore((state) => state.setSelectedBoard);
+    const setCreateTaskColumnId = useKanbanStore(
+      (state) => state.setCreateTaskColumnId
+    );
     const { getNode, setNodes } = useReactFlow();
     const { board, isSelected } = data as BoardNode["data"];
 
@@ -22,10 +25,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const columns = board.columns || [];
       const columnCount = columns.length;
 
-      const COLUMN_WIDTH = 320;
-      const COLUMN_GAP = 16;
-      const BOARD_PADDING = 32;
-      const HEADER_HEIGHT = 54;
+      const COLUMN_WIDTH = 300;
+      const COLUMN_GAP = 12;
+      const BOARD_PADDING = 24;
+      const HEADER_HEIGHT = 42;
 
       const contentWidth =
         columnCount * COLUMN_WIDTH +
@@ -103,6 +106,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       setSelectedBoard(id);
     };
 
+    const handleAddTask = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const firstColumn = board.columns?.[0];
+      if (firstColumn) {
+        setCreateTaskColumnId(firstColumn.id);
+      }
+    };
+
     return (
       <>
         <Resizer
@@ -159,33 +170,44 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           role="button"
           tabIndex={0}
         >
-          <div className="flex cursor-move items-center justify-between gap-2 rounded-t border-border border-b bg-secondary/30 px-4 py-3 transition-colors hover:bg-secondary/50">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:hover:bg-zinc-800/95">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <h3 className="truncate font-semibold text-foreground text-sm">
+                <h3 className="truncate font-semibold text-foreground text-xs">
                   {board.name}
                 </h3>
                 {board.description && (
-                  <p className="truncate text-muted-foreground text-xs">
+                  <p className="truncate text-[10px] text-muted-foreground">
                     {board.description}
                   </p>
                 )}
               </div>
             </div>
-            <Button
-              className="nodrag h-6 w-6 shrink-0 rounded-full p-1 hover:bg-destructive/20"
-              onClick={handleRemove}
-              size="sm"
-              variant="ghost"
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                className="nodrag h-6 gap-1 rounded-full bg-primary/90 px-2.5 text-primary-foreground hover:bg-primary"
+                onClick={handleAddTask}
+                size="sm"
+                variant="ghost"
+              >
+                <Plus className="h-3 w-3" />
+                <span className="font-medium text-[10px]">Add Task</span>
+              </Button>
+              <Button
+                className="nodrag h-5 w-5 shrink-0 rounded-full p-0.5 hover:bg-destructive/20"
+                onClick={handleRemove}
+                size="sm"
+                variant="ghost"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
 
           <div
-            className="nodrag overflow-hidden p-4"
-            style={{ height: "calc(100% - 54px)" }}
+            className="nodrag overflow-hidden p-3"
+            style={{ height: "calc(100% - 42px)" }}
           >
             <KanbanBoard board={board} />
           </div>

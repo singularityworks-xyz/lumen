@@ -5,7 +5,6 @@ import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "../hooks/use-theme";
 import { useKanbanStore } from "../store/kanban-store";
-import { HelpDialog } from "./help-dialog";
 import { WorkspaceSelector } from "./workspace-selector";
 
 export const FloatingNavbar = memo(() => {
@@ -55,76 +54,74 @@ export const FloatingNavbar = memo(() => {
   };
 
   return (
-    <div className="-translate-x-1/2 fixed bottom-6 left-1/2 z-40 flex items-center gap-2 rounded-lg border border-white/40 bg-card/90 px-2 py-2 shadow-lg backdrop-blur-md">
+    <div className="-translate-x-1/2 fixed bottom-4 left-1/2 z-40 flex items-center gap-1 rounded-full border border-border/50 bg-card/95 px-1.5 py-1.5 shadow-xl backdrop-blur-md dark:border-white/20">
       {currentWorkspace && <WorkspaceSelector />}
 
       <Button
-        className="gap-2 rounded-full text-foreground hover:bg-secondary/60"
+        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
         onClick={handleNewBoard}
         size="sm"
         title="New Board"
         variant="ghost"
       >
-        <Plus className="h-4 w-4" />
-        <span className="hidden text-xs sm:inline">New</span>
+        <Plus className="h-3.5 w-3.5" />
+        <span className="hidden text-[11px] sm:inline">New</span>
       </Button>
 
       <Button
-        className="gap-2 rounded-full text-foreground hover:bg-secondary/60"
+        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
         onClick={() => setShowCommandPalette(true)}
         size="sm"
         title="Search (Cmd+K)"
         variant="ghost"
       >
-        <Command className="h-4 w-4" />
-        <span className="hidden text-xs sm:inline">Cmd K</span>
+        <Command className="h-3.5 w-3.5" />
+        <span className="hidden text-[11px] sm:inline">Search</span>
       </Button>
 
-      <div className="h-4 w-px bg-border" />
+      <div className="h-3.5 w-px bg-border/60" />
 
       <Button
-        className="gap-2 rounded-full text-foreground hover:bg-secondary/60"
+        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
         onClick={toggleTheme}
         size="sm"
         title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         variant="ghost"
       >
         {theme === "dark" ? (
-          <Sun className="h-4 w-4" />
+          <Sun className="h-3.5 w-3.5" />
         ) : (
-          <Moon className="h-4 w-4" />
+          <Moon className="h-3.5 w-3.5" />
         )}
       </Button>
 
-      <HelpDialog />
-
       <Button
-        className="gap-2 rounded-full text-foreground hover:bg-secondary/60"
+        className="gap-1.5 rounded-full text-foreground hover:bg-secondary/70"
         onClick={() => setShowMenu(!showMenu)}
         size="sm"
         title="More"
         variant="ghost"
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="h-3.5 w-3.5" />
       </Button>
 
       {showMenu && (
-        <div className="absolute right-0 bottom-full mb-2 w-48 overflow-hidden rounded border border-white/40 bg-card shadow-lg">
+        <div className="absolute right-0 bottom-full mb-2 w-40 overflow-hidden rounded-lg border border-border/50 bg-card/95 shadow-lg backdrop-blur-md dark:border-white/20">
           <Button
-            className="w-full justify-start gap-2 text-foreground hover:bg-secondary/60"
+            className="w-full justify-start gap-1.5 text-foreground hover:bg-secondary/70"
             size="sm"
             variant="ghost"
           >
-            <Settings className="h-4 w-4" />
-            Settings
+            <Settings className="h-3.5 w-3.5" />
+            <span className="text-[11px]">Settings</span>
           </Button>
           <Button
-            className="w-full justify-start gap-2 text-foreground hover:bg-secondary/60"
+            className="w-full justify-start gap-1.5 text-foreground hover:bg-secondary/70"
             size="sm"
             variant="ghost"
           >
-            <LogOut className="h-4 w-4" />
-            Logout
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="text-[11px]">Logout</span>
           </Button>
         </div>
       )}

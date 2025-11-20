@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Controls,
   MiniMap,
   type Node,
   type OnEdgesChange,
@@ -15,12 +14,14 @@ import "@xyflow/react/dist/style.css";
 import { useKanbanStore } from "../store/kanban-store";
 import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
+import { CustomControls } from "./custom-controls";
 
 type KanbanNode = Node<BoardNode["data"]>;
 
 export function KanbanCanvas() {
   const nodes = useKanbanStore((state) => state.nodes);
   const edges = useKanbanStore((state) => state.edges);
+  const showMiniMap = useKanbanStore((state) => state.showMiniMap);
   const setNodes = useKanbanStore((state) => state.setNodes);
   const setEdges = useKanbanStore((state) => state.setEdges);
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -129,20 +130,22 @@ export function KanbanCanvas() {
         onNodesChange={handleNodesChange}
         proOptions={{ hideAttribution: true }}
       >
-        <Controls
-          className="border-border! bg-card! shadow-lg! [&>button:hover]:bg-secondary/50! [&>button]:border-border! [&>button]:bg-secondary/30! [&>button]:text-foreground!"
-          showInteractive={false}
-        />
-        <MiniMap
-          className="border-border! bg-card! shadow-lg!"
-          maskColor="var(--background)"
-          nodeColor={(node) => {
-            if (node.data?.isSelected || node.selected) {
-              return "var(--primary)";
-            }
-            return "var(--secondary)";
-          }}
-        />
+        <CustomControls />
+        {showMiniMap && (
+          <MiniMap
+            className="border! rounded-lg! border-border/50! bg-card/95! shadow-xl! backdrop-blur-md!"
+            maskColor="var(--background)"
+            nodeColor={(node) => {
+              if (node.data?.isSelected || node.selected) {
+                return "var(--primary)";
+              }
+              return "var(--secondary)";
+            }}
+            pannable
+            position="top-right"
+            zoomable
+          />
+        )}
       </ReactFlow>
     </div>
   );

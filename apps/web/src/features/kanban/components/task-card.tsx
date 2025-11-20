@@ -64,36 +64,36 @@ export const TaskCard = memo(
     if (showCheckbox) {
       return (
         <div
-          className={`cursor-default rounded border bg-card p-3 transition-all hover:scale-[1.02] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
+          className={`cursor-default rounded border bg-card p-2 transition-all hover:scale-[1.01] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
         >
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-1.5">
             {showCheckbox && (
               <Checkbox
                 checked={isSelected}
-                className="mt-1"
+                className="mt-0.5"
                 onCheckedChange={handleCheckboxChange}
               />
             )}
-            <div className="min-w-0 flex-1 space-y-2">
-              <h4 className="line-clamp-2 font-medium text-card-foreground text-sm">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <h4 className="line-clamp-2 font-medium text-card-foreground text-xs">
                 {task.title}
               </h4>
 
               {task.description && (
-                <p className="line-clamp-2 text-muted-foreground text-xs">
+                <p className="line-clamp-2 text-[11px] text-muted-foreground">
                   {task.description}
                 </p>
               )}
 
               {task.progress > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[10px]">
                     <span className="text-muted-foreground">Progress</span>
                     <span className="font-medium text-card-foreground">
                       {task.progress}%
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-1 overflow-hidden rounded-full bg-secondary">
                     <div
                       className="h-full bg-primary transition-all"
                       style={{ width: `${task.progress}%` }}
@@ -102,18 +102,18 @@ export const TaskCard = memo(
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5">
                   <Badge
-                    className={`h-5 px-1.5 py-0 text-[10px] ${priorityColors[task.priority]}`}
+                    className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
                     variant="outline"
                   >
                     {task.priority}
                   </Badge>
 
                   {totalChecklist > 0 && (
-                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                      <CheckSquare className="h-3 w-3" />
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <CheckSquare className="h-2.5 w-2.5" />
                       <span>
                         {completedChecklist}/{totalChecklist}
                       </span>
@@ -123,9 +123,9 @@ export const TaskCard = memo(
 
                 {task.due_date && (
                   <div
-                    className={`flex items-center gap-1 text-[10px] ${getDueDateClassName()}`}
+                    className={`flex items-center gap-1 text-[9px] ${getDueDateClassName()}`}
                   >
-                    <Calendar className="h-3 w-3" />
+                    <Calendar className="h-2.5 w-2.5" />
                     <span>{new Date(task.due_date).toLocaleDateString()}</span>
                   </div>
                 )}
@@ -135,7 +135,7 @@ export const TaskCard = memo(
                 <div className="flex flex-wrap gap-1">
                   {task.tags.map((tag) => (
                     <Badge
-                      className="h-4 bg-secondary/50 px-1.5 py-0 text-[10px]"
+                      className="h-3.5 bg-secondary/50 px-1.5 py-0 text-[9px]"
                       key={tag}
                       variant="secondary"
                     >
@@ -154,31 +154,31 @@ export const TaskCard = memo(
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: refactor later
       // biome-ignore lint/a11y/noStaticElementInteractions: TODO: refactor later
       <div
-        className={`cursor-move rounded border bg-card p-3 transition-all hover:scale-[1.02] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
+        className={`cursor-move rounded border bg-card p-2 transition-all hover:scale-[1.01] hover:shadow-md ${isSelected ? "border-primary shadow-lg" : "border-border/40"}`}
         draggable
         onDragStart={handleDragStart}
       >
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1 space-y-2">
-            <h4 className="line-clamp-2 font-medium text-card-foreground text-sm">
+        <div className="flex items-start gap-1.5">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h4 className="line-clamp-2 font-medium text-card-foreground text-xs">
               {task.title}
             </h4>
 
             {task.description && (
-              <p className="line-clamp-2 text-muted-foreground text-xs">
+              <p className="line-clamp-2 text-[11px] text-muted-foreground">
                 {task.description}
               </p>
             )}
 
             {task.progress > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[10px]">
                   <span className="text-muted-foreground">Progress</span>
                   <span className="font-medium text-card-foreground">
                     {task.progress}%
                   </span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                <div className="h-1 overflow-hidden rounded-full bg-secondary">
                   <div
                     className="h-full bg-primary transition-all"
                     style={{ width: `${task.progress}%` }}
@@ -187,18 +187,18 @@ export const TaskCard = memo(
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <Badge
-                  className={`h-5 px-1.5 py-0 text-[10px] ${priorityColors[task.priority]}`}
+                  className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
                   variant="outline"
                 >
                   {task.priority}
                 </Badge>
 
                 {totalChecklist > 0 && (
-                  <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                    <CheckSquare className="h-3 w-3" />
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <CheckSquare className="h-2.5 w-2.5" />
                     <span>
                       {completedChecklist}/{totalChecklist}
                     </span>
@@ -208,9 +208,9 @@ export const TaskCard = memo(
 
               {task.due_date && (
                 <div
-                  className={`flex items-center gap-1 text-[10px] ${getDueDateClassName()}`}
+                  className={`flex items-center gap-1 text-[9px] ${getDueDateClassName()}`}
                 >
-                  <Calendar className="h-3 w-3" />
+                  <Calendar className="h-2.5 w-2.5" />
                   <span>{new Date(task.due_date).toLocaleDateString()}</span>
                 </div>
               )}
@@ -220,7 +220,7 @@ export const TaskCard = memo(
               <div className="flex flex-wrap gap-1">
                 {task.tags.map((tag) => (
                   <Badge
-                    className="h-4 bg-secondary/50 px-1.5 py-0 text-[10px]"
+                    className="h-3.5 bg-secondary/50 px-1.5 py-0 text-[9px]"
                     key={tag}
                     variant="secondary"
                   >

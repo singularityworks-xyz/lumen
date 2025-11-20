@@ -37,7 +37,7 @@ export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-1 gap-4 overflow-x-auto overflow-y-hidden pb-2">
+      <div className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-1">
         {columns.map((column) => (
           <KanbanColumn boardId={board.id} column={column} key={column.id} />
         ))}

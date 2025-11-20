@@ -13,6 +13,7 @@ type KanbanState = {
   draggedTask: Task | null;
   selectedTasks: Set<string>;
   showCommandPalette: boolean;
+  showMiniMap: boolean;
   createTaskColumnId: string | null;
 };
 
@@ -51,6 +52,7 @@ type KanbanActions = {
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
   setShowCommandPalette: (show: boolean) => void;
+  setShowMiniMap: (show: boolean) => void;
   setCreateTaskColumnId: (columnId: string | null) => void;
   initializeWithMockData: (workspaces: Workspace[], boards: Board[]) => void;
 };
@@ -106,6 +108,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
     draggedTask: null,
     selectedTasks: new Set(),
     showCommandPalette: false,
+    showMiniMap: false,
     createTaskColumnId: null,
 
     setCurrentWorkspace: (workspace) =>
@@ -395,6 +398,11 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
     setShowCommandPalette: (show) =>
       set((state) => {
         state.showCommandPalette = show;
+      }),
+
+    setShowMiniMap: (show) =>
+      set((state) => {
+        state.showMiniMap = show;
       }),
 
     setCreateTaskColumnId: (columnId) =>
