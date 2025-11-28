@@ -15,10 +15,10 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { memo, useMemo } from "react";
+import { CreateTaskModal } from "../../../components/create-task-modal";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedBoard } from "../types";
 import { AddColumnPlaceholder } from "./add-column-placeholder";
-import { CreateTaskModal } from "./create-task-modal";
 import { KanbanColumn } from "./kanban-column";
 import { TaskDetailModal } from "./task-detail-modal";
 
@@ -32,7 +32,6 @@ export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
     if (selectedTaskIds.length === 0) {
       return null;
     }
-    // Find the first selected task in this board
     for (const column of board.columns) {
       for (const task of column.tasks) {
         if (selectedTaskIds.includes(task.id)) {

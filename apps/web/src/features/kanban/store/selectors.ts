@@ -10,13 +10,6 @@ import type {
 } from "../types";
 import { useKanbanStore } from "./kanban-store";
 
-// ============================================================================
-// Workspace Selectors
-// ============================================================================
-
-/**
- * Get the current workspace
- */
 export function useCurrentWorkspace(): Workspace | null {
   return useKanbanStore(
     useShallow((state) => {
@@ -26,9 +19,6 @@ export function useCurrentWorkspace(): Workspace | null {
   );
 }
 
-/**
- * Get all workspaces as an array
- */
 export function useWorkspaces(): Workspace[] {
   return useKanbanStore(
     useShallow((state) =>
@@ -39,13 +29,6 @@ export function useWorkspaces(): Workspace[] {
   );
 }
 
-// ============================================================================
-// Board Selectors
-// ============================================================================
-
-/**
- * Get a single board by ID
- */
 export function useBoardById(boardId: string | null): Board | null {
   return useKanbanStore(
     useShallow((state) =>
@@ -54,9 +37,6 @@ export function useBoardById(boardId: string | null): Board | null {
   );
 }
 
-/**
- * Get all boards for the current workspace
- */
 export function useBoardsForCurrentWorkspace(): Board[] {
   return useKanbanStore(
     useShallow((state) => {
@@ -76,9 +56,6 @@ export function useBoardsForCurrentWorkspace(): Board[] {
   );
 }
 
-/**
- * Get boards for a specific workspace
- */
 export function useBoardsByWorkspace(workspaceId: string | null): Board[] {
   return useKanbanStore(
     useShallow((state) => {
@@ -96,13 +73,6 @@ export function useBoardsByWorkspace(workspaceId: string | null): Board[] {
   );
 }
 
-// ============================================================================
-// Column Selectors
-// ============================================================================
-
-/**
- * Get a single column by ID
- */
 export function useColumnById(columnId: string | null): Column | null {
   return useKanbanStore(
     useShallow((state) =>
@@ -111,9 +81,6 @@ export function useColumnById(columnId: string | null): Column | null {
   );
 }
 
-/**
- * Get all columns for a board, sorted by position
- */
 export function useColumnsByBoard(boardId: string | null): Column[] {
   return useKanbanStore(
     useShallow((state) => {
@@ -134,22 +101,12 @@ export function useColumnsByBoard(boardId: string | null): Column[] {
   );
 }
 
-// ============================================================================
-// Task Selectors
-// ============================================================================
-
-/**
- * Get a single task by ID
- */
 export function useTaskById(taskId: string | null): Task | null {
   return useKanbanStore(
     useShallow((state) => (taskId ? (state.tasks.byId[taskId] ?? null) : null))
   );
 }
 
-/**
- * Get all tasks for a column, sorted by position
- */
 export function useTasksByColumn(columnId: string | null): Task[] {
   return useKanbanStore(
     useShallow((state) => {
@@ -170,9 +127,6 @@ export function useTasksByColumn(columnId: string | null): Task[] {
   );
 }
 
-/**
- * Get multiple tasks by IDs
- */
 export function useTasksByIds(taskIds: string[]): Task[] {
   return useKanbanStore(
     useShallow((state) =>
@@ -183,14 +137,6 @@ export function useTasksByIds(taskIds: string[]): Task[] {
   );
 }
 
-// ============================================================================
-// Denormalized Selectors (for components that need full nested data)
-// ============================================================================
-
-/**
- * Get a fully denormalized board with all nested columns and tasks
- * Uses primitive selectors + useMemo to avoid infinite loop from object creation
- */
 export function useDenormalizedBoard(
   boardId: string | null
 ): DenormalizedBoard | null {
@@ -242,11 +188,6 @@ export function useDenormalizedBoard(
   }, [board, columnsMap, tasksMap]);
 }
 
-/**
- * Get all denormalized boards for the current workspace
- * Useful for the canvas view
- * Uses primitive selectors + useMemo to avoid infinite loop from object creation
- */
 export function useDenormalizedBoardsForCurrentWorkspace(): DenormalizedBoard[] {
   const workspaceId = useKanbanStore((state) => state.currentWorkspaceId);
   const boardsMap = useKanbanStore(useShallow((state) => state.boards.byId));
@@ -309,13 +250,6 @@ export function useDenormalizedBoardsForCurrentWorkspace(): DenormalizedBoard[] 
   }, [workspaceId, boardIds, boardsMap, columnsMap, tasksMap]);
 }
 
-// ============================================================================
-// Canvas/Position Selectors
-// ============================================================================
-
-/**
- * Get board position by ID
- */
 export function useBoardPosition(boardId: string | null) {
   return useKanbanStore(
     useShallow((state) =>
@@ -324,9 +258,6 @@ export function useBoardPosition(boardId: string | null) {
   );
 }
 
-/**
- * Get all board positions for the current workspace
- */
 export function useBoardPositionsForCurrentWorkspace() {
   return useKanbanStore(
     useShallow((state) => {
@@ -335,7 +266,6 @@ export function useBoardPositionsForCurrentWorkspace() {
         return [];
       }
 
-      // Get boards in current workspace
       const boardIds = state.boards.allIds.filter((id) => {
         const board = state.boards.byId[id];
         return (
@@ -343,7 +273,6 @@ export function useBoardPositionsForCurrentWorkspace() {
         );
       });
 
-      // Get positions for those boards
       return boardIds
         .map((id) => state.boardPositions.byId[id])
         .filter((pos) => pos !== undefined);
@@ -351,20 +280,10 @@ export function useBoardPositionsForCurrentWorkspace() {
   );
 }
 
-// ============================================================================
-// UI State Selectors
-// ============================================================================
-
-/**
- * Check if a task is selected
- */
 export function useIsTaskSelected(taskId: string): boolean {
   return useKanbanStore((state) => state.selectedTaskIds.includes(taskId));
 }
 
-/**
- * Get selected tasks
- */
 export function useSelectedTasks(): Task[] {
   return useKanbanStore(
     useShallow((state) =>
@@ -375,16 +294,10 @@ export function useSelectedTasks(): Task[] {
   );
 }
 
-/**
- * Check if a board is selected
- */
 export function useIsBoardSelected(boardId: string): boolean {
   return useKanbanStore((state) => state.selectedBoardIds.includes(boardId));
 }
 
-/**
- * Get the dragged task
- */
 export function useDraggedTask(): Task | null {
   return useKanbanStore(
     useShallow((state) =>
@@ -395,21 +308,11 @@ export function useDraggedTask(): Task | null {
   );
 }
 
-// ============================================================================
-// Computed Selectors using hooks
-// ============================================================================
-
-/**
- * Hook to check if current workspace has any boards
- */
 export function useHasBoardsInCurrentWorkspace(): boolean {
   const boards = useBoardsForCurrentWorkspace();
   return boards.length > 0;
 }
 
-/**
- * Hook to get task count for a column
- */
 export function useTaskCountForColumn(columnId: string): number {
   return useKanbanStore((state) => {
     const column = state.columns.byId[columnId];
@@ -417,9 +320,6 @@ export function useTaskCountForColumn(columnId: string): number {
   });
 }
 
-/**
- * Hook to get column count for a board
- */
 export function useColumnCountForBoard(boardId: string): number {
   return useKanbanStore((state) => {
     const board = state.boards.byId[boardId];

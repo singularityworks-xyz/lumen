@@ -16,7 +16,6 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   );
 
   const handleNewBoard = useCallback(() => {
-    // Default board dimensions - the store handles column creation
     const defaultWidth = 800;
     const defaultHeight = 400;
 

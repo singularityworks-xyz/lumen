@@ -219,10 +219,10 @@ export const TaskDetailModal = memo(
                     >
                       {item.title}
                     </span>
-                    {/** biome-ignore lint/a11y/useButtonType: TODO: refactor later */}
                     <button
                       className="text-muted-foreground transition-colors hover:text-destructive"
                       onClick={() => handleDeleteChecklist(item.id)}
+                      type="button"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

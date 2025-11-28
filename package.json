@@ -33,7 +33,7 @@
   "packageManager": "pnpm@10.24.0",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
-      "pnpm dlx ultracite fix"
+      "pnpm ultracite fix"
     ]
   },
   "dependencies": {

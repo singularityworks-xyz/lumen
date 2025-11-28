@@ -13,6 +13,10 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
+import { CustomControls } from "../../../components/custom-controls";
+import { RightControls } from "../../../components/right-controls";
+import { WelcomeScreen } from "../../../components/welcome-screen";
+import { WorkspaceSelector } from "../../../components/workspace-selector";
 import {
   canRedo,
   canUndo,
@@ -23,10 +27,6 @@ import {
 import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { BulkActionsBar } from "./bulk-actions-bar";
-import { CustomControls } from "./custom-controls";
-import { RightControls } from "./right-controls";
-import { WelcomeScreen } from "./welcome-screen";
-import { WorkspaceSelector } from "./workspace-selector";
 
 type KanbanNode = Node<BoardNode["data"]>;
 

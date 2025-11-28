@@ -4,7 +4,7 @@ import { HelpCircle, LogIn, Plus } from "lucide-react";
 import Image from "next/image";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { useKanbanStore } from "../store/kanban-store";
+import { useKanbanStore } from "../features/kanban/store/kanban-store";
 import { HelpDialog } from "./help-dialog";
 
 export const WelcomeScreen = memo(() => {
@@ -15,7 +15,6 @@ export const WelcomeScreen = memo(() => {
   const workspaces = useKanbanStore((state) => state.workspaces);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  // Check if the current workspace has any boards
   const hasBoardsInCurrentWorkspace = currentWorkspaceId
     ? (workspaces.byId[currentWorkspaceId]?.board_ids.length ?? 0) > 0
     : boards.allIds.length > 0;

@@ -31,7 +31,7 @@ import {
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Textarea } from "@/src/components/ui/textarea";
-import { useKanbanStore } from "../store/kanban-store";
+import { useKanbanStore } from "../features/kanban/store/kanban-store";
 
 export function WorkspaceSelector() {
   const workspaces = useKanbanStore((state) => state.workspaces);
@@ -50,7 +50,6 @@ export function WorkspaceSelector() {
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("");
   const [showDangerDialog, setShowDangerDialog] = useState(false);
 
-  // Get current workspace object from the EntityMap
   const currentWorkspace = currentWorkspaceId
     ? workspaces.byId[currentWorkspaceId]
     : null;

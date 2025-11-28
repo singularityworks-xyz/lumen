@@ -9,8 +9,8 @@ import {
   useCanRedo,
   useCanUndo,
   useKanbanStore,
-} from "../store/kanban-store";
-import { useCurrentWorkspace } from "../store/selectors";
+} from "../features/kanban/store/kanban-store";
+import { useCurrentWorkspace } from "../features/kanban/store/selectors";
 
 type Command = {
   id: string;

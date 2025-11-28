@@ -3,7 +3,7 @@
 import { HelpCircle, MapIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { useKanbanStore } from "../store/kanban-store";
+import { useKanbanStore } from "../features/kanban/store/kanban-store";
 import { HelpDialog } from "./help-dialog";
 
 export const RightControls = memo(() => {

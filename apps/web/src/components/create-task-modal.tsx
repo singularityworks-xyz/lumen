@@ -4,8 +4,8 @@ import { Calendar, Tag, X } from "lucide-react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-import { useKanbanStore } from "../store/kanban-store";
-import type { Task } from "../types";
+import { useKanbanStore } from "../features/kanban/store/kanban-store";
+import type { Task } from "../features/kanban/types";
 
 type CreateTaskModalProps = {
   columnId: string;

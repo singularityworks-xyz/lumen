@@ -16,10 +16,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
-import { useConnectionStatus } from "../hooks/use-connection-status";
-import { useTheme } from "../hooks/use-theme";
-import { useKanbanStore } from "../store/kanban-store";
-import { useCurrentWorkspace } from "../store/selectors";
+import { useConnectionStatus } from "../features/kanban/hooks/use-connection-status";
+import { useTheme } from "../features/kanban/hooks/use-theme";
+import { useKanbanStore } from "../features/kanban/store/kanban-store";
+import { useCurrentWorkspace } from "../features/kanban/store/selectors";
 
 export const FloatingNavbar = memo(() => {
   const { theme, toggleTheme } = useTheme();

@@ -15,11 +15,11 @@ import {
   AlertDialogTitle,
 } from "@/src/components/ui/alert-dialog";
 import { Input } from "@/src/components/ui/input";
+import { ColumnContextMenu } from "../../../components/column-context-menu";
+import { DeleteColumnDialog } from "../../../components/delete-column-dialog";
+import { RenameColumnDialog } from "../../../components/rename-column-dialog";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
-import { ColumnContextMenu } from "./column-context-menu";
-import { DeleteColumnDialog } from "./delete-column-dialog";
-import { RenameColumnDialog } from "./rename-column-dialog";
 import { TaskCard } from "./task-card";
 
 type KanbanColumnProps = {

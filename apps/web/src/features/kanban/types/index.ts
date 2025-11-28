@@ -1,7 +1,3 @@
-// ============================================================================
-// Entity Types
-// ============================================================================
-
 export type Profile = {
   id: string;
   email: string;
@@ -63,40 +59,23 @@ export type Workspace = {
   board_ids: string[];
 };
 
-// ============================================================================
-// Normalized State Types
-// ============================================================================
-
-/**
- * Generic normalized entity map structure.
- * Provides O(1) lookup by ID and maintains insertion order via allIds array.
- */
 export type EntityMap<T> = {
   byId: Record<string, T>;
   allIds: string[];
 };
 
-/**
- * Canvas viewport state for React Flow
- */
 export type ViewportState = {
   x: number;
   y: number;
   zoom: number;
 };
 
-/**
- * Canvas-specific state for board positions and visual properties
- */
 export type CanvasState = {
   viewport: ViewportState;
   focusedBoardId: string | null;
   lastInteractionTime: number;
 };
 
-/**
- * Board position and dimensions on the canvas
- */
 export type BoardPosition = {
   id: string;
   x: number;
@@ -106,14 +85,8 @@ export type BoardPosition = {
   zIndex: number;
 };
 
-/**
- * Interaction mode for the canvas
- */
 export type InteractionMode = "drag" | "select";
 
-/**
- * UI state that should NOT be persisted or included in undo/redo
- */
 export type UIState = {
   showCommandPalette: boolean;
   showMiniMap: boolean;
@@ -125,9 +98,6 @@ export type UIState = {
   draggedTaskId: string | null;
 };
 
-/**
- * The complete persisted state shape saved to IndexedDB
- */
 export type PersistedState = {
   workspaces: EntityMap<Workspace>;
   boards: EntityMap<Board>;
@@ -138,13 +108,6 @@ export type PersistedState = {
   canvas: CanvasState;
 };
 
-// ============================================================================
-// React Flow Types
-// ============================================================================
-
-/**
- * React Flow specific board node type
- */
 export type BoardNode = {
   id: string;
   type: "board";
@@ -157,13 +120,6 @@ export type BoardNode = {
   height?: number;
 };
 
-// ============================================================================
-// Denormalized Types (for component consumption)
-// ============================================================================
-
-/**
- * Fully denormalized board with all nested data for rendering
- */
 export type DenormalizedBoard = {
   id: string;
   name: string;
@@ -174,9 +130,6 @@ export type DenormalizedBoard = {
   columns: DenormalizedColumn[];
 };
 
-/**
- * Fully denormalized column with all nested tasks
- */
 export type DenormalizedColumn = {
   id: string;
   board_id: string;

@@ -25,25 +25,14 @@ import {
 } from "./ids";
 import { indexedDBStorage, STORAGE_KEY } from "./storage";
 
-// ============================================================================
-// Store State Type
-// ============================================================================
-
 type KanbanState = {
-  // Normalized entities
   workspaces: EntityMap<Workspace>;
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
-
-  // Current selection
   currentWorkspaceId: string | null;
-
-  // Canvas state
   canvas: CanvasState;
-
-  // UI state (not persisted, not in undo history)
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskColumnId: string | null;
@@ -54,12 +43,7 @@ type KanbanState = {
   draggedTaskId: string | null;
 };
 
-// ============================================================================
-// Store Actions Type
-// ============================================================================
-
 type KanbanActions = {
-  // Workspace actions
   setCurrentWorkspace: (workspaceId: string | null) => void;
   addWorkspace: (name: string, description?: string) => string;
   updateWorkspace: (
@@ -68,8 +52,6 @@ type KanbanActions = {
   ) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (workspaceId: string) => void;
-
-  // Board actions
   addBoard: (
     name: string,
     position: { x: number; y: number },
@@ -89,8 +71,6 @@ type KanbanActions = {
     dimensions: { width: number; height: number }
   ) => void;
   bringBoardToFront: (boardId: string) => void;
-
-  // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
     columnId: string,
@@ -103,8 +83,6 @@ type KanbanActions = {
     columnId: string,
     targetBoardId: string
   ) => void;
-
-  // Task actions
   addTask: (
     columnId: string,
     boardId: string,
@@ -123,12 +101,8 @@ type KanbanActions = {
   ) => void;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
-
-  // Canvas actions
   setViewport: (viewport: ViewportState) => void;
   setFocusedBoard: (boardId: string | null) => void;
-
-  // UI actions (not in undo history)
   setShowCommandPalette: (show: boolean) => void;
   setShowMiniMap: (show: boolean) => void;
   setCreateTaskColumnId: (columnId: string | null) => void;
@@ -139,14 +113,8 @@ type KanbanActions = {
   toggleTaskSelection: (taskId: string) => void;
   clearTaskSelection: () => void;
   setDraggedTask: (taskId: string | null) => void;
-
-  // Computed/Derived data helpers
   getDenormalizedBoard: (boardId: string) => DenormalizedBoard | null;
 };
-
-// ============================================================================
-// Helpers
-// ============================================================================
 
 function getNextZIndex(positions: EntityMap<BoardPosition>): number {
   let maxZIndex = 0;
@@ -177,7 +145,6 @@ function createInitialState(): KanbanState {
   const { workspace, id } = createDefaultWorkspace();
 
   return {
-    // Normalized entities
     workspaces: {
       byId: { [id]: workspace },
       allIds: [id],
@@ -186,18 +153,12 @@ function createInitialState(): KanbanState {
     columns: { byId: {}, allIds: [] },
     tasks: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
-
-    // Current selection
     currentWorkspaceId: id,
-
-    // Canvas state
     canvas: {
       viewport: { x: 0, y: 0, zoom: 1 },
       focusedBoardId: null,
       lastInteractionTime: Date.now(),
     },
-
-    // UI state
     showCommandPalette: false,
     showMiniMap: false,
     createTaskColumnId: null,
@@ -209,10 +170,6 @@ function createInitialState(): KanbanState {
   };
 }
 
-// ============================================================================
-// Store Creator
-// ============================================================================
-
 const storeCreator: StateCreator<
   KanbanState & KanbanActions,
   [["zustand/immer", never]],
@@ -220,8 +177,6 @@ const storeCreator: StateCreator<
   KanbanState & KanbanActions
 > = (set, get) => ({
   ...createInitialState(),
-
-  // ========== Workspace Actions ==========
 
   setCurrentWorkspace: (workspaceId) =>
     set((state) => {
@@ -261,7 +216,6 @@ const storeCreator: StateCreator<
   deleteWorkspace: (workspaceId) =>
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
-      // Prevent deleting the default (first) workspace
       if (state.workspaces.allIds[0] === workspaceId) {
         return;
       }
@@ -271,15 +225,12 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove all boards in this workspace
       for (const boardId of workspace.board_ids) {
         const board = state.boards.byId[boardId];
         if (board) {
-          // Remove columns and tasks
           for (const columnId of board.column_ids) {
             const column = state.columns.byId[columnId];
             if (column) {
-              // Remove tasks
               for (const taskId of column.task_ids) {
                 delete state.tasks.byId[taskId];
                 state.tasks.allIds = state.tasks.allIds.filter(
@@ -302,14 +253,11 @@ const storeCreator: StateCreator<
           (id) => id !== boardId
         );
       }
-
-      // Remove workspace
       delete state.workspaces.byId[workspaceId];
       state.workspaces.allIds = state.workspaces.allIds.filter(
         (id) => id !== workspaceId
       );
 
-      // Switch to default workspace if current was deleted
       if (state.currentWorkspaceId === workspaceId) {
         state.currentWorkspaceId = state.workspaces.allIds[0] ?? null;
       }
@@ -318,7 +266,6 @@ const storeCreator: StateCreator<
   resetWorkspace: (workspaceId) =>
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
-      // Only the default workspace supports reset
       if (state.workspaces.allIds[0] !== workspaceId) {
         return;
       }
@@ -328,16 +275,13 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove all boards in this workspace - copy array since we're modifying while iterating
       const boardIdsToRemove = workspace.board_ids.slice();
       for (const boardId of boardIdsToRemove) {
         const board = state.boards.byId[boardId];
         if (board) {
-          // Remove columns and tasks
           for (const columnId of board.column_ids) {
             const column = state.columns.byId[columnId];
             if (column) {
-              // Remove tasks
               for (const taskId of column.task_ids) {
                 delete state.tasks.byId[taskId];
                 state.tasks.allIds = state.tasks.allIds.filter(
@@ -364,14 +308,10 @@ const storeCreator: StateCreator<
       workspace.board_ids = [];
     }),
 
-  // ========== Board Actions ==========
-
   addBoard: (name, position, description) => {
     const boardId = generateBoardId();
     const now = new Date().toISOString();
     const workspaceId = get().currentWorkspaceId ?? "";
-
-    // Create default columns
     const col1Id = generateColumnId();
     const col2Id = generateColumnId();
     const col3Id = generateColumnId();
@@ -411,17 +351,12 @@ const storeCreator: StateCreator<
     ];
 
     set((state) => {
-      // Add board
       state.boards.byId[boardId] = board;
       state.boards.allIds.push(boardId);
-
-      // Add columns
       for (const column of columns) {
         state.columns.byId[column.id] = column;
         state.columns.allIds.push(column.id);
       }
-
-      // Add board position
       const boardPosition: BoardPosition = {
         id: boardId,
         x: position.x,
@@ -430,8 +365,6 @@ const storeCreator: StateCreator<
       };
       state.boardPositions.byId[boardId] = boardPosition;
       state.boardPositions.allIds.push(boardId);
-
-      // Add to workspace
       const workspace = state.workspaces.byId[workspaceId];
       if (workspace) {
         workspace.board_ids.push(boardId);
@@ -457,11 +390,9 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove columns and tasks
       for (const columnId of board.column_ids) {
         const column = state.columns.byId[columnId];
         if (column) {
-          // Remove tasks
           for (const taskId of column.task_ids) {
             delete state.tasks.byId[taskId];
             state.tasks.allIds = state.tasks.allIds.filter(
@@ -475,7 +406,6 @@ const storeCreator: StateCreator<
         );
       }
 
-      // Remove from workspace
       const workspace = state.workspaces.byId[board.workspace_id];
       if (workspace) {
         workspace.board_ids = workspace.board_ids.filter(
@@ -483,17 +413,13 @@ const storeCreator: StateCreator<
         );
       }
 
-      // Remove board
       delete state.boards.byId[boardId];
       state.boards.allIds = state.boards.allIds.filter((id) => id !== boardId);
-
-      // Remove board position
       delete state.boardPositions.byId[boardId];
       state.boardPositions.allIds = state.boardPositions.allIds.filter(
         (id) => id !== boardId
       );
 
-      // Clear selection if this board was selected
       if (state.selectedBoardId === boardId) {
         state.selectedBoardId = null;
       }
@@ -528,13 +454,10 @@ const storeCreator: StateCreator<
       }
     }),
 
-  // ========== Column Actions ==========
-
   addColumn: (boardId, name, position) => {
     const columnId = generateColumnId();
     const currentState = get();
 
-    // Calculate position if not provided
     let finalPosition = position ?? 0;
     if (position === undefined) {
       const board = currentState.boards.byId[boardId];
@@ -553,7 +476,6 @@ const storeCreator: StateCreator<
       state.columns.byId[columnId] = column;
       state.columns.allIds.push(columnId);
 
-      // Add to board
       const board = state.boards.byId[boardId];
       if (board) {
         board.column_ids.push(columnId);
@@ -578,7 +500,6 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove all tasks in this column
       for (const taskId of column.task_ids) {
         delete state.tasks.byId[taskId];
         state.tasks.allIds = state.tasks.allIds.filter((id) => id !== taskId);
@@ -587,13 +508,11 @@ const storeCreator: StateCreator<
         );
       }
 
-      // Remove from board
       const board = state.boards.byId[boardId];
       if (board) {
         board.column_ids = board.column_ids.filter((id) => id !== columnId);
       }
 
-      // Remove column
       delete state.columns.byId[columnId];
       state.columns.allIds = state.columns.allIds.filter(
         (id) => id !== columnId
@@ -612,12 +531,9 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove from current position
       board.column_ids.splice(currentIndex, 1);
-      // Insert at new position
       board.column_ids.splice(newPosition, 0, columnId);
 
-      // Update all column positions
       for (const [index, colId] of board.column_ids.entries()) {
         const col = state.columns.byId[colId];
         if (col) {
@@ -641,16 +557,11 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove from source board
       sourceBoard.column_ids = sourceBoard.column_ids.filter(
         (id) => id !== columnId
       );
-
-      // Update column's board_id
       column.board_id = targetBoardId;
       column.position = targetBoard.column_ids.length;
-
-      // Update all tasks in this column
       for (const taskId of column.task_ids) {
         const task = state.tasks.byId[taskId];
         if (task) {
@@ -658,10 +569,8 @@ const storeCreator: StateCreator<
         }
       }
 
-      // Add to target board
       targetBoard.column_ids.push(columnId);
 
-      // Update source board column positions
       for (const [index, colId] of sourceBoard.column_ids.entries()) {
         const col = state.columns.byId[colId];
         if (col) {
@@ -669,8 +578,6 @@ const storeCreator: StateCreator<
         }
       }
     }),
-
-  // ========== Task Actions ==========
 
   addTask: (columnId, boardId, title, options = {}) => {
     const taskId = generateTaskId();
@@ -693,11 +600,9 @@ const storeCreator: StateCreator<
     };
 
     set((state) => {
-      // Add task
       state.tasks.byId[taskId] = task;
       state.tasks.allIds.push(taskId);
 
-      // Add to column
       const column = state.columns.byId[columnId];
       if (column) {
         task.position = column.task_ids.length;
@@ -726,13 +631,11 @@ const storeCreator: StateCreator<
         return;
       }
 
-      // Remove from column
       const column = state.columns.byId[task.column_id];
       if (column) {
         column.task_ids = column.task_ids.filter((id) => id !== taskId);
       }
 
-      // Remove task
       delete state.tasks.byId[taskId];
       state.tasks.allIds = state.tasks.allIds.filter((id) => id !== taskId);
       state.selectedTaskIds = state.selectedTaskIds.filter(
@@ -749,17 +652,11 @@ const storeCreator: StateCreator<
       if (!(task && fromColumn && toColumn)) {
         return;
       }
-
-      // Remove from source column
       fromColumn.task_ids = fromColumn.task_ids.filter((id) => id !== taskId);
-
-      // Update task
       task.column_id = toColumnId;
       task.board_id = targetBoardId;
       task.position = toColumn.task_ids.length;
       task.updated_at = new Date().toISOString();
-
-      // Add to target column
       toColumn.task_ids.push(taskId);
     }),
 
@@ -782,7 +679,6 @@ const storeCreator: StateCreator<
       for (const taskId of taskIds) {
         const task = state.tasks.byId[taskId];
         if (task) {
-          // Remove from column
           const column = state.columns.byId[task.column_id];
           if (column) {
             column.task_ids = column.task_ids.filter((id) => id !== taskId);
@@ -798,8 +694,6 @@ const storeCreator: StateCreator<
       );
     }),
 
-  // ========== Canvas Actions ==========
-
   setViewport: (viewport) =>
     set((state) => {
       state.canvas.viewport = viewport;
@@ -810,8 +704,6 @@ const storeCreator: StateCreator<
     set((state) => {
       state.canvas.focusedBoardId = boardId;
     }),
-
-  // ========== UI Actions ==========
 
   setShowCommandPalette: (show) =>
     set((state) => {
@@ -876,8 +768,6 @@ const storeCreator: StateCreator<
       state.draggedTaskId = taskId;
     }),
 
-  // ========== Derived Data Helpers ==========
-
   getDenormalizedBoard: (boardId) => {
     const currentState = get();
     const board = currentState.boards.byId[boardId];
@@ -920,11 +810,6 @@ const storeCreator: StateCreator<
   },
 });
 
-// ============================================================================
-// Create Store with Middleware
-// ============================================================================
-
-// Fields to exclude from persistence
 const uiStateFields: (keyof KanbanState)[] = [
   "showCommandPalette",
   "showMiniMap",
@@ -936,10 +821,9 @@ const uiStateFields: (keyof KanbanState)[] = [
   "draggedTaskId",
 ];
 
-// Fields to exclude from undo/redo history
 const temporalExcludeFields: (keyof KanbanState)[] = [
   ...uiStateFields,
-  "canvas", // Canvas viewport changes shouldn't be undoable
+  "canvas",
 ];
 
 export const useKanbanStore = create<KanbanState & KanbanActions>()(
@@ -947,7 +831,6 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
     temporal(immer(storeCreator), {
       limit: 200,
       partialize: (state) => {
-        // Only track data state changes in history, not UI state
         const tracked: Partial<KanbanState> = {};
         for (const key of Object.keys(state) as (keyof KanbanState)[]) {
           if (!temporalExcludeFields.includes(key)) {
@@ -962,7 +845,6 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
       name: STORAGE_KEY,
       storage: createJSONStorage(() => indexedDBStorage),
       partialize: (state) => {
-        // Only persist data state, not UI state
         const persisted: Partial<KanbanState> = {
           workspaces: state.workspaces,
           boards: state.boards,
@@ -978,60 +860,27 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
   )
 );
 
-// ============================================================================
-// Temporal Store Helpers
-// ============================================================================
-
-/**
- * Hook to access temporal store state reactively
- * Use this to subscribe to pastStates/futureStates changes in React components
- */
 export const useTemporalStore = <T>(
   selector: (state: TemporalState<Partial<KanbanState>>) => T
 ): T => useStore(useKanbanStore.temporal, selector);
 
-/**
- * Hook to check if undo is available (reactive)
- */
 export const useCanUndo = (): boolean =>
   useTemporalStore((state) => state.pastStates.length > 0);
 
-/**
- * Hook to check if redo is available (reactive)
- */
 export const useCanRedo = (): boolean =>
   useTemporalStore((state) => state.futureStates.length > 0);
 
-/**
- * Undo the last action (imperative)
- */
 export const undo = (): void => useKanbanStore.temporal.getState().undo();
 
-/**
- * Redo the last undone action (imperative)
- */
 export const redo = (): void => useKanbanStore.temporal.getState().redo();
 
-/**
- * Check if undo is available (non-reactive, for imperative use)
- */
 export const canUndo = (): boolean =>
   useKanbanStore.temporal.getState().pastStates.length > 0;
 
-/**
- * Check if redo is available (non-reactive, for imperative use)
- */
 export const canRedo = (): boolean =>
   useKanbanStore.temporal.getState().futureStates.length > 0;
 
-/**
- * Clear undo/redo history
- */
 export const clearHistory = (): void =>
   useKanbanStore.temporal.getState().clear();
-
-// ============================================================================
-// Type Exports
-// ============================================================================
 
 export type { KanbanState, KanbanActions };
