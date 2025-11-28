@@ -19,7 +19,10 @@ import {
 import { useConnectionStatus } from "../features/kanban/hooks/use-connection-status";
 import { useTheme } from "../features/kanban/hooks/use-theme";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
-import { useCurrentWorkspace } from "../features/kanban/store/selectors";
+import {
+  useCurrentWorkspace,
+  useShowWelcomeScreen,
+} from "../features/kanban/store/selectors";
 
 export const FloatingNavbar = memo(() => {
   const { theme, toggleTheme } = useTheme();
@@ -33,6 +36,11 @@ export const FloatingNavbar = memo(() => {
   );
   const addBoard = useKanbanStore((state) => state.addBoard);
   const currentWorkspace = useCurrentWorkspace();
+  const showWelcomeScreen = useShowWelcomeScreen();
+
+  if (showWelcomeScreen) {
+    return null;
+  }
 
   const handleNewBoard = () => {
     if (!currentWorkspace) {

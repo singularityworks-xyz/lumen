@@ -4,10 +4,16 @@ import { useReactFlow } from "@xyflow/react";
 import { Maximize, Maximize2Icon, Minimize, Minus, Plus } from "lucide-react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
+import { useShowWelcomeScreen } from "../features/kanban/store/selectors";
 
 export const CustomControls = memo(() => {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const showWelcomeScreen = useShowWelcomeScreen();
+
+  if (showWelcomeScreen) {
+    return null;
+  }
 
   const handleZoomIn = () => {
     zoomIn();

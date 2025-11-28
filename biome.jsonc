@@ -3,5 +3,12 @@
   "extends": ["ultracite/core", "ultracite/react", "ultracite/next"],
   "files": {
     "includes": ["!apps/web/src/components/ui"]
+  },
+  "linter": {
+    "rules": {
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off"
+      }
+    }
   }
 }

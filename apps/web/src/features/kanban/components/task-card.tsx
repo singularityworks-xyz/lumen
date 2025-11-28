@@ -14,7 +14,6 @@ type TaskCardProps = {
 };
 
 export const TaskCard = memo(
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
   ({ task, onDragStart, isSelected }: TaskCardProps) => {
     const toggleTaskSelection = useKanbanStore(
       (state) => state.toggleTaskSelection

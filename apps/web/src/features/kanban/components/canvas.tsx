@@ -24,6 +24,7 @@ import {
   undo,
   useKanbanStore,
 } from "../store/kanban-store";
+import { useShowWelcomeScreen } from "../store/selectors";
 import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { BulkActionsBar } from "./bulk-actions-bar";
@@ -54,6 +55,7 @@ export function KanbanCanvas() {
     (state) => state.updateBoardDimensions
   );
   const selectedBoardId = useKanbanStore((state) => state.selectedBoardId);
+  const showWelcomeScreen = useShowWelcomeScreen();
 
   // Build nodes from normalized state
   const nodes: KanbanNode[] = useMemo(() => {
@@ -102,53 +104,61 @@ export function KanbanCanvas() {
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const isUpdatingFromStore = useRef(false);
 
-  useEffect(() => {
-    const handleToggleMode = (event: KeyboardEvent) => {
-      if (
-        !event.repeat &&
-        event.key.toLowerCase() === "v" &&
-        !(event.metaKey || event.ctrlKey)
-      ) {
+  const handleToggleMode = useCallback(
+    (event: KeyboardEvent) => {
+      const isVKey = event.key.toLowerCase() === "v";
+      const hasNoModifiers = !(event.metaKey || event.ctrlKey);
+      if (!event.repeat && isVKey && hasNoModifiers) {
         event.preventDefault();
         setInteractionMode(interactionMode === "drag" ? "select" : "drag");
       }
-    };
+    },
+    [interactionMode, setInteractionMode]
+  );
 
-    const handleEscape = (event: KeyboardEvent) => {
+  const handleEscapeKey = useCallback(
+    (event: KeyboardEvent) => {
       if (event.key === "Escape" && interactionMode === "select") {
         event.preventDefault();
         clearBoardSelection();
       }
-    };
+    },
+    [interactionMode, clearBoardSelection]
+  );
 
-    const handleUndoRedo = (event: KeyboardEvent) => {
-      const hasModifier = event.metaKey || event.ctrlKey;
-      if (!hasModifier) {
-        return;
-      }
+  const handleUndoRedo = useCallback((event: KeyboardEvent) => {
+    const hasModifier = event.metaKey || event.ctrlKey;
+    if (!hasModifier) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    const isRedo = (key === "z" && event.shiftKey) || key === "y";
+    const isUndo = key === "z" && !event.shiftKey;
 
-      const key = event.key.toLowerCase();
-      const isRedo = (key === "z" && event.shiftKey) || key === "y";
-      const isUndo = key === "z" && !event.shiftKey;
+    if (isUndo && canUndo()) {
+      event.preventDefault();
+      undo();
+    } else if (isRedo && canRedo()) {
+      event.preventDefault();
+      redo();
+    }
+  }, []);
 
-      if (isUndo && canUndo()) {
-        event.preventDefault();
-        undo();
-      } else if (isRedo && canRedo()) {
-        event.preventDefault();
-        redo();
-      }
-    };
+  useEffect(() => {
+    // Don't register keyboard handlers when welcome screen is visible
+    if (showWelcomeScreen) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       handleToggleMode(event);
-      handleEscape(event);
+      handleEscapeKey(event);
       handleUndoRedo(event);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [interactionMode, clearBoardSelection, setInteractionMode]);
+  }, [showWelcomeScreen, handleToggleMode, handleEscapeKey, handleUndoRedo]);
 
   const handleNodesChange: OnNodesChange<KanbanNode> = useCallback(
     (changes) => {
@@ -207,27 +217,27 @@ export function KanbanCanvas() {
       <ReactFlow
         className="bg-background"
         defaultViewport={canvas.viewport}
-        elementsSelectable={interactionMode === "select"}
+        elementsSelectable={!showWelcomeScreen && interactionMode === "select"}
         fitView={nodes.length === 0}
         maxZoom={3}
         minZoom={0.1}
         nodeOrigin={[0, 0]}
         nodes={localNodes}
         nodesConnectable={false}
-        nodesDraggable={interactionMode === "drag"}
+        nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
         nodeTypes={nodeTypes}
         onMoveEnd={handleMoveEnd}
         onNodesChange={handleNodesChange}
-        panOnDrag={interactionMode === "drag"}
-        panOnScroll={interactionMode === "drag"}
+        panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
+        panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
         proOptions={{ hideAttribution: true }}
         selectionKeyCode={interactionMode === "select" ? null : "Meta"}
         selectionMode={
           interactionMode === "select" ? SelectionMode.Partial : undefined
         }
-        selectionOnDrag={interactionMode === "select"}
-        zoomActivationKeyCode="Control"
-        zoomOnScroll
+        selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
+        zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
+        zoomOnScroll={!showWelcomeScreen}
       >
         <Background
           className="opacity-30"

@@ -326,3 +326,16 @@ export function useColumnCountForBoard(boardId: string): number {
     return board?.column_ids.length ?? 0;
   });
 }
+
+export function useShowWelcomeScreen(): boolean {
+  return useKanbanStore(
+    useShallow((state) => {
+      const workspaceId = state.currentWorkspaceId;
+      if (workspaceId) {
+        const workspace = state.workspaces.byId[workspaceId];
+        return (workspace?.board_ids.length ?? 0) === 0;
+      }
+      return state.boards.allIds.length === 0;
+    })
+  );
+}

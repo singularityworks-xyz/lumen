@@ -3,6 +3,7 @@
 import { Command, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useKanbanStore } from "../store/kanban-store";
+import { useShowWelcomeScreen } from "../store/selectors";
 
 type ContextMenuProps = {
   x: number;
@@ -63,22 +64,30 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
 ContextMenuContent.displayName = "ContextMenuContent";
 
 export const CanvasContextMenu = memo(() => {
+  const showWelcomeScreen = useShowWelcomeScreen();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
 
-  const handleContextMenu = useCallback((e: MouseEvent) => {
-    // Check if the click is on the canvas background (not on a node)
-    const target = e.target as HTMLElement;
-    if (
-      target.classList.contains("react-flow__pane") ||
-      target.classList.contains("react-flow__viewport")
-    ) {
-      e.preventDefault();
-      setContextMenu({ x: e.clientX, y: e.clientY });
-    }
-  }, []);
+  const handleContextMenu = useCallback(
+    (e: MouseEvent) => {
+      // Don't show context menu when welcome screen is visible
+      if (showWelcomeScreen) {
+        return;
+      }
+      // Check if the click is on the canvas background (not on a node)
+      const target = e.target as HTMLElement;
+      if (
+        target.classList.contains("react-flow__pane") ||
+        target.classList.contains("react-flow__viewport")
+      ) {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }
+    },
+    [showWelcomeScreen]
+  );
 
   const handleClose = useCallback(() => {
     setContextMenu(null);

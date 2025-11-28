@@ -218,7 +218,6 @@ const storeCreator: StateCreator<
     }),
 
   deleteWorkspace: (workspaceId) =>
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
       if (state.workspaces.allIds[0] === workspaceId) {
         logger.warn({ id: workspaceId }, "Cannot delete default workspace");
@@ -279,7 +278,6 @@ const storeCreator: StateCreator<
     }),
 
   resetWorkspace: (workspaceId) =>
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
       if (state.workspaces.allIds[0] !== workspaceId) {
         return;
@@ -399,7 +397,6 @@ const storeCreator: StateCreator<
     }),
 
   removeBoard: (boardId) =>
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
       const board = state.boards.byId[boardId];
       if (!board) {
@@ -577,7 +574,6 @@ const storeCreator: StateCreator<
     }),
 
   moveColumnToBoard: (sourceBoardId, columnId, targetBoardId) =>
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex column transfer logic
     set((state) => {
       if (sourceBoardId === targetBoardId) {
         return;

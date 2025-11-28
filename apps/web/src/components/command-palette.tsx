@@ -10,7 +10,10 @@ import {
   useCanUndo,
   useKanbanStore,
 } from "../features/kanban/store/kanban-store";
-import { useCurrentWorkspace } from "../features/kanban/store/selectors";
+import {
+  useCurrentWorkspace,
+  useShowWelcomeScreen,
+} from "../features/kanban/store/selectors";
 
 type Command = {
   id: string;
@@ -74,6 +77,7 @@ export const CommandPalette = memo(() => {
   const currentWorkspace = useCurrentWorkspace();
   const canUndoAction = useCanUndo();
   const canRedoAction = useCanRedo();
+  const showWelcomeScreen = useShowWelcomeScreen();
   const [query, setQuery] = useState("");
 
   const handleNewBoard = () => {
@@ -147,7 +151,11 @@ export const CommandPalette = memo(() => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Disable Cmd+K shortcut when welcome screen is visible
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        if (showWelcomeScreen) {
+          return;
+        }
         e.preventDefault();
         setShowCommandPalette(!showCommandPalette);
       }
@@ -158,17 +166,14 @@ export const CommandPalette = memo(() => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showCommandPalette, setShowCommandPalette]);
+  }, [showCommandPalette, setShowCommandPalette, showWelcomeScreen]);
 
   const filteredCommands = commands.filter((cmd) =>
     cmd.label.toLowerCase().includes(query.toLowerCase())
   );
 
-  // Get boards for current workspace
   const workspaceBoardIds = currentWorkspace?.board_ids ?? [];
 
-  // Search through normalized tasks
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Search requires nested iteration
   const searchResults = useMemo(() => {
     if (query.trim().length === 0) {
       return [];
