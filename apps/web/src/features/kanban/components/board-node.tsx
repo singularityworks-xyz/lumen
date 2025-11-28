@@ -4,6 +4,7 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
 import { GripVertical, Plus, X } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
 import {
   Dialog,
@@ -15,7 +16,12 @@ import {
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
 import { useKanbanStore } from "../store/kanban-store";
-import type { BoardNode } from "../types";
+import type {
+  BoardNode,
+  DenormalizedBoard,
+  DenormalizedColumn,
+  Task,
+} from "../types";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -37,20 +43,72 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.toggleBoardSelection
     );
     const updateBoard = useKanbanStore((state) => state.updateBoard);
+
+    // Use stable primitive selectors to extract data
+    // This avoids infinite loop from creating new objects in selector
+    const boardData = useKanbanStore(
+      useShallow((state) => state.boards.byId[data.boardId] ?? null)
+    );
+    const columnsMap = useKanbanStore(
+      useShallow((state) => state.columns.byId)
+    );
+    const tasksMap = useKanbanStore(useShallow((state) => state.tasks.byId));
+
+    // Memoize the denormalization to create stable object references
+    const board = useMemo((): DenormalizedBoard | null => {
+      if (!boardData) {
+        return null;
+      }
+
+      const denormalizedColumns: DenormalizedColumn[] = boardData.column_ids
+        .map((colId) => {
+          const column = columnsMap[colId];
+          if (!column) {
+            return null;
+          }
+
+          const columnTasks = column.task_ids
+            .map((taskId) => tasksMap[taskId])
+            .filter((task): task is Task => task !== undefined)
+            .sort((a, b) => a.position - b.position);
+
+          return {
+            id: column.id,
+            board_id: column.board_id,
+            name: column.name,
+            position: column.position,
+            tasks: columnTasks,
+          };
+        })
+        .filter((col): col is DenormalizedColumn => col !== null)
+        .sort((a, b) => a.position - b.position);
+
+      return {
+        id: boardData.id,
+        name: boardData.name,
+        description: boardData.description,
+        workspace_id: boardData.workspace_id,
+        created_by: boardData.created_by,
+        created_at: boardData.created_at,
+        columns: denormalizedColumns,
+      };
+    }, [boardData, columnsMap, tasksMap]);
+
     const { getNode, setNodes } = useReactFlow();
-    const { board, isSelected } = data as BoardNode["data"];
+
+    const { boardId, isSelected } = data as BoardNode["data"];
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [editedName, setEditedName] = useState(board.name);
+    const [editedName, setEditedName] = useState(board?.name ?? "");
     const [editedDescription, setEditedDescription] = useState(
-      board.description ?? ""
+      board?.description ?? ""
     );
 
-    const isMultiSelected = selectedBoardIds.has(id);
+    const isMultiSelected = selectedBoardIds.includes(id);
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
-      const columns = board.columns || [];
-      const columnCount = columns.length;
+      const boardColumns = board?.columns ?? [];
+      const columnCount = boardColumns.length;
 
       const COLUMN_WIDTH = 300;
       const COLUMN_GAP = 12;
@@ -64,7 +122,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const minWidth = COLUMN_WIDTH + BOARD_PADDING + 20;
       const minHeight = HEADER_HEIGHT + COLUMN_HEADER + 220 + BOARD_PADDING;
       const maxTaskCount = Math.max(
-        ...columns.map((c) => c.tasks?.length || 0),
+        ...boardColumns.map((c) => c.tasks?.length ?? 0),
         0
       );
 
@@ -89,8 +147,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         BOARD_PADDING;
 
       let maxColumnHeight = 0;
-      for (const column of columns) {
-        const taskCount = column.tasks?.length || 0;
+      for (const col of boardColumns) {
+        const taskCount = col.tasks?.length ?? 0;
         const columnHeight =
           COLUMN_HEADER +
           (taskCount > 0
@@ -117,7 +175,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           height: Math.max(contentHeight, minHeight),
         },
       };
-    }, [board.columns]);
+    }, [board?.columns]);
 
     useEffect(() => {
       const node = getNode(String(id));
@@ -192,7 +250,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleAddTask = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const firstColumn = board.columns?.[0];
+      const firstColumn = board?.columns?.[0];
       if (firstColumn) {
         setCreateTaskColumnId(firstColumn.id);
       }
@@ -223,17 +281,22 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      setEditedName(board.name);
-      setEditedDescription(board.description ?? "");
+      setEditedName(board?.name ?? "");
+      setEditedDescription(board?.description ?? "");
       setIsEditDialogOpen(true);
     };
 
     const handleSaveEdit = () => {
       const name = editedName.trim() || "Untitled Board";
       const description = editedDescription.trim() || undefined;
-      updateBoard(board.id, { name, description });
+      updateBoard(boardId, { name, description });
       setIsEditDialogOpen(false);
     };
+
+    // Don't render if board not found
+    if (!board) {
+      return null;
+    }
 
     return (
       <>

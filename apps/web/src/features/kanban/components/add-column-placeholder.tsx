@@ -14,21 +14,11 @@ export const AddColumnPlaceholder = memo(
     const addColumn = useKanbanStore((state) => state.addColumn);
 
     const handleClick = () => {
-      const board = useKanbanStore
-        .getState()
-        .boards.find((b) => b.id === boardId);
-      const columns = board?.columns || [];
-      const newPosition = columns.length;
+      const state = useKanbanStore.getState();
+      const board = state.boards.byId[boardId];
+      const columnCount = board?.column_ids.length ?? 0;
 
-      const newColumn = {
-        id: `col-${Date.now()}`,
-        board_id: boardId,
-        name: "New Column",
-        position: newPosition,
-        tasks: [],
-      };
-
-      addColumn(boardId, newColumn);
+      addColumn(boardId, "New Column", columnCount);
     };
 
     return (

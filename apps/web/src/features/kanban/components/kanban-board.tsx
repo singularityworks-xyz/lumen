@@ -16,32 +16,32 @@ import {
 } from "@dnd-kit/sortable";
 import { memo, useMemo } from "react";
 import { useKanbanStore } from "../store/kanban-store";
-import type { Board } from "../types";
+import type { DenormalizedBoard } from "../types";
 import { AddColumnPlaceholder } from "./add-column-placeholder";
 import { CreateTaskModal } from "./create-task-modal";
 import { KanbanColumn } from "./kanban-column";
 import { TaskDetailModal } from "./task-detail-modal";
 
 type KanbanBoardProps = {
-  board: Board;
+  board: DenormalizedBoard;
 };
 
 export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
-  const selectedTask = useKanbanStore((state) => {
-    const createColumnId = state.createTaskColumnId;
-    if (!createColumnId) {
+  const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
+  const selectedTask = useMemo(() => {
+    if (selectedTaskIds.length === 0) {
       return null;
     }
-
-    for (const column of board.columns || []) {
-      for (const task of column.tasks || []) {
-        if (state.selectedTasks.has(task.id)) {
+    // Find the first selected task in this board
+    for (const column of board.columns) {
+      for (const task of column.tasks) {
+        if (selectedTaskIds.includes(task.id)) {
           return task;
         }
       }
     }
     return null;
-  });
+  }, [board.columns, selectedTaskIds]);
 
   const createColumnId = useKanbanStore((state) => state.createTaskColumnId);
   const setCreateTaskColumnId = useKanbanStore(
@@ -49,11 +49,8 @@ export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
   );
   const moveColumn = useKanbanStore((state) => state.moveColumn);
 
-  // Sort columns by position
-  const columns = useMemo(() => {
-    const cols = board.columns || [];
-    return [...cols].sort((a, b) => a.position - b.position);
-  }, [board.columns]);
+  // Columns are already sorted in denormalized data
+  const columns = board.columns;
 
   const columnIds = useMemo(() => columns.map((col) => col.id), [columns]);
 

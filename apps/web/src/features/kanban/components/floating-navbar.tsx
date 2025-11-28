@@ -1,13 +1,29 @@
 "use client";
 
-import { Command, Hand, Moon, MousePointer2, Plus, Sun } from "lucide-react";
+import {
+  Command,
+  Hand,
+  Moon,
+  MousePointer2,
+  Plus,
+  Sun,
+  WifiOff,
+} from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/src/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/src/components/ui/tooltip";
+import { useConnectionStatus } from "../hooks/use-connection-status";
 import { useTheme } from "../hooks/use-theme";
 import { useKanbanStore } from "../store/kanban-store";
+import { useCurrentWorkspace } from "../store/selectors";
 
 export const FloatingNavbar = memo(() => {
   const { theme, toggleTheme } = useTheme();
+  const { isOffline } = useConnectionStatus();
   const setShowCommandPalette = useKanbanStore(
     (state) => state.setShowCommandPalette
   );
@@ -15,46 +31,19 @@ export const FloatingNavbar = memo(() => {
   const setInteractionMode = useKanbanStore(
     (state) => state.setInteractionMode
   );
-  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
+  const addBoard = useKanbanStore((state) => state.addBoard);
+  const currentWorkspace = useCurrentWorkspace();
 
   const handleNewBoard = () => {
-    const boardId = `board-${Date.now()}`;
-    const newBoard = {
-      id: boardId,
-      name: "New Board",
-      description: "New project board",
-      workspace_id: currentWorkspace?.id ?? "",
-      created_by: "user1",
-      created_at: new Date().toISOString(),
-      columns: [
-        {
-          id: `col-1-${Math.random()}`,
-          board_id: boardId,
-          name: "To Do",
-          position: 0,
-          tasks: [],
-        },
-        {
-          id: `col-2-${Math.random()}`,
-          board_id: boardId,
-          name: "In Progress",
-          position: 1,
-          tasks: [],
-        },
-        {
-          id: `col-3-${Math.random()}`,
-          board_id: boardId,
-          name: "Done",
-          position: 2,
-          tasks: [],
-        },
-      ],
-    };
+    if (!currentWorkspace) {
+      return;
+    }
 
-    useKanbanStore.getState().addBoard(newBoard, {
-      x: 100 + Math.random() * 200,
-      y: 100 + Math.random() * 200,
-    });
+    addBoard(
+      "New Board",
+      { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
+      "New project board"
+    );
   };
 
   return (
@@ -111,6 +100,20 @@ export const FloatingNavbar = memo(() => {
       </Button>
 
       <div className="h-3.5 w-px bg-border/60" />
+
+      {isOffline && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+              <WifiOff className="h-3.5 w-3.5" />
+              <span className="font-medium text-[11px]">Offline</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>You're offline. Changes will sync when reconnected.</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <Button
         className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"

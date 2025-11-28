@@ -32,11 +32,12 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Textarea } from "@/src/components/ui/textarea";
 import { useKanbanStore } from "../store/kanban-store";
-import type { Workspace } from "../types";
 
 export function WorkspaceSelector() {
   const workspaces = useKanbanStore((state) => state.workspaces);
-  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
+  );
   const setCurrentWorkspace = useKanbanStore(
     (state) => state.setCurrentWorkspace
   );
@@ -49,39 +50,41 @@ export function WorkspaceSelector() {
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("");
   const [showDangerDialog, setShowDangerDialog] = useState(false);
 
-  const defaultWorkspaceId = workspaces[0]?.id;
+  // Get current workspace object from the EntityMap
+  const currentWorkspace = currentWorkspaceId
+    ? workspaces.byId[currentWorkspaceId]
+    : null;
+
+  const defaultWorkspaceId = workspaces.allIds[0];
   const isDefaultCurrent =
-    currentWorkspace != null && currentWorkspace.id === defaultWorkspaceId;
+    currentWorkspaceId != null && currentWorkspaceId === defaultWorkspaceId;
 
   const handleCreateWorkspace = () => {
     if (!newWorkspaceName.trim()) {
       return;
     }
 
-    const newWorkspace: Workspace = {
-      id: crypto.randomUUID(),
-      name: newWorkspaceName.trim(),
-      description: newWorkspaceDescription.trim() || undefined,
-      created_at: new Date().toISOString(),
-    };
+    const newWorkspaceId = addWorkspace(
+      newWorkspaceName.trim(),
+      newWorkspaceDescription.trim() || undefined
+    );
 
-    addWorkspace(newWorkspace);
-    setCurrentWorkspace(newWorkspace);
+    setCurrentWorkspace(newWorkspaceId);
     setShowCreateDialog(false);
     setNewWorkspaceName("");
     setNewWorkspaceDescription("");
   };
 
   const handleConfirmWorkspaceDanger = () => {
-    if (!currentWorkspace) {
+    if (!currentWorkspaceId) {
       setShowDangerDialog(false);
       return;
     }
 
     if (isDefaultCurrent) {
-      resetWorkspace(currentWorkspace.id);
+      resetWorkspace(currentWorkspaceId);
     } else {
-      deleteWorkspace(currentWorkspace.id);
+      deleteWorkspace(currentWorkspaceId);
     }
 
     setShowDangerDialog(false);
@@ -107,29 +110,35 @@ export function WorkspaceSelector() {
             align="start"
             className="w-64 rounded-xl border-2 border-border/50 bg-card/95 p-2 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           >
-            {workspaces.length > 0 ? (
+            {workspaces.allIds.length > 0 ? (
               <>
-                {workspaces.map((workspace) => (
-                  <DropdownMenuItem
-                    className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
-                    key={workspace.id}
-                    onClick={() => setCurrentWorkspace(workspace)}
-                  >
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium text-sm">
-                        {workspace.name}
-                      </span>
-                      {workspace.description && (
-                        <span className="truncate text-muted-foreground text-xs">
-                          {workspace.description}
+                {workspaces.allIds.map((wsId) => {
+                  const workspace = workspaces.byId[wsId];
+                  if (!workspace) {
+                    return null;
+                  }
+                  return (
+                    <DropdownMenuItem
+                      className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
+                      key={workspace.id}
+                      onClick={() => setCurrentWorkspace(workspace.id)}
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-medium text-sm">
+                          {workspace.name}
                         </span>
+                        {workspace.description && (
+                          <span className="truncate text-muted-foreground text-xs">
+                            {workspace.description}
+                          </span>
+                        )}
+                      </div>
+                      {currentWorkspaceId === workspace.id && (
+                        <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
                       )}
-                    </div>
-                    {currentWorkspace?.id === workspace.id && (
-                      <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  );
+                })}
                 <DropdownMenuSeparator className="my-2 bg-border/50" />
               </>
             ) : (

@@ -19,9 +19,9 @@ export const TaskCard = memo(
     const toggleTaskSelection = useKanbanStore(
       (state) => state.toggleTaskSelection
     );
-    const selectedTasks = useKanbanStore((state) => state.selectedTasks);
+    const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
 
-    const showCheckbox = selectedTasks.size > 0;
+    const showCheckbox = selectedTaskIds.length > 0;
 
     const handleDragStart = (e: React.DragEvent) => {
       if (showCheckbox) {

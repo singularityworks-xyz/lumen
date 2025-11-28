@@ -1,9 +1,64 @@
 "use client";
 
-import { Plus, Search, X, Zap } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { Plus, Redo2, Search, Undo2, X, Zap } from "lucide-react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Input } from "@/src/components/ui/input";
-import { useKanbanStore } from "../store/kanban-store";
+import {
+  redo,
+  undo,
+  useCanRedo,
+  useCanUndo,
+  useKanbanStore,
+} from "../store/kanban-store";
+import { useCurrentWorkspace } from "../store/selectors";
+
+type Command = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  action: () => void;
+  shortcut?: string;
+  disabled?: boolean;
+};
+
+const CommandButton = ({
+  cmd,
+  onAction,
+}: {
+  cmd: Command;
+  onAction: () => void;
+}) => {
+  const Icon = cmd.icon;
+  const isDisabled = cmd.disabled ?? false;
+
+  return (
+    <button
+      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] ${
+        isDisabled ? "cursor-not-allowed opacity-50" : "hover:bg-secondary/60"
+      }`}
+      disabled={isDisabled}
+      onClick={() => {
+        if (!isDisabled) {
+          cmd.action();
+          onAction();
+        }
+      }}
+      type="button"
+    >
+      <Icon
+        className={`h-4 w-4 ${isDisabled ? "text-muted-foreground/50" : "text-muted-foreground"}`}
+      />
+      <span className={isDisabled ? "text-muted-foreground" : ""}>
+        {cmd.label}
+      </span>
+      {cmd.shortcut && (
+        <span className="ml-auto text-muted-foreground text-xs">
+          {cmd.shortcut}
+        </span>
+      )}
+    </button>
+  );
+};
 
 export const CommandPalette = memo(() => {
   const showCommandPalette = useKanbanStore(
@@ -13,8 +68,82 @@ export const CommandPalette = memo(() => {
     (state) => state.setShowCommandPalette
   );
   const boards = useKanbanStore((state) => state.boards);
-  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
+  const columns = useKanbanStore((state) => state.columns);
+  const tasks = useKanbanStore((state) => state.tasks);
+  const addBoard = useKanbanStore((state) => state.addBoard);
+  const currentWorkspace = useCurrentWorkspace();
+  const canUndoAction = useCanUndo();
+  const canRedoAction = useCanRedo();
   const [query, setQuery] = useState("");
+
+  const handleNewBoard = () => {
+    if (!currentWorkspace) {
+      return;
+    }
+
+    addBoard(
+      "New Board",
+      { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
+      "New project board"
+    );
+    setShowCommandPalette(false);
+  };
+
+  const handleUndo = () => {
+    if (canUndoAction) {
+      undo();
+      setShowCommandPalette(false);
+    }
+  };
+
+  const handleRedo = () => {
+    if (canRedoAction) {
+      redo();
+      setShowCommandPalette(false);
+    }
+  };
+
+  const commands: Command[] = [
+    {
+      id: "new-board",
+      label: "New Board",
+      icon: Plus,
+      action: handleNewBoard,
+      shortcut: "N",
+    },
+    {
+      id: "undo",
+      label: "Undo",
+      icon: Undo2,
+      action: handleUndo,
+      shortcut: "⌘Z",
+      disabled: !canUndoAction,
+    },
+    {
+      id: "redo",
+      label: "Redo",
+      icon: Redo2,
+      action: handleRedo,
+      shortcut: "⌘⇧Z",
+      disabled: !canRedoAction,
+    },
+    {
+      id: "search",
+      label: "Search Tasks",
+      icon: Search,
+      action: () => {
+        // Focus on search when selected
+      },
+    },
+    {
+      id: "quick-action",
+      label: "Quick Actions",
+      icon: Zap,
+      action: () => {
+        // Placeholder for future quick actions
+      },
+    },
+  ];
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,107 +160,70 @@ export const CommandPalette = memo(() => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showCommandPalette, setShowCommandPalette]);
 
-  if (!showCommandPalette) {
-    return null;
-  }
-
-  const handleNewBoard = () => {
-    const boardId = `board-${Date.now()}`;
-    const newBoard = {
-      id: boardId,
-      name: "New Board",
-      description: "New project board",
-      workspace_id: currentWorkspace?.id ?? "",
-      created_by: "user1",
-      created_at: new Date().toISOString(),
-      columns: [
-        {
-          id: `col-1-${Math.random()}`,
-          board_id: boardId,
-          name: "To Do",
-          position: 0,
-          tasks: [],
-        },
-        {
-          id: `col-2-${Math.random()}`,
-          board_id: boardId,
-          name: "In Progress",
-          position: 1,
-          tasks: [],
-        },
-        {
-          id: `col-3-${Math.random()}`,
-          board_id: boardId,
-          name: "Done",
-          position: 2,
-          tasks: [],
-        },
-      ],
-    };
-
-    useKanbanStore.getState().addBoard(newBoard, {
-      x: 100 + Math.random() * 200,
-      y: 100 + Math.random() * 200,
-    });
-    setShowCommandPalette(false);
-  };
-
-  const commands = [
-    {
-      id: "new-board",
-      label: "New Board",
-      icon: Plus,
-      action: handleNewBoard,
-    },
-    {
-      id: "search",
-      label: "Search Tasks",
-      icon: Search,
-      action: () => {
-        // TODO: Implement task search functionality
-      },
-    },
-    {
-      id: "quick-action",
-      label: "Quick Actions",
-      icon: Zap,
-      action: () => console.log("Quick Actions"),
-    },
-  ];
-
   const filteredCommands = commands.filter((cmd) =>
     cmd.label.toLowerCase().includes(query.toLowerCase())
   );
 
-  const workspaceBoards = currentWorkspace
-    ? boards.filter(
-        (board) =>
-          !board.workspace_id || board.workspace_id === currentWorkspace.id
-      )
-    : boards;
+  // Get boards for current workspace
+  const workspaceBoardIds = currentWorkspace?.board_ids ?? [];
 
-  const searchResults =
-    query.trim().length === 0
-      ? []
-      : workspaceBoards.flatMap((board) =>
-          (board.columns || []).flatMap((column) =>
-            (column.tasks || [])
-              .filter((task) => {
-                const q = query.toLowerCase();
-                return (
-                  task.title.toLowerCase().includes(q) ||
-                  (task.description || "").toLowerCase().includes(q) ||
-                  (task.tags || []).some((tag) => tag.toLowerCase().includes(q))
-                );
-              })
-              .map((task) => ({
-                boardName: board.name,
-                columnName: column.name,
-                taskTitle: task.title,
-                taskId: task.id,
-              }))
-          )
-        );
+  // Search through normalized tasks
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Search requires nested iteration
+  const searchResults = useMemo(() => {
+    if (query.trim().length === 0) {
+      return [];
+    }
+
+    const q = query.toLowerCase();
+    const results: Array<{
+      boardName: string;
+      columnName: string;
+      taskTitle: string;
+      taskId: string;
+    }> = [];
+
+    for (const boardId of workspaceBoardIds) {
+      const board = boards.byId[boardId];
+      if (!board) {
+        continue;
+      }
+
+      for (const columnId of board.column_ids) {
+        const column = columns.byId[columnId];
+        if (!column) {
+          continue;
+        }
+
+        for (const taskId of column.task_ids) {
+          const task = tasks.byId[taskId];
+          if (!task) {
+            continue;
+          }
+
+          const titleMatch = task.title.toLowerCase().includes(q);
+          const descMatch = (task.description || "").toLowerCase().includes(q);
+          const tagMatch = (task.tags || []).some((tag) =>
+            tag.toLowerCase().includes(q)
+          );
+
+          if (titleMatch || descMatch || tagMatch) {
+            results.push({
+              boardName: board.name,
+              columnName: column.name,
+              taskTitle: task.title,
+              taskId: task.id,
+            });
+          }
+        }
+      }
+    }
+
+    return results;
+  }, [query, workspaceBoardIds, boards.byId, columns.byId, tasks.byId]);
+
+  if (!showCommandPalette) {
+    return null;
+  }
 
   return (
     <>
@@ -173,23 +265,13 @@ export const CommandPalette = memo(() => {
                 if (filteredCommands.length > 0) {
                   return (
                     <div className="py-2">
-                      {filteredCommands.map((cmd) => {
-                        const Icon = cmd.icon;
-                        return (
-                          <button
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                            key={cmd.id}
-                            onClick={() => {
-                              cmd.action?.();
-                              setQuery("");
-                            }}
-                            type="button"
-                          >
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            <span>{cmd.label}</span>
-                          </button>
-                        );
-                      })}
+                      {filteredCommands.map((cmd) => (
+                        <CommandButton
+                          cmd={cmd}
+                          key={cmd.id}
+                          onAction={() => setQuery("")}
+                        />
+                      ))}
                     </div>
                   );
                 }

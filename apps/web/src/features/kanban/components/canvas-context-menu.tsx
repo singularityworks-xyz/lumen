@@ -3,7 +3,6 @@
 import { Command, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useKanbanStore } from "../store/kanban-store";
-import { calculateBoardDimensions } from "../utils";
 
 type ContextMenuProps = {
   x: number;
@@ -15,49 +14,22 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   const setShowCommandPalette = useKanbanStore(
     (state) => state.setShowCommandPalette
   );
-  const currentWorkspace = useKanbanStore((state) => state.currentWorkspace);
 
   const handleNewBoard = useCallback(() => {
-    const boardId = `board-${Date.now()}`;
-    const newBoard = {
-      id: boardId,
-      name: "New Board",
-      description: "New project board",
-      workspace_id: currentWorkspace?.id ?? "",
-      created_by: "user1",
-      created_at: new Date().toISOString(),
-      columns: [
-        {
-          id: `col-1-${Math.random()}`,
-          board_id: boardId,
-          name: "To Do",
-          position: 0,
-          tasks: [],
-        },
-        {
-          id: `col-2-${Math.random()}`,
-          board_id: boardId,
-          name: "In Progress",
-          position: 1,
-          tasks: [],
-        },
-        {
-          id: `col-3-${Math.random()}`,
-          board_id: boardId,
-          name: "Done",
-          position: 2,
-          tasks: [],
-        },
-      ],
-    };
+    // Default board dimensions - the store handles column creation
+    const defaultWidth = 800;
+    const defaultHeight = 400;
 
-    const dimensions = calculateBoardDimensions(newBoard);
-    useKanbanStore.getState().addBoard(newBoard, {
-      x: x - dimensions.width / 2,
-      y: y - dimensions.height / 2,
-    });
+    useKanbanStore.getState().addBoard(
+      "New Board",
+      {
+        x: x - defaultWidth / 2,
+        y: y - defaultHeight / 2,
+      },
+      "New project board"
+    );
     onClose();
-  }, [x, y, onClose, currentWorkspace?.id]);
+  }, [x, y, onClose]);
 
   const handleSearch = useCallback(() => {
     setShowCommandPalette(true);

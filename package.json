@@ -21,6 +21,7 @@
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "babel-plugin-react-compiler": "^1.0.0",
+    "baseline-browser-mapping": "^2.8.32",
     "lefthook": "^2.0.4",
     "lint-staged": "^16.2.7",
     "turbo": "^2.6.1",

@@ -17,7 +17,7 @@ import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
 
 export const BulkActionsBar = memo(() => {
-  const selectedTasks = useKanbanStore((state) => state.selectedTasks);
+  const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
   const clearTaskSelection = useKanbanStore(
     (state) => state.clearTaskSelection
   );
@@ -28,24 +28,24 @@ export const BulkActionsBar = memo(() => {
   const [showProgressMenu, setShowProgressMenu] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const selectedCount = selectedTasks.size;
+  const selectedCount = selectedTaskIds.length;
 
   if (selectedCount === 0) {
     return null;
   }
 
   const handleBulkDelete = () => {
-    bulkDeleteTasks(Array.from(selectedTasks));
+    bulkDeleteTasks(selectedTaskIds);
     setShowDeleteDialog(false);
   };
 
   const handlePriorityChange = (priority: "low" | "medium" | "high") => {
-    bulkUpdateTasks(Array.from(selectedTasks), { priority });
+    bulkUpdateTasks(selectedTaskIds, { priority });
     setShowPriorityMenu(false);
   };
 
   const handleProgressChange = (progress: number) => {
-    bulkUpdateTasks(Array.from(selectedTasks), { progress });
+    bulkUpdateTasks(selectedTaskIds, { progress });
     setShowProgressMenu(false);
   };
 

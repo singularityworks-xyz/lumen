@@ -1,7 +1,7 @@
-import type { Board } from "../types";
+import type { DenormalizedBoard } from "../types";
 
-export function calculateBoardDimensions(board: Board) {
-  const columns = board.columns || [];
+export function calculateBoardDimensions(board: DenormalizedBoard) {
+  const columns = board.columns;
   const columnCount = columns.length;
 
   const COLUMN_WIDTH = 300;
@@ -21,7 +21,7 @@ export function calculateBoardDimensions(board: Board) {
 
   let maxColumnHeight = 0;
   for (const column of columns) {
-    const taskCount = column.tasks?.length || 0;
+    const taskCount = column.tasks.length;
     const columnHeight =
       COLUMN_HEADER + (taskCount > 0 ? 160 : 160) + COLUMN_PADDING;
 

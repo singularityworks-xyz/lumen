@@ -16,14 +16,14 @@ import {
 } from "@/src/components/ui/alert-dialog";
 import { Input } from "@/src/components/ui/input";
 import { useKanbanStore } from "../store/kanban-store";
-import type { Column, Task } from "../types";
+import type { DenormalizedColumn, Task } from "../types";
 import { ColumnContextMenu } from "./column-context-menu";
 import { DeleteColumnDialog } from "./delete-column-dialog";
 import { RenameColumnDialog } from "./rename-column-dialog";
 import { TaskCard } from "./task-card";
 
 type KanbanColumnProps = {
-  column: Column;
+  column: DenormalizedColumn;
   boardId: string;
 };
 
@@ -38,10 +38,11 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const draggedTask = useKanbanStore((state) => state.draggedTask);
+  const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
+  const tasksStore = useKanbanStore((state) => state.tasks);
   const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
   const moveTask = useKanbanStore((state) => state.moveTask);
-  const selectedTasks = useKanbanStore((state) => state.selectedTasks);
+  const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
   const updateColumn = useKanbanStore((state) => state.updateColumn);
   const deleteColumn = useKanbanStore((state) => state.deleteColumn);
   const setCreateTaskColumnId = useKanbanStore(
@@ -49,19 +50,25 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   );
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const boards = useKanbanStore((state) => state.boards);
+  const columnsStore = useKanbanStore((state) => state.columns);
+
+  // Get dragged task from store
+  const draggedTask = draggedTaskId ? tasksStore.byId[draggedTaskId] : null;
 
   const availableTargetBoards = useMemo(() => {
-    const sourceBoard = boards.find((b) => b.id === boardId);
+    const sourceBoard = boards.byId[boardId];
     const workspaceId = sourceBoard?.workspace_id;
-    return boards.filter((board) => {
-      if (board.id === boardId) {
-        return false;
-      }
-      if (!workspaceId) {
-        return true;
-      }
-      return board.workspace_id === workspaceId;
-    });
+    return boards.allIds
+      .map((id) => boards.byId[id])
+      .filter((board): board is NonNullable<typeof board> => {
+        if (!board || board.id === boardId) {
+          return false;
+        }
+        if (!workspaceId) {
+          return true;
+        }
+        return board.workspace_id === workspaceId;
+      });
   }, [boards, boardId]);
 
   const {
@@ -79,12 +86,12 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const tasks = column.tasks || [];
-  const taskCount = tasks.length;
+  const columnTasks = column.tasks;
+  const taskCount = columnTasks.length;
 
   const handleDragStart = useCallback(
     (task: Task) => {
-      setDraggedTask(task);
+      setDraggedTask(task.id);
     },
     [setDraggedTask]
   );
@@ -130,8 +137,10 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetBoardId, setTargetBoardId] = useState<string | null>(null);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
-  const [conflictExistingColumn, setConflictExistingColumn] =
-    useState<Column | null>(null);
+  const [conflictExistingColumn, setConflictExistingColumn] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [renameValue, setRenameValue] = useState(column.name);
 
   const handleOpenMoveDialog = useCallback(() => {
@@ -146,21 +155,26 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
     if (!targetBoardId) {
       return;
     }
-    const targetBoard = boards.find((board) => board.id === targetBoardId);
+    const targetBoard = boards.byId[targetBoardId];
     if (!targetBoard) {
       return;
     }
 
-    const existing =
-      targetBoard.columns?.find((c) => c.name === column.name) ?? null;
+    // Check if there's an existing column with the same name in target board
+    const existingColumn = targetBoard.column_ids
+      .map((colId) => columnsStore.byId[colId])
+      .find((col) => col?.name === column.name);
 
-    if (!existing) {
+    if (!existingColumn) {
       moveColumnToBoard(boardId, column.id, targetBoardId);
       setShowMoveDialog(false);
       return;
     }
 
-    setConflictExistingColumn(existing);
+    setConflictExistingColumn({
+      id: existingColumn.id,
+      name: existingColumn.name,
+    });
     setRenameValue(column.name);
     setShowMoveDialog(false);
     setShowConflictDialog(true);
@@ -172,7 +186,7 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
     }
 
     const newName = renameValue.trim() || column.name;
-    updateColumn(boardId, column.id, { name: newName });
+    updateColumn(column.id, { name: newName });
     moveColumnToBoard(boardId, column.id, targetBoardId);
     setShowConflictDialog(false);
     setConflictExistingColumn(null);
@@ -191,9 +205,9 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
 
   const handleRename = useCallback(
     (newName: string) => {
-      updateColumn(boardId, column.id, { name: newName });
+      updateColumn(column.id, { name: newName });
     },
-    [boardId, column.id, updateColumn]
+    [column.id, updateColumn]
   );
 
   const handleRemove = useCallback(() => {
@@ -234,10 +248,10 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {tasks.length > 0 ? (
-          tasks.map((task) => (
+        {columnTasks.length > 0 ? (
+          columnTasks.map((task) => (
             <TaskCard
-              isSelected={selectedTasks.has(task.id)}
+              isSelected={selectedTaskIds.includes(task.id)}
               key={task.id}
               onDragStart={handleDragStart}
               task={task}

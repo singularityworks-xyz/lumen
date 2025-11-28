@@ -52,7 +52,7 @@ export const TaskDetailModal = memo(
     };
 
     const handleSave = () => {
-      updateTask(boardId, task.id, { ...editedTask, checklists });
+      updateTask(task.id, { ...editedTask, checklists });
       clearTaskSelection();
     };
 

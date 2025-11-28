@@ -32,24 +32,13 @@ export const CreateTaskModal = memo(
             .map((tag) => tag.trim())
             .filter(Boolean) || undefined;
 
-        const newTask: Task = {
-          id: `task-${Date.now()}-${Math.random()}`,
-          board_id: boardId,
-          column_id: columnId,
-          title,
+        addTask(columnId, boardId, title, {
           description,
           priority,
           progress,
-          position: 0,
           due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
-          created_by: "current-user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        if (tags && tags.length > 0) {
-          newTask.tags = tags;
-        }
-        addTask(boardId, newTask);
+          tags: tags && tags.length > 0 ? tags : undefined,
+        });
         setTitle("");
         setDescription("");
         setPriority("medium");

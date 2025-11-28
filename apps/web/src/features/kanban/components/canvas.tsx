@@ -5,18 +5,22 @@ import {
   BackgroundVariant,
   MiniMap,
   type Node,
-  type OnEdgesChange,
   type OnMove,
   type OnNodesChange,
   ReactFlow,
   SelectionMode,
-  useEdgesState,
   useNodesState,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
-import { useKanbanStore } from "../store/kanban-store";
-import type { Board, BoardNode } from "../types";
+import {
+  canRedo,
+  canUndo,
+  redo,
+  undo,
+  useKanbanStore,
+} from "../store/kanban-store";
+import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { BulkActionsBar } from "./bulk-actions-bar";
 import { CustomControls } from "./custom-controls";
@@ -27,15 +31,13 @@ import { WorkspaceSelector } from "./workspace-selector";
 type KanbanNode = Node<BoardNode["data"]>;
 
 export function KanbanCanvas() {
-  const workspaceId = useKanbanStore(
-    (state) => state.currentWorkspace?.id ?? null
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
   );
-  const allNodes = useKanbanStore((state) => state.nodes);
   const boards = useKanbanStore((state) => state.boards);
-  const edges = useKanbanStore((state) => state.edges);
+  const boardPositions = useKanbanStore((state) => state.boardPositions);
+  const workspaces = useKanbanStore((state) => state.workspaces);
   const showMiniMap = useKanbanStore((state) => state.showMiniMap);
-  const setNodes = useKanbanStore((state) => state.setNodes);
-  const setEdges = useKanbanStore((state) => state.setEdges);
   const interactionMode = useKanbanStore((state) => state.interactionMode);
   const setInteractionMode = useKanbanStore(
     (state) => state.setInteractionMode
@@ -43,27 +45,61 @@ export function KanbanCanvas() {
   const clearBoardSelection = useKanbanStore(
     (state) => state.clearBoardSelection
   );
-  const viewport = useKanbanStore((state) => state.viewport);
+  const canvas = useKanbanStore((state) => state.canvas);
   const setViewport = useKanbanStore((state) => state.setViewport);
-  const nodes = useMemo(() => {
-    if (!workspaceId) {
-      return allNodes;
-    }
+  const updateBoardPosition = useKanbanStore(
+    (state) => state.updateBoardPosition
+  );
+  const updateBoardDimensions = useKanbanStore(
+    (state) => state.updateBoardDimensions
+  );
+  const selectedBoardId = useKanbanStore((state) => state.selectedBoardId);
 
-    const workspaceBoardIds = new Set(
-      boards
-        .filter((board: Board) => {
-          const boardWorkspaceId = board.workspace_id;
-          return !boardWorkspaceId || boardWorkspaceId === workspaceId;
-        })
-        .map((board) => board.id)
-    );
+  // Build nodes from normalized state
+  const nodes: KanbanNode[] = useMemo(() => {
+    // Get board IDs for current workspace
+    const currentWorkspace = currentWorkspaceId
+      ? workspaces.byId[currentWorkspaceId]
+      : null;
 
-    return allNodes.filter((node) => workspaceBoardIds.has(node.id));
-  }, [allNodes, boards, workspaceId]);
+    const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+
+    return boardIds
+      .filter((boardId) => {
+        const board = boards.byId[boardId];
+        const position = boardPositions.byId[boardId];
+        // Must have both board and position, and match workspace if set
+        return (
+          board &&
+          position &&
+          (!currentWorkspaceId || board.workspace_id === currentWorkspaceId)
+        );
+      })
+      .map((boardId) => {
+        const position = boardPositions.byId[boardId];
+        // position is guaranteed to exist by the filter above, but TypeScript doesn't know
+        if (!position) {
+          return null;
+        }
+        const node: KanbanNode = {
+          id: boardId,
+          type: "board",
+          position: { x: position.x, y: position.y },
+          data: {
+            boardId,
+            isSelected: boardId === selectedBoardId,
+          },
+          style: { zIndex: position.zIndex },
+          width: position.width,
+          height: position.height,
+        };
+
+        return node;
+      })
+      .filter((node): node is KanbanNode => node !== null);
+  }, [boards, boardPositions, currentWorkspaceId, workspaces, selectedBoardId]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
-  const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
   const isUpdatingFromStore = useRef(false);
 
   useEffect(() => {
@@ -85,9 +121,29 @@ export function KanbanCanvas() {
       }
     };
 
+    const handleUndoRedo = (event: KeyboardEvent) => {
+      const hasModifier = event.metaKey || event.ctrlKey;
+      if (!hasModifier) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const isRedo = (key === "z" && event.shiftKey) || key === "y";
+      const isUndo = key === "z" && !event.shiftKey;
+
+      if (isUndo && canUndo()) {
+        event.preventDefault();
+        undo();
+      } else if (isRedo && canRedo()) {
+        event.preventDefault();
+        redo();
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       handleToggleMode(event);
       handleEscape(event);
+      handleUndoRedo(event);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -97,50 +153,18 @@ export function KanbanCanvas() {
   const handleNodesChange: OnNodesChange<KanbanNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
+
+      // Sync position and dimension changes back to the store
+      for (const change of changes) {
+        if (change.type === "position" && change.position) {
+          updateBoardPosition(change.id, change.position);
+        }
+        if (change.type === "dimensions" && change.dimensions) {
+          updateBoardDimensions(change.id, change.dimensions);
+        }
+      }
     },
-    [onNodesChange]
-  );
-
-  useEffect(() => {
-    if (isUpdatingFromStore.current) {
-      isUpdatingFromStore.current = false;
-      return;
-    }
-
-    const updatedNodes = localNodes.map((node) => {
-      const updatedNode: KanbanNode = {
-        ...node,
-        data: { ...node.data },
-        position: { ...node.position },
-      } as KanbanNode;
-
-      if (node.width !== undefined) {
-        updatedNode.width = node.width;
-      }
-      if (node.height !== undefined) {
-        updatedNode.height = node.height;
-      }
-      if (node.style) {
-        updatedNode.style = { ...node.style };
-      }
-      if (node.measured) {
-        updatedNode.measured = {
-          width: node.measured.width,
-          height: node.measured.height,
-        };
-      }
-
-      return updatedNode;
-    });
-    setNodes(updatedNodes);
-  }, [localNodes, setNodes]);
-
-  const handleEdgesChange: OnEdgesChange = useCallback(
-    (changes) => {
-      onEdgesChange(changes);
-      setEdges(localEdges);
-    },
-    [onEdgesChange, setEdges, localEdges]
+    [onNodesChange, updateBoardPosition, updateBoardDimensions]
   );
 
   const handleMoveEnd: OnMove = useCallback(
@@ -153,41 +177,11 @@ export function KanbanCanvas() {
     [setViewport]
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: required
+  // Sync nodes from store when they change
   useEffect(() => {
     isUpdatingFromStore.current = true;
-    const mutableNodes = nodes.map((node) => {
-      const mutableNode: KanbanNode = {
-        ...node,
-        data: { ...node.data },
-        position: { ...node.position },
-      } as KanbanNode;
-
-      if (node.width !== undefined) {
-        mutableNode.width = node.width;
-      }
-      if (node.height !== undefined) {
-        mutableNode.height = node.height;
-      }
-      if (node.style) {
-        mutableNode.style = { ...node.style };
-      }
-      if (node.measured) {
-        mutableNode.measured = {
-          width: node.measured.width,
-          height: node.measured.height,
-        };
-      }
-
-      return mutableNode;
-    });
-    setLocalNodes(mutableNodes);
-  }, [nodes]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: required
-  useEffect(() => {
-    setLocalEdges(edges);
-  }, [edges]);
+    setLocalNodes(nodes);
+  }, [nodes, setLocalNodes]);
 
   useEffect(() => {
     const handleWheel = (e: Event) => {
@@ -197,11 +191,13 @@ export function KanbanCanvas() {
       }
     };
 
-    const canvas = document.querySelector(".react-flow");
-    if (canvas) {
-      canvas.addEventListener("wheel", handleWheel, { passive: false });
+    const reactFlowCanvas = document.querySelector(".react-flow");
+    if (reactFlowCanvas) {
+      reactFlowCanvas.addEventListener("wheel", handleWheel, {
+        passive: false,
+      });
       return () => {
-        canvas.removeEventListener("wheel", handleWheel);
+        reactFlowCanvas.removeEventListener("wheel", handleWheel);
       };
     }
   }, []);
@@ -210,8 +206,7 @@ export function KanbanCanvas() {
     <div className="h-full w-full">
       <ReactFlow
         className="bg-background"
-        defaultViewport={viewport}
-        edges={localEdges}
+        defaultViewport={canvas.viewport}
         elementsSelectable={interactionMode === "select"}
         fitView={nodes.length === 0}
         maxZoom={3}
@@ -221,7 +216,6 @@ export function KanbanCanvas() {
         nodesConnectable={false}
         nodesDraggable={interactionMode === "drag"}
         nodeTypes={nodeTypes}
-        onEdgesChange={handleEdgesChange}
         onMoveEnd={handleMoveEnd}
         onNodesChange={handleNodesChange}
         panOnDrag={interactionMode === "drag"}

@@ -1,69 +1,100 @@
-import type { Edge, Node } from "@xyflow/react";
-import { enableMapSet } from "immer";
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import type { TemporalState } from "zundo";
+import { temporal } from "zundo";
+import type { StateCreator } from "zustand";
+import { create, useStore } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import type { Board, BoardNode, Column, Task, Workspace } from "../types";
-import { calculateBoardDimensions } from "../utils";
+import type {
+  Board,
+  BoardPosition,
+  CanvasState,
+  Column,
+  DenormalizedBoard,
+  DenormalizedColumn,
+  EntityMap,
+  InteractionMode,
+  Task,
+  ViewportState,
+  Workspace,
+} from "../types";
+import {
+  generateBoardId,
+  generateColumnId,
+  generateTaskId,
+  generateWorkspaceId,
+} from "./ids";
+import { indexedDBStorage, STORAGE_KEY } from "./storage";
 
-enableMapSet();
-
-type InteractionMode = "drag" | "select";
-
-type ViewportState = {
-  x: number;
-  y: number;
-  zoom: number;
-};
+// ============================================================================
+// Store State Type
+// ============================================================================
 
 type KanbanState = {
-  workspaces: Workspace[];
-  currentWorkspace: Workspace | null;
-  boards: Board[];
-  nodes: Node<BoardNode["data"]>[];
-  edges: Edge[];
-  selectedBoardId: string | null;
-  selectedBoardIds: Set<string>;
-  draggedTask: Task | null;
-  selectedTasks: Set<string>;
+  // Normalized entities
+  workspaces: EntityMap<Workspace>;
+  boards: EntityMap<Board>;
+  columns: EntityMap<Column>;
+  tasks: EntityMap<Task>;
+  boardPositions: EntityMap<BoardPosition>;
+
+  // Current selection
+  currentWorkspaceId: string | null;
+
+  // Canvas state
+  canvas: CanvasState;
+
+  // UI state (not persisted, not in undo history)
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskColumnId: string | null;
   interactionMode: InteractionMode;
-  viewport: ViewportState;
+  selectedBoardId: string | null;
+  selectedBoardIds: string[];
+  selectedTaskIds: string[];
+  draggedTaskId: string | null;
 };
 
+// ============================================================================
+// Store Actions Type
+// ============================================================================
+
 type KanbanActions = {
-  setCurrentWorkspace: (workspace: Workspace) => void;
+  // Workspace actions
+  setCurrentWorkspace: (workspaceId: string | null) => void;
+  addWorkspace: (name: string, description?: string) => string;
+  updateWorkspace: (
+    workspaceId: string,
+    updates: Partial<Pick<Workspace, "name" | "description">>
+  ) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (workspaceId: string) => void;
-  addWorkspace: (workspace: Workspace) => void;
-  addBoard: (board: Board, position: { x: number; y: number }) => void;
+
+  // Board actions
+  addBoard: (
+    name: string,
+    position: { x: number; y: number },
+    description?: string
+  ) => string;
+  updateBoard: (
+    boardId: string,
+    updates: Partial<Pick<Board, "name" | "description">>
+  ) => void;
   removeBoard: (boardId: string) => void;
-  updateBoard: (boardId: string, updates: Partial<Board>) => void;
-  setSelectedBoard: (boardId: string | null) => void;
-  bringBoardToFront: (boardId: string) => void;
-  updateNodePosition: (
-    nodeId: string,
+  updateBoardPosition: (
+    boardId: string,
     position: { x: number; y: number }
   ) => void;
-  setNodes: (nodes: Node<BoardNode["data"]>[]) => void;
-  setEdges: (edges: Edge[]) => void;
-  addTask: (boardId: string, task: Task) => void;
-  updateTask: (boardId: string, taskId: string, updates: Partial<Task>) => void;
-  deleteTask: (boardId: string, taskId: string) => void;
-  moveTask: (
-    taskId: string,
-    fromColumnId: string,
-    toColumnId: string,
-    targetBoardId: string
-  ) => void;
-  setDraggedTask: (task: Task | null) => void;
-  addColumn: (boardId: string, column: Column) => void;
-  updateColumn: (
+  updateBoardDimensions: (
     boardId: string,
+    dimensions: { width: number; height: number }
+  ) => void;
+  bringBoardToFront: (boardId: string) => void;
+
+  // Column actions
+  addColumn: (boardId: string, name: string, position?: number) => string;
+  updateColumn: (
     columnId: string,
-    updates: Partial<Column>
+    updates: Partial<Pick<Column, "name" | "position">>
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
@@ -72,655 +103,935 @@ type KanbanActions = {
     columnId: string,
     targetBoardId: string
   ) => void;
-  setViewport: (viewport: ViewportState) => void;
-  toggleTaskSelection: (taskId: string) => void;
-  clearTaskSelection: () => void;
+
+  // Task actions
+  addTask: (
+    columnId: string,
+    boardId: string,
+    title: string,
+    options?: Partial<
+      Pick<Task, "description" | "priority" | "progress" | "due_date" | "tags">
+    >
+  ) => string;
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
+  deleteTask: (boardId: string, taskId: string) => void;
+  moveTask: (
+    taskId: string,
+    fromColumnId: string,
+    toColumnId: string,
+    targetBoardId: string
+  ) => void;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
+
+  // Canvas actions
+  setViewport: (viewport: ViewportState) => void;
+  setFocusedBoard: (boardId: string | null) => void;
+
+  // UI actions (not in undo history)
   setShowCommandPalette: (show: boolean) => void;
   setShowMiniMap: (show: boolean) => void;
   setCreateTaskColumnId: (columnId: string | null) => void;
   setInteractionMode: (mode: InteractionMode) => void;
+  setSelectedBoard: (boardId: string | null) => void;
   toggleBoardSelection: (boardId: string) => void;
   clearBoardSelection: () => void;
+  toggleTaskSelection: (taskId: string) => void;
+  clearTaskSelection: () => void;
+  setDraggedTask: (taskId: string | null) => void;
+
+  // Computed/Derived data helpers
+  getDenormalizedBoard: (boardId: string) => DenormalizedBoard | null;
 };
 
-function updateAffectedNodes(state: KanbanState, boards: Board[]): void {
-  for (const node of state.nodes) {
-    const board = boards.find((b) => b.id === node.id);
-    if (board) {
-      node.data.board = board;
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function getNextZIndex(positions: EntityMap<BoardPosition>): number {
+  let maxZIndex = 0;
+  for (const id of positions.allIds) {
+    const pos = positions.byId[id];
+    if (pos && pos.zIndex > maxZIndex) {
+      maxZIndex = pos.zIndex;
     }
   }
+  return maxZIndex + 1;
 }
 
-function updateTasksInBoards(
-  boards: Board[],
-  taskIds: string[],
-  updates: Partial<Task>
-): void {
-  for (const board of boards) {
-    for (const column of board.columns || []) {
-      for (const task of column.tasks || []) {
-        if (taskIds.includes(task.id)) {
-          Object.assign(task, updates, {
-            updated_at: new Date().toISOString(),
-          });
-        }
-      }
-    }
-  }
-}
-
-function deleteTasksFromBoards(boards: Board[], taskIds: string[]): void {
-  for (const board of boards) {
-    for (const column of board.columns || []) {
-      if (column.tasks) {
-        column.tasks = column.tasks.filter((t) => !taskIds.includes(t.id));
-      }
-    }
-  }
-}
-
-function getRemovedBoardIds(boards: Board[], workspaceId: string): Set<string> {
-  return new Set(
-    boards
-      .filter((board) => board.workspace_id === workspaceId)
-      .map((board) => board.id)
-  );
-}
-
-function removeBoardsAndNodes(
-  state: KanbanState,
-  removedBoardIds: Set<string>
-): void {
-  state.boards = state.boards.filter((board) => !removedBoardIds.has(board.id));
-  state.nodes = state.nodes.filter((node) => !removedBoardIds.has(node.id));
-  state.edges = state.edges.filter(
-    (edge) =>
-      !(removedBoardIds.has(edge.source) || removedBoardIds.has(edge.target))
-  );
-}
-
-function cleanupSelectedBoards(
-  state: KanbanState,
-  removedBoardIds: Set<string>
-): void {
-  if (state.selectedBoardId && removedBoardIds.has(state.selectedBoardId)) {
-    state.selectedBoardId = null;
-  }
-
-  for (const boardId of Array.from(state.selectedBoardIds)) {
-    if (removedBoardIds.has(boardId)) {
-      state.selectedBoardIds.delete(boardId);
-    }
-  }
-}
-
-const defaultWorkspace: Workspace = {
-  id: crypto.randomUUID(),
-  name: "Default Workspace",
-  description: "Your default workspace",
-  created_at: new Date().toISOString(),
-};
-
-function createInitialState(): KanbanState {
+function createDefaultWorkspace(): { workspace: Workspace; id: string } {
+  const id = generateWorkspaceId();
   return {
-    workspaces: [defaultWorkspace],
-    currentWorkspace: defaultWorkspace,
-    boards: [],
-    nodes: [],
-    edges: [],
-    selectedBoardId: null,
-    selectedBoardIds: new Set(),
-    draggedTask: null,
-    selectedTasks: new Set(),
-    showCommandPalette: false,
-    showMiniMap: false,
-    createTaskColumnId: null,
-    interactionMode: "drag",
-    viewport: {
-      x: 0,
-      y: 0,
-      zoom: 1,
+    id,
+    workspace: {
+      id,
+      name: "Default Workspace",
+      description: "Your default workspace",
+      created_at: new Date().toISOString(),
+      board_ids: [],
     },
   };
 }
 
+function createInitialState(): KanbanState {
+  const { workspace, id } = createDefaultWorkspace();
+
+  return {
+    // Normalized entities
+    workspaces: {
+      byId: { [id]: workspace },
+      allIds: [id],
+    },
+    boards: { byId: {}, allIds: [] },
+    columns: { byId: {}, allIds: [] },
+    tasks: { byId: {}, allIds: [] },
+    boardPositions: { byId: {}, allIds: [] },
+
+    // Current selection
+    currentWorkspaceId: id,
+
+    // Canvas state
+    canvas: {
+      viewport: { x: 0, y: 0, zoom: 1 },
+      focusedBoardId: null,
+      lastInteractionTime: Date.now(),
+    },
+
+    // UI state
+    showCommandPalette: false,
+    showMiniMap: false,
+    createTaskColumnId: null,
+    interactionMode: "drag",
+    selectedBoardId: null,
+    selectedBoardIds: [],
+    selectedTaskIds: [],
+    draggedTaskId: null,
+  };
+}
+
+// ============================================================================
+// Store Creator
+// ============================================================================
+
+const storeCreator: StateCreator<
+  KanbanState & KanbanActions,
+  [["zustand/immer", never]],
+  [],
+  KanbanState & KanbanActions
+> = (set, get) => ({
+  ...createInitialState(),
+
+  // ========== Workspace Actions ==========
+
+  setCurrentWorkspace: (workspaceId) =>
+    set((state) => {
+      if (workspaceId === null || state.workspaces.byId[workspaceId]) {
+        state.currentWorkspaceId = workspaceId;
+        state.selectedBoardId = null;
+        state.selectedBoardIds = [];
+      }
+    }),
+
+  addWorkspace: (name, description) => {
+    const id = generateWorkspaceId();
+    const workspace: Workspace = {
+      id,
+      name,
+      description,
+      created_at: new Date().toISOString(),
+      board_ids: [],
+    };
+
+    set((state) => {
+      state.workspaces.byId[id] = workspace;
+      state.workspaces.allIds.push(id);
+    });
+
+    return id;
+  },
+
+  updateWorkspace: (workspaceId, updates) =>
+    set((state) => {
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        Object.assign(workspace, updates);
+      }
+    }),
+
+  deleteWorkspace: (workspaceId) =>
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
+    set((state) => {
+      // Prevent deleting the default (first) workspace
+      if (state.workspaces.allIds[0] === workspaceId) {
+        return;
+      }
+
+      const workspace = state.workspaces.byId[workspaceId];
+      if (!workspace) {
+        return;
+      }
+
+      // Remove all boards in this workspace
+      for (const boardId of workspace.board_ids) {
+        const board = state.boards.byId[boardId];
+        if (board) {
+          // Remove columns and tasks
+          for (const columnId of board.column_ids) {
+            const column = state.columns.byId[columnId];
+            if (column) {
+              // Remove tasks
+              for (const taskId of column.task_ids) {
+                delete state.tasks.byId[taskId];
+                state.tasks.allIds = state.tasks.allIds.filter(
+                  (id) => id !== taskId
+                );
+              }
+            }
+            delete state.columns.byId[columnId];
+            state.columns.allIds = state.columns.allIds.filter(
+              (id) => id !== columnId
+            );
+          }
+        }
+        delete state.boards.byId[boardId];
+        state.boards.allIds = state.boards.allIds.filter(
+          (id) => id !== boardId
+        );
+        delete state.boardPositions.byId[boardId];
+        state.boardPositions.allIds = state.boardPositions.allIds.filter(
+          (id) => id !== boardId
+        );
+      }
+
+      // Remove workspace
+      delete state.workspaces.byId[workspaceId];
+      state.workspaces.allIds = state.workspaces.allIds.filter(
+        (id) => id !== workspaceId
+      );
+
+      // Switch to default workspace if current was deleted
+      if (state.currentWorkspaceId === workspaceId) {
+        state.currentWorkspaceId = state.workspaces.allIds[0] ?? null;
+      }
+    }),
+
+  resetWorkspace: (workspaceId) =>
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
+    set((state) => {
+      // Only the default workspace supports reset
+      if (state.workspaces.allIds[0] !== workspaceId) {
+        return;
+      }
+
+      const workspace = state.workspaces.byId[workspaceId];
+      if (!workspace) {
+        return;
+      }
+
+      // Remove all boards in this workspace - copy array since we're modifying while iterating
+      const boardIdsToRemove = workspace.board_ids.slice();
+      for (const boardId of boardIdsToRemove) {
+        const board = state.boards.byId[boardId];
+        if (board) {
+          // Remove columns and tasks
+          for (const columnId of board.column_ids) {
+            const column = state.columns.byId[columnId];
+            if (column) {
+              // Remove tasks
+              for (const taskId of column.task_ids) {
+                delete state.tasks.byId[taskId];
+                state.tasks.allIds = state.tasks.allIds.filter(
+                  (id) => id !== taskId
+                );
+              }
+            }
+            delete state.columns.byId[columnId];
+            state.columns.allIds = state.columns.allIds.filter(
+              (id) => id !== columnId
+            );
+          }
+        }
+        delete state.boards.byId[boardId];
+        state.boards.allIds = state.boards.allIds.filter(
+          (id) => id !== boardId
+        );
+        delete state.boardPositions.byId[boardId];
+        state.boardPositions.allIds = state.boardPositions.allIds.filter(
+          (id) => id !== boardId
+        );
+      }
+
+      workspace.board_ids = [];
+    }),
+
+  // ========== Board Actions ==========
+
+  addBoard: (name, position, description) => {
+    const boardId = generateBoardId();
+    const now = new Date().toISOString();
+    const workspaceId = get().currentWorkspaceId ?? "";
+
+    // Create default columns
+    const col1Id = generateColumnId();
+    const col2Id = generateColumnId();
+    const col3Id = generateColumnId();
+
+    const board: Board = {
+      id: boardId,
+      name,
+      description,
+      workspace_id: workspaceId,
+      created_by: "current-user",
+      created_at: now,
+      column_ids: [col1Id, col2Id, col3Id],
+    };
+
+    const columns: Column[] = [
+      {
+        id: col1Id,
+        board_id: boardId,
+        name: "To Do",
+        position: 0,
+        task_ids: [],
+      },
+      {
+        id: col2Id,
+        board_id: boardId,
+        name: "In Progress",
+        position: 1,
+        task_ids: [],
+      },
+      {
+        id: col3Id,
+        board_id: boardId,
+        name: "Done",
+        position: 2,
+        task_ids: [],
+      },
+    ];
+
+    set((state) => {
+      // Add board
+      state.boards.byId[boardId] = board;
+      state.boards.allIds.push(boardId);
+
+      // Add columns
+      for (const column of columns) {
+        state.columns.byId[column.id] = column;
+        state.columns.allIds.push(column.id);
+      }
+
+      // Add board position
+      const boardPosition: BoardPosition = {
+        id: boardId,
+        x: position.x,
+        y: position.y,
+        zIndex: getNextZIndex(state.boardPositions),
+      };
+      state.boardPositions.byId[boardId] = boardPosition;
+      state.boardPositions.allIds.push(boardId);
+
+      // Add to workspace
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.board_ids.push(boardId);
+      }
+    });
+
+    return boardId;
+  },
+
+  updateBoard: (boardId, updates) =>
+    set((state) => {
+      const board = state.boards.byId[boardId];
+      if (board) {
+        Object.assign(board, updates);
+      }
+    }),
+
+  removeBoard: (boardId) =>
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
+    set((state) => {
+      const board = state.boards.byId[boardId];
+      if (!board) {
+        return;
+      }
+
+      // Remove columns and tasks
+      for (const columnId of board.column_ids) {
+        const column = state.columns.byId[columnId];
+        if (column) {
+          // Remove tasks
+          for (const taskId of column.task_ids) {
+            delete state.tasks.byId[taskId];
+            state.tasks.allIds = state.tasks.allIds.filter(
+              (id) => id !== taskId
+            );
+          }
+        }
+        delete state.columns.byId[columnId];
+        state.columns.allIds = state.columns.allIds.filter(
+          (id) => id !== columnId
+        );
+      }
+
+      // Remove from workspace
+      const workspace = state.workspaces.byId[board.workspace_id];
+      if (workspace) {
+        workspace.board_ids = workspace.board_ids.filter(
+          (id) => id !== boardId
+        );
+      }
+
+      // Remove board
+      delete state.boards.byId[boardId];
+      state.boards.allIds = state.boards.allIds.filter((id) => id !== boardId);
+
+      // Remove board position
+      delete state.boardPositions.byId[boardId];
+      state.boardPositions.allIds = state.boardPositions.allIds.filter(
+        (id) => id !== boardId
+      );
+
+      // Clear selection if this board was selected
+      if (state.selectedBoardId === boardId) {
+        state.selectedBoardId = null;
+      }
+      state.selectedBoardIds = state.selectedBoardIds.filter(
+        (id) => id !== boardId
+      );
+    }),
+
+  updateBoardPosition: (boardId, position) =>
+    set((state) => {
+      const boardPos = state.boardPositions.byId[boardId];
+      if (boardPos) {
+        boardPos.x = position.x;
+        boardPos.y = position.y;
+      }
+    }),
+
+  updateBoardDimensions: (boardId, dimensions) =>
+    set((state) => {
+      const boardPos = state.boardPositions.byId[boardId];
+      if (boardPos) {
+        boardPos.width = dimensions.width;
+        boardPos.height = dimensions.height;
+      }
+    }),
+
+  bringBoardToFront: (boardId) =>
+    set((state) => {
+      const boardPos = state.boardPositions.byId[boardId];
+      if (boardPos) {
+        boardPos.zIndex = getNextZIndex(state.boardPositions);
+      }
+    }),
+
+  // ========== Column Actions ==========
+
+  addColumn: (boardId, name, position) => {
+    const columnId = generateColumnId();
+    const currentState = get();
+
+    // Calculate position if not provided
+    let finalPosition = position ?? 0;
+    if (position === undefined) {
+      const board = currentState.boards.byId[boardId];
+      finalPosition = board?.column_ids.length ?? 0;
+    }
+
+    const column: Column = {
+      id: columnId,
+      board_id: boardId,
+      name,
+      position: finalPosition,
+      task_ids: [],
+    };
+
+    set((state) => {
+      state.columns.byId[columnId] = column;
+      state.columns.allIds.push(columnId);
+
+      // Add to board
+      const board = state.boards.byId[boardId];
+      if (board) {
+        board.column_ids.push(columnId);
+      }
+    });
+
+    return columnId;
+  },
+
+  updateColumn: (columnId, updates) =>
+    set((state) => {
+      const column = state.columns.byId[columnId];
+      if (column) {
+        Object.assign(column, updates);
+      }
+    }),
+
+  deleteColumn: (boardId, columnId) =>
+    set((state) => {
+      const column = state.columns.byId[columnId];
+      if (!column) {
+        return;
+      }
+
+      // Remove all tasks in this column
+      for (const taskId of column.task_ids) {
+        delete state.tasks.byId[taskId];
+        state.tasks.allIds = state.tasks.allIds.filter((id) => id !== taskId);
+        state.selectedTaskIds = state.selectedTaskIds.filter(
+          (id) => id !== taskId
+        );
+      }
+
+      // Remove from board
+      const board = state.boards.byId[boardId];
+      if (board) {
+        board.column_ids = board.column_ids.filter((id) => id !== columnId);
+      }
+
+      // Remove column
+      delete state.columns.byId[columnId];
+      state.columns.allIds = state.columns.allIds.filter(
+        (id) => id !== columnId
+      );
+    }),
+
+  moveColumn: (boardId, columnId, newPosition) =>
+    set((state) => {
+      const board = state.boards.byId[boardId];
+      if (!board) {
+        return;
+      }
+
+      const currentIndex = board.column_ids.indexOf(columnId);
+      if (currentIndex === -1 || currentIndex === newPosition) {
+        return;
+      }
+
+      // Remove from current position
+      board.column_ids.splice(currentIndex, 1);
+      // Insert at new position
+      board.column_ids.splice(newPosition, 0, columnId);
+
+      // Update all column positions
+      for (const [index, colId] of board.column_ids.entries()) {
+        const col = state.columns.byId[colId];
+        if (col) {
+          col.position = index;
+        }
+      }
+    }),
+
+  moveColumnToBoard: (sourceBoardId, columnId, targetBoardId) =>
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex column transfer logic
+    set((state) => {
+      if (sourceBoardId === targetBoardId) {
+        return;
+      }
+
+      const sourceBoard = state.boards.byId[sourceBoardId];
+      const targetBoard = state.boards.byId[targetBoardId];
+      const column = state.columns.byId[columnId];
+
+      if (!(sourceBoard && targetBoard && column)) {
+        return;
+      }
+
+      // Remove from source board
+      sourceBoard.column_ids = sourceBoard.column_ids.filter(
+        (id) => id !== columnId
+      );
+
+      // Update column's board_id
+      column.board_id = targetBoardId;
+      column.position = targetBoard.column_ids.length;
+
+      // Update all tasks in this column
+      for (const taskId of column.task_ids) {
+        const task = state.tasks.byId[taskId];
+        if (task) {
+          task.board_id = targetBoardId;
+        }
+      }
+
+      // Add to target board
+      targetBoard.column_ids.push(columnId);
+
+      // Update source board column positions
+      for (const [index, colId] of sourceBoard.column_ids.entries()) {
+        const col = state.columns.byId[colId];
+        if (col) {
+          col.position = index;
+        }
+      }
+    }),
+
+  // ========== Task Actions ==========
+
+  addTask: (columnId, boardId, title, options = {}) => {
+    const taskId = generateTaskId();
+    const now = new Date().toISOString();
+
+    const task: Task = {
+      id: taskId,
+      board_id: boardId,
+      column_id: columnId,
+      title,
+      description: options.description,
+      priority: options.priority ?? "medium",
+      progress: options.progress ?? 0,
+      position: 0,
+      due_date: options.due_date,
+      created_by: "current-user",
+      created_at: now,
+      updated_at: now,
+      tags: options.tags,
+    };
+
+    set((state) => {
+      // Add task
+      state.tasks.byId[taskId] = task;
+      state.tasks.allIds.push(taskId);
+
+      // Add to column
+      const column = state.columns.byId[columnId];
+      if (column) {
+        task.position = column.task_ids.length;
+        column.task_ids.push(taskId);
+      }
+    });
+
+    return taskId;
+  },
+
+  updateTask: (taskId, updates) =>
+    set((state) => {
+      const task = state.tasks.byId[taskId];
+      if (task) {
+        Object.assign(task, {
+          ...updates,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }),
+
+  deleteTask: (_boardId, taskId) =>
+    set((state) => {
+      const task = state.tasks.byId[taskId];
+      if (!task) {
+        return;
+      }
+
+      // Remove from column
+      const column = state.columns.byId[task.column_id];
+      if (column) {
+        column.task_ids = column.task_ids.filter((id) => id !== taskId);
+      }
+
+      // Remove task
+      delete state.tasks.byId[taskId];
+      state.tasks.allIds = state.tasks.allIds.filter((id) => id !== taskId);
+      state.selectedTaskIds = state.selectedTaskIds.filter(
+        (id) => id !== taskId
+      );
+    }),
+
+  moveTask: (taskId, fromColumnId, toColumnId, targetBoardId) =>
+    set((state) => {
+      const task = state.tasks.byId[taskId];
+      const fromColumn = state.columns.byId[fromColumnId];
+      const toColumn = state.columns.byId[toColumnId];
+
+      if (!(task && fromColumn && toColumn)) {
+        return;
+      }
+
+      // Remove from source column
+      fromColumn.task_ids = fromColumn.task_ids.filter((id) => id !== taskId);
+
+      // Update task
+      task.column_id = toColumnId;
+      task.board_id = targetBoardId;
+      task.position = toColumn.task_ids.length;
+      task.updated_at = new Date().toISOString();
+
+      // Add to target column
+      toColumn.task_ids.push(taskId);
+    }),
+
+  bulkUpdateTasks: (taskIds, updates) =>
+    set((state) => {
+      const now = new Date().toISOString();
+      for (const taskId of taskIds) {
+        const task = state.tasks.byId[taskId];
+        if (task) {
+          Object.assign(task, {
+            ...updates,
+            updated_at: now,
+          });
+        }
+      }
+    }),
+
+  bulkDeleteTasks: (taskIds) =>
+    set((state) => {
+      for (const taskId of taskIds) {
+        const task = state.tasks.byId[taskId];
+        if (task) {
+          // Remove from column
+          const column = state.columns.byId[task.column_id];
+          if (column) {
+            column.task_ids = column.task_ids.filter((id) => id !== taskId);
+          }
+          delete state.tasks.byId[taskId];
+        }
+      }
+      state.tasks.allIds = state.tasks.allIds.filter(
+        (id) => !taskIds.includes(id)
+      );
+      state.selectedTaskIds = state.selectedTaskIds.filter(
+        (id) => !taskIds.includes(id)
+      );
+    }),
+
+  // ========== Canvas Actions ==========
+
+  setViewport: (viewport) =>
+    set((state) => {
+      state.canvas.viewport = viewport;
+      state.canvas.lastInteractionTime = Date.now();
+    }),
+
+  setFocusedBoard: (boardId) =>
+    set((state) => {
+      state.canvas.focusedBoardId = boardId;
+    }),
+
+  // ========== UI Actions ==========
+
+  setShowCommandPalette: (show) =>
+    set((state) => {
+      state.showCommandPalette = show;
+    }),
+
+  setShowMiniMap: (show) =>
+    set((state) => {
+      state.showMiniMap = show;
+    }),
+
+  setCreateTaskColumnId: (columnId) =>
+    set((state) => {
+      state.createTaskColumnId = columnId;
+    }),
+
+  setInteractionMode: (mode) =>
+    set((state) => {
+      state.interactionMode = mode;
+      if (mode === "drag") {
+        state.selectedBoardIds = [];
+      }
+    }),
+
+  setSelectedBoard: (boardId) =>
+    set((state) => {
+      state.selectedBoardId = boardId;
+    }),
+
+  toggleBoardSelection: (boardId) =>
+    set((state) => {
+      const index = state.selectedBoardIds.indexOf(boardId);
+      if (index === -1) {
+        state.selectedBoardIds.push(boardId);
+      } else {
+        state.selectedBoardIds.splice(index, 1);
+      }
+    }),
+
+  clearBoardSelection: () =>
+    set((state) => {
+      state.selectedBoardIds = [];
+    }),
+
+  toggleTaskSelection: (taskId) =>
+    set((state) => {
+      const index = state.selectedTaskIds.indexOf(taskId);
+      if (index === -1) {
+        state.selectedTaskIds.push(taskId);
+      } else {
+        state.selectedTaskIds.splice(index, 1);
+      }
+    }),
+
+  clearTaskSelection: () =>
+    set((state) => {
+      state.selectedTaskIds = [];
+    }),
+
+  setDraggedTask: (taskId) =>
+    set((state) => {
+      state.draggedTaskId = taskId;
+    }),
+
+  // ========== Derived Data Helpers ==========
+
+  getDenormalizedBoard: (boardId) => {
+    const currentState = get();
+    const board = currentState.boards.byId[boardId];
+    if (!board) {
+      return null;
+    }
+
+    const columns: DenormalizedColumn[] = board.column_ids
+      .map((colId) => {
+        const column = currentState.columns.byId[colId];
+        if (!column) {
+          return null;
+        }
+
+        const tasks = column.task_ids
+          .map((taskId) => currentState.tasks.byId[taskId])
+          .filter((task): task is Task => task !== undefined)
+          .sort((a, b) => a.position - b.position);
+
+        return {
+          id: column.id,
+          board_id: column.board_id,
+          name: column.name,
+          position: column.position,
+          tasks,
+        };
+      })
+      .filter((col): col is DenormalizedColumn => col !== null)
+      .sort((a, b) => a.position - b.position);
+
+    return {
+      id: board.id,
+      name: board.name,
+      description: board.description,
+      workspace_id: board.workspace_id,
+      created_by: board.created_by,
+      created_at: board.created_at,
+      columns,
+    };
+  },
+});
+
+// ============================================================================
+// Create Store with Middleware
+// ============================================================================
+
+// Fields to exclude from persistence
+const uiStateFields: (keyof KanbanState)[] = [
+  "showCommandPalette",
+  "showMiniMap",
+  "createTaskColumnId",
+  "interactionMode",
+  "selectedBoardId",
+  "selectedBoardIds",
+  "selectedTaskIds",
+  "draggedTaskId",
+];
+
+// Fields to exclude from undo/redo history
+const temporalExcludeFields: (keyof KanbanState)[] = [
+  ...uiStateFields,
+  "canvas", // Canvas viewport changes shouldn't be undoable
+];
+
 export const useKanbanStore = create<KanbanState & KanbanActions>()(
   persist(
-    immer((set, _get) => ({
-      ...createInitialState(),
-
-      setCurrentWorkspace: (workspace) =>
-        set((state) => {
-          state.currentWorkspace = workspace;
-          state.selectedBoardId = null;
-        }),
-
-      deleteWorkspace: (workspaceId) =>
-        set((state) => {
-          if (state.workspaces.length === 0) {
-            return;
+    temporal(immer(storeCreator), {
+      limit: 200,
+      partialize: (state) => {
+        // Only track data state changes in history, not UI state
+        const tracked: Partial<KanbanState> = {};
+        for (const key of Object.keys(state) as (keyof KanbanState)[]) {
+          if (!temporalExcludeFields.includes(key)) {
+            // @ts-expect-error - Dynamic assignment
+            tracked[key] = state[key];
           }
-
-          const defaultWorkspaceId = state.workspaces[0]?.id;
-          if (workspaceId === defaultWorkspaceId) {
-            // The default workspace cannot be deleted
-            return;
-          }
-
-          const removedBoardIds = getRemovedBoardIds(state.boards, workspaceId);
-
-          state.workspaces = state.workspaces.filter(
-            (workspace) => workspace.id !== workspaceId
-          );
-
-          removeBoardsAndNodes(state, removedBoardIds);
-          cleanupSelectedBoards(state, removedBoardIds);
-
-          if (state.currentWorkspace?.id === workspaceId) {
-            const fallbackWorkspace = state.workspaces[0] ?? null;
-            state.currentWorkspace = fallbackWorkspace;
-          }
-        }),
-
-      resetWorkspace: (workspaceId) =>
-        set((state) => {
-          if (state.workspaces.length === 0) {
-            return;
-          }
-
-          const defaultWorkspaceId = state.workspaces[0]?.id;
-          if (workspaceId !== defaultWorkspaceId) {
-            // Only the default workspace supports "reset" semantics
-            return;
-          }
-
-          const removedBoardIds = getRemovedBoardIds(state.boards, workspaceId);
-
-          removeBoardsAndNodes(state, removedBoardIds);
-          cleanupSelectedBoards(state, removedBoardIds);
-        }),
-
-      addWorkspace: (workspace) =>
-        set((state) => {
-          state.workspaces.push(workspace);
-        }),
-
-      addBoard: (board, position) =>
-        set((state) => {
-          const workspaceId = state.currentWorkspace?.id;
-          const boardWithWorkspace: Board = {
-            ...board,
-            workspace_id: workspaceId ?? board.workspace_id,
-          };
-
-          state.boards.push(boardWithWorkspace);
-
-          let maxZIndex = 0;
-          for (const node of state.nodes) {
-            const currentZ = node.style?.zIndex || 0;
-            if (typeof currentZ === "number" && currentZ > maxZIndex) {
-              maxZIndex = currentZ;
-            }
-          }
-
-          // Calculate proper dimensions based on board content
-          const dimensions = calculateBoardDimensions(boardWithWorkspace);
-
-          const newNode: Node<BoardNode["data"]> = {
-            id: boardWithWorkspace.id,
-            type: "board",
-            position,
-            data: {
-              board: boardWithWorkspace,
-              isSelected: false,
-            },
-            width: dimensions.width,
-            height: dimensions.height,
-            style: {
-              width: dimensions.width,
-              height: dimensions.height,
-              zIndex: maxZIndex + 1,
-            },
-          };
-
-          state.nodes.push(newNode);
-        }),
-
-      removeBoard: (boardId) =>
-        set((state) => {
-          state.boards = state.boards.filter((b) => b.id !== boardId);
-          state.nodes = state.nodes.filter((n) => n.id !== boardId);
-
-          if (state.selectedBoardId === boardId) {
-            state.selectedBoardId = null;
-          }
-        }),
-
-      updateBoard: (boardId, updates) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const boardIndex = state.boards.findIndex((b) => b.id === boardId);
-          if (boardIndex !== -1) {
-            const board = state.boards[boardIndex];
-            if (board) {
-              state.boards[boardIndex] = {
-                ...board,
-                ...updates,
-              };
-
-              const nodeIndex = state.nodes.findIndex((n) => n.id === boardId);
-              if (nodeIndex !== -1) {
-                const node = state.nodes[nodeIndex];
-                const updatedBoard = state.boards[boardIndex];
-                if (node && updatedBoard) {
-                  node.data.board = updatedBoard;
-                }
-              }
-            }
-          }
-        }),
-
-      setSelectedBoard: (boardId) =>
-        set((state) => {
-          state.selectedBoardId = boardId;
-
-          for (const node of state.nodes) {
-            node.data.isSelected = node.id === boardId;
-          }
-        }),
-
-      bringBoardToFront: (boardId) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: fl
-        set((state) => {
-          let maxZIndex = 0;
-          for (const node of state.nodes) {
-            const currentZ = node.style?.zIndex || 0;
-            if (typeof currentZ === "number" && currentZ > maxZIndex) {
-              maxZIndex = currentZ;
-            }
-          }
-
-          const node = state.nodes.find((n) => n.id === boardId);
-          if (node) {
-            if (!node.style) {
-              node.style = {};
-            }
-            node.style.zIndex = maxZIndex + 1;
-          }
-        }),
-
-      updateNodePosition: (nodeId, position) =>
-        set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
-          if (nodeIndex !== -1) {
-            const node = state.nodes[nodeIndex];
-            if (node) {
-              node.position = position;
-            }
-          }
-        }),
-
-      setNodes: (nodes) =>
-        set((state) => {
-          state.nodes = nodes;
-        }),
-
-      setEdges: (edges) =>
-        set((state) => {
-          state.edges = edges;
-        }),
-
-      addTask: (boardId, task) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            const column = board.columns.find((c) => c.id === task.column_id);
-            if (column) {
-              if (!column.tasks) {
-                column.tasks = [];
-              }
-              column.tasks.push(task);
-              const node = state.nodes.find((n) => n.id === boardId);
-              if (node) {
-                node.data.board = board;
-              }
-            }
-          }
-        }),
-
-      updateTask: (boardId, taskId, updates) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            for (const column of board.columns) {
-              const taskIndex = column.tasks?.findIndex((t) => t.id === taskId);
-              if (taskIndex !== undefined && taskIndex !== -1 && column.tasks) {
-                const task = column.tasks[taskIndex];
-                if (task) {
-                  column.tasks[taskIndex] = {
-                    ...task,
-                    ...updates,
-                    updated_at: new Date().toISOString(),
-                  };
-
-                  const node = state.nodes.find((n) => n.id === boardId);
-                  if (node) {
-                    node.data.board = board;
-                  }
-                  break;
-                }
-              }
-            }
-          }
-        }),
-
-      deleteTask: (boardId, taskId) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            for (const column of board.columns) {
-              if (column.tasks) {
-                column.tasks = column.tasks.filter((t) => t.id !== taskId);
-              }
-            }
-
-            const node = state.nodes.find((n) => n.id === boardId);
-            if (node) {
-              node.data.board = board;
-            }
-          }
-
-          state.selectedTasks.delete(taskId);
-        }),
-
-      moveTask: (taskId, fromColumnId, toColumnId, targetBoardId) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          let sourceBoard: Board | undefined;
-          let sourceColumnIndex = -1;
-          let sourceTaskIndex = -1;
-
-          for (const board of state.boards) {
-            if (!board.columns) {
-              continue;
-            }
-            const columnIndex = board.columns.findIndex(
-              (c) => c.id === fromColumnId
-            );
-            if (columnIndex === -1) {
-              continue;
-            }
-            const column = board.columns[columnIndex];
-            if (!column) {
-              continue;
-            }
-            const tasks = column.tasks || [];
-            const taskIndex = tasks.findIndex((t) => t.id === taskId);
-            if (taskIndex !== -1) {
-              sourceBoard = board;
-              sourceColumnIndex = columnIndex;
-              sourceTaskIndex = taskIndex;
-              break;
-            }
-          }
-
-          if (
-            !sourceBoard ||
-            sourceColumnIndex === -1 ||
-            sourceTaskIndex === -1
-          ) {
-            return;
-          }
-
-          const targetBoard =
-            state.boards.find((b) => b.id === targetBoardId) ?? sourceBoard;
-          if (!targetBoard.columns) {
-            return;
-          }
-
-          const sourceColumn = sourceBoard.columns?.[sourceColumnIndex];
-          const targetColumn = targetBoard.columns.find(
-            (c) => c.id === toColumnId
-          );
-          if (!(sourceColumn && targetColumn && sourceColumn.tasks)) {
-            return;
-          }
-
-          const [task] = sourceColumn.tasks.splice(sourceTaskIndex, 1);
-          if (!task) {
-            return;
-          }
-
-          task.board_id = targetBoard.id;
-          task.column_id = toColumnId;
-          task.updated_at = new Date().toISOString();
-
-          if (!targetColumn.tasks) {
-            targetColumn.tasks = [];
-          }
-          task.position = targetColumn.tasks.length;
-          targetColumn.tasks.push(task);
-
-          updateAffectedNodes(state, state.boards);
-        }),
-
-      setDraggedTask: (task) =>
-        set((state) => {
-          state.draggedTask = task;
-        }),
-
-      addColumn: (boardId, column) =>
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board) {
-            if (!board.columns) {
-              board.columns = [];
-            }
-            board.columns.push(column);
-
-            const node = state.nodes.find((n) => n.id === boardId);
-            if (node) {
-              node.data.board = board;
-            }
-          }
-        }),
-
-      updateColumn: (boardId, columnId, updates) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            const columnIndex = board.columns.findIndex(
-              (c) => c.id === columnId
-            );
-            if (columnIndex !== -1) {
-              const column = board.columns[columnIndex];
-              if (column) {
-                board.columns[columnIndex] = {
-                  ...column,
-                  ...updates,
-                };
-
-                const node = state.nodes.find((n) => n.id === boardId);
-                if (node) {
-                  node.data.board = board;
-                }
-              }
-            }
-          }
-        }),
-
-      deleteColumn: (boardId, columnId) =>
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            board.columns = board.columns.filter((c) => c.id !== columnId);
-
-            const node = state.nodes.find((n) => n.id === boardId);
-            if (node) {
-              node.data.board = board;
-            }
-          }
-        }),
-
-      moveColumn: (boardId, columnId, newPosition) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          const board = state.boards.find((b) => b.id === boardId);
-          if (board?.columns) {
-            const columnIndex = board.columns.findIndex(
-              (c) => c.id === columnId
-            );
-            if (columnIndex !== -1) {
-              const [column] = board.columns.splice(columnIndex, 1);
-              if (column) {
-                board.columns.splice(newPosition, 0, column);
-
-                for (let i = 0; i < board.columns.length; i++) {
-                  const col = board.columns[i];
-                  if (col) {
-                    col.position = i;
-                  }
-                }
-
-                const node = state.nodes.find((n) => n.id === boardId);
-                if (node) {
-                  node.data.board = board;
-                }
-              }
-            }
-          }
-        }),
-
-      moveColumnToBoard: (sourceBoardId, columnId, targetBoardId) =>
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO: refactor later
-        set((state) => {
-          if (sourceBoardId === targetBoardId) {
-            return;
-          }
-
-          const sourceBoard = state.boards.find((b) => b.id === sourceBoardId);
-          const targetBoard = state.boards.find((b) => b.id === targetBoardId);
-          if (!(sourceBoard?.columns && targetBoard)) {
-            return;
-          }
-
-          const columnIndex = sourceBoard.columns.findIndex(
-            (c) => c.id === columnId
-          );
-          if (columnIndex === -1) {
-            return;
-          }
-
-          const [column] = sourceBoard.columns.splice(columnIndex, 1);
-          if (!column) {
-            return;
-          }
-
-          column.board_id = targetBoard.id;
-          if (column.tasks) {
-            for (const task of column.tasks) {
-              task.board_id = targetBoard.id;
-            }
-          }
-
-          if (!targetBoard.columns) {
-            targetBoard.columns = [];
-          }
-          column.position = targetBoard.columns.length;
-          targetBoard.columns.push(column);
-
-          updateAffectedNodes(state, state.boards);
-        }),
-
-      setViewport: (viewport) =>
-        set((state) => {
-          state.viewport = viewport;
-        }),
-
-      toggleTaskSelection: (taskId) =>
-        set((state) => {
-          if (state.selectedTasks.has(taskId)) {
-            state.selectedTasks.delete(taskId);
-          } else {
-            state.selectedTasks.add(taskId);
-          }
-        }),
-
-      clearTaskSelection: () =>
-        set((state) => {
-          state.selectedTasks.clear();
-        }),
-
-      bulkUpdateTasks: (taskIds, updates) =>
-        set((state) => {
-          updateTasksInBoards(state.boards, taskIds, updates);
-          updateAffectedNodes(state, state.boards);
-        }),
-
-      bulkDeleteTasks: (taskIds) =>
-        set((state) => {
-          deleteTasksFromBoards(state.boards, taskIds);
-          updateAffectedNodes(state, state.boards);
-
-          for (const id of taskIds) {
-            state.selectedTasks.delete(id);
-          }
-        }),
-
-      setShowCommandPalette: (show) =>
-        set((state) => {
-          state.showCommandPalette = show;
-        }),
-
-      setShowMiniMap: (show) =>
-        set((state) => {
-          state.showMiniMap = show;
-        }),
-
-      setCreateTaskColumnId: (columnId) =>
-        set((state) => {
-          state.createTaskColumnId = columnId;
-        }),
-
-      setInteractionMode: (mode) =>
-        set((state) => {
-          state.interactionMode = mode;
-          if (mode === "drag") {
-            state.selectedBoardIds.clear();
-          }
-        }),
-
-      toggleBoardSelection: (boardId) =>
-        set((state) => {
-          if (state.selectedBoardIds.has(boardId)) {
-            state.selectedBoardIds.delete(boardId);
-          } else {
-            state.selectedBoardIds.add(boardId);
-          }
-        }),
-
-      clearBoardSelection: () =>
-        set((state) => {
-          state.selectedBoardIds.clear();
-        }),
-    })),
+        }
+        return tracked;
+      },
+    }),
     {
-      name: "lumen-kanban-store-v1",
-      partialize: (state) => ({
-        workspaces: state.workspaces,
-        currentWorkspace: state.currentWorkspace,
-        boards: state.boards,
-        nodes: state.nodes,
-        edges: state.edges,
-        viewport: state.viewport,
-      }),
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => indexedDBStorage),
+      partialize: (state) => {
+        // Only persist data state, not UI state
+        const persisted: Partial<KanbanState> = {
+          workspaces: state.workspaces,
+          boards: state.boards,
+          columns: state.columns,
+          tasks: state.tasks,
+          boardPositions: state.boardPositions,
+          currentWorkspaceId: state.currentWorkspaceId,
+          canvas: state.canvas,
+        };
+        return persisted;
+      },
     }
   )
 );
+
+// ============================================================================
+// Temporal Store Helpers
+// ============================================================================
+
+/**
+ * Hook to access temporal store state reactively
+ * Use this to subscribe to pastStates/futureStates changes in React components
+ */
+export const useTemporalStore = <T>(
+  selector: (state: TemporalState<Partial<KanbanState>>) => T
+): T => useStore(useKanbanStore.temporal, selector);
+
+/**
+ * Hook to check if undo is available (reactive)
+ */
+export const useCanUndo = (): boolean =>
+  useTemporalStore((state) => state.pastStates.length > 0);
+
+/**
+ * Hook to check if redo is available (reactive)
+ */
+export const useCanRedo = (): boolean =>
+  useTemporalStore((state) => state.futureStates.length > 0);
+
+/**
+ * Undo the last action (imperative)
+ */
+export const undo = (): void => useKanbanStore.temporal.getState().undo();
+
+/**
+ * Redo the last undone action (imperative)
+ */
+export const redo = (): void => useKanbanStore.temporal.getState().redo();
+
+/**
+ * Check if undo is available (non-reactive, for imperative use)
+ */
+export const canUndo = (): boolean =>
+  useKanbanStore.temporal.getState().pastStates.length > 0;
+
+/**
+ * Check if redo is available (non-reactive, for imperative use)
+ */
+export const canRedo = (): boolean =>
+  useKanbanStore.temporal.getState().futureStates.length > 0;
+
+/**
+ * Clear undo/redo history
+ */
+export const clearHistory = (): void =>
+  useKanbanStore.temporal.getState().clear();
+
+// ============================================================================
+// Type Exports
+// ============================================================================
+
+export type { KanbanState, KanbanActions };

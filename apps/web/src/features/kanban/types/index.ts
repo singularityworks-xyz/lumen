@@ -1,3 +1,7 @@
+// ============================================================================
+// Entity Types
+// ============================================================================
+
 export type Profile = {
   id: string;
   email: string;
@@ -38,7 +42,7 @@ export type Column = {
   board_id: string;
   name: string;
   position: number;
-  tasks?: Task[];
+  task_ids: string[];
 };
 
 export type Board = {
@@ -48,7 +52,7 @@ export type Board = {
   workspace_id: string;
   created_by: string;
   created_at: string;
-  columns?: Column[];
+  column_ids: string[];
 };
 
 export type Workspace = {
@@ -56,17 +60,127 @@ export type Workspace = {
   name: string;
   description?: string;
   created_at: string;
+  board_ids: string[];
 };
 
-// React Flow specific types
+// ============================================================================
+// Normalized State Types
+// ============================================================================
+
+/**
+ * Generic normalized entity map structure.
+ * Provides O(1) lookup by ID and maintains insertion order via allIds array.
+ */
+export type EntityMap<T> = {
+  byId: Record<string, T>;
+  allIds: string[];
+};
+
+/**
+ * Canvas viewport state for React Flow
+ */
+export type ViewportState = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+/**
+ * Canvas-specific state for board positions and visual properties
+ */
+export type CanvasState = {
+  viewport: ViewportState;
+  focusedBoardId: string | null;
+  lastInteractionTime: number;
+};
+
+/**
+ * Board position and dimensions on the canvas
+ */
+export type BoardPosition = {
+  id: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  zIndex: number;
+};
+
+/**
+ * Interaction mode for the canvas
+ */
+export type InteractionMode = "drag" | "select";
+
+/**
+ * UI state that should NOT be persisted or included in undo/redo
+ */
+export type UIState = {
+  showCommandPalette: boolean;
+  showMiniMap: boolean;
+  createTaskColumnId: string | null;
+  interactionMode: InteractionMode;
+  selectedBoardId: string | null;
+  selectedBoardIds: string[];
+  selectedTaskIds: string[];
+  draggedTaskId: string | null;
+};
+
+/**
+ * The complete persisted state shape saved to IndexedDB
+ */
+export type PersistedState = {
+  workspaces: EntityMap<Workspace>;
+  boards: EntityMap<Board>;
+  columns: EntityMap<Column>;
+  tasks: EntityMap<Task>;
+  boardPositions: EntityMap<BoardPosition>;
+  currentWorkspaceId: string | null;
+  canvas: CanvasState;
+};
+
+// ============================================================================
+// React Flow Types
+// ============================================================================
+
+/**
+ * React Flow specific board node type
+ */
 export type BoardNode = {
   id: string;
   type: "board";
   position: { x: number; y: number };
   data: {
-    board: Board;
+    boardId: string;
     isSelected: boolean;
   };
   width?: number;
   height?: number;
+};
+
+// ============================================================================
+// Denormalized Types (for component consumption)
+// ============================================================================
+
+/**
+ * Fully denormalized board with all nested data for rendering
+ */
+export type DenormalizedBoard = {
+  id: string;
+  name: string;
+  description?: string;
+  workspace_id: string;
+  created_by: string;
+  created_at: string;
+  columns: DenormalizedColumn[];
+};
+
+/**
+ * Fully denormalized column with all nested tasks
+ */
+export type DenormalizedColumn = {
+  id: string;
+  board_id: string;
+  name: string;
+  position: number;
+  tasks: Task[];
 };
