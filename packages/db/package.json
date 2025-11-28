@@ -13,7 +13,6 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "check-types": "tsc --noEmit",
-    "validate-env": "tsx src/validate-env.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

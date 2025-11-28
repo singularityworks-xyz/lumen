@@ -1,5 +1,8 @@
+import { createLogger } from "@lumen/logger";
 import { del, get, set } from "idb-keyval";
 import type { StateStorage } from "zustand/middleware";
+
+const logger = createLogger({ name: "[client] storage" });
 
 export const STORAGE_VERSION = 1;
 export const STORAGE_KEY = "lumen-kanban-store";
@@ -10,10 +13,22 @@ type VersionedData<T> = {
   timestamp: number;
 };
 
+function serializeError(error: unknown): {
+  message: string;
+  name?: string;
+  stack?: string;
+} {
+  if (error instanceof Error) {
+    return { message: error.message, name: error.name, stack: error.stack };
+  }
+  return { message: String(error) };
+}
+
 function migrate<T>(oldVersion: number, data: T): T {
   if (oldVersion < STORAGE_VERSION) {
-    console.info(
-      `[Storage] Migrated data from v${oldVersion} to v${STORAGE_VERSION}`
+    logger.info(
+      { from: oldVersion, to: STORAGE_VERSION },
+      "Migrated storage data"
     );
   }
 
@@ -22,6 +37,11 @@ function migrate<T>(oldVersion: number, data: T): T {
 
 export const indexedDBStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    // Skip on server-side
+    if (typeof window === "undefined") {
+      return null;
+    }
+
     try {
       const stored = await get<VersionedData<unknown>>(name);
 
@@ -30,7 +50,7 @@ export const indexedDBStorage: StateStorage = {
       }
 
       if (!("version" in stored)) {
-        console.info("[Storage] Found legacy data, wrapping with version");
+        logger.info("Found legacy data, wrapping with version");
         return JSON.stringify(stored);
       }
 
@@ -47,12 +67,20 @@ export const indexedDBStorage: StateStorage = {
 
       return JSON.stringify(data);
     } catch (error) {
-      console.error("[Storage] Error reading from IndexedDB:", error);
+      logger.error(
+        { error: serializeError(error) },
+        "Error reading from IndexedDB"
+      );
       return null;
     }
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
+    // Skip on server-side
+    if (typeof window === "undefined") {
+      return;
+    }
+
     try {
       const data = JSON.parse(value) as unknown;
       const versionedData: VersionedData<unknown> = {
@@ -62,15 +90,26 @@ export const indexedDBStorage: StateStorage = {
       };
       await set(name, versionedData);
     } catch (error) {
-      console.error("[Storage] Error writing to IndexedDB:", error);
+      logger.error(
+        { error: serializeError(error) },
+        "Error writing to IndexedDB"
+      );
     }
   },
 
   removeItem: async (name: string): Promise<void> => {
+    // Skip on server-side
+    if (typeof window === "undefined") {
+      return;
+    }
+
     try {
       await del(name);
     } catch (error) {
-      console.error("[Storage] Error removing from IndexedDB:", error);
+      logger.error(
+        { error: serializeError(error) },
+        "Error removing from IndexedDB"
+      );
     }
   },
 };
@@ -78,9 +117,9 @@ export const indexedDBStorage: StateStorage = {
 export async function clearStorage(): Promise<void> {
   try {
     await del(STORAGE_KEY);
-    console.info("[Storage] Cleared all kanban data");
+    logger.info("Cleared all kanban data");
   } catch (error) {
-    console.error("[Storage] Error clearing storage:", error);
+    logger.error({ error: serializeError(error) }, "Error clearing storage");
   }
 }
 

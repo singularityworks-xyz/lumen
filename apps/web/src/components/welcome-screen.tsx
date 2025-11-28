@@ -1,11 +1,14 @@
 "use client";
 
+import { createLogger } from "@lumen/logger";
 import { HelpCircle, LogIn, Plus } from "lucide-react";
 import Image from "next/image";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
 import { HelpDialog } from "./help-dialog";
+
+const logger = createLogger({ name: "[client] welcome" });
 
 export const WelcomeScreen = memo(() => {
   const boards = useKanbanStore((state) => state.boards);
@@ -31,7 +34,7 @@ export const WelcomeScreen = memo(() => {
 
   const handleLogin = () => {
     // TODO: Implement login
-    console.log("Login clicked");
+    logger.debug("Login clicked");
   };
 
   return (

@@ -1,3 +1,4 @@
+import { createLogger } from "@lumen/logger";
 import type { TemporalState } from "zundo";
 import { temporal } from "zundo";
 import type { StateCreator } from "zustand";
@@ -24,6 +25,8 @@ import {
   generateWorkspaceId,
 } from "./ids";
 import { indexedDBStorage, STORAGE_KEY } from "./storage";
+
+const logger = createLogger({ name: "[client] kanban" });
 
 type KanbanState = {
   workspaces: EntityMap<Workspace>;
@@ -202,6 +205,7 @@ const storeCreator: StateCreator<
       state.workspaces.allIds.push(id);
     });
 
+    logger.info({ id, name }, "Workspace created");
     return id;
   },
 
@@ -217,13 +221,24 @@ const storeCreator: StateCreator<
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex cascade deletion required
     set((state) => {
       if (state.workspaces.allIds[0] === workspaceId) {
+        logger.warn({ id: workspaceId }, "Cannot delete default workspace");
         return;
       }
 
       const workspace = state.workspaces.byId[workspaceId];
       if (!workspace) {
+        logger.warn({ id: workspaceId }, "Workspace not found");
         return;
       }
+
+      logger.info(
+        {
+          id: workspaceId,
+          name: workspace.name,
+          boardCount: workspace.board_ids.length,
+        },
+        "Workspace deleted"
+      );
 
       for (const boardId of workspace.board_ids) {
         const board = state.boards.byId[boardId];
@@ -371,6 +386,7 @@ const storeCreator: StateCreator<
       }
     });
 
+    logger.info({ id: boardId, name, workspaceId }, "Board created");
     return boardId;
   },
 
@@ -387,8 +403,14 @@ const storeCreator: StateCreator<
     set((state) => {
       const board = state.boards.byId[boardId];
       if (!board) {
+        logger.warn({ id: boardId }, "Board not found");
         return;
       }
+
+      logger.info(
+        { id: boardId, name: board.name, columnCount: board.column_ids.length },
+        "Board deleted"
+      );
 
       for (const columnId of board.column_ids) {
         const column = state.columns.byId[columnId];
@@ -482,6 +504,7 @@ const storeCreator: StateCreator<
       }
     });
 
+    logger.info({ id: columnId, name, boardId }, "Column created");
     return columnId;
   },
 
@@ -497,8 +520,19 @@ const storeCreator: StateCreator<
     set((state) => {
       const column = state.columns.byId[columnId];
       if (!column) {
+        logger.warn({ id: columnId, boardId }, "Column not found");
         return;
       }
+
+      logger.info(
+        {
+          id: columnId,
+          name: column.name,
+          boardId,
+          taskCount: column.task_ids.length,
+        },
+        "Column deleted"
+      );
 
       for (const taskId of column.task_ids) {
         delete state.tasks.byId[taskId];
@@ -610,6 +644,7 @@ const storeCreator: StateCreator<
       }
     });
 
+    logger.info({ id: taskId, title, columnId, boardId }, "Task created");
     return taskId;
   },
 
@@ -628,8 +663,14 @@ const storeCreator: StateCreator<
     set((state) => {
       const task = state.tasks.byId[taskId];
       if (!task) {
+        logger.warn({ id: taskId }, "Task not found");
         return;
       }
+
+      logger.info(
+        { id: taskId, title: task.title, columnId: task.column_id },
+        "Task deleted"
+      );
 
       const column = state.columns.byId[task.column_id];
       if (column) {
@@ -650,8 +691,22 @@ const storeCreator: StateCreator<
       const toColumn = state.columns.byId[toColumnId];
 
       if (!(task && fromColumn && toColumn)) {
+        logger.warn(
+          { taskId, fromColumnId, toColumnId },
+          "Move task failed - missing entities"
+        );
         return;
       }
+
+      logger.debug(
+        {
+          id: taskId,
+          from: fromColumnId,
+          to: toColumnId,
+          boardId: targetBoardId,
+        },
+        "Task moved"
+      );
       fromColumn.task_ids = fromColumn.task_ids.filter((id) => id !== taskId);
       task.column_id = toColumnId;
       task.board_id = targetBoardId;
@@ -676,6 +731,7 @@ const storeCreator: StateCreator<
 
   bulkDeleteTasks: (taskIds) =>
     set((state) => {
+      logger.info({ count: taskIds.length, ids: taskIds }, "Bulk delete tasks");
       for (const taskId of taskIds) {
         const task = state.tasks.byId[taskId];
         if (task) {

@@ -3,7 +3,7 @@ import { createChildLogger, createLogger } from "@lumen/logger";
 import { initTRPC } from "@trpc/server";
 import { sql } from "drizzle-orm";
 
-const logger = createLogger({ name: "trpc" });
+const logger = createLogger({ name: "[server] trpc" });
 
 const t = initTRPC.context<Record<string, never>>().create({
   errorFormatter: ({ shape, error }) => {
