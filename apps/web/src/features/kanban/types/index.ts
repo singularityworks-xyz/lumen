@@ -87,10 +87,28 @@ export type BoardPosition = {
 
 export type InteractionMode = "drag" | "select";
 
+export type CreateTaskModalFormData = {
+  title: string;
+  description: string;
+  priority: Task["priority"];
+  progress: number;
+  dueDate: string;
+  tags: string;
+};
+
+export type CreateTaskModalState = {
+  id: string;
+  boardId: string;
+  columnId: string;
+  position: { x: number; y: number };
+  formData: CreateTaskModalFormData;
+  zIndex: number;
+};
+
 export type UIState = {
   showCommandPalette: boolean;
   showMiniMap: boolean;
-  createTaskColumnId: string | null;
+  createTaskModals: Record<string, CreateTaskModalState>;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];

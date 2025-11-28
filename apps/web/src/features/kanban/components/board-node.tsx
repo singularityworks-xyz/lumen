@@ -34,8 +34,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const bringBoardToFront = useKanbanStore(
       (state) => state.bringBoardToFront
     );
-    const setCreateTaskColumnId = useKanbanStore(
-      (state) => state.setCreateTaskColumnId
+    const openCreateTaskModal = useKanbanStore(
+      (state) => state.openCreateTaskModal
     );
     const interactionMode = useKanbanStore((state) => state.interactionMode);
     const selectedBoardIds = useKanbanStore((state) => state.selectedBoardIds);
@@ -252,7 +252,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       e.stopPropagation();
       const firstColumn = board?.columns?.[0];
       if (firstColumn) {
-        setCreateTaskColumnId(firstColumn.id);
+        openCreateTaskModal(firstColumn.id, boardId);
       }
     };
 

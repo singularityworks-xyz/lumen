@@ -10,6 +10,8 @@ import type {
   BoardPosition,
   CanvasState,
   Column,
+  CreateTaskModalFormData,
+  CreateTaskModalState,
   DenormalizedBoard,
   DenormalizedColumn,
   EntityMap,
@@ -21,6 +23,7 @@ import type {
 import {
   generateBoardId,
   generateColumnId,
+  generateId,
   generateTaskId,
   generateWorkspaceId,
 } from "./ids";
@@ -38,7 +41,7 @@ type KanbanState = {
   canvas: CanvasState;
   showCommandPalette: boolean;
   showMiniMap: boolean;
-  createTaskColumnId: string | null;
+  createTaskModals: Record<string, CreateTaskModalState>;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
@@ -108,7 +111,17 @@ type KanbanActions = {
   setFocusedBoard: (boardId: string | null) => void;
   setShowCommandPalette: (show: boolean) => void;
   setShowMiniMap: (show: boolean) => void;
-  setCreateTaskColumnId: (columnId: string | null) => void;
+  openCreateTaskModal: (columnId: string, boardId: string) => string;
+  closeCreateTaskModal: (modalId: string) => void;
+  updateModalPosition: (
+    modalId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateModalFormData: (
+    modalId: string,
+    formData: Partial<CreateTaskModalFormData>
+  ) => void;
+  bringModalToFront: (modalId: string) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setSelectedBoard: (boardId: string | null) => void;
   toggleBoardSelection: (boardId: string) => void;
@@ -164,7 +177,7 @@ function createInitialState(): KanbanState {
     },
     showCommandPalette: false,
     showMiniMap: false,
-    createTaskColumnId: null,
+    createTaskModals: {},
     interactionMode: "drag",
     selectedBoardId: null,
     selectedBoardIds: [],
@@ -767,9 +780,76 @@ const storeCreator: StateCreator<
       state.showMiniMap = show;
     }),
 
-  setCreateTaskColumnId: (columnId) =>
+  openCreateTaskModal: (columnId, boardId) => {
+    const modalId = generateId();
+    const existingModals = Object.values(get().createTaskModals);
+    const offset = existingModals.length * 30;
+    const boardPosition = get().boardPositions.byId[boardId];
+    const boardX = boardPosition?.x ?? 0;
+    const boardY = boardPosition?.y ?? 0;
+    const boardWidth = boardPosition?.width ?? 400;
+    const modalX = boardX + boardWidth + 20 + offset;
+    const modalY = boardY + offset;
+
+    const maxZIndex = existingModals.reduce(
+      (max, m) => Math.max(max, m.zIndex),
+      99
+    );
+
+    const modalState: CreateTaskModalState = {
+      id: modalId,
+      boardId,
+      columnId,
+      position: { x: modalX, y: modalY },
+      formData: {
+        title: "",
+        description: "",
+        priority: "medium",
+        progress: 0,
+        dueDate: "",
+        tags: "",
+      },
+      zIndex: maxZIndex + 1,
+    };
+
     set((state) => {
-      state.createTaskColumnId = columnId;
+      state.createTaskModals[modalId] = modalState;
+    });
+
+    return modalId;
+  },
+
+  closeCreateTaskModal: (modalId) =>
+    set((state) => {
+      delete state.createTaskModals[modalId];
+    }),
+
+  updateModalPosition: (modalId, position) =>
+    set((state) => {
+      const modal = state.createTaskModals[modalId];
+      if (modal) {
+        modal.position = position;
+      }
+    }),
+
+  updateModalFormData: (modalId, formData) =>
+    set((state) => {
+      const modal = state.createTaskModals[modalId];
+      if (modal) {
+        Object.assign(modal.formData, formData);
+      }
+    }),
+
+  bringModalToFront: (modalId) =>
+    set((state) => {
+      const modal = state.createTaskModals[modalId];
+      if (modal) {
+        const maxZIndex = Object.values(state.createTaskModals).reduce(
+          (max, m) => Math.max(max, m.zIndex),
+          99
+        );
+        modal.zIndex = maxZIndex + 1;
+      }
     }),
 
   setInteractionMode: (mode) =>
@@ -865,7 +945,6 @@ const storeCreator: StateCreator<
 const uiStateFields: (keyof KanbanState)[] = [
   "showCommandPalette",
   "showMiniMap",
-  "createTaskColumnId",
   "interactionMode",
   "selectedBoardId",
   "selectedBoardIds",
@@ -905,6 +984,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           boardPositions: state.boardPositions,
           currentWorkspaceId: state.currentWorkspaceId,
           canvas: state.canvas,
+          createTaskModals: state.createTaskModals,
         };
         return persisted;
       },

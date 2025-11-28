@@ -45,8 +45,8 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
   const updateColumn = useKanbanStore((state) => state.updateColumn);
   const deleteColumn = useKanbanStore((state) => state.deleteColumn);
-  const setCreateTaskColumnId = useKanbanStore(
-    (state) => state.setCreateTaskColumnId
+  const openCreateTaskModal = useKanbanStore(
+    (state) => state.openCreateTaskModal
   );
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const boards = useKanbanStore((state) => state.boards);
@@ -131,8 +131,8 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
   }, []);
 
   const handleAddTask = useCallback(() => {
-    setCreateTaskColumnId(column.id);
-  }, [column.id, setCreateTaskColumnId]);
+    openCreateTaskModal(column.id, boardId);
+  }, [column.id, boardId, openCreateTaskModal]);
 
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetBoardId, setTargetBoardId] = useState<string | null>(null);

@@ -15,7 +15,6 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { memo, useMemo } from "react";
-import { CreateTaskModal } from "../../../components/create-task-modal";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedBoard } from "../types";
 import { AddColumnPlaceholder } from "./add-column-placeholder";
@@ -42,10 +41,6 @@ export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
     return null;
   }, [board.columns, selectedTaskIds]);
 
-  const createColumnId = useKanbanStore((state) => state.createTaskColumnId);
-  const setCreateTaskColumnId = useKanbanStore(
-    (state) => state.setCreateTaskColumnId
-  );
   const moveColumn = useKanbanStore((state) => state.moveColumn);
 
   // Columns are already sorted in denormalized data
@@ -103,14 +98,6 @@ export const KanbanBoard = memo(({ board }: KanbanBoardProps) => {
 
       {selectedTask && (
         <TaskDetailModal boardId={board.id} task={selectedTask} />
-      )}
-
-      {createColumnId && (
-        <CreateTaskModal
-          boardId={board.id}
-          columnId={createColumnId}
-          onClose={() => setCreateTaskColumnId(null)}
-        />
       )}
     </div>
   );
