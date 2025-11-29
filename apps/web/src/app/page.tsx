@@ -2,13 +2,13 @@
 
 import { ReactFlowProvider } from "@xyflow/react";
 import { useEffect, useState } from "react";
+import { KanbanCanvas } from "@/src/components/core/canvas";
 import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { RightControls } from "@/src/components/right-controls";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
-import { KanbanCanvas } from "@/src/features/kanban/components/canvas";
-import { CanvasContextMenu } from "@/src/features/kanban/components/canvas-context-menu";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 
 export default function KanbanPage() {
   const [isReady, setIsReady] = useState(false);

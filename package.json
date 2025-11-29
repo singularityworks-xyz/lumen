@@ -6,7 +6,9 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "check": "turbo run check && pnpm dlx sherif@latest --fix .",
+    "check": "turbo run check && ",
+    "dep:check": "pnpm dlx sherif@latest --fix .",
+    "dep:up": "pnpm dlx taze major -w",
     "check:ci": "biome ci .",
     "check-types": "turbo run check-types",
     "db:start": "docker compose up -d postgres",
@@ -24,9 +26,6 @@
     "lint-staged": "^16.2.7",
     "turbo": "^2.6.1",
     "ultracite": "6.3.4"
-  },
-  "engines": {
-    "node": ">=24"
   },
   "packageManager": "pnpm@10.24.0",
   "lint-staged": {

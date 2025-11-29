@@ -13,21 +13,21 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
-import { CustomControls } from "../../../components/custom-controls";
-import { WelcomeScreen } from "../../../components/dialogs/welcome-screen";
-import { RightControls } from "../../../components/right-controls";
-import { WorkspaceSelector } from "../../../components/workspace-selector";
+import { nodeTypes } from "../../features/kanban/components/board-node";
+import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
 import {
   canRedo,
   canUndo,
   redo,
   undo,
   useKanbanStore,
-} from "../store/kanban-store";
-import { useShowWelcomeScreen } from "../store/selectors";
-import type { BoardNode } from "../types";
-import { nodeTypes } from "./board-node";
-import { BulkActionsBar } from "./bulk-actions-bar";
+} from "../../features/kanban/store/kanban-store";
+import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
+import type { BoardNode } from "../../features/kanban/types";
+import { CustomControls } from "../custom-controls";
+import { WelcomeScreen } from "../dialogs/welcome-screen";
+import { RightControls } from "../right-controls";
+import { WorkspaceSelector } from "../workspace-selector";
 
 type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;

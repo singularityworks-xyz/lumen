@@ -9,13 +9,13 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Slider } from "@/src/components/ui/slider";
 import { Textarea } from "@/src/components/ui/textarea";
+import {
+  type Column,
+  type CreateTaskModalState,
+  type Task,
+  useKanbanStore,
+} from "@/src/features/kanban";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import type {
-  Column,
-  CreateTaskModalState,
-  Task,
-} from "../../features/kanban/types";
 import {
   ScaledPopover,
   ScaledPopoverContent,
@@ -75,6 +75,7 @@ export const CreateTaskForm = memo(
     const [tagsInput, setTagsInput] = useState(formData.tags);
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
+    const [calendarOpen, setCalendarOpen] = useState(false);
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -237,7 +238,7 @@ export const CreateTaskForm = memo(
 
             <div className="space-y-2">
               <Label>Due Date</Label>
-              <ScaledPopover>
+              <ScaledPopover onOpenChange={setCalendarOpen} open={calendarOpen}>
                 <ScaledPopoverTrigger asChild>
                   <Button
                     className={cn(
@@ -253,43 +254,32 @@ export const CreateTaskForm = memo(
                 <ScaledPopoverContent
                   align="start"
                   className="w-auto p-0"
-                  onInteractOutside={(e) => e.preventDefault()}
-                  onPointerDownOutside={(e) => e.preventDefault()}
                   sideOffset={4}
                 >
-                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: Calendar wrapper needs click handler */}
-                  {/* biome-ignore lint/a11y/noStaticElementInteractions: Calendar wrapper needs event handlers */}
-                  {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Calendar wrapper needs event handlers */}
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <Calendar
-                      mode="single"
-                      onSelect={(date) => {
-                        setDueDate(date);
-                      }}
-                      selected={dueDate}
-                    />
-                    {dueDate && (
-                      <div className="border-t p-2">
-                        <Button
-                          className="w-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDueDate(undefined);
-                          }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          Clear date
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <Calendar
+                    mode="single"
+                    onSelect={(date) => {
+                      setDueDate(date);
+                      setCalendarOpen(false);
+                    }}
+                    selected={dueDate}
+                  />
+                  {dueDate && (
+                    <div className="border-t p-2">
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          setDueDate(undefined);
+                          setCalendarOpen(false);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Clear date
+                      </Button>
+                    </div>
+                  )}
                 </ScaledPopoverContent>
               </ScaledPopover>
             </div>

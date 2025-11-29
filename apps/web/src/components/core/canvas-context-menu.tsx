@@ -2,8 +2,7 @@
 
 import { Command, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
-import { useKanbanStore } from "../store/kanban-store";
-import { useShowWelcomeScreen } from "../store/selectors";
+import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
 
 type ContextMenuProps = {
   x: number;
