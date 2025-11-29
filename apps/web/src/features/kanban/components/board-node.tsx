@@ -44,8 +44,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
     const updateBoard = useKanbanStore((state) => state.updateBoard);
 
-    // Use stable primitive selectors to extract data
-    // This avoids infinite loop from creating new objects in selector
     const boardData = useKanbanStore(
       useShallow((state) => state.boards.byId[data.boardId] ?? null)
     );
@@ -54,7 +52,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
     const tasksMap = useKanbanStore(useShallow((state) => state.tasks.byId));
 
-    // Memoize the denormalization to create stable object references
     const board = useMemo((): DenormalizedBoard | null => {
       if (!boardData) {
         return null;
@@ -257,13 +254,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     };
 
     const handleWheel = (e: React.WheelEvent) => {
-      // If Ctrl/Meta is pressed, prevent browser zoom but allow canvas zoom
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        // Don't stop propagation - let it bubble up to ReactFlow for canvas zoom
         return;
       }
-      // For normal scrolling, stop propagation to prevent canvas pan
       e.stopPropagation();
     };
 
@@ -293,7 +287,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       setIsEditDialogOpen(false);
     };
 
-    // Don't render if board not found
     if (!board) {
       return null;
     }
@@ -471,6 +464,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
+import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
+
 export const nodeTypes = {
   board: BoardNodeComponent,
+  taskModal: TaskModalNodeComponent,
 };

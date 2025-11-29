@@ -15,11 +15,11 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { memo, useMemo } from "react";
+import { TaskDetailModal } from "@/src/components/tasks/task-detail-modal";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedBoard } from "../types";
 import { AddColumnPlaceholder } from "./add-column-placeholder";
 import { KanbanColumn } from "./kanban-column";
-import { TaskDetailModal } from "./task-detail-modal";
 
 type KanbanBoardProps = {
   board: DenormalizedBoard;

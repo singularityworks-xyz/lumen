@@ -10,8 +10,12 @@ import { Label } from "@/src/components/ui/label";
 import { Slider } from "@/src/components/ui/slider";
 import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../features/kanban/store/kanban-store";
-import type { CreateTaskModalState, Task } from "../features/kanban/types";
+import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import type {
+  Column,
+  CreateTaskModalState,
+  Task,
+} from "../../features/kanban/types";
 import {
   ScaledPopover,
   ScaledPopoverContent,
@@ -21,11 +25,14 @@ import {
   ScaledSelectItem,
   ScaledSelectTrigger,
   ScaledSelectValue,
-} from "./scaled-dropdown";
+} from "../scaled-dropdown";
 
 type CreateTaskFormProps = {
   modalId: string;
   modalState: CreateTaskModalState;
+  selectedBoardColumns: Column[];
+  selectedColumnId: string;
+  onColumnChange: (columnId: string) => void;
 };
 
 const PRIORITY_CONFIG = {
@@ -39,8 +46,14 @@ const PRIORITY_CONFIG = {
 } as const;
 
 export const CreateTaskForm = memo(
-  ({ modalId, modalState }: CreateTaskFormProps) => {
-    const { formData, boardId, columnId } = modalState;
+  ({
+    modalId,
+    modalState,
+    selectedBoardColumns,
+    selectedColumnId,
+    onColumnChange,
+  }: CreateTaskFormProps) => {
+    const { formData, boardId } = modalState;
 
     const addTask = useKanbanStore((state) => state.addTask);
     const updateModalFormData = useKanbanStore(
@@ -50,7 +63,6 @@ export const CreateTaskForm = memo(
       (state) => state.closeCreateTaskModal
     );
 
-    // Local state for immediate UI updates
     const [title, setTitle] = useState(formData.title);
     const [description, setDescription] = useState(formData.description);
     const [priority, setPriority] = useState<Task["priority"]>(
@@ -64,7 +76,6 @@ export const CreateTaskForm = memo(
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
 
-    // Debounced sync to store
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
     const syncToStore = useCallback(() => {
@@ -101,7 +112,6 @@ export const CreateTaskForm = memo(
       };
     }, [syncToStore]);
 
-    // Sync from store when modalState changes (e.g., after refresh)
     useEffect(() => {
       setTitle(formData.title);
       setDescription(formData.description);
@@ -127,7 +137,7 @@ export const CreateTaskForm = memo(
           .map((tag) => tag.trim())
           .filter(Boolean) || undefined;
 
-      addTask(columnId, boardId, title, {
+      addTask(selectedColumnId, boardId, title, {
         description,
         priority,
         progress,
@@ -148,7 +158,28 @@ export const CreateTaskForm = memo(
     return (
       <form className="flex h-full flex-col" onSubmit={handleSubmit}>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor={`task-column-${modalId}`}>Add to Column</Label>
+            <ScaledSelect
+              onValueChange={onColumnChange}
+              value={selectedColumnId}
+            >
+              <ScaledSelectTrigger
+                className="w-full"
+                id={`task-column-${modalId}`}
+              >
+                <ScaledSelectValue placeholder="Select column" />
+              </ScaledSelectTrigger>
+              <ScaledSelectContent position="popper" sideOffset={4}>
+                {selectedBoardColumns.map((col) => (
+                  <ScaledSelectItem key={col.id} value={col.id}>
+                    {col.name}
+                  </ScaledSelectItem>
+                ))}
+              </ScaledSelectContent>
+            </ScaledSelect>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor={`task-title-${modalId}`}>
               Task Title <span className="text-destructive">*</span>
@@ -156,7 +187,7 @@ export const CreateTaskForm = memo(
             <Input
               autoFocus
               className={cn(
-                "transition-all",
+                "rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
                 titleError && "border-destructive ring-2 ring-destructive/20",
                 isShaking && "animate-shake"
               )}
@@ -171,9 +202,7 @@ export const CreateTaskForm = memo(
             )}
           </div>
 
-          {/* Priority & Due Date Row */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Priority */}
             <div className="space-y-2">
               <Label htmlFor={`task-priority-${modalId}`}>Priority</Label>
               <ScaledSelect
@@ -206,7 +235,6 @@ export const CreateTaskForm = memo(
               </ScaledSelect>
             </div>
 
-            {/* Due Date */}
             <div className="space-y-2">
               <Label>Due Date</Label>
               <ScaledPopover>
@@ -225,33 +253,48 @@ export const CreateTaskForm = memo(
                 <ScaledPopoverContent
                   align="start"
                   className="w-auto p-0"
+                  onInteractOutside={(e) => e.preventDefault()}
+                  onPointerDownOutside={(e) => e.preventDefault()}
                   sideOffset={4}
                 >
-                  <Calendar
-                    initialFocus
-                    mode="single"
-                    onSelect={setDueDate}
-                    selected={dueDate}
-                  />
-                  {dueDate && (
-                    <div className="border-t p-2">
-                      <Button
-                        className="w-full"
-                        onClick={() => setDueDate(undefined)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Clear date
-                      </Button>
-                    </div>
-                  )}
+                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: Calendar wrapper needs click handler */}
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: Calendar wrapper needs event handlers */}
+                  {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Calendar wrapper needs event handlers */}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Calendar
+                      mode="single"
+                      onSelect={(date) => {
+                        setDueDate(date);
+                      }}
+                      selected={dueDate}
+                    />
+                    {dueDate && (
+                      <div className="border-t p-2">
+                        <Button
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDueDate(undefined);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Clear date
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </ScaledPopoverContent>
               </ScaledPopover>
             </div>
           </div>
 
-          {/* Progress */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Progress</Label>
@@ -281,7 +324,6 @@ export const CreateTaskForm = memo(
             </div>
           </div>
 
-          {/* Tags */}
           <div className="space-y-2">
             <Label
               className="flex items-center gap-1.5"
@@ -294,6 +336,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Input
+              className="rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="design, research, bug"
@@ -317,7 +360,6 @@ export const CreateTaskForm = memo(
             )}
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor={`task-description-${modalId}`}>
               Description
@@ -326,7 +368,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Textarea
-              className="min-h-20 resize-none"
+              className="min-h-20 resize-none rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add more details about this task..."
@@ -335,17 +377,19 @@ export const CreateTaskForm = memo(
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="flex gap-2 border-t bg-muted/30 p-4">
           <Button
-            className="flex-1"
+            className="flex-1 rounded-lg border-2 border-border/50 bg-secondary/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] transition-all hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive dark:bg-secondary/50 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] dark:hover:bg-destructive/20"
             onClick={() => closeCreateTaskModal(modalId)}
             type="button"
             variant="outline"
           >
             Cancel
           </Button>
-          <Button className="flex-1 font-semibold" type="submit">
+          <Button
+            className="flex-1 rounded-lg bg-primary font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-primary/90 dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+            type="submit"
+          >
             Create Task
           </Button>
         </div>

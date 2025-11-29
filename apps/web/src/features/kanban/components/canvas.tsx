@@ -11,12 +11,11 @@ import {
   SelectionMode,
   useNodesState,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { CustomControls } from "../../../components/custom-controls";
-import { DraggableTaskModal } from "../../../components/draggable-task-modal";
+import { WelcomeScreen } from "../../../components/dialogs/welcome-screen";
 import { RightControls } from "../../../components/right-controls";
-import { WelcomeScreen } from "../../../components/welcome-screen";
 import { WorkspaceSelector } from "../../../components/workspace-selector";
 import {
   canRedo,
@@ -26,44 +25,13 @@ import {
   useKanbanStore,
 } from "../store/kanban-store";
 import { useShowWelcomeScreen } from "../store/selectors";
-import type { BoardNode, CreateTaskModalState, ViewportState } from "../types";
+import type { BoardNode } from "../types";
 import { nodeTypes } from "./board-node";
 import { BulkActionsBar } from "./bulk-actions-bar";
 
 type KanbanNode = Node<BoardNode["data"]>;
-
-// Component to render modals as fixed overlays with screen-space positioning
-// This allows dropdowns/popovers to work correctly without scale issues
-function FixedModals({
-  modals,
-  viewport,
-}: {
-  modals: Record<string, CreateTaskModalState>;
-  viewport: ViewportState;
-}) {
-  if (Object.keys(modals).length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {Object.values(modals).map((modalState) => {
-        // Convert canvas position to screen position
-        const screenX = modalState.position.x * viewport.zoom + viewport.x;
-        const screenY = modalState.position.y * viewport.zoom + viewport.y;
-
-        return (
-          <DraggableTaskModal
-            key={modalState.id}
-            modalState={modalState}
-            screenPosition={{ x: screenX, y: screenY }}
-            zoom={viewport.zoom}
-          />
-        );
-      })}
-    </>
-  );
-}
+type TaskModalNode = Node<{ modalId: string }>;
+type CanvasNode = KanbanNode | TaskModalNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -88,12 +56,15 @@ export function KanbanCanvas() {
   const updateBoardDimensions = useKanbanStore(
     (state) => state.updateBoardDimensions
   );
+  const updateModalPosition = useKanbanStore(
+    (state) => state.updateModalPosition
+  );
   const selectedBoardId = useKanbanStore((state) => state.selectedBoardId);
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
   const showWelcomeScreen = useShowWelcomeScreen();
 
-  // Build nodes from normalized state
-  const nodes: KanbanNode[] = useMemo(() => {
+  // Build nodes from normalized state (boards + modal nodes)
+  const nodes: CanvasNode[] = useMemo(() => {
     // Get board IDs for current workspace
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
@@ -101,7 +72,7 @@ export function KanbanCanvas() {
 
     const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
 
-    return boardIds
+    const boardNodes: KanbanNode[] = boardIds
       .filter((boardId) => {
         const board = boards.byId[boardId];
         const position = boardPositions.byId[boardId];
@@ -134,13 +105,31 @@ export function KanbanCanvas() {
         return node;
       })
       .filter((node): node is KanbanNode => node !== null);
-  }, [boards, boardPositions, currentWorkspaceId, workspaces, selectedBoardId]);
+
+    // Create modal nodes
+    const modalNodes: TaskModalNode[] = Object.values(createTaskModals).map(
+      (modal) => ({
+        id: `modal-${modal.id}`,
+        type: "taskModal",
+        position: { x: modal.position.x, y: modal.position.y },
+        data: { modalId: modal.id },
+        style: { zIndex: 1000 + modal.zIndex },
+        draggable: true,
+      })
+    );
+
+    return [...boardNodes, ...modalNodes];
+  }, [
+    boards,
+    boardPositions,
+    currentWorkspaceId,
+    workspaces,
+    selectedBoardId,
+    createTaskModals,
+  ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const isUpdatingFromStore = useRef(false);
-
-  // Track viewport in real-time for modal positioning
-  const [liveViewport, setLiveViewport] = useState(canvas.viewport);
 
   const handleToggleMode = useCallback(
     (event: KeyboardEvent) => {
@@ -198,21 +187,32 @@ export function KanbanCanvas() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showWelcomeScreen, handleToggleMode, handleEscapeKey, handleUndoRedo]);
 
-  const handleNodesChange: OnNodesChange<KanbanNode> = useCallback(
+  const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
 
       // Sync position and dimension changes back to the store
       for (const change of changes) {
         if (change.type === "position" && change.position) {
-          updateBoardPosition(change.id, change.position);
+          // Check if it's a modal node (id starts with "modal-")
+          if (change.id.startsWith("modal-")) {
+            const modalId = change.id.replace("modal-", "");
+            updateModalPosition(modalId, change.position);
+          } else {
+            updateBoardPosition(change.id, change.position);
+          }
         }
         if (change.type === "dimensions" && change.dimensions) {
           updateBoardDimensions(change.id, change.dimensions);
         }
       }
     },
-    [onNodesChange, updateBoardPosition, updateBoardDimensions]
+    [
+      onNodesChange,
+      updateBoardPosition,
+      updateBoardDimensions,
+      updateModalPosition,
+    ]
   );
 
   const handleMoveEnd: OnMove = useCallback(
@@ -224,13 +224,6 @@ export function KanbanCanvas() {
     },
     [setViewport]
   );
-
-  // Update live viewport during pan/zoom for real-time modal positioning
-  const handleMove: OnMove = useCallback((_event, viewportState) => {
-    if (viewportState) {
-      setLiveViewport(viewportState);
-    }
-  }, []);
 
   // Sync nodes from store when they change
   useEffect(() => {
@@ -271,7 +264,6 @@ export function KanbanCanvas() {
         nodesConnectable={false}
         nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
         nodeTypes={nodeTypes}
-        onMove={handleMove}
         onMoveEnd={handleMoveEnd}
         onNodesChange={handleNodesChange}
         panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
@@ -308,8 +300,6 @@ export function KanbanCanvas() {
           />
         )}
       </ReactFlow>
-      {/* Create Task Modals - rendered as fixed overlays */}
-      <FixedModals modals={createTaskModals} viewport={liveViewport} />
       <WelcomeScreen />
       <WorkspaceSelector />
       <RightControls />

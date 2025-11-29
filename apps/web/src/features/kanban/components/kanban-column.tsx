@@ -4,6 +4,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { memo, useCallback, useMemo, useState } from "react";
+import { TaskCard } from "@/src/components/tasks/task-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,11 +17,10 @@ import {
 } from "@/src/components/ui/alert-dialog";
 import { Input } from "@/src/components/ui/input";
 import { ColumnContextMenu } from "../../../components/column-context-menu";
-import { DeleteColumnDialog } from "../../../components/delete-column-dialog";
-import { RenameColumnDialog } from "../../../components/rename-column-dialog";
+import { DeleteColumnDialog } from "../../../components/dialogs/delete-column-dialog";
+import { RenameColumnDialog } from "../../../components/dialogs/rename-column-dialog";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
-import { TaskCard } from "./task-card";
 
 type KanbanColumnProps = {
   column: DenormalizedColumn;

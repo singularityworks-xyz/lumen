@@ -85,7 +85,7 @@ function ScaledSelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   const { zIndex } = useModalScale();
-  const contentZIndex = 100 + zIndex + 1;
+  const contentZIndex = 1000 + zIndex + 10;
 
   return (
     <SelectPrimitive.Portal>
@@ -207,7 +207,7 @@ function ScaledSelectScrollDownButton({
 function ScaledPopover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+  return <PopoverPrimitive.Root data-slot="popover" modal {...props} />;
 }
 
 function ScaledPopoverTrigger({
@@ -220,10 +220,29 @@ function ScaledPopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  onPointerDown,
+  onClick,
+  onMouseDown,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   const { zIndex } = useModalScale();
-  const contentZIndex = 100 + zIndex + 1;
+  const contentZIndex = 1000 + zIndex + 10;
+
+  // Stop propagation to prevent React Flow from capturing events
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    onPointerDown?.(e);
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    onClick?.(e);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    onMouseDown?.(e);
+  };
 
   return (
     <PopoverPrimitive.Portal>
@@ -234,6 +253,9 @@ function ScaledPopoverContent({
           className
         )}
         data-slot="popover-content"
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         sideOffset={sideOffset}
         style={{ zIndex: contentZIndex }}
         {...props}

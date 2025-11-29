@@ -5,8 +5,11 @@ import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Checkbox } from "@/src/components/ui/checkbox";
 import { Input } from "@/src/components/ui/input";
-import { useKanbanStore } from "../store/kanban-store";
-import type { Checklist, Task } from "../types";
+import {
+  type Checklist,
+  type Task,
+  useKanbanStore,
+} from "@/src/features/kanban";
 
 type TaskDetailModalProps = {
   task: Task;

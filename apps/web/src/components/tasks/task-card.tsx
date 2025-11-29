@@ -4,8 +4,7 @@ import { Calendar, CheckSquare } from "lucide-react";
 import { memo } from "react";
 import { Badge } from "@/src/components/ui/badge";
 import { Checkbox } from "@/src/components/ui/checkbox";
-import { useKanbanStore } from "../store/kanban-store";
-import type { Task } from "../types";
+import { type Task, useKanbanStore } from "@/src/features/kanban";
 
 type TaskCardProps = {
   task: Task;
