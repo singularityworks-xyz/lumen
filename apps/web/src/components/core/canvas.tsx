@@ -63,9 +63,7 @@ export function KanbanCanvas() {
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
   const showWelcomeScreen = useShowWelcomeScreen();
 
-  // Build nodes from normalized state (boards + modal nodes)
   const nodes: CanvasNode[] = useMemo(() => {
-    // Get board IDs for current workspace
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
@@ -76,7 +74,6 @@ export function KanbanCanvas() {
       .filter((boardId) => {
         const board = boards.byId[boardId];
         const position = boardPositions.byId[boardId];
-        // Must have both board and position, and match workspace if set
         return (
           board &&
           position &&
@@ -85,7 +82,6 @@ export function KanbanCanvas() {
       })
       .map((boardId) => {
         const position = boardPositions.byId[boardId];
-        // position is guaranteed to exist by the filter above, but TypeScript doesn't know
         if (!position) {
           return null;
         }
@@ -106,7 +102,6 @@ export function KanbanCanvas() {
       })
       .filter((node): node is KanbanNode => node !== null);
 
-    // Create modal nodes
     const modalNodes: TaskModalNode[] = Object.values(createTaskModals).map(
       (modal) => ({
         id: `modal-${modal.id}`,
@@ -172,12 +167,23 @@ export function KanbanCanvas() {
   }, []);
 
   useEffect(() => {
-    // Don't register keyboard handlers when welcome screen is visible
     if (showWelcomeScreen) {
       return;
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const isEditableElement =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable;
+
+      if (isEditableElement) {
+        handleUndoRedo(event);
+        return;
+      }
+
       handleToggleMode(event);
       handleEscapeKey(event);
       handleUndoRedo(event);
@@ -191,10 +197,8 @@ export function KanbanCanvas() {
     (changes) => {
       onNodesChange(changes);
 
-      // Sync position and dimension changes back to the store
       for (const change of changes) {
         if (change.type === "position" && change.position) {
-          // Check if it's a modal node (id starts with "modal-")
           if (change.id.startsWith("modal-")) {
             const modalId = change.id.replace("modal-", "");
             updateModalPosition(modalId, change.position);
@@ -225,7 +229,6 @@ export function KanbanCanvas() {
     [setViewport]
   );
 
-  // Sync nodes from store when they change
   useEffect(() => {
     isUpdatingFromStore.current = true;
     setLocalNodes(nodes);

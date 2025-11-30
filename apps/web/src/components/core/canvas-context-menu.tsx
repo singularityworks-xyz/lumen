@@ -71,11 +71,9 @@ export const CanvasContextMenu = memo(() => {
 
   const handleContextMenu = useCallback(
     (e: MouseEvent) => {
-      // Don't show context menu when welcome screen is visible
       if (showWelcomeScreen) {
         return;
       }
-      // Check if the click is on the canvas background (not on a node)
       const target = e.target as HTMLElement;
       if (
         target.classList.contains("react-flow__pane") ||
