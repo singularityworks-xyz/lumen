@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { CalendarIcon, Tag } from "lucide-react";
+import { CalendarIcon, Info, Loader, Tag } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
@@ -168,7 +168,7 @@ export const CreateTaskForm = memo(
                 value={priority}
               >
                 <ScaledSelectTrigger
-                  className="w-full"
+                  className="w-full rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all hover:bg-zinc-200/80 focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] data-[state=open]:border-primary/50 data-[state=open]:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:data-[state=open]:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:hover:bg-zinc-700/80"
                   id={`task-priority-${modalId}`}
                 >
                   <ScaledSelectValue placeholder="Select priority" />
@@ -244,7 +244,10 @@ export const CreateTaskForm = memo(
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Progress</Label>
+              <Label>
+                <Loader className="h-3.5 w-3.5" />
+                Progress
+              </Label>
               <span
                 className={cn(
                   "rounded-full px-2.5 py-0.5 font-semibold text-xs",
@@ -259,9 +262,9 @@ export const CreateTaskForm = memo(
                 {progress}%
               </span>
             </div>
-            <div className="px-1">
+            <div className="rounded-md border border-border/30 bg-zinc-100/80 px-3 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
               <Slider
-                className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-2"
+                className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-zinc-900 **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-zinc-850 dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
                 onValueChange={([v]) => setProgress(v ?? 0)}
@@ -309,6 +312,7 @@ export const CreateTaskForm = memo(
 
           <div className="space-y-2">
             <Label htmlFor={`task-description-${modalId}`}>
+              <Info className="h-3.5 w-3.5" />
               Description
               <span className="ml-1 font-normal text-muted-foreground text-xs">
                 (Optional)
