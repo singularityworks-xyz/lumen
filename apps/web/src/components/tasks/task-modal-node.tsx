@@ -1,7 +1,7 @@
 "use client";
 
 import type { Node, NodeProps } from "@xyflow/react";
-import { GripHorizontal, X } from "lucide-react";
+import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import {
   ScaledSelect,
@@ -41,6 +41,8 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     );
     const columns = useKanbanStore((state) => state.columns);
     const boards = useKanbanStore((state) => state.boards);
+
+    const [isFocused, setIsFocused] = useState(false);
 
     const workspaceBoards = useMemo(() => {
       if (!modalBoardId) {
@@ -129,57 +131,81 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       // biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler
       <div
         className={cn(
-          "flex flex-col rounded-lg border-2 bg-card",
-          selected
-            ? "border-primary/30 shadow-xl ring-2 ring-primary/20"
-            : "border-border/50 shadow-lg",
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
+          selected || isFocused
+            ? "shadow-xl ring-2 ring-primary/50"
+            : "shadow-lg ring-1 ring-border/50",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setIsFocused(false);
+          }
+        }}
+        onFocus={() => setIsFocused(true)}
         onMouseDown={handleMouseDown}
         style={{
           width: MODAL_WIDTH,
         }}
       >
-        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/30 px-4 py-3">
+        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
-            <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm">New Task</span>
-              <ScaledSelect
-                onValueChange={handleBoardChange}
-                value={selectedBoardId}
-              >
-                <ScaledSelectTrigger
-                  className="nodrag h-6 w-auto min-w-0 gap-1 border border-border/50 bg-transparent px-2 py-0.5 text-xs shadow-none hover:bg-accent/50"
-                  size="sm"
-                >
-                  <ScaledSelectValue />
-                </ScaledSelectTrigger>
-                <ScaledSelectContent position="popper" sideOffset={4}>
-                  {workspaceBoards.map((board) => (
-                    <ScaledSelectItem key={board.id} value={board.id}>
-                      {board.name}
-                    </ScaledSelectItem>
-                  ))}
-                </ScaledSelectContent>
-              </ScaledSelect>
-            </div>
+            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="font-semibold text-xs">New Task</span>
           </div>
-          <button
-            className="nodrag rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => closeCreateTaskModal(data.modalId)}
-            type="button"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <ScaledSelect
+              onValueChange={handleBoardChange}
+              value={selectedBoardId}
+            >
+              <ScaledSelectTrigger
+                className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                size="sm"
+              >
+                <ScaledSelectValue />
+              </ScaledSelectTrigger>
+              <ScaledSelectContent position="popper" sideOffset={4}>
+                {workspaceBoards.map((board) => (
+                  <ScaledSelectItem key={board.id} value={board.id}>
+                    {board.name}
+                  </ScaledSelectItem>
+                ))}
+              </ScaledSelectContent>
+            </ScaledSelect>
+            {/* <span className="text-muted-foreground text-xs">/</span> */}
+            <EllipsisVertical className="size-4 text-muted-foreground" />
+            <ScaledSelect
+              onValueChange={setSelectedColumnId}
+              value={selectedColumnId}
+            >
+              <ScaledSelectTrigger
+                className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                size="sm"
+              >
+                <ScaledSelectValue placeholder="Column" />
+              </ScaledSelectTrigger>
+              <ScaledSelectContent position="popper" sideOffset={4}>
+                {selectedBoardColumns.map((col) => (
+                  <ScaledSelectItem key={col.id} value={col.id}>
+                    {col.name}
+                  </ScaledSelectItem>
+                ))}
+              </ScaledSelectContent>
+            </ScaledSelect>
+            <button
+              className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+              onClick={() => closeCreateTaskModal(data.modalId)}
+              type="button"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         </div>
 
         <div className="nodrag nowheel nopan">
           <CreateTaskForm
             modalId={data.modalId}
             modalState={updatedModalState}
-            onColumnChange={setSelectedColumnId}
-            selectedBoardColumns={selectedBoardColumns}
             selectedColumnId={selectedColumnId}
           />
         </div>

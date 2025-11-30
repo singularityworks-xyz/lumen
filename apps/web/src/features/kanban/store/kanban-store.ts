@@ -14,6 +14,8 @@ import type {
   CreateTaskModalState,
   DenormalizedBoard,
   DenormalizedColumn,
+  EditBoardModalFormData,
+  EditBoardModalState,
   EntityMap,
   InteractionMode,
   Task,
@@ -42,6 +44,7 @@ type KanbanState = {
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskModals: Record<string, CreateTaskModalState>;
+  editBoardModals: Record<string, EditBoardModalState>;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
@@ -111,7 +114,11 @@ type KanbanActions = {
   setFocusedBoard: (boardId: string | null) => void;
   setShowCommandPalette: (show: boolean) => void;
   setShowMiniMap: (show: boolean) => void;
-  openCreateTaskModal: (columnId: string, boardId: string) => string;
+  openCreateTaskModal: (
+    columnId: string,
+    boardId: string,
+    position?: { x: number; y: number }
+  ) => { id: string; position: { x: number; y: number }; isExisting: boolean };
   closeCreateTaskModal: (modalId: string) => void;
   updateModalPosition: (
     modalId: string,
@@ -122,6 +129,24 @@ type KanbanActions = {
     formData: Partial<CreateTaskModalFormData>
   ) => void;
   bringModalToFront: (modalId: string) => void;
+  openEditBoardModal: (
+    boardId: string,
+    position?: { x: number; y: number }
+  ) => {
+    id: string;
+    position: { x: number; y: number };
+    isExisting: boolean;
+  };
+  closeEditBoardModal: (modalId: string) => void;
+  updateEditBoardModalPosition: (
+    modalId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateEditBoardModalFormData: (
+    modalId: string,
+    formData: Partial<EditBoardModalFormData>
+  ) => void;
+  bringEditBoardModalToFront: (modalId: string) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setSelectedBoard: (boardId: string | null) => void;
   toggleBoardSelection: (boardId: string) => void;
@@ -178,6 +203,7 @@ function createInitialState(): KanbanState {
     showCommandPalette: false,
     showMiniMap: false,
     createTaskModals: {},
+    editBoardModals: {},
     interactionMode: "drag",
     selectedBoardId: null,
     selectedBoardIds: [],
@@ -780,16 +806,40 @@ const storeCreator: StateCreator<
       state.showMiniMap = show;
     }),
 
-  openCreateTaskModal: (columnId, boardId) => {
-    const modalId = generateId();
+  openCreateTaskModal: (columnId, boardId, position) => {
     const existingModals = Object.values(get().createTaskModals);
-    const offset = existingModals.length * 30;
-    const boardPosition = get().boardPositions.byId[boardId];
-    const boardX = boardPosition?.x ?? 0;
-    const boardY = boardPosition?.y ?? 0;
-    const boardWidth = boardPosition?.width ?? 400;
-    const modalX = boardX + boardWidth + 20 + offset;
-    const modalY = boardY + offset;
+
+    // Check if a task modal already exists for this board
+    const existingModalForBoard = existingModals.find(
+      (m) => m.boardId === boardId
+    );
+    if (existingModalForBoard) {
+      // Bring existing modal to front instead of creating a new one
+      get().bringModalToFront(existingModalForBoard.id);
+      return {
+        id: existingModalForBoard.id,
+        position: existingModalForBoard.position,
+        isExisting: true,
+      };
+    }
+
+    const modalId = generateId();
+
+    // Use provided position (button location) or fall back to board-relative position
+    let modalX: number;
+    let modalY: number;
+    if (position) {
+      modalX = position.x;
+      modalY = position.y;
+    } else {
+      const offset = existingModals.length * 30;
+      const boardPosition = get().boardPositions.byId[boardId];
+      const boardX = boardPosition?.x ?? 0;
+      const boardY = boardPosition?.y ?? 0;
+      const boardWidth = boardPosition?.width ?? 400;
+      modalX = boardX + boardWidth + 20 + offset;
+      modalY = boardY + offset;
+    }
 
     const maxZIndex = existingModals.reduce(
       (max, m) => Math.max(max, m.zIndex),
@@ -816,7 +866,11 @@ const storeCreator: StateCreator<
       state.createTaskModals[modalId] = modalState;
     });
 
-    return modalId;
+    return {
+      id: modalId,
+      position: modalState.position,
+      isExisting: false,
+    };
   },
 
   closeCreateTaskModal: (modalId) =>
@@ -845,6 +899,102 @@ const storeCreator: StateCreator<
       const modal = state.createTaskModals[modalId];
       if (modal) {
         const maxZIndex = Object.values(state.createTaskModals).reduce(
+          (max, m) => Math.max(max, m.zIndex),
+          99
+        );
+        modal.zIndex = maxZIndex + 1;
+      }
+    }),
+
+  openEditBoardModal: (boardId, position) => {
+    const existingModals = Object.values(get().editBoardModals);
+
+    // Check if an edit modal already exists for this board
+    const existingModalForBoard = existingModals.find(
+      (m) => m.boardId === boardId
+    );
+    if (existingModalForBoard) {
+      // Bring existing modal to front instead of creating a new one
+      get().bringEditBoardModalToFront(existingModalForBoard.id);
+      return {
+        id: existingModalForBoard.id,
+        position: existingModalForBoard.position,
+        isExisting: true,
+      };
+    }
+
+    const modalId = generateId();
+    const board = get().boards.byId[boardId];
+
+    // Use provided position (button location) or fall back to board-relative position
+    let modalX: number;
+    let modalY: number;
+    if (position) {
+      modalX = position.x;
+      modalY = position.y;
+    } else {
+      const offset = existingModals.length * 30;
+      const boardPosition = get().boardPositions.byId[boardId];
+      const boardX = boardPosition?.x ?? 0;
+      const boardY = boardPosition?.y ?? 0;
+      const boardWidth = boardPosition?.width ?? 400;
+      modalX = boardX + boardWidth + 20 + offset;
+      modalY = boardY + offset;
+    }
+
+    const maxZIndex = existingModals.reduce(
+      (max, m) => Math.max(max, m.zIndex),
+      99
+    );
+
+    const modalState: EditBoardModalState = {
+      id: modalId,
+      boardId,
+      position: { x: modalX, y: modalY },
+      formData: {
+        name: board?.name ?? "",
+        description: board?.description ?? "",
+      },
+      zIndex: maxZIndex + 1,
+    };
+
+    set((state) => {
+      state.editBoardModals[modalId] = modalState;
+    });
+
+    return {
+      id: modalId,
+      position: modalState.position,
+      isExisting: false,
+    };
+  },
+
+  closeEditBoardModal: (modalId) =>
+    set((state) => {
+      delete state.editBoardModals[modalId];
+    }),
+
+  updateEditBoardModalPosition: (modalId, position) =>
+    set((state) => {
+      const modal = state.editBoardModals[modalId];
+      if (modal) {
+        modal.position = position;
+      }
+    }),
+
+  updateEditBoardModalFormData: (modalId, formData) =>
+    set((state) => {
+      const modal = state.editBoardModals[modalId];
+      if (modal) {
+        Object.assign(modal.formData, formData);
+      }
+    }),
+
+  bringEditBoardModalToFront: (modalId) =>
+    set((state) => {
+      const modal = state.editBoardModals[modalId];
+      if (modal) {
+        const maxZIndex = Object.values(state.editBoardModals).reduce(
           (max, m) => Math.max(max, m.zIndex),
           99
         );
@@ -985,6 +1135,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           currentWorkspaceId: state.currentWorkspaceId,
           canvas: state.canvas,
           createTaskModals: state.createTaskModals,
+          editBoardModals: state.editBoardModals,
         };
         return persisted;
       },

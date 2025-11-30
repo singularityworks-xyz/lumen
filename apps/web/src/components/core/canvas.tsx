@@ -32,7 +32,8 @@ import { WorkspaceSelector } from "../workspace-selector";
 
 type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
-type CanvasNode = KanbanNode | TaskModalNode;
+type EditBoardModalNode = Node<{ modalId: string }>;
+type CanvasNode = KanbanNode | TaskModalNode | EditBoardModalNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -68,6 +69,14 @@ export function KanbanCanvas() {
   // Get the full createTaskModals to access position data in useMemo
   // This won't cause re-renders by itself since we use modalIds for the dependency
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
+  // Get edit board modal IDs
+  const editBoardModalIds = useKanbanStore(
+    useShallow((state) => Object.keys(state.editBoardModals))
+  );
+  const editBoardModals = useKanbanStore((state) => state.editBoardModals);
+  const updateEditBoardModalPosition = useKanbanStore(
+    (state) => state.updateEditBoardModalPosition
+  );
   const showWelcomeScreen = useShowWelcomeScreen();
 
   const nodes: CanvasNode[] = useMemo(() => {
@@ -127,7 +136,25 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskModalNode => node !== null);
 
-    return [...boardNodes, ...modalNodes];
+    const editBoardModalNodes: EditBoardModalNode[] = editBoardModalIds
+      .map((id) => {
+        const modal = editBoardModals[id];
+        if (!modal) {
+          return null;
+        }
+        const node: EditBoardModalNode = {
+          id: `edit-board-modal-${modal.id}`,
+          type: "editBoardModal",
+          position: { x: modal.position.x, y: modal.position.y },
+          data: { modalId: modal.id },
+          style: { zIndex: 1000 + modal.zIndex },
+          draggable: true,
+        };
+        return node;
+      })
+      .filter((node): node is EditBoardModalNode => node !== null);
+
+    return [...boardNodes, ...modalNodes, ...editBoardModalNodes];
   }, [
     boards,
     boardPositions,
@@ -136,6 +163,8 @@ export function KanbanCanvas() {
     selectedBoardId,
     modalIds,
     createTaskModals,
+    editBoardModalIds,
+    editBoardModals,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -217,6 +246,9 @@ export function KanbanCanvas() {
           if (change.id.startsWith("modal-")) {
             const modalId = change.id.replace("modal-", "");
             updateModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("edit-board-modal-")) {
+            const modalId = change.id.replace("edit-board-modal-", "");
+            updateEditBoardModalPosition(modalId, change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -231,6 +263,7 @@ export function KanbanCanvas() {
       updateBoardPosition,
       updateBoardDimensions,
       updateModalPosition,
+      updateEditBoardModalPosition,
     ]
   );
 

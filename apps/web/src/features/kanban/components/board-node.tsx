@@ -2,19 +2,10 @@
 
 import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
-import { GripVertical, Plus, X } from "lucide-react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { GripVertical, Pencil, Plus, X } from "lucide-react";
+import { memo, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/src/components/ui/dialog";
-import { Input } from "@/src/components/ui/input";
-import { Textarea } from "@/src/components/ui/textarea";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
   BoardNode,
@@ -42,7 +33,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const toggleBoardSelection = useKanbanStore(
       (state) => state.toggleBoardSelection
     );
-    const updateBoard = useKanbanStore((state) => state.updateBoard);
+    const openEditBoardModal = useKanbanStore(
+      (state) => state.openEditBoardModal
+    );
 
     const boardData = useKanbanStore(
       useShallow((state) => state.boards.byId[data.boardId] ?? null)
@@ -91,15 +84,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [boardData, columnsMap, tasksMap]);
 
-    const { getNode, setNodes } = useReactFlow();
+    const { getNode, setNodes, setCenter, screenToFlowPosition } =
+      useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
-
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [editedName, setEditedName] = useState(board?.name ?? "");
-    const [editedDescription, setEditedDescription] = useState(
-      board?.description ?? ""
-    );
 
     const isMultiSelected = selectedBoardIds.includes(id);
 
@@ -249,7 +237,24 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       e.stopPropagation();
       const firstColumn = board?.columns?.[0];
       if (firstColumn) {
-        openCreateTaskModal(firstColumn.id, boardId);
+        // Convert button's screen position to canvas coordinates
+        const buttonPosition = screenToFlowPosition({
+          x: e.clientX,
+          y: e.clientY,
+        });
+        const result = openCreateTaskModal(
+          firstColumn.id,
+          boardId,
+          buttonPosition
+        );
+        // If modal already existed, smoothly pan camera to center it
+        if (result.isExisting) {
+          // Add half modal dimensions to center it (modal is ~400x300)
+          setCenter(result.position.x + 200, result.position.y + 150, {
+            duration: 500,
+            zoom: 1,
+          });
+        }
       }
     };
 
@@ -275,16 +280,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      setEditedName(board?.name ?? "");
-      setEditedDescription(board?.description ?? "");
-      setIsEditDialogOpen(true);
-    };
-
-    const handleSaveEdit = () => {
-      const name = editedName.trim() || "Untitled Board";
-      const description = editedDescription.trim() || undefined;
-      updateBoard(boardId, { name, description });
-      setIsEditDialogOpen(false);
+      // Convert button's screen position to canvas coordinates
+      const buttonPosition = screenToFlowPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+      const result = openEditBoardModal(boardId, buttonPosition);
+      // If modal already existed, smoothly pan camera to center it
+      if (result.isExisting) {
+        // Add half modal dimensions to center it (modal is ~400x250)
+        setCenter(result.position.x + 200, result.position.y + 125, {
+          duration: 500,
+          zoom: 1,
+        });
+      }
     };
 
     if (!board) {
@@ -353,26 +362,28 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           role="button"
           tabIndex={0}
         >
-          <div className="flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-zinc-800/95">
+          <div className="group flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-zinc-800/95">
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1">
+                <h3 className="truncate font-semibold text-foreground text-xs">
+                  {board.name}
+                </h3>
                 <button
-                  className="w-full text-left"
+                  className="nodrag flex h-4 w-4 shrink-0 items-center justify-center rounded opacity-0 transition-all hover:bg-accent group-hover:opacity-100"
                   onClick={handleOpenEdit}
+                  title="Edit board"
                   type="button"
                 >
-                  <h3 className="truncate font-semibold text-foreground text-xs">
-                    {board.name}
-                  </h3>
-                  {board.description && (
-                    <p className="truncate text-[10px] text-muted-foreground">
-                      {board.description}
-                    </p>
-                  )}
+                  <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
                 </button>
               </div>
             </div>
+            {board.description && (
+              <p className="mr-2 hidden truncate text-[10px] text-muted-foreground md:block">
+                {board.description}
+              </p>
+            )}
             <div className="flex items-center gap-1.5">
               <Button
                 className="nodrag h-6 gap-1 rounded-full bg-primary/90 px-2.5 text-primary-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.4)]"
@@ -383,14 +394,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 <Plus className="h-3 w-3" />
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
-              <Button
-                className="nodrag h-5 w-5 shrink-0 rounded-full bg-card/50 p-0.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-destructive/20 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
+              <button
+                className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
                 onClick={handleRemove}
-                size="sm"
-                variant="ghost"
+                type="button"
               >
                 <X className="h-3 w-3" />
-              </Button>
+              </button>
             </div>
           </div>
 
@@ -410,53 +420,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             <KanbanBoard board={board} />
           </div>
         </div>
-
-        <Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Board</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label
-                  className="font-medium text-card-foreground text-sm"
-                  htmlFor="board-name"
-                >
-                  Name
-                </label>
-                <Input
-                  id="board-name"
-                  onChange={(e) => setEditedName(e.target.value)}
-                  value={editedName}
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  className="font-medium text-card-foreground text-sm"
-                  htmlFor="board-description"
-                >
-                  Description
-                </label>
-                <Textarea
-                  id="board-description"
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  placeholder="Add a short description..."
-                  rows={3}
-                  value={editedDescription}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => setIsEditDialogOpen(false)}
-                variant="outline"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit}>Save</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </>
     );
   }
@@ -465,8 +428,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 BoardNodeComponent.displayName = "BoardNode";
 
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
+import { EditBoardModalNodeComponent } from "./edit-board-modal-node";
 
 export const nodeTypes = {
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
+  editBoardModal: EditBoardModalNodeComponent,
 };

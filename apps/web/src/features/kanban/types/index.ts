@@ -105,6 +105,19 @@ export type CreateTaskModalState = {
   zIndex: number;
 };
 
+export type EditBoardModalFormData = {
+  name: string;
+  description: string;
+};
+
+export type EditBoardModalState = {
+  id: string;
+  boardId: string;
+  position: { x: number; y: number };
+  formData: EditBoardModalFormData;
+  zIndex: number;
+};
+
 export type UIState = {
   showCommandPalette: boolean;
   showMiniMap: boolean;

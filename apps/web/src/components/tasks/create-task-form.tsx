@@ -10,7 +10,6 @@ import { Label } from "@/src/components/ui/label";
 import { Slider } from "@/src/components/ui/slider";
 import { Textarea } from "@/src/components/ui/textarea";
 import {
-  type Column,
   type CreateTaskModalState,
   type Task,
   useKanbanStore,
@@ -30,9 +29,7 @@ import {
 type CreateTaskFormProps = {
   modalId: string;
   modalState: CreateTaskModalState;
-  selectedBoardColumns: Column[];
   selectedColumnId: string;
-  onColumnChange: (columnId: string) => void;
 };
 
 const PRIORITY_CONFIG = {
@@ -46,13 +43,7 @@ const PRIORITY_CONFIG = {
 } as const;
 
 export const CreateTaskForm = memo(
-  ({
-    modalId,
-    modalState,
-    selectedBoardColumns,
-    selectedColumnId,
-    onColumnChange,
-  }: CreateTaskFormProps) => {
+  ({ modalId, modalState, selectedColumnId }: CreateTaskFormProps) => {
     const { formData, boardId } = modalState;
 
     const addTask = useKanbanStore((state) => state.addTask);
@@ -148,35 +139,13 @@ export const CreateTaskForm = memo(
       <form className="flex h-full flex-col" onSubmit={handleSubmit}>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           <div className="space-y-2">
-            <Label htmlFor={`task-column-${modalId}`}>Add to Column</Label>
-            <ScaledSelect
-              onValueChange={onColumnChange}
-              value={selectedColumnId}
-            >
-              <ScaledSelectTrigger
-                className="w-full"
-                id={`task-column-${modalId}`}
-              >
-                <ScaledSelectValue placeholder="Select column" />
-              </ScaledSelectTrigger>
-              <ScaledSelectContent position="popper" sideOffset={4}>
-                {selectedBoardColumns.map((col) => (
-                  <ScaledSelectItem key={col.id} value={col.id}>
-                    {col.name}
-                  </ScaledSelectItem>
-                ))}
-              </ScaledSelectContent>
-            </ScaledSelect>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor={`task-title-${modalId}`}>
               Task Title <span className="text-destructive">*</span>
             </Label>
             <Input
               autoFocus
               className={cn(
-                "rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
+                "rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
                 titleError && "border-destructive ring-2 ring-destructive/20",
                 isShaking && "animate-shake"
               )}
@@ -230,10 +199,10 @@ export const CreateTaskForm = memo(
                 <ScaledPopoverTrigger asChild>
                   <Button
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start rounded-lg border border-border/30 bg-zinc-100/80 text-left font-normal shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] hover:bg-zinc-200/80 dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-zinc-700/80",
                       !dueDate && "text-muted-foreground"
                     )}
-                    variant="outline"
+                    variant="ghost"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dueDate ? format(dueDate, "PPP") : "Pick a date"}
@@ -314,7 +283,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Input
-              className="rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+              className="rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="design, research, bug"
@@ -346,7 +315,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Textarea
-              className="min-h-20 resize-none rounded-lg border-2 border-border/50 bg-background/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-input/50 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+              className="min-h-20 resize-none rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add more details about this task..."
@@ -355,17 +324,17 @@ export const CreateTaskForm = memo(
           </div>
         </div>
 
-        <div className="flex gap-2 border-t bg-muted/30 p-4">
+        <div className="flex gap-2 border-t bg-zinc-50/95 px-3 py-2 dark:bg-zinc-900/95">
           <Button
-            className="flex-1 rounded-lg border-2 border-border/50 bg-secondary/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] transition-all hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive dark:bg-secondary/50 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] dark:hover:bg-destructive/20"
+            className="h-7 flex-1 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
             onClick={() => closeCreateTaskModal(modalId)}
             type="button"
-            variant="outline"
+            variant="ghost"
           >
             Cancel
           </Button>
           <Button
-            className="flex-1 rounded-lg bg-primary font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-primary/90 dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+            className="h-7 flex-1 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
             type="submit"
           >
             Create Task
