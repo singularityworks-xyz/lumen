@@ -131,7 +131,7 @@ export const EditBoardModalNodeComponent = memo<EditBoardModalNodeProps>(
         style={{ width: MODAL_WIDTH }}
       >
         {/* Draggable Header */}
-        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-semibold text-xs">Edit Board</span>
@@ -182,7 +182,7 @@ export const EditBoardModalNodeComponent = memo<EditBoardModalNodeProps>(
               />
             </div>
           </div>
-          <div className="flex gap-2 border-t bg-zinc-50/95 px-3 py-2 dark:bg-zinc-900/95">
+          <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
             <Button
               className="h-7 flex-1 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
               onClick={handleClose}

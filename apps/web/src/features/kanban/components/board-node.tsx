@@ -362,7 +362,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           role="button"
           tabIndex={0}
         >
-          <div className="group flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-zinc-50/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-zinc-100/95 dark:bg-zinc-900/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-zinc-800/95">
+          <div className="group flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary">
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 items-center gap-1">

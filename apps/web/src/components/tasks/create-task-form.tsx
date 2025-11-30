@@ -148,7 +148,7 @@ export const CreateTaskForm = memo(
             <Input
               autoFocus
               className={cn(
-                "rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
+                "rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
                 titleError && "border-destructive ring-2 ring-destructive/20",
                 isShaking && "animate-shake"
               )}
@@ -171,7 +171,7 @@ export const CreateTaskForm = memo(
                 value={priority}
               >
                 <ScaledSelectTrigger
-                  className="w-full rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all hover:bg-zinc-200/80 focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] data-[state=open]:border-primary/50 data-[state=open]:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:data-[state=open]:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:hover:bg-zinc-700/80"
+                  className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all hover:bg-muted focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] data-[state=open]:border-primary/50 data-[state=open]:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:data-[state=open]:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:hover:bg-muted"
                   id={`task-priority-${modalId}`}
                 >
                   <ScaledSelectValue placeholder="Select priority" />
@@ -202,7 +202,7 @@ export const CreateTaskForm = memo(
                 <ScaledPopoverTrigger asChild>
                   <Button
                     className={cn(
-                      "w-full justify-start rounded-lg border border-border/30 bg-zinc-100/80 text-left font-normal shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] hover:bg-zinc-200/80 dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-zinc-700/80",
+                      "w-full justify-start rounded-lg border border-border/30 bg-muted/80 text-left font-normal shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] hover:bg-muted dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-muted",
                       !dueDate && "text-muted-foreground"
                     )}
                     variant="ghost"
@@ -265,9 +265,9 @@ export const CreateTaskForm = memo(
                 {progress}%
               </span>
             </div>
-            <div className="rounded-md border border-border/30 bg-zinc-100/80 px-3 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
+            <div className="rounded-md border border-border/30 bg-muted/80 px-3 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
               <Slider
-                className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-zinc-900 **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-zinc-850 dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
+                className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
                 onValueChange={([v]) => setProgress(v ?? 0)}
@@ -289,7 +289,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Input
-              className="rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+              className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="design, research, bug"
@@ -322,7 +322,7 @@ export const CreateTaskForm = memo(
               </span>
             </Label>
             <Textarea
-              className="min-h-20 resize-none rounded-lg border border-border/30 bg-zinc-100/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-zinc-800/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+              className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add more details about this task..."
@@ -331,7 +331,7 @@ export const CreateTaskForm = memo(
           </div>
         </div>
 
-        <div className="flex gap-2 border-t bg-zinc-50/95 px-3 py-2 dark:bg-zinc-900/95">
+        <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
           <Button
             className="h-7 flex-1 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
             onClick={() => closeCreateTaskModal(modalId)}

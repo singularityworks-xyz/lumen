@@ -225,7 +225,7 @@ export const KanbanColumn = memo(({ column, boardId }: KanbanColumnProps) => {
     >
       {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
       <div
-        className="cursor-grab bg-zinc-100/90 px-2.5 py-2 active:cursor-grabbing dark:bg-zinc-800/90"
+        className="cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"
         onContextMenu={handleHeaderContextMenu}
         {...attributes}
         {...listeners}
