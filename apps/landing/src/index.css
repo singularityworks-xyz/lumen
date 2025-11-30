@@ -1,10 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+  /* Font families */
+  --font-mono: "Noto Sans Mono", monospace;
+  --font-sans: "Manrope", sans-serif;
+
+  /* Custom animations */
+  --animate-slide-up: slideUp 1s linear forwards;
+  --animate-marquee: marquee 25s linear infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes slideUp {
+    0% {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+}
+
 body {
   background-color: #171717;
   color: #d4d4d8;
 }
-
 .bg-grid {
   background-size: 40px 40px;
   background-image:
