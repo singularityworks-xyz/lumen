@@ -4,9 +4,54 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="/vite.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>landing</title>
+    <title>Lumen | Singularity Works</title>
+    <!-- biome-ignore lint/nursery/noSyncScripts: TODO: refactor -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Noto+Sans+Mono:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    >
+    <script>
+    "use strict";
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"Noto Sans Mono"', "monospace"],
+            sans: ['"Manrope"', "sans-serif"],
+          },
+          colors: {
+            neutral: {
+              900: "#171717",
+            },
+            zinc: {
+              800: "#27272a",
+              900: "#18181b",
+            },
+          },
+          animation: {
+            "slide-up": "slideUp 1s linear forwards",
+            marquee: "marquee 25s linear infinite",
+            "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+          },
+          keyframes: {
+            slideUp: {
+              "0%": { transform: "translateY(40px)", opacity: "0" },
+              "100%": { transform: "translateY(0)", opacity: "1" },
+            },
+            marquee: {
+              "0%": { transform: "translateX(0%)" },
+              "100%": { transform: "translateX(-100%)" },
+            },
+          },
+        },
+      },
+    };
+    </script>
   </head>
-  <body>
+  <body class="antialiased overflow-x-hidden min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
