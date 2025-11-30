@@ -1,4 +1,4 @@
-import { Cloud, Phone, Shield, X } from "lucide-react";
+import { Cloud, Monitor, Shield, X } from "lucide-react";
 import { motion } from "motion/react";
 import React from "react";
 
@@ -139,7 +139,7 @@ export const OfflineAnimation = () => (
 
     <div className="relative z-20">
       <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700 bg-[#171717] shadow-2xl">
-        <Phone className="h-6 w-6 text-zinc-400" />{" "}
+        <Monitor className="h-6 w-6 text-zinc-400" />{" "}
         <motion.div
           animate={{ scale: [0, 1, 1, 0] }}
           className="-right-1 -top-1 absolute h-3 w-3 rounded-full border-2 border-[#171717] bg-emerald-500"

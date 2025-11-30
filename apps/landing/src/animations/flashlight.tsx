@@ -44,7 +44,7 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
 
   return (
     <div
-      className={`flashlight-card group relative h-auto overflow-hidden rounded-xl border border-zinc-800 bg-neutral-900 shadow-lg transition-shadow duration-300 ${className} ${horizontal ? "min-h-88 md:min-h-72" : "flex min-h-88 flex-col justify-between p-6"}`}
+      className={`flashlight-card group relative h-auto overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-lg transition-shadow duration-300 ${className} ${horizontal ? "min-h-88 md:min-h-72" : "flex min-h-88 flex-col justify-between p-6"}`}
       ref={cardRef}
     >
       <style>{`
