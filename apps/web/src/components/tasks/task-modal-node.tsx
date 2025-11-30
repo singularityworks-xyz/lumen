@@ -24,7 +24,15 @@ const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
   ({ data, selected }) => {
-    const createTaskModals = useKanbanStore((state) => state.createTaskModals);
+    const modalFormData = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.formData
+    );
+    const modalBoardId = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.boardId
+    );
+    const modalColumnId = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.columnId
+    );
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
     );
@@ -34,13 +42,11 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const columns = useKanbanStore((state) => state.columns);
     const boards = useKanbanStore((state) => state.boards);
 
-    const modalState = createTaskModals[data.modalId];
-
     const workspaceBoards = useMemo(() => {
-      if (!modalState) {
+      if (!modalBoardId) {
         return [];
       }
-      const currentBoard = boards.byId[modalState.boardId];
+      const currentBoard = boards.byId[modalBoardId];
       if (!currentBoard) {
         return [];
       }
@@ -52,13 +58,11 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           (board): board is NonNullable<typeof board> =>
             board !== undefined && board.workspace_id === workspaceId
         );
-    }, [boards, modalState]);
+    }, [boards, modalBoardId]);
 
-    const [selectedBoardId, setSelectedBoardId] = useState(
-      modalState?.boardId ?? ""
-    );
+    const [selectedBoardId, setSelectedBoardId] = useState(modalBoardId ?? "");
     const [selectedColumnId, setSelectedColumnId] = useState(
-      modalState?.columnId ?? ""
+      modalColumnId ?? ""
     );
 
     const selectedBoardColumns = useMemo(() => {
@@ -90,15 +94,31 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     }, [data.modalId, bringModalToFront]);
 
     const updatedModalState = useMemo(() => {
-      if (!modalState) {
+      if (!modalFormData) {
+        return null;
+      }
+      if (!modalBoardId) {
+        return null;
+      }
+      if (!modalColumnId) {
         return null;
       }
       return {
-        ...modalState,
+        id: data.modalId,
         boardId: selectedBoardId,
         columnId: selectedColumnId,
+        formData: modalFormData,
+        position: { x: 0, y: 0 },
+        zIndex: 0,
       };
-    }, [modalState, selectedBoardId, selectedColumnId]);
+    }, [
+      data.modalId,
+      modalFormData,
+      modalBoardId,
+      modalColumnId,
+      selectedBoardId,
+      selectedColumnId,
+    ]);
 
     if (!updatedModalState) {
       return null;

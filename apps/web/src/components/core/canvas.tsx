@@ -12,6 +12,7 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useShallow } from "zustand/shallow";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "../../features/kanban/components/board-node";
 import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
@@ -60,6 +61,12 @@ export function KanbanCanvas() {
     (state) => state.updateModalPosition
   );
   const selectedBoardId = useKanbanStore((state) => state.selectedBoardId);
+  // Get modal IDs to track which modals exist (shallow compare will work on string[])
+  const modalIds = useKanbanStore(
+    useShallow((state) => Object.keys(state.createTaskModals))
+  );
+  // Get the full createTaskModals to access position data in useMemo
+  // This won't cause re-renders by itself since we use modalIds for the dependency
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
   const showWelcomeScreen = useShowWelcomeScreen();
 
@@ -102,16 +109,23 @@ export function KanbanCanvas() {
       })
       .filter((node): node is KanbanNode => node !== null);
 
-    const modalNodes: TaskModalNode[] = Object.values(createTaskModals).map(
-      (modal) => ({
-        id: `modal-${modal.id}`,
-        type: "taskModal",
-        position: { x: modal.position.x, y: modal.position.y },
-        data: { modalId: modal.id },
-        style: { zIndex: 1000 + modal.zIndex },
-        draggable: true,
+    const modalNodes: TaskModalNode[] = modalIds
+      .map((id) => {
+        const modal = createTaskModals[id];
+        if (!modal) {
+          return null;
+        }
+        const node: TaskModalNode = {
+          id: `modal-${modal.id}`,
+          type: "taskModal",
+          position: { x: modal.position.x, y: modal.position.y },
+          data: { modalId: modal.id },
+          style: { zIndex: 1000 + modal.zIndex },
+          draggable: true,
+        };
+        return node;
       })
-    );
+      .filter((node): node is TaskModalNode => node !== null);
 
     return [...boardNodes, ...modalNodes];
   }, [
@@ -120,6 +134,7 @@ export function KanbanCanvas() {
     currentWorkspaceId,
     workspaces,
     selectedBoardId,
+    modalIds,
     createTaskModals,
   ]);
 

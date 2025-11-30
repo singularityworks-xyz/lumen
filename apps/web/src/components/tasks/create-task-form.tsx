@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { CalendarIcon, Tag } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
 import { Input } from "@/src/components/ui/input";
@@ -77,50 +77,38 @@ export const CreateTaskForm = memo(
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
 
-    const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-    const syncToStore = useCallback(() => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-      debounceRef.current = setTimeout(() => {
-        updateModalFormData(modalId, {
-          title,
-          description,
-          priority,
-          progress,
-          dueDate: dueDate?.toISOString() ?? "",
-          tags: tagsInput,
-        });
-      }, 150);
-    }, [
-      modalId,
+    const formValuesRef = useRef({
       title,
       description,
       priority,
       progress,
       dueDate,
       tagsInput,
-      updateModalFormData,
-    ]);
+    });
 
-    useEffect(() => {
-      syncToStore();
-      return () => {
-        if (debounceRef.current) {
-          clearTimeout(debounceRef.current);
-        }
-      };
-    }, [syncToStore]);
+    formValuesRef.current = {
+      title,
+      description,
+      priority,
+      progress,
+      dueDate,
+      tagsInput,
+    };
 
-    useEffect(() => {
-      setTitle(formData.title);
-      setDescription(formData.description);
-      setPriority(formData.priority);
-      setProgress(formData.progress);
-      setDueDate(formData.dueDate ? new Date(formData.dueDate) : undefined);
-      setTagsInput(formData.tags);
-    }, [formData]);
+    useEffect(
+      () => () => {
+        const values = formValuesRef.current;
+        updateModalFormData(modalId, {
+          title: values.title,
+          description: values.description,
+          priority: values.priority,
+          progress: values.progress,
+          dueDate: values.dueDate?.toISOString() ?? "",
+          tags: values.tagsInput,
+        });
+      },
+      [modalId, updateModalFormData]
+    );
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
