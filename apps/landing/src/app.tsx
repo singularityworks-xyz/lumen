@@ -39,43 +39,43 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-neutral-900 text-zinc-300 selection:bg-white selection:text-neutral-900">
       <ParallaxBackground />
-
       {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-zinc-800/50 border-b bg-neutral-900/60 backdrop-blur-md">
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-white shadow-lg">
-              <div className="h-2 w-2 rounded-full bg-neutral-900" />
+      <nav className="fixed top-0 z-50 w-full bg-neutral-900/60 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl border-zinc-800 border-r border-b border-l">
+          <div className="relative flex h-16 items-center justify-between px-4 md:px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-white shadow-lg">
+                <div className="h-2 w-2 rounded-full bg-neutral-900" />
+              </div>
+              <span className="font-mono text-sm text-white uppercase tracking-widest">
+                Lumen_
+              </span>
             </div>
-            <span className="font-mono text-sm text-white uppercase tracking-widest">
-              Lumen_
-            </span>
-          </div>
-          <div className="-translate-x-1/2 absolute left-1/2 hidden items-center gap-x-6 font-mono text-xs text-zinc-500 tracking-wide md:flex">
-            <a className="transition-colors hover:text-white" href="#">
-              MANIFESTO
-            </a>
-            <a className="transition-colors hover:text-white" href="#">
-              ENGINE
-            </a>
-            <a
-              className="font-sans transition-colors hover:text-white"
-              href="#"
-            >
-              PRICING
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden font-mono text-[10px] text-zinc-600 sm:block">
-              SINGULARITY WORKS ©
-            </span>
-            <button className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-white text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2">
-              EARLY ACCESS
-            </button>
+            <div className="-translate-x-1/2 absolute left-1/2 hidden items-center gap-x-6 font-mono text-xs text-zinc-500 tracking-wide md:flex">
+              <a className="transition-colors hover:text-white" href="#">
+                MANIFESTO
+              </a>
+              <a className="transition-colors hover:text-white" href="#">
+                ENGINE
+              </a>
+              <a
+                className="font-sans transition-colors hover:text-white"
+                href="#"
+              >
+                PRICING
+              </a>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="hidden font-mono text-[10px] text-zinc-600 sm:block">
+                SINGULARITY WORKS ©
+              </span>
+              <button className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-white text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2">
+                EARLY ACCESS
+              </button>
+            </div>
           </div>
         </div>
-      </nav>
-
+      </nav>{" "}
       <div className="mx-auto max-w-7xl border-zinc-800 border-r border-l">
         <main className="relative z-10 flex w-full grow animate-slide-up flex-col items-center px-6 pt-24 md:px-10 md:pt-32">
           {/* Hero Section */}
@@ -168,8 +168,7 @@ export default function App() {
           </section>
         </main>
       </div>
-
-      <footer className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-4 border-zinc-800 border-t border-r border-l pt-12 pb-10 pb-6 font-mono text-xs text-zinc-600 md:flex-row">
+      <footer className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-4 border-zinc-800 border-t border-r border-l pt-12 pb-12 font-mono text-xs text-zinc-600 md:flex-row">
         <div className="text-center md:text-left">
           <p className="ml-4 font-sans">PRODUCT BY SINGULARITY WORKS</p>
         </div>
