@@ -6,7 +6,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "check": "turbo run check && ",
+    "check": "turbo run check",
     "dep:check": "pnpm dlx sherif@latest --fix .",
     "dep:up": "pnpm dlx taze major -w",
     "check:ci": "biome ci .",
@@ -37,5 +37,10 @@
     "cross-env": "^7.0.3",
     "next": "^16.0.5",
     "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:rolldown-vite@7.2.5"
+    }
   }
 }
