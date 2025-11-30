@@ -1,12 +1,18 @@
-import { Icons } from "./icons";
+import {
+  Database,
+  Infinity as InfinityIcon,
+  Server,
+  Shield,
+  SquarePlus,
+} from "lucide-react";
 
 export const Marquee = () => {
   const items = [
-    { text: "CRDT Based Sync", icon: <Icons.Database /> },
-    { text: "Local-First Architecture", icon: <Icons.Server /> },
-    { text: "Arbitrary Objects", icon: <Icons.Widget /> },
-    { text: "End-to-End Encrypted", icon: <Icons.Shield /> },
-    { text: "Infinite Canvas", icon: <Icons.Infinity /> },
+    { text: "CRDT Based Sync", icon: <Database /> },
+    { text: "Local-First Architecture", icon: <Server /> },
+    { text: "Arbitrary Objects", icon: <SquarePlus /> },
+    { text: "End-to-End Encrypted", icon: <Shield /> },
+    { text: "Infinite Canvas", icon: <InfinityIcon /> },
   ];
 
   const marqueeItems = [...items, ...items, ...items, ...items];
@@ -22,7 +28,7 @@ export const Marquee = () => {
             className="flex items-center gap-2 font-sans md:gap-4"
             key={`${item.text}-${index}`}
           >
-            <span className="text-base md:text-lg">{item.icon}</span>
+            <span className="text-sm md:text-base">{item.icon}</span>
             {item.text}
           </span>
         ))}
