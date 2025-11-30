@@ -10,6 +10,7 @@ import { Label } from "@/src/components/ui/label";
 import { Slider } from "@/src/components/ui/slider";
 import { Textarea } from "@/src/components/ui/textarea";
 import {
+  type Column,
   type CreateTaskModalState,
   type Task,
   useKanbanStore,
@@ -30,6 +31,8 @@ type CreateTaskFormProps = {
   modalId: string;
   modalState: CreateTaskModalState;
   selectedColumnId: string;
+  onColumnChange?: (columnId: string) => void;
+  selectedBoardColumns?: Column[];
 };
 
 const PRIORITY_CONFIG = {
