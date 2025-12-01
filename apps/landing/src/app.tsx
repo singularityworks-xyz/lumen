@@ -11,6 +11,7 @@ import {
 import { FlashlightCard } from "./animations/flashlight";
 import { Marquee } from "./animations/marquee";
 import { HeroAnimation } from "./animations/preview-animation";
+import { Logo } from "./components/logo";
 import { ScaleContainer } from "./components/scale-container";
 import { Pricing } from "./pricing";
 
@@ -63,25 +64,7 @@ export default function App() {
       <nav className="fixed top-0 z-50 w-full bg-neutral-900/60 backdrop-blur-md">
         <div className="mx-auto max-w-7xl border-zinc-800 border-r border-b border-l">
           <div className="relative flex h-16 items-center justify-between px-4 md:px-6">
-            <button
-              className="flex cursor-pointer items-center border-none bg-transparent"
-              onClick={() => setCurrentView("home")}
-              type="button"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-sm shadow-lg">
-                {/** biome-ignore lint/performance/noImgElement: it's a vite app */}
-                <img
-                  alt="Lumen Logo"
-                  className="h-6 w-6 pb-1"
-                  height={24}
-                  src="/lumen_white.svg"
-                  width={24}
-                />
-              </div>
-              <span className="font-mono text-sm text-white uppercase tracking-widest">
-                Lumen_
-              </span>
-            </button>
+            <Logo onClick={() => setCurrentView("home")} />
             {/* <div className="-translate-x-1/2 absolute left-1/2 hidden items-center gap-x-6 font-mono text-xs text-zinc-500 tracking-wide md:flex">
               <a className="transition-colors hover:text-white" href="#">
                 MANIFESTO
@@ -130,23 +113,24 @@ export default function App() {
                   </span>
                 </div>
 
-            <h1 className="mx-auto mb-6 max-w-4xl font-bold font-heading text-2xl text-white leading-normal sm:text-4xl md:text-5xl">
-              Infinite spatial{" "}
-              {/* <span className="gradient-text font-black font-handwriting italic md:text-6xl">
+                <h1 className="mx-auto mb-6 max-w-4xl font-bold font-heading text-2xl text-white leading-normal sm:text-4xl md:text-5xl">
+                  Infinite spatial{" "}
+                  {/* <span className="gradient-text font-black font-handwriting italic md:text-6xl">
                 canvas{" "}
               </span> */}
-              canvas for
-              <br />
-              <span className="gradient-text font-black font-handwriting italic md:text-6xl">
-                high-fidelity {' '}
-              </span>
-              workflow
-            </h1>
+                  canvas for
+                  <br />
+                  <span className="gradient-text font-black font-handwriting italic md:text-6xl">
+                    high-fidelity{" "}
+                  </span>
+                  workflow
+                </h1>
 
-            <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-sm text-zinc-400 sm:text-base md:mb-10 md:text-xl">
-              Organize work through free-form kanban structures and arbitrary
-              task objects. Durable offline storage with deterministic state.
-            </p>
+                <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-sm text-zinc-400 sm:text-base md:mb-10 md:text-xl">
+                  Organize work through free-form kanban structures and
+                  arbitrary task objects. Durable offline storage with
+                  deterministic state.
+                </p>
 
                 <div className="flex w-full flex-col items-center gap-3 px-4 sm:w-auto sm:flex-row sm:gap-4 sm:px-0">
                   <a
