@@ -102,7 +102,7 @@ export default function App() {
               </span>
               <a
                 className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-white text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2"
-                href="https://lumen.itssingularity.com"
+                href="https://canvas.itssingularity.com"
                 rel="noopener"
                 target="_blank"
               >
@@ -147,7 +147,7 @@ export default function App() {
                 <div className="flex w-full flex-col items-center gap-3 px-4 sm:w-auto sm:flex-row sm:gap-4 sm:px-0">
                   <a
                     className="group relative flex w-full items-center overflow-hidden rounded bg-white px-8 py-3 font-mono text-neutral-900 text-sm shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] sm:w-auto"
-                    href="https://lumen.itssingularity.com"
+                    href="https://canvas.itssingularity.com"
                     rel="noopener"
                     target="_blank"
                   >
