@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 export function OpenSource() {
   return (
     <motion.section
-      className="w-full max-w-full rounded-xl border border-zinc-800/80 bg-neutral-900/80 px-6 py-8 md:px-10 md:py-10 mt-14 mb-10 shadow-[0_0_40px_rgba(0,0,0,0.45)]"
+      className="w-full max-w-full rounded-xl border border-zinc-800/80 bg-neutral-900/80 px-6 py-8 md:px-10 md:py-10 mt-16 shadow-[0_0_40px_rgba(0,0,0,0.45)]"
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}

@@ -215,7 +215,7 @@ export const Pricing = () => (
     </motion.div>
 
     <motion.div 
-      className="mt-16 border-zinc-800 border-t pt-10 md:mt-20 md:pt-12"
+      className="mt-16 border-zinc-800 border-t pt-10 pb-12 md:mt-20 md:pt-12"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}
