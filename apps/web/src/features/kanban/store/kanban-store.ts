@@ -223,6 +223,13 @@ const storeCreator: StateCreator<
   setCurrentWorkspace: (workspaceId) =>
     set((state) => {
       if (workspaceId === null || state.workspaces.byId[workspaceId]) {
+        // Save current viewport to old workspace before switching
+        const oldWorkspaceId = state.currentWorkspaceId;
+        if (oldWorkspaceId && state.workspaces.byId[oldWorkspaceId]) {
+          state.workspaces.byId[oldWorkspaceId].lastViewport = {
+            ...state.canvas.viewport,
+          };
+        }
         state.currentWorkspaceId = workspaceId;
         state.selectedBoardId = null;
         state.selectedBoardIds = [];
@@ -420,6 +427,7 @@ const storeCreator: StateCreator<
       const workspace = state.workspaces.byId[workspaceId];
       if (workspace) {
         workspace.board_ids.push(boardId);
+        workspace.lastFocusedBoardId = boardId;
       }
     });
 
@@ -432,6 +440,11 @@ const storeCreator: StateCreator<
       const board = state.boards.byId[boardId];
       if (board) {
         Object.assign(board, updates);
+        // Track last focused board for the workspace
+        const workspace = state.workspaces.byId[board.workspace_id];
+        if (workspace) {
+          workspace.lastFocusedBoardId = boardId;
+        }
       }
     }),
 
@@ -537,6 +550,11 @@ const storeCreator: StateCreator<
       const board = state.boards.byId[boardId];
       if (board) {
         board.column_ids.push(columnId);
+        // Track last focused board for the workspace
+        const workspace = state.workspaces.byId[board.workspace_id];
+        if (workspace) {
+          workspace.lastFocusedBoardId = boardId;
+        }
       }
     });
 
@@ -676,6 +694,14 @@ const storeCreator: StateCreator<
       if (column) {
         task.position = column.task_ids.length;
         column.task_ids.push(taskId);
+      }
+
+      const board = state.boards.byId[boardId];
+      if (board) {
+        const workspace = state.workspaces.byId[board.workspace_id];
+        if (workspace) {
+          workspace.lastFocusedBoardId = boardId;
+        }
       }
     });
 
@@ -1013,6 +1039,12 @@ const storeCreator: StateCreator<
   setSelectedBoard: (boardId) =>
     set((state) => {
       state.selectedBoardId = boardId;
+      if (boardId && state.currentWorkspaceId) {
+        const workspace = state.workspaces.byId[state.currentWorkspaceId];
+        if (workspace) {
+          workspace.lastFocusedBoardId = boardId;
+        }
+      }
     }),
 
   toggleBoardSelection: (boardId) =>

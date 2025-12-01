@@ -10,6 +10,7 @@ import {
   ReactFlow,
   SelectionMode,
   useNodesState,
+  useReactFlow,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
@@ -78,6 +79,65 @@ export function KanbanCanvas() {
     (state) => state.updateEditBoardModalPosition
   );
   const showWelcomeScreen = useShowWelcomeScreen();
+
+  const { setViewport: setReactFlowViewport, fitView } = useReactFlow();
+  const prevWorkspaceIdRef = useRef(currentWorkspaceId);
+
+  // Animate viewport when switching workspaces
+  useEffect(() => {
+    const prevWorkspaceId = prevWorkspaceIdRef.current;
+    if (currentWorkspaceId === prevWorkspaceId) {
+      return;
+    }
+    prevWorkspaceIdRef.current = currentWorkspaceId;
+
+    // Skip animation on initial mount or if no workspace selected
+    if (!currentWorkspaceId || prevWorkspaceId === null) {
+      return;
+    }
+
+    const workspace = workspaces.byId[currentWorkspaceId];
+    if (!workspace) {
+      return;
+    }
+
+    // Priority 1: Restore last viewport if available
+    if (workspace.lastViewport) {
+      setReactFlowViewport(workspace.lastViewport, { duration: 300 });
+      return;
+    }
+
+    // Priority 2: Center on last focused board
+    if (workspace.lastFocusedBoardId) {
+      const boardPos = boardPositions.byId[workspace.lastFocusedBoardId];
+      if (boardPos) {
+        // Center on board with offset for board dimensions
+        const centerX = boardPos.x + (boardPos.width ?? 400) / 2;
+        const centerY = boardPos.y + (boardPos.height ?? 300) / 2;
+        setReactFlowViewport(
+          {
+            x: -centerX + window.innerWidth / 2,
+            y: -centerY + window.innerHeight / 2,
+            zoom: 1,
+          },
+          { duration: 300 }
+        );
+        return;
+      }
+    }
+
+    // Priority 3: Fit view to show all boards in workspace
+    // Use setTimeout to ensure nodes are rendered before fitting
+    setTimeout(() => {
+      fitView({ padding: 0.3, duration: 300 });
+    }, 50);
+  }, [
+    currentWorkspaceId,
+    workspaces,
+    boardPositions,
+    setReactFlowViewport,
+    fitView,
+  ]);
 
   const nodes: CanvasNode[] = useMemo(() => {
     const currentWorkspace = currentWorkspaceId

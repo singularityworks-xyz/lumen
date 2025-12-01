@@ -57,6 +57,8 @@ export type Workspace = {
   description?: string;
   created_at: string;
   board_ids: string[];
+  lastFocusedBoardId?: string | null;
+  lastViewport?: ViewportState | null;
 };
 
 export type EntityMap<T> = {
