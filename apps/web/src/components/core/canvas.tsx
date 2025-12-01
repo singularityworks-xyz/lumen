@@ -34,7 +34,12 @@ import { WorkspaceSelector } from "../workspace-selector";
 type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
-type CanvasNode = KanbanNode | TaskModalNode | EditBoardModalNode;
+type TaskDetailModalNode = Node<{ modalId: string }>;
+type CanvasNode =
+  | KanbanNode
+  | TaskModalNode
+  | EditBoardModalNode
+  | TaskDetailModalNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -77,6 +82,14 @@ export function KanbanCanvas() {
   const editBoardModals = useKanbanStore((state) => state.editBoardModals);
   const updateEditBoardModalPosition = useKanbanStore(
     (state) => state.updateEditBoardModalPosition
+  );
+  // Get task detail modal IDs
+  const taskDetailModalIds = useKanbanStore(
+    useShallow((state) => Object.keys(state.taskDetailModals))
+  );
+  const taskDetailModals = useKanbanStore((state) => state.taskDetailModals);
+  const updateTaskDetailModalPosition = useKanbanStore(
+    (state) => state.updateTaskDetailModalPosition
   );
   const showWelcomeScreen = useShowWelcomeScreen();
 
@@ -214,7 +227,30 @@ export function KanbanCanvas() {
       })
       .filter((node): node is EditBoardModalNode => node !== null);
 
-    return [...boardNodes, ...modalNodes, ...editBoardModalNodes];
+    const taskDetailModalNodes: TaskDetailModalNode[] = taskDetailModalIds
+      .map((id) => {
+        const modal = taskDetailModals[id];
+        if (!modal) {
+          return null;
+        }
+        const node: TaskDetailModalNode = {
+          id: `task-detail-modal-${modal.id}`,
+          type: "taskDetailModal",
+          position: { x: modal.position.x, y: modal.position.y },
+          data: { modalId: modal.id },
+          style: { zIndex: 1000 + modal.zIndex },
+          draggable: true,
+        };
+        return node;
+      })
+      .filter((node): node is TaskDetailModalNode => node !== null);
+
+    return [
+      ...boardNodes,
+      ...modalNodes,
+      ...editBoardModalNodes,
+      ...taskDetailModalNodes,
+    ];
   }, [
     boards,
     boardPositions,
@@ -225,6 +261,8 @@ export function KanbanCanvas() {
     createTaskModals,
     editBoardModalIds,
     editBoardModals,
+    taskDetailModalIds,
+    taskDetailModals,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -309,6 +347,9 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("edit-board-modal-")) {
             const modalId = change.id.replace("edit-board-modal-", "");
             updateEditBoardModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("task-detail-modal-")) {
+            const modalId = change.id.replace("task-detail-modal-", "");
+            updateTaskDetailModalPosition(modalId, change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -324,6 +365,7 @@ export function KanbanCanvas() {
       updateBoardDimensions,
       updateModalPosition,
       updateEditBoardModalPosition,
+      updateTaskDetailModalPosition,
     ]
   );
 

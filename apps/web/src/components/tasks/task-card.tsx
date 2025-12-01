@@ -8,25 +8,65 @@ import { type Task, useKanbanStore } from "@/src/features/kanban";
 
 type TaskCardProps = {
   task: Task;
+  boardId: string;
   onDragStart: (task: Task) => void;
   isSelected: boolean;
+  onOpenDetail?: (taskId: string, screenX: number, screenY: number) => void;
 };
 
 export const TaskCard = memo(
-  ({ task, onDragStart, isSelected }: TaskCardProps) => {
+  ({ task, boardId, onDragStart, isSelected, onOpenDetail }: TaskCardProps) => {
     const toggleTaskSelection = useKanbanStore(
       (state) => state.toggleTaskSelection
+    );
+    const openTaskDetailModal = useKanbanStore(
+      (state) => state.openTaskDetailModal
     );
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
 
     const showCheckbox = selectedTaskIds.length > 0;
+
+    // Track if we're dragging to differentiate from clicks
+    const dragStartPos = { current: { x: 0, y: 0 } };
+    const isDragging = { current: false };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      dragStartPos.current = { x: e.clientX, y: e.clientY };
+      isDragging.current = false;
+    };
 
     const handleDragStart = (e: React.DragEvent) => {
       if (showCheckbox) {
         e.preventDefault();
         return;
       }
+      isDragging.current = true;
       onDragStart(task);
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
+      // Calculate distance moved to differentiate drag from click
+      const distance = Math.sqrt(
+        (e.clientX - dragStartPos.current.x) ** 2 +
+          (e.clientY - dragStartPos.current.y) ** 2
+      );
+
+      // If we dragged more than 5px or drag was initiated, don't open modal
+      if (isDragging.current || distance > 5) {
+        return;
+      }
+
+      // Don't open modal if in multi-select mode (checkbox mode)
+      if (showCheckbox) {
+        return;
+      }
+
+      // Open task detail modal - use callback if available (for canvas position), otherwise fallback
+      if (onOpenDetail) {
+        onOpenDetail(task.id, e.clientX, e.clientY);
+      } else {
+        openTaskDetailModal(task.id, boardId);
+      }
     };
 
     const handleCheckboxChange = (_checked: boolean) => {
@@ -156,13 +196,24 @@ export const TaskCard = memo(
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: refactor later
       // biome-ignore lint/a11y/noStaticElementInteractions: TODO: refactor later
       <div
-        className={`cursor-move rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
+        className={`cursor-pointer rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
           isSelected
             ? "border-primary shadow-lg"
             : "border-border/40 dark:border-border/70"
         }`}
         draggable
+        onClick={handleClick}
         onDragStart={handleDragStart}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!showCheckbox) {
+              // For keyboard, use default position (no screen coords available)
+              openTaskDetailModal(task.id, boardId);
+            }
+          }
+        }}
+        onMouseDown={handleMouseDown}
       >
         <div className="flex items-start gap-1.5">
           <div className="min-w-0 flex-1 space-y-1.5">

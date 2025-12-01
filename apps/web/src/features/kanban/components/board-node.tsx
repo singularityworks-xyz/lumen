@@ -3,7 +3,7 @@
 import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
 import { GripVertical, Pencil, Plus, X } from "lucide-react";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
@@ -35,6 +35,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
     const openEditBoardModal = useKanbanStore(
       (state) => state.openEditBoardModal
+    );
+    const openTaskDetailModal = useKanbanStore(
+      (state) => state.openTaskDetailModal
     );
 
     const boardData = useKanbanStore(
@@ -88,6 +91,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
+
+    const handleOpenTaskDetail = useCallback(
+      (taskId: string, screenX: number, screenY: number) => {
+        const canvasPosition = screenToFlowPosition({ x: screenX, y: screenY });
+        openTaskDetailModal(taskId, boardId, canvasPosition);
+      },
+      [screenToFlowPosition, openTaskDetailModal, boardId]
+    );
 
     const isMultiSelected = selectedBoardIds.includes(id);
 
@@ -417,7 +428,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               height: "calc(100% - 42px)",
             }}
           >
-            <KanbanBoard board={board} />
+            <KanbanBoard
+              board={board}
+              onOpenTaskDetail={handleOpenTaskDetail}
+            />
           </div>
         </div>
       </>
@@ -427,11 +441,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
+import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 import { EditBoardModalNodeComponent } from "./edit-board-modal-node";
 
 export const nodeTypes = {
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
+  taskDetailModal: TaskDetailModalNodeComponent,
   editBoardModal: EditBoardModalNodeComponent,
 };

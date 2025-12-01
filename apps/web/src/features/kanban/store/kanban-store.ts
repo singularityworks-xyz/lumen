@@ -19,6 +19,7 @@ import type {
   EntityMap,
   InteractionMode,
   Task,
+  TaskDetailModalState,
   ViewportState,
   Workspace,
 } from "../types";
@@ -45,6 +46,7 @@ type KanbanState = {
   showMiniMap: boolean;
   createTaskModals: Record<string, CreateTaskModalState>;
   editBoardModals: Record<string, EditBoardModalState>;
+  taskDetailModals: Record<string, TaskDetailModalState>;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
@@ -147,6 +149,21 @@ type KanbanActions = {
     formData: Partial<EditBoardModalFormData>
   ) => void;
   bringEditBoardModalToFront: (modalId: string) => void;
+  openTaskDetailModal: (
+    taskId: string,
+    boardId: string,
+    position?: { x: number; y: number }
+  ) => {
+    id: string;
+    position: { x: number; y: number };
+    isExisting: boolean;
+  };
+  closeTaskDetailModal: (modalId: string) => void;
+  updateTaskDetailModalPosition: (
+    modalId: string,
+    position: { x: number; y: number }
+  ) => void;
+  bringTaskDetailModalToFront: (modalId: string) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setSelectedBoard: (boardId: string | null) => void;
   toggleBoardSelection: (boardId: string) => void;
@@ -204,6 +221,7 @@ function createInitialState(): KanbanState {
     showMiniMap: false,
     createTaskModals: {},
     editBoardModals: {},
+    taskDetailModals: {},
     interactionMode: "drag",
     selectedBoardId: null,
     selectedBoardIds: [],
@@ -1028,6 +1046,87 @@ const storeCreator: StateCreator<
       }
     }),
 
+  openTaskDetailModal: (taskId, boardId, position) => {
+    const existingModals = Object.values(get().taskDetailModals);
+
+    const existingModalForTask = existingModals.find(
+      (m) => m.taskId === taskId
+    );
+    if (existingModalForTask) {
+      get().bringTaskDetailModalToFront(existingModalForTask.id);
+      return {
+        id: existingModalForTask.id,
+        position: existingModalForTask.position,
+        isExisting: true,
+      };
+    }
+
+    const modalId = generateId();
+
+    let modalX: number;
+    let modalY: number;
+    if (position) {
+      modalX = position.x;
+      modalY = position.y;
+    } else {
+      const offset = existingModals.length * 30;
+      const boardPosition = get().boardPositions.byId[boardId];
+      const boardX = boardPosition?.x ?? 0;
+      const boardY = boardPosition?.y ?? 0;
+      const boardWidth = boardPosition?.width ?? 400;
+      modalX = boardX + boardWidth + 20 + offset;
+      modalY = boardY + offset;
+    }
+
+    const maxZIndex = existingModals.reduce(
+      (max, m) => Math.max(max, m.zIndex),
+      99
+    );
+
+    const modalState: TaskDetailModalState = {
+      id: modalId,
+      taskId,
+      boardId,
+      position: { x: modalX, y: modalY },
+      zIndex: maxZIndex + 1,
+    };
+
+    set((state) => {
+      state.taskDetailModals[modalId] = modalState;
+    });
+
+    return {
+      id: modalId,
+      position: modalState.position,
+      isExisting: false,
+    };
+  },
+
+  closeTaskDetailModal: (modalId) =>
+    set((state) => {
+      delete state.taskDetailModals[modalId];
+    }),
+
+  updateTaskDetailModalPosition: (modalId, position) =>
+    set((state) => {
+      const modal = state.taskDetailModals[modalId];
+      if (modal) {
+        modal.position = position;
+      }
+    }),
+
+  bringTaskDetailModalToFront: (modalId) =>
+    set((state) => {
+      const modal = state.taskDetailModals[modalId];
+      if (modal) {
+        const maxZIndex = Object.values(state.taskDetailModals).reduce(
+          (max, m) => Math.max(max, m.zIndex),
+          99
+        );
+        modal.zIndex = maxZIndex + 1;
+      }
+    }),
+
   setInteractionMode: (mode) =>
     set((state) => {
       state.interactionMode = mode;
@@ -1168,6 +1267,7 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           canvas: state.canvas,
           createTaskModals: state.createTaskModals,
           editBoardModals: state.editBoardModals,
+          taskDetailModals: state.taskDetailModals,
         };
         return persisted;
       },

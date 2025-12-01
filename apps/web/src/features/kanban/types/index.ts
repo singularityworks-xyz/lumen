@@ -120,6 +120,14 @@ export type EditBoardModalState = {
   zIndex: number;
 };
 
+export type TaskDetailModalState = {
+  id: string;
+  taskId: string;
+  boardId: string;
+  position: { x: number; y: number };
+  zIndex: number;
+};
+
 export type UIState = {
   showCommandPalette: boolean;
   showMiniMap: boolean;
