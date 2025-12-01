@@ -85,6 +85,13 @@ export default function App() {
               <span className="hidden font-mono text-[10px] text-zinc-600 sm:block">
                 SINGULARITY WORKS ©
               </span>
+              <button
+                className={`rounded border border-transparent bg-transparent px-3 py-1.5 font-sans text-sm text-zinc-400 transition-colors hover:text-white md:px-4 md:py-2 ${currentView === "pricing" ? "text-white" : ""}`}
+                onClick={() => setCurrentView("pricing")}
+                type="button"
+              >
+                PRICING
+              </button>
               <a
                 className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-text-primary text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2"
                 href="https://canvas.itssingularity.com"
