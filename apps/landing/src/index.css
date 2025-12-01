@@ -31,9 +31,12 @@
   }
 }
 
+html,
 body {
   background-color: #171717;
   color: #d4d4d8;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 .bg-grid {
   background-size: 40px 40px;

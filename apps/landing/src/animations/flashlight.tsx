@@ -44,7 +44,7 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
 
   return (
     <div
-      className={`flashlight-card group relative h-auto overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-lg transition-shadow duration-300 ${className} ${horizontal ? "min-h-88 md:min-h-72" : "flex min-h-88 flex-col justify-between p-6"}`}
+      className={`flashlight-card group relative h-auto overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-lg transition-shadow duration-300 ${className} ${horizontal ? "min-h-88 lg:min-h-72" : "flex min-h-88 flex-col justify-between p-6"}`}
       ref={cardRef}
     >
       <style>{`
@@ -81,10 +81,10 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
         `}</style>
 
       {horizontal ? (
-        <div className="pointer-events-none relative z-10 flex h-full w-full flex-col md:flex-row">
-          <div className="order-2 flex w-full flex-col justify-between border-zinc-800 border-t p-6 md:order-1 md:w-5/12 md:border-t-0 md:p-8">
+        <div className="pointer-events-none relative z-10 flex h-full w-full flex-col lg:flex-row">
+          <div className="order-2 flex w-full flex-col justify-between border-zinc-800 border-t p-6 lg:order-1 lg:w-5/12 lg:border-t-0 lg:p-8">
             <div>
-              <div className="mb-6 hidden md:block">
+              <div className="mb-6 hidden lg:block">
                 <div className="flex h-10 w-10 items-center justify-center rounded border border-zinc-700/50 bg-zinc-800/50 text-white text-xl">
                   {icon || (
                     // biome-ignore lint/a11y/noSvgWithoutTitle: TODO: improve accessibility
@@ -104,10 +104,10 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
                   )}
                 </div>
               </div>
-              <h3 className="mb-3 font-normal font-sans text-white text-xl tracking-tight sm:text-2xl">
+              <h3 className="mb-3 font-normal font-sans text-lg text-white tracking-tight sm:text-xl md:text-2xl">
                 {title}
               </h3>
-              <p className="font-sans text-sm text-zinc-500 leading-relaxed">
+              <p className="font-sans text-xs text-zinc-500 leading-relaxed sm:text-sm">
                 {description}
               </p>
             </div>
@@ -118,7 +118,7 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
             </div>
           </div>
 
-          <div className="relative order-1 h-48 min-h-[200px] w-full overflow-hidden border-zinc-800 bg-zinc-900/30 md:order-2 md:h-auto md:min-h-full md:w-7/12 md:border-l">
+          <div className="relative order-1 h-48 min-h-[200px] w-full overflow-hidden border-zinc-800 bg-zinc-900/30 lg:order-2 lg:h-auto lg:min-h-full lg:w-7/12 lg:border-l">
             {visual}
           </div>
         </div>
@@ -135,10 +135,10 @@ export const FlashlightCard: React.FC<FlashlightCardProps> = ({
               </div>
             )}
 
-            <h3 className="mb-3 font-normal font-sans text-white text-xl tracking-tight">
+            <h3 className="mb-3 font-normal font-sans text-lg text-white tracking-tight sm:text-xl md:text-2xl">
               {title}
             </h3>
-            <p className="font-sans text-sm text-zinc-500 leading-relaxed">
+            <p className="font-sans text-xs text-zinc-500 leading-relaxed sm:text-sm">
               {description}
             </p>
           </div>

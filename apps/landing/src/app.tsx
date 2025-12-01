@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/a11y/useButtonType: It's a VITE project */
 /** biome-ignore-all lint/a11y/useValidAnchor: SOON */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CanvasAnimation,
   OfflineAnimation,
@@ -9,6 +9,7 @@ import {
 import { FlashlightCard } from "./animations/flashlight";
 import { Marquee } from "./animations/marquee";
 import { HeroAnimation } from "./animations/preview-animation";
+import { ScaleContainer } from "./components/scale-container";
 
 const ParallaxBackground = () => {
   const bgRef = useRef<HTMLDivElement>(null);
@@ -28,16 +29,31 @@ const ParallaxBackground = () => {
   }, []);
 
   return (
-    <div
-      className="pointer-events-none fixed inset-0 z-0 scale-110 bg-grid transition-transform duration-75 ease-out"
-      ref={bgRef}
-    />
+    <div className="fixed inset-0 z-0 overflow-hidden">
+      <div
+        className="pointer-events-none absolute inset-0 scale-110 bg-grid transition-transform duration-75 ease-out"
+        ref={bgRef}
+      />
+    </div>
   );
 };
 
 export default function App() {
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const heroContentWidth = windowWidth < 768 ? 450 : 1200;
+  const heroContentHeight = windowWidth < 768 ? 300 : 675;
+
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-neutral-900 text-zinc-300 selection:bg-white selection:text-neutral-900">
+    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-neutral-900 text-zinc-300 selection:bg-white selection:text-neutral-900">
       <ParallaxBackground />
       {/* Navigation */}
       <nav className="fixed top-0 z-50 w-full bg-neutral-900/60 backdrop-blur-md">
@@ -77,9 +93,9 @@ export default function App() {
         </div>
       </nav>{" "}
       <div className="mx-auto max-w-7xl border-zinc-800 border-r border-l">
-        <main className="relative z-10 flex w-full grow animate-slide-up flex-col items-center px-6 pt-24 md:px-10 md:pt-32">
+        <main className="relative z-10 flex w-full max-w-[100vw] grow animate-slide-up flex-col items-center overflow-x-hidden px-6 pt-24 md:px-10 md:pt-32">
           {/* Hero Section */}
-          <section className="relative flex min-h-[60vh] w-full flex-col items-center justify-center text-center">
+          <section className="relative flex min-h-[60vh] w-full max-w-full flex-col items-center justify-center overflow-hidden text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-neutral-900/80 px-3 py-1 backdrop-blur md:mb-8">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -90,7 +106,7 @@ export default function App() {
               </span>
             </div>
 
-            <h1 className="mx-auto mb-6 max-w-4xl font-medium font-sans text-3xl text-white leading-[1.1] sm:text-4xl md:text-6xl">
+            <h1 className="mx-auto mb-6 max-w-4xl font-medium font-sans text-2xl text-white leading-[1.1] sm:text-4xl md:text-6xl">
               Infinite spatial canvas for
               <br />
               <span className="font-medium text-zinc-500">
@@ -98,7 +114,7 @@ export default function App() {
               </span>
             </h1>
 
-            <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-base text-zinc-400 leading-relaxed md:mb-10 md:text-xl">
+            <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-sm text-zinc-400 leading-relaxed sm:text-base md:mb-10 md:text-xl">
               Organize work through free-form kanban structures and arbitrary
               task objects. Durable offline storage with deterministic state.
             </p>
@@ -115,7 +131,7 @@ export default function App() {
             {/* Hero Visual / Dashboard Preview */}
             <div className="group relative mt-16 w-full md:mt-20">
               <div className="-inset-1 absolute rounded-lg bg-linear-to-r from-zinc-800 to-zinc-900 opacity-25 blur transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
-              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-2xl">
+              <div className="relative w-full overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-2xl">
                 {/* Simulated Interface Header */}
                 <div className="absolute top-0 left-0 z-20 flex h-6 w-full items-center gap-1.5 border-zinc-800 border-b bg-neutral-900/90 px-3 md:h-8 md:gap-2 md:px-4">
                   <div className="h-2 w-2 rounded-full bg-zinc-700 md:h-2.5 md:w-2.5" />
@@ -124,28 +140,40 @@ export default function App() {
                 </div>
 
                 {/* Complex Animation Container */}
-                <div className="relative h-full w-full overflow-hidden bg-neutral-900 pt-6 md:pt-8">
-                  <HeroAnimation />
+                <div className="relative w-full overflow-hidden bg-neutral-900 pt-6 md:pt-8">
+                  <ScaleContainer
+                    contentHeight={heroContentHeight}
+                    contentWidth={heroContentWidth}
+                  >
+                    <HeroAnimation />
+                  </ScaleContainer>
                 </div>
               </div>
             </div>
           </section>
 
           {/* Marquee Section */}
-          <section className="overflow-hidde w-full bg-neutral-900/50 py-12 md:py-16">
+          <section className="w-full overflow-hidden bg-neutral-900/50 py-12 md:py-16">
             <Marquee />
           </section>
 
           {/* Features Section */}
-          <section className="grid w-full grid-cols-1 gap-6 pb-8 md:grid-cols-2 md:pb-12">
+          <section className="grid w-full grid-cols-1 gap-6 pb-8 md:pb-12 lg:grid-cols-2">
             {/* Card 1: Full Width Top */}
             <FlashlightCard
-              className="md:col-span-2"
+              className="lg:col-span-2"
               description="Escape the grid. Place tasks, notes, and media anywhere on an infinite 2D plane. Structure emerges from chaos."
               horizontal
               meta="Canvas: WebGL"
               title="Free-form Kanban"
-              visual={<CanvasAnimation />}
+              visual={
+                <ScaleContainer
+                  contentHeight={400}
+                  contentWidth={windowWidth < 768 ? 900 : 800}
+                >
+                  <CanvasAnimation />
+                </ScaleContainer>
+              }
             />
 
             {/* Card 2: Half Width */}
@@ -154,7 +182,14 @@ export default function App() {
               horizontal
               meta="Engine: Sqlite-WASM"
               title="Offline Durable"
-              visual={<OfflineAnimation />}
+              visual={
+                <ScaleContainer
+                  contentHeight={400}
+                  contentWidth={windowWidth < 768 ? 700 : 600}
+                >
+                  <OfflineAnimation />
+                </ScaleContainer>
+              }
             />
 
             {/* Card 3: Half Width */}
@@ -163,16 +198,23 @@ export default function App() {
               horizontal
               meta="Latency: < 50ms"
               title="Governed Sync"
-              visual={<SyncAnimation />}
+              visual={
+                <ScaleContainer
+                  contentHeight={400}
+                  contentWidth={windowWidth < 768 ? 700 : 600}
+                >
+                  <SyncAnimation />
+                </ScaleContainer>
+              }
             />
           </section>
         </main>
       </div>
       <footer className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-4 border-zinc-800 border-t border-r border-l pt-12 pb-12 font-mono text-xs text-zinc-600 md:flex-row">
         <div className="text-center md:text-left">
-          <p className="ml-4 font-sans">PRODUCT BY SINGULARITY WORKS</p>
+          <p className="ml-0 font-sans md:ml-4">PRODUCT BY SINGULARITY WORKS</p>
         </div>
-        <div className="mr-4 flex gap-6">
+        <div className="mr-0 flex gap-6 md:mr-4">
           <a className="font-sans hover:text-zinc-400" href="#">
             TWITTER
           </a>
