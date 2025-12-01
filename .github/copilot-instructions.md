@@ -131,7 +131,6 @@ Most formatting and common issues are automatically fixed by Biome. Run `npx ult
 ```
 apps/web/          → Next.js App Router frontend (port 3000)
 packages/
-  db/              → Drizzle ORM + PostgreSQL schema (@lumen/db)
   trpc/            → tRPC router and procedures (@lumen/trpc)
   logger/          → Pino logger with browser/server support (@lumen/logger)
   configs/         → Shared TypeScript configs (@lumen/configs)
@@ -139,7 +138,7 @@ packages/
 
 ### Data Flow
 - **Frontend state**: Zustand store with Immer (`features/kanban/store/kanban-store.ts`) persists to IndexedDB via `idb-keyval`
-- **Server communication**: tRPC client → `/api/trpc` route → `@lumen/trpc` router → `@lumen/db`
+- **Server communication**: tRPC client → `/api/trpc` route → `@lumen/trpc`
 - **Canvas rendering**: React Flow (`@xyflow/react`) renders board nodes on infinite canvas
 - **Drag-and-drop**: `@dnd-kit` handles column/task reordering within boards
 
@@ -156,9 +155,6 @@ const allBoardIds = state.boards.allIds;
 
 ```bash
 pnpm dev              # Start all packages in dev mode
-pnpm db:start         # Start PostgreSQL container
-pnpm db:push          # Push schema changes to database
-pnpm db:studio        # Open Drizzle Studio
 pnpm check            # Lint + format with Ultracite/Biome
 ```
 
@@ -171,11 +167,6 @@ Uses **Ultracite** (Biome preset). Run `pnpm ultracite fix` before committing. K
 
 ### Environment Variables
 Type-safe env with `@t3-oss/env-core` + Zod:
-```typescript
-// packages/db/src/env.ts - server-only DATABASE_URL
-// apps/web/src/env.ts - web-specific vars
-import { env } from "@lumen/db/env";
-```
 
 ### Logging
 Use `@lumen/logger` with structured context:

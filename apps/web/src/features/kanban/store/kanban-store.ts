@@ -241,16 +241,20 @@ const storeCreator: StateCreator<
   setCurrentWorkspace: (workspaceId) =>
     set((state) => {
       if (workspaceId === null || state.workspaces.byId[workspaceId]) {
-        // Save current viewport to old workspace before switching
         const oldWorkspaceId = state.currentWorkspaceId;
         if (oldWorkspaceId && state.workspaces.byId[oldWorkspaceId]) {
           state.workspaces.byId[oldWorkspaceId].lastViewport = {
             ...state.canvas.viewport,
           };
+          state.workspaces.byId[oldWorkspaceId].showMiniMap = state.showMiniMap;
         }
         state.currentWorkspaceId = workspaceId;
         state.selectedBoardId = null;
         state.selectedBoardIds = [];
+        if (workspaceId && state.workspaces.byId[workspaceId]) {
+          state.showMiniMap =
+            state.workspaces.byId[workspaceId].showMiniMap ?? false;
+        }
       }
     }),
 
@@ -848,6 +852,11 @@ const storeCreator: StateCreator<
   setShowMiniMap: (show) =>
     set((state) => {
       state.showMiniMap = show;
+      // Persist to current workspace
+      const workspaceId = state.currentWorkspaceId;
+      if (workspaceId && state.workspaces.byId[workspaceId]) {
+        state.workspaces.byId[workspaceId].showMiniMap = show;
+      }
     }),
 
   openCreateTaskModal: (columnId, boardId, position) => {
@@ -1270,6 +1279,20 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           taskDetailModals: state.taskDetailModals,
         };
         return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const workspaceId = state.currentWorkspaceId;
+          if (workspaceId && state.workspaces?.byId[workspaceId]) {
+            const workspace = state.workspaces.byId[workspaceId];
+            if (workspace.showMiniMap !== undefined) {
+              // Use setTimeout to ensure store is fully initialized
+              setTimeout(() => {
+                useKanbanStore.setState({ showMiniMap: workspace.showMiniMap });
+              }, 0);
+            }
+          }
+        }
       },
     }
   )

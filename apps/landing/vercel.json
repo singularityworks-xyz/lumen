@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm turbo build --filter=@lumen/landing",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install"
+}

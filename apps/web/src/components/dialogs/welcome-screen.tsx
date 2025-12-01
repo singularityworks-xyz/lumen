@@ -1,7 +1,9 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { useReactFlow } from "@xyflow/react";
 import { HelpCircle, LogIn, Plus } from "lucide-react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
@@ -17,6 +19,7 @@ export const WelcomeScreen = memo(() => {
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const { fitView, setCenter } = useReactFlow();
 
   const hasBoardsInCurrentWorkspace = currentWorkspaceId
     ? (workspaces.byId[currentWorkspaceId]?.board_ids.length ?? 0) > 0
@@ -27,9 +30,26 @@ export const WelcomeScreen = memo(() => {
   }
 
   const handleNewBoard = () => {
-    useKanbanStore
+    const boardId = useKanbanStore
       .getState()
       .addBoard("New Board", { x: 100, y: 100 }, "New project board");
+
+    // Focus on the newly created board after a short delay for the node to render
+    setTimeout(() => {
+      const boardPosition =
+        useKanbanStore.getState().boardPositions.byId[boardId];
+      if (boardPosition) {
+        // Center viewport on the new board with animation
+        setCenter(
+          boardPosition.x + (boardPosition.width ?? 400) / 2,
+          boardPosition.y + (boardPosition.height ?? 300) / 2,
+          { zoom: 1, duration: 300 }
+        );
+      } else {
+        // Fallback to fitView if position not found
+        fitView({ padding: 0.3, duration: 300 });
+      }
+    }, 100);
   };
 
   const handleLogin = () => {
@@ -79,14 +99,19 @@ export const WelcomeScreen = memo(() => {
               </div>
 
               <div className="flex flex-col gap-3">
-                <Button
-                  className="h-12 gap-3 rounded-xl bg-linear-to-b from-primary to-primary/90 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
-                  onClick={handleNewBoard}
-                  size="lg"
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
                 >
-                  <Plus className="h-5 w-5" />
-                  Create Your First Board
-                </Button>
+                  <Button
+                    className="h-12 w-full gap-3 rounded-xl bg-linear-to-b from-primary to-primary/90 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                    onClick={handleNewBoard}
+                    size="lg"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Create Your First Board
+                  </Button>
+                </motion.div>
 
                 <Button
                   className="h-12 gap-2 rounded-xl border-2 border-border/50 bg-card/50 shadow-[0_2px_8px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.3)]"

@@ -9,6 +9,7 @@ import {
   Sun,
   WifiOff,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { memo } from "react";
 import { Button } from "@/src/components/ui/button";
 import {
@@ -23,6 +24,14 @@ import {
   useCurrentWorkspace,
   useShowWelcomeScreen,
 } from "../features/kanban/store/selectors";
+
+const MotionButton = motion.create(Button);
+
+const buttonSpring = {
+  type: "spring" as const,
+  stiffness: 400,
+  damping: 17,
+};
 
 export const FloatingNavbar = memo(() => {
   const { theme, toggleTheme } = useTheme();
@@ -55,7 +64,7 @@ export const FloatingNavbar = memo(() => {
   };
 
   return (
-    <div className="-translate-x-1/2 fixed bottom-4 left-1/2 z-40 flex items-center gap-1 rounded-full border-2 border-border/50 bg-card/95 px-1.5 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+    <div className="-translate-x-1/2 fixed bottom-4 left-1/2 z-40 flex items-center gap-1 rounded-full border-2 border-border/50 bg-card/95 px-1.5 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
       <Button
         className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={handleNewBoard}
@@ -123,19 +132,21 @@ export const FloatingNavbar = memo(() => {
         </Tooltip>
       )}
 
-      <Button
+      <MotionButton
         className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={toggleTheme}
         size="sm"
         title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        transition={buttonSpring}
         variant="ghost"
+        whileTap={{ scale: 0.85 }}
       >
         {theme === "dark" ? (
           <Sun className="h-3.5 w-3.5" />
         ) : (
           <Moon className="h-3.5 w-3.5" />
         )}
-      </Button>
+      </MotionButton>
     </div>
   );
 });

@@ -14,10 +14,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@lumen/db": "workspace:^",
     "@lumen/logger": "workspace:^",
-    "@trpc/server": "^11.7.2",
-    "drizzle-orm": "^0.37.0"
+    "@trpc/server": "^11.7.2"
   },
   "devDependencies": {
     "@lumen/configs": "workspace:^",
