@@ -10,11 +10,7 @@
     "dep:check": "pnpm dlx sherif@latest --fix .",
     "dep:up": "pnpm dlx taze major -w",
     "check:ci": "biome ci .",
-    "check-types": "turbo run check-types",
-    "db:start": "docker compose up -d postgres",
-    "db:gen": "pnpm --filter @lumen/db db:generate",
-    "db:push": "pnpm --filter @lumen/db db:push",
-    "db:studio": "pnpm --filter @lumen/db db:studio"
+    "check-types": "turbo run check-types"
   },
   "dependencies": {
     "next": "^16.0.6",
@@ -26,7 +22,6 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
-    "lefthook": "^2.0.4",
     "lint-staged": "^16.2.7",
     "turbo": "^2.6.1",
     "ultracite": "6.3.4"

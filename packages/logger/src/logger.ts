@@ -1,5 +1,3 @@
-import pino from "pino";
-
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LoggerOptions = {
@@ -13,6 +11,15 @@ function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
+const levels: Record<LogLevel, number> = {
+  trace: 10,
+  debug: 20,
+  info: 30,
+  warn: 40,
+  error: 50,
+  fatal: 60,
+};
+
 const levelColors: Record<string, { bg: string; text: string }> = {
   trace: { bg: "#6b7280", text: "#fff" },
   debug: { bg: "#9ca3af", text: "#1f2937" },
@@ -21,6 +28,17 @@ const levelColors: Record<string, { bg: string; text: string }> = {
   error: { bg: "#ef4444", text: "#fff" },
   fatal: { bg: "#7f1d1d", text: "#fff" },
 };
+
+const ansiColors: Record<string, string> = {
+  trace: "\x1b[37m", // white
+  debug: "\x1b[36m", // cyan
+  info: "\x1b[34m", // blue
+  warn: "\x1b[33m", // yellow
+  error: "\x1b[31m", // red
+  fatal: "\x1b[35m", // magenta
+};
+
+const reset = "\x1b[0m";
 
 function formatBrowserLog(
   logObj: object,
@@ -58,87 +76,165 @@ function formatBrowserLog(
   }
 }
 
-function createBrowserWrite(loggerName: string) {
-  return {
-    trace: (o: object) => formatBrowserLog(o, "trace", loggerName),
-    debug: (o: object) => formatBrowserLog(o, "debug", loggerName),
-    info: (o: object) => formatBrowserLog(o, "info", loggerName),
-    warn: (o: object) => formatBrowserLog(o, "warn", loggerName),
-    error: (o: object) => formatBrowserLog(o, "error", loggerName),
-    fatal: (o: object) => formatBrowserLog(o, "fatal", loggerName),
-  };
+function formatServerLog(
+  logObj: Record<string, unknown>,
+  levelLabel: string,
+  loggerName: string,
+  pretty: boolean
+): void {
+  const timestamp = logObj.time as string;
+  const msg = logObj.msg as string;
+  const { time: _, msg: __, ...rest } = logObj;
+  const extra = Object.keys(rest).length > 0 ? JSON.stringify(rest) : "";
+
+  if (pretty) {
+    const color = ansiColors[levelLabel] || ansiColors.info;
+    console.log(
+      `${color}${levelLabel.toUpperCase()}${reset} ${timestamp} ${loggerName} ${msg} ${extra}`
+    );
+  } else {
+    console.log(
+      `${levelLabel.toUpperCase()} ${timestamp} ${loggerName} ${msg} ${extra}`
+    );
+  }
 }
 
-export function createLogger(options: LoggerOptions = {}): pino.Logger {
-  const {
-    name = "lumen",
-    level = process.env.NODE_ENV === "production" ? "info" : "debug",
-    base = {},
-    pretty: usePretty = process.env.NODE_ENV !== "production",
-  } = options;
+export type Logger = {
+  trace(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  debug(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  info(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  warn(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  error(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  fatal(
+    msg: string | Record<string, unknown>,
+    obj?: Record<string, unknown>
+  ): void;
+  child(bindings: Record<string, unknown>): Logger;
+};
 
-  const isProduction = process.env.NODE_ENV === "production";
+class CustomLogger implements Logger {
+  name: string;
+  level: LogLevel;
+  levelNum: number;
+  base: Record<string, unknown>;
+  pretty: boolean;
+  isBrowser: boolean;
 
-  if (isBrowser()) {
-    return pino({
-      name,
-      level,
-      base: {
-        ...base,
-        env: process.env.NODE_ENV,
-      },
-      browser: {
-        asObject: true,
-        write: createBrowserWrite(name),
-      },
-      timestamp: pino.stdTimeFunctions.isoTime,
-    });
+  constructor(options: LoggerOptions) {
+    this.name = options.name || "lumen";
+    this.level =
+      options.level ||
+      (process.env.NODE_ENV === "production" ? "info" : "debug");
+    this.levelNum = levels[this.level];
+    this.base = { ...options.base, env: process.env.NODE_ENV };
+    this.pretty = options.pretty ?? process.env.NODE_ENV !== "production";
+    this.isBrowser = isBrowser();
   }
 
-  if (isProduction || !usePretty) {
-    return pino({
-      name,
-      level,
-      base: {
-        ...base,
-        env: process.env.NODE_ENV,
-      },
-      timestamp: pino.stdTimeFunctions.isoTime,
-      formatters: {
-        level: (label) => ({ level: label.toUpperCase() }),
-      },
-    });
+  private log(
+    level: LogLevel,
+    arg1: string | Record<string, unknown>,
+    arg2?: Record<string, unknown>
+  ) {
+    let msg: string;
+    let obj: Record<string, unknown> | undefined;
+
+    if (typeof arg1 === "string") {
+      msg = arg1;
+      obj = arg2;
+    } else {
+      obj = arg1;
+      msg = (obj?.msg as string) || "";
+    }
+
+    if (levels[level] < this.levelNum) {
+      return;
+    }
+
+    const logObj = {
+      ...this.base,
+      msg,
+      ...obj,
+      time: new Date().toISOString(),
+    };
+
+    if (this.isBrowser) {
+      formatBrowserLog(logObj, level, this.name);
+    } else {
+      formatServerLog(logObj, level, this.name, this.pretty);
+    }
   }
 
-  const buildPrettyStream = require("pino-pretty") as (
-    opts: object
-  ) => pino.DestinationStream;
-  const prettyStream = buildPrettyStream({
-    colorize: true,
-    translateTime: "HH:MM:ss.l",
-    ignore: "pid,hostname,env",
-    singleLine: false,
-  });
+  trace(
+    arg1: string | Record<string, unknown>,
+    arg2?: Record<string, unknown>
+  ) {
+    this.log("trace", arg1, arg2);
+  }
 
-  return pino(
-    {
-      name,
-      level,
-      base: {
-        ...base,
-        env: process.env.NODE_ENV,
-      },
-      timestamp: pino.stdTimeFunctions.isoTime,
-    },
-    prettyStream
-  );
+  debug(
+    arg1: string | Record<string, unknown>,
+    arg2?: Record<string, unknown>
+  ) {
+    this.log("debug", arg1, arg2);
+  }
+
+  info(arg1: string | Record<string, unknown>, arg2?: Record<string, unknown>) {
+    this.log("info", arg1, arg2);
+  }
+
+  warn(arg1: string | Record<string, unknown>, arg2?: Record<string, unknown>) {
+    this.log("warn", arg1, arg2);
+  }
+
+  error(
+    arg1: string | Record<string, unknown>,
+    arg2?: Record<string, unknown>
+  ) {
+    this.log("error", arg1, arg2);
+  }
+
+  fatal(
+    arg1: string | Record<string, unknown>,
+    arg2?: Record<string, unknown>
+  ) {
+    this.log("fatal", arg1, arg2);
+  }
+
+  child(bindings: Record<string, unknown>): Logger {
+    return new CustomLogger({
+      name: this.name,
+      level: this.level,
+      base: { ...this.base, ...bindings },
+      pretty: this.pretty,
+    });
+  }
+}
+
+export function createLogger(options: LoggerOptions = {}): Logger {
+  return new CustomLogger(options);
 }
 
 export const logger = createLogger();
 
 export function createChildLogger(
-  parent: pino.Logger,
+  parent: Logger,
   bindings: Record<string, unknown>
-): pino.Logger {
+): Logger {
   return parent.child(bindings);
 }

@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
     cssChunking: true,
   },
   transpilePackages: ["@lumen/logger"],
-  serverExternalPackages: ["pino", "pino-pretty"],
 };
 
 export default nextConfig;

@@ -1,4 +1,4 @@
-export type { Logger } from "pino";
+export type { Logger } from "./logger";
 // biome-ignore lint/performance/noBarrelFile: This is the main entry point for the logger package.
 export {
   createChildLogger,
