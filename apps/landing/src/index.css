@@ -1,9 +1,30 @@
 @import "tailwindcss";
+@import "@fontsource/montserrat/500.css";
+@import "@fontsource/montserrat/600.css";
+@import "@fontsource/montserrat/700.css";
+@import "@fontsource/montserrat/800.css";
+@import "@fontsource/montserrat/900.css";
+@import "@fontsource/space-mono";
+@import "@fontsource/karla";
+@import "@fontsource/playfair/400.css";
+@import "@fontsource/playfair/500.css";
+@import "@fontsource/playfair/600.css";
+@import "@fontsource/playfair/700.css";
+@import "@fontsource/playfair/800.css";
+@import "@fontsource/playfair/900.css";
+@import "@fontsource/playfair/400-italic.css";
+@import "@fontsource/playfair/500-italic.css";
+@import "@fontsource/playfair/600-italic.css";
+@import "@fontsource/playfair/700-italic.css";
+@import "@fontsource/playfair/800-italic.css";
+@import "@fontsource/playfair/900-italic.css";
 
 @theme {
   /* Font families */
-  --font-mono: "Noto Sans Mono", monospace;
-  --font-sans: "Manrope", sans-serif;
+  --font-heading: "Montserrat", sans-serif;
+  --font-mono: "Space Mono", monospace;
+  --font-sans: "Karla", sans-serif;
+  --font-handwriting: "Playfair", serif;
 
   /* Custom animations */
   --animate-slide-up: slideUp 1s linear forwards;
@@ -33,7 +54,7 @@
 
 html,
 body {
-  background-color: #171717;
+  background-color: #0b0b0b;
   color: #d4d4d8;
   overflow-x: hidden;
   max-width: 100vw;
@@ -54,4 +75,35 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #3f3f46;
   border-radius: 4px;
+}
+
+.gradient-text {
+  background: linear-gradient(
+    45deg,
+    #f8bbd9,
+    #ce93d8,
+    #90caf9,
+    #80deea,
+    #a5d6a7,
+    #fff59d,
+    #ffab91,
+    #f8bbd9
+  );
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 16s linear infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }

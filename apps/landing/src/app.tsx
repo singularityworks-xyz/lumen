@@ -53,7 +53,7 @@ export default function App() {
   const heroContentHeight = windowWidth < 768 ? 300 : 675;
 
   return (
-    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-neutral-900 text-zinc-300 selection:bg-white selection:text-neutral-900">
+    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-[#14120b] text-zinc-300 selection:bg-white selection:text-neutral-900">
       <ParallaxBackground />
       {/* Navigation */}
       <nav className="fixed top-0 z-50 w-full bg-neutral-900/60 backdrop-blur-md">
@@ -93,7 +93,7 @@ export default function App() {
         </div>
       </nav>{" "}
       <div className="mx-auto max-w-7xl border-zinc-800 border-r border-l">
-        <main className="relative z-10 flex w-full max-w-[100vw] grow animate-slide-up flex-col items-center overflow-x-hidden px-6 pt-24 md:px-10 md:pt-32">
+        <main className="relative z-10 flex w-full max-w-screen grow animate-slide-up flex-col items-center overflow-x-hidden px-6 pt-24 md:px-10 md:pt-32">
           {/* Hero Section */}
           <section className="relative flex min-h-[60vh] w-full max-w-full flex-col items-center justify-center overflow-hidden text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-neutral-900/80 px-3 py-1 backdrop-blur md:mb-8">
@@ -106,15 +106,20 @@ export default function App() {
               </span>
             </div>
 
-            <h1 className="mx-auto mb-6 max-w-4xl font-medium font-sans text-2xl text-white leading-[1.1] sm:text-4xl md:text-6xl">
-              Infinite spatial canvas for
+            <h1 className="mx-auto mb-6 max-w-4xl font-bold font-heading text-2xl text-white leading-normal sm:text-4xl md:text-5xl">
+              Infinite spatial{" "}
+              {/* <span className="gradient-text font-black font-handwriting italic md:text-6xl">
+                canvas{" "}
+              </span> */}
+              canvas for
               <br />
-              <span className="font-medium text-zinc-500">
-                high-fidelity workflow.
+              <span className="gradient-text font-black font-handwriting italic md:text-6xl">
+                high-fidelity {' '}
               </span>
+              workflow
             </h1>
 
-            <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-sm text-zinc-400 leading-relaxed sm:text-base md:mb-10 md:text-xl">
+            <p className="mx-auto mb-8 max-w-2xl px-4 font-light font-sans text-sm text-zinc-400 sm:text-base md:mb-10 md:text-xl">
               Organize work through free-form kanban structures and arbitrary
               task objects. Durable offline storage with deterministic state.
             </p>
