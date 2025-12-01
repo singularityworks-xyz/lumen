@@ -13,6 +13,7 @@ import { Marquee } from "./animations/marquee";
 import { HeroAnimation } from "./animations/preview-animation";
 import RotatingText from "./animations/rotating-text";
 import { Logo } from "./components/logo";
+import { OpenSource } from "./components/open-source";
 import { ScaleContainer } from "./components/scale-container";
 import { Pricing } from "./pricing";
 
@@ -194,6 +195,9 @@ export default function App() {
                   </div>
                 </div>
               </section>
+
+              {/* Open Source section */}
+              <OpenSource />
 
               {/* Marquee Section */}
               <section className="w-full overflow-hidden py-12 md:py-16">
