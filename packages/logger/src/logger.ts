@@ -140,7 +140,8 @@ class CustomLogger implements Logger {
     this.level =
       options.level ||
       (process.env.NODE_ENV === "production" ? "info" : "debug");
-    this.levelNum = levels[this.level];
+    this.levelNum =
+      process.env.NODE_ENV === "production" ? 100 : levels[this.level];
     this.base = { ...options.base, env: process.env.NODE_ENV };
     this.pretty = options.pretty ?? process.env.NODE_ENV !== "production";
     this.isBrowser = isBrowser();

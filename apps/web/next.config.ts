@@ -1,3 +1,4 @@
+import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -10,4 +11,4 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@lumen/logger"],
 };
 
-export default nextConfig;
+export default withBotId(nextConfig);
