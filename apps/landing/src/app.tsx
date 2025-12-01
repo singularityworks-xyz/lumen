@@ -11,6 +11,7 @@ import {
 import { FlashlightCard } from "./animations/flashlight";
 import { Marquee } from "./animations/marquee";
 import { HeroAnimation } from "./animations/preview-animation";
+import RotatingText from "./animations/rotating-text";
 import { Logo } from "./components/logo";
 import { ScaleContainer } from "./components/scale-container";
 import { Pricing } from "./pricing";
@@ -58,7 +59,7 @@ export default function App() {
   const heroContentHeight = windowWidth < 768 ? 300 : 675;
 
   return (
-    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-[#14120b] text-zinc-300 selection:bg-white selection:text-neutral-900">
+    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-background text-zinc-300 selection:bg-white selection:text-neutral-900">
       <ParallaxBackground />
       {/* Navigation */}
       <nav className="fixed top-0 z-50 w-full bg-neutral-900/60 backdrop-blur-md">
@@ -84,7 +85,7 @@ export default function App() {
                 SINGULARITY WORKS ©
               </span>
               <a
-                className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-white text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2"
+                className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-text-primary text-xs transition-all hover:bg-zinc-700 md:px-4 md:py-2"
                 href="https://canvas.itssingularity.com"
                 rel="noopener"
                 target="_blank"
@@ -113,16 +114,33 @@ export default function App() {
                   </span>
                 </div>
 
-                <h1 className="mx-auto mb-6 max-w-4xl font-bold font-heading text-2xl text-white leading-normal sm:text-4xl md:text-5xl">
+                <h1 className="mx-auto mb-6 max-w-4xl font-bold font-heading text-2xl text-text-primary leading-normal sm:text-4xl md:text-5xl">
                   Infinite spatial{" "}
                   {/* <span className="gradient-text font-black font-handwriting italic md:text-6xl">
                 canvas{" "}
               </span> */}
                   canvas for
                   <br />
-                  <span className="gradient-text font-black font-handwriting italic md:text-6xl">
-                    high-fidelity{" "}
-                  </span>
+                  <span className="inline-flex items-center font-bold font-heading text-text-primary md:text-5xl">
+                    high-{" "}
+                    <RotatingText
+                      animate={{ y: 0 }}
+                      elementLevelClassName="gradient-text inline-flex items-center font-black font-handwriting italic md:text-6xl overflow-visible"
+                      exit={{ y: "-120%" }}
+                      initial={{ y: "100%" }}
+                      mainClassName="overflow-hidden bg-white justify-center rounded-md px-2 py-1"
+                      rotationInterval={2000}
+                      splitLevelClassName="inline-block"
+                      staggerDuration={0.025}
+                      staggerFrom={"last"}
+                      texts={["precision", "accuracy", "detail", "clarity"]}
+                      transition={{
+                        type: "spring",
+                        damping: 30,
+                        stiffness: 400,
+                      }}
+                    />{" "}
+                  </span>{" "}
                   workflow
                 </h1>
 
@@ -134,7 +152,7 @@ export default function App() {
 
                 <div className="flex w-full flex-col items-center gap-3 px-4 sm:w-auto sm:flex-row sm:gap-4 sm:px-0">
                   <a
-                    className="group relative flex w-full items-center overflow-hidden rounded bg-white px-8 py-3 font-mono text-neutral-900 text-sm shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] sm:w-auto"
+                    className="group relative flex w-full items-center overflow-hidden rounded bg-text-primary px-8 py-3 font-mono text-neutral-900 text-sm shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] sm:w-auto"
                     href="https://canvas.itssingularity.com"
                     rel="noopener"
                     target="_blank"
@@ -178,7 +196,7 @@ export default function App() {
               </section>
 
               {/* Marquee Section */}
-              <section className="w-full overflow-hidden bg-neutral-900/50 py-12 md:py-16">
+              <section className="w-full overflow-hidden py-12 md:py-16">
                 <Marquee />
               </section>
 

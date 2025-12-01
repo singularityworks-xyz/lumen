@@ -31,6 +31,10 @@
   --animate-marquee: marquee 25s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
+  /* Colors */
+  --color-background: #060606;
+  --color-text-primary: #e5e5e5;
+
   @keyframes slideUp {
     0% {
       transform: translateY(40px);
@@ -44,10 +48,10 @@
 
   @keyframes marquee {
     0% {
-      transform: translateX(0%);
+      transform: translateX(0);
     }
     100% {
-      transform: translateX(-100%);
+      transform: translateX(-50%);
     }
   }
 }
@@ -78,22 +82,12 @@ body {
 }
 
 .gradient-text {
-  background: linear-gradient(
-    45deg,
-    #f8bbd9,
-    #ce93d8,
-    #90caf9,
-    #80deea,
-    #a5d6a7,
-    #fff59d,
-    #ffab91,
-    #f8bbd9
-  );
+  background: linear-gradient(45deg, #bdbdbd, #282828, #bdbdbd, #282828);
   background-size: 400% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gradient-shift 16s linear infinite;
+  animation: gradient-shift 8s linear infinite;
 }
 
 @keyframes gradient-shift {
