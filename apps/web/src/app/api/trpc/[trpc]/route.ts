@@ -21,13 +21,16 @@ const handler = (req: Request) => {
       return {};
     },
     onError: ({ error, path, type }) => {
-      requestLogger.error({
-        error: error.message,
-        code: error.code,
-        path,
-        type,
-        stack: error.stack,
-      });
+      requestLogger.error(
+        {
+          error: error.message,
+          code: error.code,
+          path,
+          type,
+          stack: error.stack,
+        },
+        "tRPC request error"
+      );
     },
   });
 };

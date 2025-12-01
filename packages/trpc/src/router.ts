@@ -5,12 +5,15 @@ const logger = createLogger({ name: "[server] trpc" });
 
 const t = initTRPC.context<Record<string, never>>().create({
   errorFormatter: ({ shape, error }) => {
-    logger.error({
-      code: error.code,
-      message: error.message,
-      cause: error.cause,
-      stack: error.stack,
-    });
+    logger.error(
+      {
+        code: error.code,
+        message: error.message,
+        cause: error.cause,
+        stack: error.stack,
+      },
+      "tRPC error occurred"
+    );
     return shape;
   },
 });

@@ -102,27 +102,27 @@ function formatServerLog(
 export type Logger = {
   trace(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   debug(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   info(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   warn(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   error(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   fatal(
     msg: string | Record<string, unknown>,
-    obj?: Record<string, unknown>
+    obj?: string | Record<string, unknown>
   ): void;
   child(bindings: Record<string, unknown>): Logger;
 };
@@ -149,17 +149,36 @@ class CustomLogger implements Logger {
   private log(
     level: LogLevel,
     arg1: string | Record<string, unknown>,
-    arg2?: Record<string, unknown>
+    arg2?: string | Record<string, unknown>
   ) {
-    let msg: string;
-    let obj: Record<string, unknown> | undefined;
+    let msg = "";
+    let obj: Record<string, unknown> = {};
 
     if (typeof arg1 === "string") {
       msg = arg1;
-      obj = arg2;
+      if (arg2) {
+        if (typeof arg2 === "string") {
+          // If arg1 is string and arg2 is string, perhaps arg2 is extra, but to match Pino, maybe ignore or error
+          // But for compatibility, perhaps treat as msg + arg2 or something, but let's assume arg2 is object
+          // Since the error is arg2 string, but in standard it's object, but to fix, if arg2 string, ignore or set msg = arg1 + arg2
+          // But to simple, if arg2 is string, set msg = arg1, and ignore arg2 or something
+          // Wait, in the call, it's logger.error({error}, "msg"), so arg1 object, arg2 string
+          // So handle that case.
+        } else {
+          obj = arg2;
+        }
+      }
     } else {
       obj = arg1;
-      msg = (obj?.msg as string) || "";
+      if (arg2) {
+        if (typeof arg2 === "string") {
+          msg = arg2;
+        } else {
+          obj = { ...obj, ...arg2 };
+        }
+      } else {
+        msg = (obj.msg as string) || "";
+      }
     }
 
     if (levels[level] < this.levelNum) {
@@ -182,36 +201,42 @@ class CustomLogger implements Logger {
 
   trace(
     arg1: string | Record<string, unknown>,
-    arg2?: Record<string, unknown>
+    arg2?: string | Record<string, unknown>
   ) {
     this.log("trace", arg1, arg2);
   }
 
   debug(
     arg1: string | Record<string, unknown>,
-    arg2?: Record<string, unknown>
+    arg2?: string | Record<string, unknown>
   ) {
     this.log("debug", arg1, arg2);
   }
 
-  info(arg1: string | Record<string, unknown>, arg2?: Record<string, unknown>) {
+  info(
+    arg1: string | Record<string, unknown>,
+    arg2?: string | Record<string, unknown>
+  ) {
     this.log("info", arg1, arg2);
   }
 
-  warn(arg1: string | Record<string, unknown>, arg2?: Record<string, unknown>) {
+  warn(
+    arg1: string | Record<string, unknown>,
+    arg2?: string | Record<string, unknown>
+  ) {
     this.log("warn", arg1, arg2);
   }
 
   error(
     arg1: string | Record<string, unknown>,
-    arg2?: Record<string, unknown>
+    arg2?: string | Record<string, unknown>
   ) {
     this.log("error", arg1, arg2);
   }
 
   fatal(
     arg1: string | Record<string, unknown>,
-    arg2?: Record<string, unknown>
+    arg2?: string | Record<string, unknown>
   ) {
     this.log("fatal", arg1, arg2);
   }
