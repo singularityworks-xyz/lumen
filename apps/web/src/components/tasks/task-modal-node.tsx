@@ -14,6 +14,16 @@ import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
+const WORD_SPLIT_REGEX = /\s+/;
+
+const getInitials = (name: string): string =>
+  name
+    .split(WORD_SPLIT_REGEX)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+
 type TaskModalNodeData = {
   modalId: string;
 };
@@ -151,6 +161,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary">
+              {getInitials(boards.byId[selectedBoardId]?.name ?? "")}
+            </span>
             <span className="font-semibold text-xs">New Task</span>
           </div>
           <div className="flex items-center gap-1.5">

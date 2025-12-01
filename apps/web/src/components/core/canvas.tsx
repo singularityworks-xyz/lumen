@@ -30,6 +30,7 @@ import { CustomControls } from "../custom-controls";
 import { WelcomeScreen } from "../dialogs/welcome-screen";
 import { RightControls } from "../right-controls";
 import { WorkspaceSelector } from "../workspace-selector";
+import { MiniMapNode } from "./minimap-node";
 
 type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
@@ -442,11 +443,15 @@ export function KanbanCanvas() {
             className="rounded-lg! border-2! border-border/50! bg-card/95! shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]! backdrop-blur-md! dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]!"
             maskColor="var(--background)"
             nodeColor={(node) => {
-              if (node.data?.isSelected || node.selected) {
+              if (
+                ("isSelected" in node.data && node.data.isSelected) ||
+                node.selected
+              ) {
                 return "var(--primary)";
               }
               return "var(--secondary)";
             }}
+            nodeComponent={MiniMapNode}
             pannable
             position="top-right"
             zoomable

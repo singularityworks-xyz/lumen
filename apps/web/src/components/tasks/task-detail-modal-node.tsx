@@ -8,6 +8,16 @@ import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 import { TaskDetailForm } from "./task-detail-form";
 import { TaskViewForm } from "./task-view-form";
 
+const WORD_SPLIT_REGEX = /\s+/;
+
+const getInitials = (name: string): string =>
+  name
+    .split(WORD_SPLIT_REGEX)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+
 type TaskDetailModalNodeData = {
   modalId: string;
 };
@@ -84,11 +94,14 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
             ) : (
               <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             )}
-            <span className="font-semibold text-xs">
-              {isEditing ? "Edit Task" : "Task Details"}
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary">
+              {getInitials(board.name)}
             </span>
-            <span className="rounded-md bg-card/80 px-2 py-0.5 text-muted-foreground text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]">
-              {board.name}
+            <span
+              className="max-w-32 truncate font-semibold text-xs"
+              title={task.title}
+            >
+              {task.title}
             </span>
           </div>
           <button

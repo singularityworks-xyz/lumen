@@ -59,6 +59,7 @@ export type Workspace = {
   board_ids: string[];
   lastFocusedBoardId?: string | null;
   lastViewport?: ViewportState | null;
+  showMiniMap?: boolean;
 };
 
 export type EntityMap<T> = {
