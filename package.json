@@ -16,11 +16,15 @@
     "db:push": "pnpm --filter @lumen/db db:push",
     "db:studio": "pnpm --filter @lumen/db db:studio"
   },
+  "dependencies": {
+    "next": "^16.0.6",
+    "typescript": "^5.9.3"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
     "@types/node": "^24.10.1",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
     "lefthook": "^2.0.4",
     "lint-staged": "^16.2.7",
@@ -32,11 +36,6 @@
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
       "pnpm ultracite fix"
     ]
-  },
-  "dependencies": {
-    "cross-env": "^7.0.3",
-    "next": "^16.0.5",
-    "typescript": "^5.9.3"
   },
   "pnpm": {
     "overrides": {
