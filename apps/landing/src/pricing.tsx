@@ -44,6 +44,7 @@ const featureItemVariants = {
 const PricingCard = ({
   title,
   price,
+  originalPrice,
   description,
   features,
   recommended = false,
@@ -51,6 +52,7 @@ const PricingCard = ({
 }: {
   title: string;
   price: string;
+  originalPrice?: string;
   description: string;
   features: string[];
   recommended?: boolean;
@@ -63,10 +65,6 @@ const PricingCard = ({
         ? "border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.1)]"
         : "border-zinc-800/80 hover:border-zinc-700/80 hover:bg-neutral-900"
     }`}
-    whileHover={{ 
-      y: -8,
-      transition: { duration: 0.3, ease: "easeOut" }
-    }}
   >
     {recommended && (
       <motion.div
@@ -81,7 +79,12 @@ const PricingCard = ({
     <div className="mb-2 font-mono text-[11px] text-zinc-500 uppercase tracking-[0.28em]">
       {title}
     </div>
-    <div className="mb-4 flex items-baseline gap-1">
+    <div className="mb-4 flex items-baseline gap-2">
+      {originalPrice && (
+        <span className="font-sans text-lg text-zinc-500 line-through decoration-zinc-500/50">
+          {originalPrice}
+        </span>
+      )}
       <motion.span 
         className="font-medium font-sans text-3xl text-white sm:text-4xl"
         initial={{ opacity: 0, scale: 0.9 }}
@@ -90,7 +93,7 @@ const PricingCard = ({
       >
         {price}
       </motion.span>
-      {price !== "Free" && (
+      {price !== "Free" && price !== "Contact Us" && (
         <span className="font-sans text-xs text-zinc-500 sm:text-sm">/month</span>
       )}
     </div>
@@ -193,8 +196,10 @@ export const Pricing = () => (
           "End-to-end encryption",
           "10GB Cloud storage",
           "Version history (30 days)",
+          "MCP Server support",
         ]}
-        price="$12"
+        price="$14"
+        originalPrice="$20"
         recommended
         title="Sync"
       />
@@ -209,8 +214,8 @@ export const Pricing = () => (
           "Admin console & roles",
           "Priority support",
         ]}
-        price="$49"
-        title="Team"
+        price="Contact Us"
+        title="Enterprise"
       />
     </motion.div>
 
