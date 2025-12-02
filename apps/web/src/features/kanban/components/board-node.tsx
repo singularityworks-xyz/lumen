@@ -2,7 +2,7 @@
 
 import type { Node, NodeProps } from "@xyflow/react";
 import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
-import { GripVertical, Pencil, Plus, X } from "lucide-react";
+import { GripVertical, Plus, SquarePen, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
@@ -92,12 +92,31 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const { boardId, isSelected } = data as BoardNode["data"];
 
+    const triggerTaskDetailModalShake = useKanbanStore(
+      (state) => state.triggerTaskDetailModalShake
+    );
+
     const handleOpenTaskDetail = useCallback(
       (taskId: string, screenX: number, screenY: number) => {
         const canvasPosition = screenToFlowPosition({ x: screenX, y: screenY });
-        openTaskDetailModal(taskId, boardId, canvasPosition);
+        const result = openTaskDetailModal(taskId, boardId, canvasPosition);
+        if (result.isExisting) {
+          setCenter(result.position.x + 200, result.position.y + 175, {
+            duration: 500,
+            zoom: 1,
+          });
+          setTimeout(() => {
+            triggerTaskDetailModalShake(result.id);
+          }, 300);
+        }
       },
-      [screenToFlowPosition, openTaskDetailModal, boardId]
+      [
+        screenToFlowPosition,
+        openTaskDetailModal,
+        boardId,
+        setCenter,
+        triggerTaskDetailModalShake,
+      ]
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
@@ -424,7 +443,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                   title="Edit board"
                   type="button"
                 >
-                  <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+                  <SquarePen className="h-3 w-3 text-muted-foreground" />
                 </button>
               </div>
             </div>

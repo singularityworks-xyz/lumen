@@ -3,21 +3,13 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ArrowUpRight, SquarePen } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/src/components/ui/alert-dialog";
-import { Input } from "@/src/components/ui/input";
 import { ColumnContextMenu } from "../../../components/column-context-menu";
+import { ColumnConflictDialog } from "../../../components/dialogs/column-conflict-dialog";
 import { DeleteColumnDialog } from "../../../components/dialogs/delete-column-dialog";
+import { MoveColumnDialog } from "../../../components/dialogs/move-column-dialog";
 import { RenameColumnDialog } from "../../../components/dialogs/rename-column-dialog";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
@@ -152,7 +144,6 @@ export const KanbanColumn = memo(
       id: string;
       name: string;
     } | null>(null);
-    const [renameValue, setRenameValue] = useState(column.name);
 
     const handleOpenMoveDialog = useCallback(() => {
       if (availableTargetBoards.length === 0) {
@@ -162,22 +153,19 @@ export const KanbanColumn = memo(
       setShowMoveDialog(true);
     }, [availableTargetBoards]);
 
-    const handleConfirmMove = () => {
-      if (!targetBoardId) {
-        return;
-      }
-      const targetBoard = boards.byId[targetBoardId];
+    const handleMoveConfirm = (selectedTargetBoardId: string) => {
+      setTargetBoardId(selectedTargetBoardId);
+      const targetBoard = boards.byId[selectedTargetBoardId];
       if (!targetBoard) {
         return;
       }
 
-      // Check if there's an existing column with the same name in target board
       const existingColumn = targetBoard.column_ids
         .map((colId) => columnsStore.byId[colId])
         .find((col) => col?.name === column.name);
 
       if (!existingColumn) {
-        moveColumnToBoard(boardId, column.id, targetBoardId);
+        moveColumnToBoard(boardId, column.id, selectedTargetBoardId);
         setShowMoveDialog(false);
         return;
       }
@@ -186,17 +174,15 @@ export const KanbanColumn = memo(
         id: existingColumn.id,
         name: existingColumn.name,
       });
-      setRenameValue(column.name);
       setShowMoveDialog(false);
       setShowConflictDialog(true);
     };
 
-    const handleRenameAndMove = () => {
+    const handleRenameAndMove = (newName: string) => {
       if (!targetBoardId) {
         return;
       }
 
-      const newName = renameValue.trim() || column.name;
       updateColumn(column.id, { name: newName });
       moveColumnToBoard(boardId, column.id, targetBoardId);
       setShowConflictDialog(false);
@@ -236,18 +222,48 @@ export const KanbanColumn = memo(
       >
         {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
         <div
-          className="cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"
+          className="group cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"
           onContextMenu={handleHeaderContextMenu}
           {...attributes}
           {...listeners}
         >
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-card-foreground text-xs">
-              {column.name}
-            </h3>
-            <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {taskCount}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-card-foreground text-xs">
+                {column.name}
+              </h3>
+              <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  aria-label="Rename column"
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRenameDialog(true);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  type="button"
+                >
+                  <SquarePen className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {taskCount}
+              </span>
+              <button
+                aria-label="Move column to another board"
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenMoveDialog();
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                type="button"
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -305,6 +321,8 @@ export const KanbanColumn = memo(
 
         {showRenameDialog && (
           <RenameColumnDialog
+            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
+            columnName={column.name}
             currentName={column.name}
             onClose={() => setShowRenameDialog(false)}
             onRename={handleRename}
@@ -313,6 +331,7 @@ export const KanbanColumn = memo(
 
         {showDeleteDialog && (
           <DeleteColumnDialog
+            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
             columnName={column.name}
             onClose={() => setShowDeleteDialog(false)}
             onConfirm={handleRemove}
@@ -320,94 +339,30 @@ export const KanbanColumn = memo(
         )}
 
         {showMoveDialog && (
-          <AlertDialog onOpenChange={setShowMoveDialog} open={showMoveDialog}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Move Column</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Move "{column.name}" to another board in this workspace.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="space-y-2 py-2">
-                <label
-                  className="font-medium text-card-foreground text-sm"
-                  htmlFor="target-board"
-                >
-                  Target Board
-                </label>
-                <select
-                  className="w-full rounded-md border border-border bg-secondary/30 p-2 text-sm"
-                  id="target-board"
-                  onChange={(e) => setTargetBoardId(e.target.value)}
-                  value={targetBoardId ?? ""}
-                >
-                  {availableTargetBoards.map((board) => (
-                    <option key={board.id} value={board.id}>
-                      {board.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmMove}>
-                  Move
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <MoveColumnDialog
+            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
+            columnName={column.name}
+            onClose={() => setShowMoveDialog(false)}
+            onConfirm={handleMoveConfirm}
+            targetBoards={availableTargetBoards.map((b) => ({
+              id: b.id,
+              name: b.name,
+            }))}
+          />
         )}
 
-        {showConflictDialog && (
-          <AlertDialog
-            onOpenChange={setShowConflictDialog}
-            open={showConflictDialog}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Column name conflict</AlertDialogTitle>
-                <AlertDialogDescription>
-                  A column named "{column.name}" already exists on the target
-                  board. You can rename this column or replace the existing one.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="space-y-3 py-2">
-                <div className="space-y-1">
-                  <label
-                    className="font-medium text-card-foreground text-sm"
-                    htmlFor="column-new-name"
-                  >
-                    New name
-                  </label>
-                  <Input
-                    id="column-new-name"
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    value={renameValue}
-                  />
-                </div>
-              </div>
-              <AlertDialogFooter className="flex flex-col gap-2 sm:flex-row">
-                <AlertDialogCancel
-                  className="sm:order-1"
-                  onClick={() => setShowConflictDialog(false)}
-                >
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  className="sm:order-2"
-                  onClick={handleRenameAndMove}
-                >
-                  Rename &amp; Move
-                </AlertDialogAction>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:order-3"
-                  onClick={handleReplaceExisting}
-                >
-                  Replace Existing
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        {showConflictDialog && targetBoardId && (
+          <ColumnConflictDialog
+            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
+            columnName={column.name}
+            onClose={() => {
+              setShowConflictDialog(false);
+              setConflictExistingColumn(null);
+            }}
+            onRenameAndMove={handleRenameAndMove}
+            onReplaceExisting={handleReplaceExisting}
+            targetBoardName={boards.byId[targetBoardId]?.name ?? "Target Board"}
+          />
         )}
       </section>
     );
