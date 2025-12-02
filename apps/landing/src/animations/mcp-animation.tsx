@@ -69,15 +69,11 @@ export const MCPAnimation = () => {
 
         // 2. User types prompt
         setPhase("ide-typing-prompt");
-        await wait(2500);
+        await wait(3500);
 
         // 3. Click MCP
         setPhase("ide-click-mcp");
         await wait(2000);
-
-        // Pause after MCP selection & Type Prompt
-        setPhase("ide-typing-prompt");
-        await wait(4500);
 
         // 4. Click Send
         setPhase("ide-click-send");
