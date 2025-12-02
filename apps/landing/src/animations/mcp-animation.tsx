@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
+import { ArrowUp, Plug } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Phase =
@@ -6,6 +7,7 @@ type Phase =
   | "ide-typing-code"
   | "ide-typing-prompt"
   | "ide-click-mcp"
+  | "ide-click-send"
   | "switch-to-canvas"
   | "canvas-update"
   | "switch-to-ide"
@@ -71,21 +73,29 @@ export const MCPAnimation = () => {
 
         // 3. Click MCP
         setPhase("ide-click-mcp");
+        await wait(2000);
+
+        // Pause after MCP selection & Type Prompt
+        setPhase("ide-typing-prompt");
+        await wait(4500);
+
+        // 4. Click Send
+        setPhase("ide-click-send");
         await wait(800);
 
-        // 4. Switch to Canvas
+        // 5. Switch to Canvas
         setPhase("switch-to-canvas");
         await wait(1000);
 
-        // 5. Canvas Update
+        // 6. Canvas Update
         setPhase("canvas-update");
         await wait(1500);
 
-        // 6. Switch back to IDE
+        // 7. Switch back to IDE
         setPhase("switch-to-ide");
         await wait(1000);
 
-        // 7. Show Success
+        // 8. Show Success
         setPhase("show-success");
         await wait(2000);
 
@@ -119,12 +129,13 @@ export const MCPAnimation = () => {
   useEffect(() => {
     if (phase === "ide-typing-prompt") {
       const text = "Mark 'Update Todo' as done in workspace.";
+      if (promptValue === text) return;
       let currentIndex = 0;
       const interval = setInterval(() => {
         setPromptValue(text.slice(0, currentIndex + 1));
         currentIndex++;
         if (currentIndex >= text.length) clearInterval(interval);
-      }, 50);
+      }, 70);
       return () => clearInterval(interval);
     }
   }, [phase]);
@@ -139,12 +150,13 @@ export const MCPAnimation = () => {
   const cursorVariants = {
     idle: { top: "110%", left: "50%", opacity: 1 },
     "ide-typing-code": { top: "30%", left: "30%", opacity: 1 },
-    "ide-typing-prompt": { top: "85%", left: "80%", opacity: 1 },
-    "ide-click-mcp": { top: "8%", left: "90%", scale: 0.9 },
-    "switch-to-canvas": { top: "50%", left: "50%", opacity: 0 }, // Hide cursor during transition
+    "ide-typing-prompt": { top: "85%", left: "85%", opacity: 1 }, // Bottom right sidebar input
+    "ide-click-mcp": { top: "82%", left: "78%", scale: 0.9 }, // MCP button on left
+    "ide-click-send": { top: "82%", left: "92%", scale: 0.9 }, // Send button on right
+    "switch-to-canvas": { top: "50%", left: "50%", opacity: 0 },
     "canvas-update": { top: "50%", left: "50%", opacity: 0 },
     "switch-to-ide": { top: "50%", left: "50%", opacity: 0 },
-    "show-success": { top: "80%", left: "80%", opacity: 1 },
+    "show-success": { top: "90%", left: "10%", opacity: 1 }, // Bottom left
     reset: { top: "110%", left: "50%", opacity: 1 },
   };
 
@@ -162,25 +174,28 @@ export const MCPAnimation = () => {
           x: isCanvasFocused ? "-20%" : "0%",
           filter: isCanvasFocused ? "blur(2px)" : "blur(0px)",
         }}
-        className="absolute inset-4 flex overflow-hidden rounded-xl border border-zinc-800 bg-[#1e1e1e] shadow-2xl"
+        className="absolute inset-4 flex flex-col overflow-hidden rounded-xl border border-zinc-800 bg-[#1e1e1e] shadow-2xl"
         transition={TRANSITION_SMOOTH}
       >
-        {/* Left Side: Code Editor */}
-        <div className="flex flex-1 flex-col border-r border-zinc-800">
-          {/* IDE Header */}
-          <div className="flex h-8 items-center border-b border-zinc-800 bg-zinc-900 px-3">
-            <div className="flex gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-red-500/20" />
-              <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/20" />
-              <div className="h-2.5 w-2.5 rounded-full bg-green-500/20" />
-            </div>
-            <div className="ml-4 text-[10px] text-zinc-500 font-mono">
-              workspace/task.ts
-            </div>
+        {/* IDE Header */}
+        <div className="flex h-8 shrink-0 items-center border-b border-zinc-800 bg-zinc-900 px-3">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-500/20" />
+            <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/20" />
+            <div className="h-2.5 w-2.5 rounded-full bg-green-500/20" />
           </div>
+          <div className="ml-4 text-[10px] text-zinc-500 font-mono">
+            workspace/task.ts
+          </div>
+        </div>
 
+        {/* IDE Body */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar (Files) */}
+          <div className="w-12 border-r border-zinc-800 bg-zinc-900/50 hidden sm:block shrink-0" />
+          
           {/* Code Area */}
-          <div className="flex-1 p-4 font-mono text-[10px] sm:text-xs text-zinc-300">
+          <div className="flex-1 p-4 font-mono text-[10px] sm:text-xs text-zinc-300 overflow-hidden">
             <div className="text-zinc-500">// TODO: Implement task update</div>
             <div className="mt-2">
               <span className="text-purple-400">const</span>{" "}
@@ -192,37 +207,82 @@ export const MCPAnimation = () => {
             </div>
             <div className="mt-1">{"}"}</div>
           </div>
-        </div>
 
-        {/* Right Side: Agent Sidebar */}
-        <div className="w-1/3 min-w-[150px] bg-zinc-900/50 flex flex-col">
-          {/* Agent Header */}
-          <div className="flex h-8 items-center justify-between border-b border-zinc-800 px-3">
-            <span className="text-[10px] font-medium text-zinc-400">Agent</span>
-            <div className="flex gap-2">
-               <motion.button
-                animate={phase === "ide-click-mcp" ? { scale: 0.9, backgroundColor: "#3b82f6" } : { scale: 1, backgroundColor: "#27272a" }}
-                className="flex items-center gap-1 rounded bg-zinc-800 px-2 py-0.5 text-[8px] text-white transition-colors"
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                MCP
-              </motion.button>
-            </div>
-          </div>
+          {/* Right Sidebar (Agent) */}
+          <div className="w-1/3 min-w-[180px] max-w-[250px] border-l border-zinc-800 bg-zinc-900/30 flex flex-col backdrop-blur-sm">
+             {/* Agent Header */}
+             <div className="flex items-center justify-between border-b border-zinc-800/50 p-2">
+                <span className="text-[10px] font-medium text-zinc-400">Agent</span>
+                <div className="flex gap-1">
+                   <div className="h-1.5 w-1.5 rounded-full bg-zinc-700" />
+                   <div className="h-1.5 w-1.5 rounded-full bg-zinc-700" />
+                </div>
+             </div>
 
-          {/* Chat Area (Empty for now, could add chat bubbles later) */}
-          <div className="flex-1 p-3">
-             {/* Placeholder for chat history */}
-          </div>
+             {/* Chat History */}
+             <div className="flex-1 p-2 overflow-y-auto space-y-3">
+                {/* Agent greeting */}
+                <div className="flex flex-col gap-1">
+                   <div className="self-start rounded-lg rounded-tl-none bg-zinc-800 px-2 py-1 text-[9px] text-zinc-300">
+                      Hello, how can I help you?
+                   </div>
+                </div>
+             </div>
 
-          {/* Prompt Input Area */}
-          <div className="p-3 border-t border-zinc-800 bg-zinc-900/80">
-            <div className="rounded border border-zinc-800 bg-black/50 p-2 font-mono text-[10px] text-zinc-300 min-h-[60px]">
-              <span className="text-green-500">{">"}</span> {promptValue}
-              {phase === "ide-typing-prompt" && (
-                <span className="animate-pulse inline-block w-1.5 h-3 bg-zinc-500 align-middle ml-0.5" />
-              )}
-            </div>
+             {/* Input Area */}
+             <div className="p-2 border-t border-zinc-800/50 bg-zinc-900/50">
+                <div className="relative rounded-md border border-zinc-700/50 bg-black/40 p-2">
+                   <div className="font-mono text-[9px] text-zinc-300 min-h-[40px] whitespace-pre-wrap break-words">
+                      {promptValue}
+                      {phase === "ide-typing-prompt" && (
+                        <span className="animate-pulse inline-block w-1.5 h-2.5 bg-zinc-500 align-middle ml-0.5" />
+                      )}
+                   </div>
+                   
+                   {/* Action Buttons */}
+                   <div className="absolute bottom-1 right-1 flex items-center gap-1">
+                      {/* MCP Button & Dropdown */}
+                      <div className="relative">
+                         <motion.button
+                           animate={phase === "ide-click-mcp" ? { scale: 0.9, backgroundColor: "#3b82f6" } : { scale: 1, backgroundColor: "#27272a" }}
+                           className="flex items-center justify-center h-5 w-5 rounded bg-zinc-800 text-blue-400 transition-colors hover:bg-zinc-700"
+                         >
+                            <Plug className="h-2.5 w-2.5" />
+                         </motion.button>
+                         
+                         {/* Dropdown Menu */}
+                         <AnimatePresence>
+                            {phase === "ide-click-mcp" && (
+                            <motion.div
+                               initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                               animate={{ opacity: 1, scale: 1, y: 0 }}
+                               exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                               className="absolute bottom-full right-0 mb-1 w-24 rounded border border-zinc-700 bg-zinc-800 shadow-xl overflow-hidden z-20"
+                            >
+                               <div className="px-2 py-1 text-[8px] font-medium text-zinc-500 border-b border-zinc-700/50">TOOLS</div>
+                               <div className="flex items-center gap-1.5 px-2 py-1.5 bg-blue-500/20 text-[9px] text-blue-200">
+                                  <Plug className="h-2 w-2 text-blue-400" />
+                                  Lumen
+                               </div>
+                               <div className="flex items-center gap-1.5 px-2 py-1.5 text-[9px] text-zinc-400">
+                                  <Plug className="h-2 w-2 text-purple-400" />
+                                  Search
+                               </div>
+                            </motion.div>
+                            )}
+                         </AnimatePresence>
+                      </div>
+                      
+                      {/* Send Button */}
+                      <motion.button
+                        animate={phase === "ide-click-send" ? { scale: 0.9, backgroundColor: "#3b82f6" } : { scale: 1, backgroundColor: "#27272a" }}
+                        className="flex items-center justify-center h-5 w-5 rounded bg-zinc-800 text-blue-400 transition-colors hover:bg-zinc-700"
+                      >
+                         <ArrowUp className="h-2.5 w-2.5" />
+                      </motion.button>
+                   </div>
+                </div>
+             </div>
           </div>
         </div>
       </motion.div>
@@ -271,12 +331,12 @@ export const MCPAnimation = () => {
         </div>
       </motion.div>
 
-      {/* Success Popup */}
+      {/* Success Popup - Moved to Bottom Left */}
       <AnimatePresence>
         {isSuccessVisible && (
           <motion.div
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="absolute bottom-8 right-8 z-50 flex items-center gap-2 rounded-lg border border-green-500/20 bg-zinc-900 p-3 shadow-2xl ring-1 ring-green-500/20"
+            className="absolute bottom-8 left-8 z-50 flex items-center gap-2 rounded-lg border border-green-500/20 bg-zinc-900 p-3 shadow-2xl ring-1 ring-green-500/20"
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
             initial={{ opacity: 0, y: 10, scale: 0.9 }}
           >
