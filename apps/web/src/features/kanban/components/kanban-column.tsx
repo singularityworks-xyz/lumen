@@ -82,7 +82,14 @@ export const KanbanColumn = memo(
       transform,
       transition,
       isDragging,
-    } = useSortable({ id: column.id });
+    } = useSortable({
+      id: column.id,
+      data: {
+        type: "column",
+        columnId: column.id,
+        boardId,
+      },
+    });
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -221,7 +228,7 @@ export const KanbanColumn = memo(
     return (
       <section
         aria-label={`Column: ${column.name}`}
-        className="flex max-h-full min-w-[285px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        className="flex max-h-full w-[285px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         ref={setNodeRef}

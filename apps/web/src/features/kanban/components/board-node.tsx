@@ -213,6 +213,44 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             return n;
           })
         );
+        return;
+      }
+
+      const shouldShrink =
+        contentDimensions.width < currentWidth ||
+        contentDimensions.height < currentHeight;
+
+      if (shouldShrink) {
+        const shrinkTimeout = setTimeout(() => {
+          setNodes((nodes) =>
+            nodes.map((n) => {
+              if (n.id === String(id)) {
+                const newWidth = Math.max(
+                  contentDimensions.width,
+                  minDimensions.width
+                );
+                const newHeight = Math.max(
+                  contentDimensions.height,
+                  minDimensions.height
+                );
+
+                return {
+                  ...n,
+                  width: newWidth,
+                  height: newHeight,
+                  style: {
+                    ...n.style,
+                    width: newWidth,
+                    height: newHeight,
+                  },
+                };
+              }
+              return n;
+            })
+          );
+        }, 250);
+
+        return () => clearTimeout(shrinkTimeout);
       }
     }, [
       id,

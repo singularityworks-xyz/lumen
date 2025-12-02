@@ -122,7 +122,7 @@ export const TaskCard = memo(
               </h4>
 
               {task.description && (
-                <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                <p className="line-clamp-5 w-full overflow-hidden text-[11px] text-muted-foreground">
                   {task.description}
                 </p>
               )}
@@ -222,7 +222,7 @@ export const TaskCard = memo(
             </h4>
 
             {task.description && (
-              <p className="line-clamp-2 text-[11px] text-muted-foreground">
+              <p className="line-clamp-5 w-full overflow-hidden text-[11px] text-muted-foreground">
                 {task.description}
               </p>
             )}

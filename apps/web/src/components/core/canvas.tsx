@@ -1,6 +1,18 @@
 "use client";
 
 import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import {
   Background,
   BackgroundVariant,
   MiniMap,
@@ -12,7 +24,15 @@ import {
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useShallow } from "zustand/shallow";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "../../features/kanban/components/board-node";
@@ -31,6 +51,57 @@ import { WelcomeScreen } from "../dialogs/welcome-screen";
 import { RightControls } from "../right-controls";
 import { WorkspaceSelector } from "../workspace-selector";
 import { MiniMapNode } from "./minimap-node";
+
+// Context for sharing active column drag state with boards
+type ColumnDragContextType = {
+  activeColumnData: {
+    columnId: string;
+    sourceBoardId: string;
+  } | null;
+};
+
+export const ColumnDragContext = createContext<ColumnDragContextType>({
+  activeColumnData: null,
+});
+
+export const useColumnDragContext = () => useContext(ColumnDragContext);
+
+// Drag overlay component for column - minimal and clean
+function ColumnDragOverlay({
+  columnName,
+  taskCount,
+}: {
+  columnName: string;
+  taskCount: number;
+}) {
+  return (
+    <div className="flex cursor-grabbing items-center gap-3 rounded-lg border border-border/60 bg-card/95 px-4 py-3 shadow-xl backdrop-blur-sm">
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
+        <svg
+          className="h-4 w-4 text-primary"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <title>Column</title>
+          <rect height="18" rx="2" ry="2" width="7" x="3" y="3" />
+          <rect height="18" rx="2" ry="2" width="7" x="14" y="3" />
+        </svg>
+      </div>
+      <div className="flex flex-col">
+        <span className="font-medium text-foreground text-sm">
+          {columnName}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {taskCount} {taskCount === 1 ? "task" : "tasks"}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
@@ -92,7 +163,114 @@ export function KanbanCanvas() {
   const updateTaskDetailModalPosition = useKanbanStore(
     (state) => state.updateTaskDetailModalPosition
   );
+  const moveColumn = useKanbanStore((state) => state.moveColumn);
+  const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
+  const columns = useKanbanStore((state) => state.columns);
   const showWelcomeScreen = useShowWelcomeScreen();
+
+  // Cross-board column drag state
+  const [activeColumnData, setActiveColumnData] = useState<{
+    columnId: string;
+    sourceBoardId: string;
+    columnName: string;
+    taskCount: number;
+  } | null>(null);
+
+  // DnD sensors for cross-board column dragging
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleColumnDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const { active } = event;
+      const data = active.data.current as
+        | { boardId: string; columnId: string; type: string }
+        | undefined;
+      if (data?.type === "column") {
+        const column = columns.byId[data.columnId];
+        setActiveColumnData({
+          columnId: data.columnId,
+          sourceBoardId: data.boardId,
+          columnName: column?.name ?? "Column",
+          taskCount: column?.task_ids.length ?? 0,
+        });
+      }
+    },
+    [columns]
+  );
+
+  const handleColumnDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { over } = event;
+
+      if (!activeColumnData) {
+        setActiveColumnData(null);
+        return;
+      }
+
+      const { columnId, sourceBoardId } = activeColumnData;
+
+      if (!over) {
+        setActiveColumnData(null);
+        return;
+      }
+
+      const overData = over.data.current as
+        | { boardId?: string; columnId?: string; type?: string }
+        | undefined;
+
+      // Determine target board ID
+      let targetBoardId: string | null = null;
+
+      if (overData?.type === "column" && overData.boardId) {
+        // Dropped on another column
+        targetBoardId = overData.boardId;
+      } else if (overData?.type === "board-droppable" && overData.boardId) {
+        // Dropped on a board droppable zone
+        targetBoardId = overData.boardId;
+      }
+
+      if (!targetBoardId) {
+        setActiveColumnData(null);
+        return;
+      }
+
+      if (sourceBoardId === targetBoardId) {
+        // Same board - reorder columns
+        const board = boards.byId[targetBoardId];
+        if (board) {
+          const columnIds = board.column_ids;
+          const oldIndex = columnIds.indexOf(columnId);
+          const overId = over.id as string;
+
+          // Find the new index based on what we're dropping over
+          let newIndex = columnIds.indexOf(overId);
+          if (newIndex === -1) {
+            // If we're dropping over a droppable zone, put at the end
+            newIndex = columnIds.length - 1;
+          }
+
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            moveColumn(targetBoardId, columnId, newIndex);
+          }
+        }
+      } else {
+        // Different board - move column to new board
+        moveColumnToBoard(sourceBoardId, columnId, targetBoardId);
+      }
+
+      setActiveColumnData(null);
+    },
+    [activeColumnData, boards, moveColumn, moveColumnToBoard]
+  );
 
   const { setViewport: setReactFlowViewport, fitView } = useReactFlow();
   const prevWorkspaceIdRef = useRef(currentWorkspaceId);
@@ -404,64 +582,88 @@ export function KanbanCanvas() {
     }
   }, []);
 
+  const columnDragContextValue = useMemo(
+    () => ({ activeColumnData }),
+    [activeColumnData]
+  );
+
   return (
-    <div className="h-full w-full">
-      <ReactFlow
-        className="bg-background"
-        defaultViewport={canvas.viewport}
-        elementsSelectable={!showWelcomeScreen && interactionMode === "select"}
-        fitView={nodes.length === 0}
-        maxZoom={3}
-        minZoom={0.1}
-        nodeOrigin={[0, 0]}
-        nodes={localNodes}
-        nodesConnectable={false}
-        nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
-        nodeTypes={nodeTypes}
-        onMoveEnd={handleMoveEnd}
-        onNodesChange={handleNodesChange}
-        panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
-        panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
-        proOptions={{ hideAttribution: true }}
-        selectionKeyCode={interactionMode === "select" ? null : "Meta"}
-        selectionMode={
-          interactionMode === "select" ? SelectionMode.Partial : undefined
-        }
-        selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
-        zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
-        zoomOnScroll={!showWelcomeScreen}
-      >
-        <Background
-          className="opacity-30"
-          color="currentColor"
-          gap={20}
-          variant={BackgroundVariant.Dots}
-        />
-        <CustomControls />
-        {showMiniMap && (
-          <MiniMap
-            className="rounded-lg! border-2! border-border/50! bg-card/95! shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]! backdrop-blur-md! dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]!"
-            maskColor="var(--background)"
-            nodeColor={(node) => {
-              if (
-                ("isSelected" in node.data && node.data.isSelected) ||
-                node.selected
-              ) {
-                return "var(--primary)";
-              }
-              return "var(--secondary)";
-            }}
-            nodeComponent={MiniMapNode}
-            pannable
-            position="top-right"
-            zoomable
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleColumnDragEnd}
+      onDragStart={handleColumnDragStart}
+      sensors={sensors}
+    >
+      <ColumnDragContext.Provider value={columnDragContextValue}>
+        <div className="h-full w-full">
+          <ReactFlow
+            className="bg-background"
+            defaultViewport={canvas.viewport}
+            elementsSelectable={
+              !showWelcomeScreen && interactionMode === "select"
+            }
+            fitView={nodes.length === 0}
+            maxZoom={3}
+            minZoom={0.1}
+            nodeOrigin={[0, 0]}
+            nodes={localNodes}
+            nodesConnectable={false}
+            nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
+            nodeTypes={nodeTypes}
+            onMoveEnd={handleMoveEnd}
+            onNodesChange={handleNodesChange}
+            panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
+            panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
+            proOptions={{ hideAttribution: true }}
+            selectionKeyCode={interactionMode === "select" ? null : "Meta"}
+            selectionMode={
+              interactionMode === "select" ? SelectionMode.Partial : undefined
+            }
+            selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
+            zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
+            zoomOnScroll={!showWelcomeScreen}
+          >
+            <Background
+              className="opacity-30"
+              color="currentColor"
+              gap={20}
+              variant={BackgroundVariant.Dots}
+            />
+            <CustomControls />
+            {showMiniMap && (
+              <MiniMap
+                className="rounded-lg! border-2! border-border/50! bg-card/95! shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]! backdrop-blur-md! dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]!"
+                maskColor="var(--background)"
+                nodeColor={(node) => {
+                  if (
+                    ("isSelected" in node.data && node.data.isSelected) ||
+                    node.selected
+                  ) {
+                    return "var(--primary)";
+                  }
+                  return "var(--secondary)";
+                }}
+                nodeComponent={MiniMapNode}
+                pannable
+                position="top-right"
+                zoomable
+              />
+            )}
+          </ReactFlow>
+          <WelcomeScreen />
+          <WorkspaceSelector />
+          <RightControls />
+          <BulkActionsBar />
+        </div>
+      </ColumnDragContext.Provider>
+      <DragOverlay dropAnimation={null}>
+        {activeColumnData && (
+          <ColumnDragOverlay
+            columnName={activeColumnData.columnName}
+            taskCount={activeColumnData.taskCount}
           />
         )}
-      </ReactFlow>
-      <WelcomeScreen />
-      <WorkspaceSelector />
-      <RightControls />
-      <BulkActionsBar />
-    </div>
+      </DragOverlay>
+    </DndContext>
   );
 }
