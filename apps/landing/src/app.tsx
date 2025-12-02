@@ -14,6 +14,7 @@ import { HeroAnimation } from "./animations/preview-animation";
 import RotatingText from "./animations/rotating-text";
 import { Logo } from "./components/logo";
 import { OpenSource } from "./components/open-source";
+import { MCPFeature } from "./components/MCPFeature";
 import { ScaleContainer } from "./components/scale-container";
 import { Pricing } from "./pricing";
 
@@ -260,6 +261,18 @@ export default function App() {
                       <SyncAnimation />
                     </ScaleContainer>
                   }
+                />
+              </section>
+
+              {/* MCP Feature Section */}
+              <section className="w-full pb-8 md:pb-12">
+                <FlashlightCard
+                  className="w-full"
+                  description="Seamlessly integrate AI agents with your workflow. Execute commands, update tasks, and manage your workspace directly from your IDE."
+                  horizontal
+                  meta="Integration: MCP Protocol"
+                  title="Agentic Workflow"
+                  visual={<MCPFeature />}
                 />
               </section>
             </>
