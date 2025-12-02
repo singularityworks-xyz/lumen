@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit2, MoveRight, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Edit2, Plus, Trash2 } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -132,7 +132,7 @@ export const ColumnContextMenu = memo(
                 }}
                 type="button"
               >
-                <MoveRight className="h-3.5 w-3.5" />
+                <ArrowUpRight className="h-3.5 w-3.5" />
                 <span>Move to board</span>
               </button>
               <div className="my-0.5 h-px bg-border/50" />
@@ -141,7 +141,7 @@ export const ColumnContextMenu = memo(
 
           {onRemove && (
             <button
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/10 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
               onClick={() => {
                 onRemove();
                 onClose();
