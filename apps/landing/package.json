@@ -13,6 +13,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/karla": "^5.2.8",
+    "@fontsource/lato": "^5.2.7",
+    "@fontsource/montserrat": "^5.2.8",
+    "@fontsource/playfair": "^5.2.8",
+    "@fontsource/space-mono": "^5.2.9",
     "@lumen/logger": "workspace:^",
     "@lumen/trpc": "workspace:^",
     "@tailwindcss/vite": "^4.1.17",

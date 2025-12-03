@@ -45,6 +45,21 @@ importers:
 
   apps/landing:
     dependencies:
+      '@fontsource/karla':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource/lato':
+        specifier: ^5.2.7
+        version: 5.2.7
+      '@fontsource/montserrat':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource/playfair':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource/space-mono':
+        specifier: ^5.2.9
+        version: 5.2.9
       '@lumen/logger':
         specifier: workspace:^
         version: link:../../packages/logger
@@ -769,6 +784,21 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@fontsource/karla@5.2.8':
+    resolution: {integrity: sha512-uZMA4ugNcHFYMpjr/9FIHQC3ldtILlqPdK3f4P9XInDgRL0NxdIyRwH9MuGZUT7sdup0kshk9zsGXitq1xpFAw==}
+
+  '@fontsource/lato@5.2.7':
+    resolution: {integrity: sha512-k5mum1ADbDW5cTw1Ett1eQVWeoZ6gq0ct6SFBibEhB4LRxhniChJZTBgd6ph5yBxLkN1fcnsnmicBNA4S/3nbw==}
+
+  '@fontsource/montserrat@5.2.8':
+    resolution: {integrity: sha512-xTjLxSbSfCycDB0pwmNsfNvdfWPaDaRQ2LC6yt/ZI7SdvXG52zHnzNYC/09mzuAuWNJyShkteutfCoDgym56hQ==}
+
+  '@fontsource/playfair@5.2.8':
+    resolution: {integrity: sha512-EtV0syUWkgWfYXHdfGIQMO87IVMV0+UGCT1tQ2v4uvpC41mbiS6d4ET+OL2pGR6npIt5ySkbsbZBWpOf151Q4Q==}
+
+  '@fontsource/space-mono@5.2.9':
+    resolution: {integrity: sha512-b61faFOHEISQ/pD25G+cfGY9o/WW6lRv6hBQQfpWvEJ4y1V+S4gmth95EVyBE2VL3qDYHeVQ8nBzrplzdXTDDg==}
 
   '@hookform/resolvers@5.2.2':
     resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
@@ -3763,6 +3793,16 @@ snapshots:
       react-dom: 19.2.1(react@19.2.1)
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@fontsource/karla@5.2.8': {}
+
+  '@fontsource/lato@5.2.7': {}
+
+  '@fontsource/montserrat@5.2.8': {}
+
+  '@fontsource/playfair@5.2.8': {}
+
+  '@fontsource/space-mono@5.2.9': {}
 
   '@hookform/resolvers@5.2.2(react-hook-form@7.67.0(react@19.2.1))':
     dependencies:

@@ -395,7 +395,7 @@ export const HeroAnimation = () => {
   };
 
   return (
-    <div className="perspective-[1000px] relative h-full w-full select-none overflow-hidden bg-[#171717] font-sans">
+    <div className="perspective-[1000px] relative h-full w-full select-none overflow-hidden bg-[#1a1a1a] font-sans">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#27272a_1px,transparent_1px),linear-gradient(to_bottom,#27272a_1px,transparent_1px)] bg-size-[32px_32px] opacity-10" />
       </div>
