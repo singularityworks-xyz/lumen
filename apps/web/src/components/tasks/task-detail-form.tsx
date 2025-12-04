@@ -1,7 +1,17 @@
 "use client";
 
 import { format } from "date-fns";
-import { CalendarIcon, Info, Loader, Plus, Tag, Trash2 } from "lucide-react";
+import {
+  CalendarIcon,
+  Check,
+  Columns,
+  Copy,
+  Info,
+  Loader,
+  Plus,
+  Tag,
+  Trash2,
+} from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
@@ -12,6 +22,7 @@ import { Slider } from "@/src/components/ui/slider";
 import { Textarea } from "@/src/components/ui/textarea";
 import {
   type Checklist,
+  type Column,
   type Task,
   useKanbanStore,
 } from "@/src/features/kanban";
@@ -49,9 +60,18 @@ export const TaskDetailForm = memo(
   ({ modalId, task, boardId, onSaved, onCancel }: TaskDetailFormProps) => {
     const updateTask = useKanbanStore((state) => state.updateTask);
     const deleteTask = useKanbanStore((state) => state.deleteTask);
+    const moveTask = useKanbanStore((state) => state.moveTask);
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
+    const board = useKanbanStore((state) => state.boards.byId[boardId]);
+    const columnsById = useKanbanStore((state) => state.columns.byId);
+
+    // Get columns for this board
+    const boardColumns: Column[] = (board?.column_ids ?? [])
+      .map((id) => columnsById[id])
+      .filter((col): col is Column => col !== undefined)
+      .sort((a, b) => a.position - b.position);
 
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description ?? "");
@@ -68,6 +88,8 @@ export const TaskDetailForm = memo(
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [selectedColumnId, setSelectedColumnId] = useState(task.column_id);
 
     const formValuesRef = useRef({
       title,
@@ -210,6 +232,41 @@ export const TaskDetailForm = memo(
             {titleError && (
               <p className="text-destructive text-xs">Title is required</p>
             )}
+          </div>
+
+          {/* Column Selector */}
+          <div className="space-y-2">
+            <Label
+              className="flex items-center gap-1.5"
+              htmlFor={`task-column-${modalId}`}
+            >
+              <Columns className="h-3.5 w-3.5" />
+              Column
+            </Label>
+            <ScaledSelect
+              onValueChange={(newColumnId) => {
+                if (newColumnId !== selectedColumnId) {
+                  const fromColumnId = selectedColumnId;
+                  setSelectedColumnId(newColumnId);
+                  moveTask(task.id, fromColumnId, newColumnId, boardId);
+                }
+              }}
+              value={selectedColumnId}
+            >
+              <ScaledSelectTrigger
+                className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all hover:bg-muted focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] data-[state=open]:border-primary/50 data-[state=open]:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:data-[state=open]:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:hover:bg-muted"
+                id={`task-column-${modalId}`}
+              >
+                <ScaledSelectValue placeholder="Select column" />
+              </ScaledSelectTrigger>
+              <ScaledSelectContent position="popper" sideOffset={4}>
+                {boardColumns.map((col) => (
+                  <ScaledSelectItem key={col.id} value={col.id}>
+                    {col.name}
+                  </ScaledSelectItem>
+                ))}
+              </ScaledSelectContent>
+            </ScaledSelect>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -363,13 +420,33 @@ export const TaskDetailForm = memo(
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`task-description-${modalId}`}>
-              <Info className="h-3.5 w-3.5" />
-              Description
-              <span className="ml-1 font-normal text-muted-foreground text-xs">
-                (Optional)
-              </span>
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor={`task-description-${modalId}`}>
+                <Info className="h-3.5 w-3.5" />
+                Description
+                <span className="ml-1 font-normal text-muted-foreground text-xs">
+                  (Optional)
+                </span>
+              </Label>
+              {description && (
+                <button
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => {
+                    navigator.clipboard.writeText(description);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                  title="Copy description"
+                  type="button"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
             <Textarea
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}

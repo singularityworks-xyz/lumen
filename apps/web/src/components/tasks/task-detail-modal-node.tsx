@@ -43,6 +43,11 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     const bringTaskDetailModalToFront = useKanbanStore(
       (state) => state.bringTaskDetailModalToFront
     );
+    const shakingModalId = useKanbanStore(
+      (state) => state.shakingTaskDetailModalId
+    );
+
+    const isShaking = shakingModalId === data.modalId;
 
     const [isFocused, setIsFocused] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -68,7 +73,8 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
           selected || isFocused
             ? "shadow-xl ring-2 ring-primary/50"
             : "shadow-lg ring-1 ring-border/50",
-          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
+          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]",
+          isShaking && "animate-shake"
         )}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) {

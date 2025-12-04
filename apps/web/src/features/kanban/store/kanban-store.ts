@@ -52,6 +52,7 @@ type KanbanState = {
   selectedBoardIds: string[];
   selectedTaskIds: string[];
   draggedTaskId: string | null;
+  shakingTaskDetailModalId: string | null;
 };
 
 type KanbanActions = {
@@ -164,6 +165,7 @@ type KanbanActions = {
     position: { x: number; y: number }
   ) => void;
   bringTaskDetailModalToFront: (modalId: string) => void;
+  triggerTaskDetailModalShake: (modalId: string) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setSelectedBoard: (boardId: string | null) => void;
   toggleBoardSelection: (boardId: string) => void;
@@ -223,6 +225,7 @@ function createInitialState(): KanbanState {
     editBoardModals: {},
     taskDetailModals: {},
     interactionMode: "drag",
+    shakingTaskDetailModalId: null,
     selectedBoardId: null,
     selectedBoardIds: [],
     selectedTaskIds: [],
@@ -1135,6 +1138,20 @@ const storeCreator: StateCreator<
         modal.zIndex = maxZIndex + 1;
       }
     }),
+
+  triggerTaskDetailModalShake: (modalId) => {
+    set((state) => {
+      state.shakingTaskDetailModalId = modalId;
+    });
+    // Clear shake after animation completes
+    setTimeout(() => {
+      set((state) => {
+        if (state.shakingTaskDetailModalId === modalId) {
+          state.shakingTaskDetailModalId = null;
+        }
+      });
+    }, 300);
+  },
 
   setInteractionMode: (mode) =>
     set((state) => {

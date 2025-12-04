@@ -3,18 +3,21 @@
 import { format } from "date-fns";
 import {
   Calendar,
+  Check,
   CheckSquare,
+  Columns,
+  Copy,
   Edit2,
   FileText,
   Loader,
   Tag,
   Trash2,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Checkbox } from "@/src/components/ui/checkbox";
-import { type Task, useKanbanStore } from "@/src/features/kanban";
+import { type Column, type Task, useKanbanStore } from "@/src/features/kanban";
 import { cn } from "@/src/lib/utils";
 
 type TaskViewFormProps = {
@@ -51,6 +54,17 @@ export const TaskViewForm = memo(
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
+    const moveTask = useKanbanStore((state) => state.moveTask);
+    const board = useKanbanStore((state) => state.boards.byId[boardId]);
+    const columnsById = useKanbanStore((state) => state.columns.byId);
+    const [copied, setCopied] = useState(false);
+    const [selectedColumnId, setSelectedColumnId] = useState(task.column_id);
+    const boardColumns: Column[] = (board?.column_ids ?? [])
+      .map((id) => columnsById[id])
+      .filter((col): col is Column => col !== undefined)
+      .sort((a, b) => a.position - b.position);
+
+    const currentColumn = columnsById[selectedColumnId];
 
     const handleDelete = () => {
       deleteTask(boardId, task.id);
@@ -87,7 +101,7 @@ export const TaskViewForm = memo(
             </h3>
           </div>
 
-          {/* Priority & Due Date Row */}
+          {/* Priority & Column & Due Date Row */}
           <div className="flex flex-wrap items-center gap-3">
             <Badge
               className={cn(
@@ -104,6 +118,40 @@ export const TaskViewForm = memo(
               />
               {PRIORITY_CONFIG[task.priority].label} Priority
             </Badge>
+
+            <button
+              className="group relative"
+              onClick={() => {
+                if (boardColumns.length === 0) {
+                  return;
+                }
+
+                const currentIndex = boardColumns.findIndex(
+                  (col) => col.id === selectedColumnId
+                );
+
+                if (currentIndex === -1) {
+                  return;
+                }
+
+                const nextIndex = (currentIndex + 1) % boardColumns.length;
+                const nextColumn = boardColumns[nextIndex];
+                if (nextColumn && nextColumn.id !== selectedColumnId) {
+                  moveTask(task.id, selectedColumnId, nextColumn.id, boardId);
+                  setSelectedColumnId(nextColumn.id);
+                }
+              }}
+              title="Click to change column"
+              type="button"
+            >
+              <Badge
+                className="cursor-pointer bg-violet-500/20 px-2 py-0.5 text-violet-600 text-xs transition-colors hover:bg-violet-500/30 dark:text-violet-400"
+                variant="secondary"
+              >
+                <Columns className="mr-1.5 h-3 w-3" />
+                {currentColumn?.name ?? "Unknown"}
+              </Badge>
+            </button>
 
             {task.due_date && (
               <div
@@ -186,10 +234,28 @@ export const TaskViewForm = memo(
           {/* Description */}
           {task.description && (
             <div className="space-y-2">
-              <span className="flex items-center gap-1.5 text-muted-foreground text-sm">
-                <FileText className="h-3.5 w-3.5" />
-                Description
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-muted-foreground text-sm">
+                  <FileText className="h-3.5 w-3.5" />
+                  Description
+                </span>
+                <button
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => {
+                    navigator.clipboard.writeText(task.description ?? "");
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                  title="Copy description"
+                  type="button"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
               <div className="rounded-lg border border-border/30 bg-muted/80 p-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
                 <p className="whitespace-pre-wrap text-card-foreground text-sm leading-relaxed">
                   {task.description}

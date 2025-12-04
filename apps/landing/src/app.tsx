@@ -14,7 +14,7 @@ import { HeroAnimation } from "./animations/preview-animation";
 import RotatingText from "./animations/rotating-text";
 import { Logo } from "./components/logo";
 // import { OpenSource } from "./components/open-source";
-import { MCPFeature } from "./components/MCPFeature";
+import { MCPFeature } from "./components/mcp-feature";
 import { ScaleContainer } from "./components/scale-container";
 import { Pricing } from "./pricing";
 
