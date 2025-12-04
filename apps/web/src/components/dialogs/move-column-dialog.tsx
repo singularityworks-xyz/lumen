@@ -174,7 +174,10 @@ export const MoveColumnDialog = memo(
                 onValueChange={setTargetBoardId}
                 value={targetBoardId}
               >
-                <ScaledSelectTrigger className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                <ScaledSelectTrigger
+                  className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                  id="target-board"
+                >
                   <ScaledSelectValue placeholder="Select a board..." />
                 </ScaledSelectTrigger>
                 <ScaledSelectContent>

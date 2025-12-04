@@ -119,19 +119,26 @@ export const TaskViewForm = memo(
               {PRIORITY_CONFIG[task.priority].label} Priority
             </Badge>
 
-            {/* Column Badge - Clickable */}
             <button
               className="group relative"
               onClick={() => {
-                // Cycle to next column
+                if (boardColumns.length === 0) {
+                  return;
+                }
+
                 const currentIndex = boardColumns.findIndex(
                   (col) => col.id === selectedColumnId
                 );
+
+                if (currentIndex === -1) {
+                  return;
+                }
+
                 const nextIndex = (currentIndex + 1) % boardColumns.length;
                 const nextColumn = boardColumns[nextIndex];
                 if (nextColumn && nextColumn.id !== selectedColumnId) {
+                  moveTask(task.id, selectedColumnId, nextColumn.id, boardId);
                   setSelectedColumnId(nextColumn.id);
-                  moveTask(task.id, task.column_id, nextColumn.id, boardId);
                 }
               }}
               title="Click to change column"

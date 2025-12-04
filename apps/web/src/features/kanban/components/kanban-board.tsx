@@ -46,11 +46,18 @@ export const KanbanBoard = memo(
           <div
             className={`flex flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-1 transition-all duration-200 ${
               showDropHighlight
-                ? "rounded-lg border-2 border-primary border-dashed bg-primary/5 ring-2 ring-primary/50"
+                ? "relative rounded-lg border-2 border-primary border-dashed bg-primary/5 ring-2 ring-primary/50"
                 : ""
             }`}
             ref={setNodeRef}
           >
+            {showDropHighlight && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <div className="rounded-md bg-primary/90 px-4 py-2 font-medium text-primary-foreground text-sm shadow-lg">
+                  Drop to add column
+                </div>
+              </div>
+            )}
             {columns.map((column) => (
               <KanbanColumn
                 boardId={board.id}

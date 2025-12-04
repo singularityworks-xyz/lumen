@@ -14,14 +14,14 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
-  show: { 
-    opacity: 1, 
+  show: {
+    opacity: 1,
     y: 0,
     transition: {
       type: "spring" as const,
       stiffness: 50,
       damping: 20,
-    }
+    },
   },
 };
 
@@ -59,19 +59,24 @@ const PricingCard = ({
   buttonText?: string;
 }) => (
   <motion.div
-    variants={itemVariants}
-    className={`relative flex h-full flex-col rounded-xl border bg-neutral-900/80 px-6 py-6 md:px-7 md:py-7 transition-colors duration-300 ${
+    className={`relative flex h-full flex-col rounded-xl border bg-neutral-900/80 px-6 py-6 transition-colors duration-300 md:px-7 md:py-7 ${
       recommended
         ? "border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.1)]"
         : "border-zinc-800/80 hover:border-zinc-700/80 hover:bg-neutral-900"
     }`}
+    variants={itemVariants}
   >
     {recommended && (
       <motion.div
+        animate={{ opacity: 1, y: 0, scale: 1 }}
         className="-top-3 -translate-x-1/2 absolute left-1/2 rounded-full border border-emerald-300/70 bg-emerald-500 px-3 py-0.5 font-bold font-mono text-[10px] text-neutral-900 uppercase tracking-[0.22em]"
         initial={{ opacity: 0, y: -10, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.4, delay: 0.5, type: "spring", stiffness: 200 }}
+        transition={{
+          duration: 0.4,
+          delay: 0.5,
+          type: "spring",
+          stiffness: 200,
+        }}
       >
         Recommended
       </motion.div>
@@ -85,31 +90,33 @@ const PricingCard = ({
           {originalPrice}
         </span>
       )}
-      <motion.span 
+      <motion.span
         className="font-medium font-sans text-3xl text-white sm:text-4xl"
         initial={{ opacity: 0, scale: 0.9 }}
-        whileInView={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, delay: 0.2 }}
+        whileInView={{ opacity: 1, scale: 1 }}
       >
         {price}
       </motion.span>
       {price !== "Free" && price !== "Contact Us" && (
-        <span className="font-sans text-xs text-zinc-500 sm:text-sm">/month</span>
+        <span className="font-sans text-xs text-zinc-500 sm:text-sm">
+          /month
+        </span>
       )}
     </div>
     <p className="mb-6 font-sans text-sm text-zinc-400 leading-relaxed">
       {description}
     </p>
-    <motion.div 
+    <motion.div
       className="mb-8 flex-1 space-y-3"
-      variants={featureListVariants}
       initial="hidden"
-      whileInView="show"
+      variants={featureListVariants}
       viewport={{ once: true }}
+      whileInView="show"
     >
       {features.map((feature) => (
-        <motion.div 
-          className="flex items-start gap-3" 
+        <motion.div
+          className="flex items-start gap-3"
           key={feature}
           variants={featureItemVariants}
         >
@@ -126,9 +133,9 @@ const PricingCard = ({
           ? "bg-emerald-500 text-neutral-900 shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:bg-emerald-400"
           : "border border-zinc-700 bg-zinc-900 text-white hover:border-zinc-500 hover:bg-zinc-800"
       }`}
+      type="button"
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
-      type="button"
     >
       {buttonText}
     </motion.button>
@@ -138,42 +145,42 @@ const PricingCard = ({
 export const Pricing = () => (
   <div className="mx-auto w-full max-w-7xl">
     <div className="mb-16 text-center md:mb-20">
-      <motion.p 
-        className="mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-neutral-900/80 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.26em] text-zinc-400"
+      <motion.p
+        className="mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-neutral-900/80 px-3 py-1 font-mono text-[10px] text-zinc-400 uppercase tracking-[0.26em]"
         initial={{ opacity: 0, y: 10 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
         transition={{ duration: 0.5 }}
+        viewport={{ once: true }}
+        whileInView={{ opacity: 1, y: 0 }}
       >
         Pricing • Alpha
       </motion.p>
-      <motion.h2 
-        className="mb-4 font-medium font-heading text-3xl text-text-primary sm:text-4xl md:text-5xl"
+      <motion.h2
+        className="mb-4 font-heading font-medium text-3xl text-text-primary sm:text-4xl md:text-5xl"
         initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
         transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+        viewport={{ once: true }}
+        whileInView={{ opacity: 1, y: 0 }}
       >
         Simple, transparent pricing.
       </motion.h2>
-      <motion.p 
+      <motion.p
         className="mx-auto max-w-2xl font-light font-sans text-sm text-zinc-400 sm:text-base md:text-lg"
         initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
         transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        viewport={{ once: true }}
+        whileInView={{ opacity: 1, y: 0 }}
       >
         Start for free on your local machine. Upgrade when you need to sync
         across devices or collaborate with your team.
       </motion.p>
     </div>
 
-    <motion.div 
+    <motion.div
       className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-3"
-      variants={containerVariants}
       initial="hidden"
-      whileInView="show"
+      variants={containerVariants}
       viewport={{ once: true, margin: "-100px" }}
+      whileInView="show"
     >
       <PricingCard
         buttonText="Download Now"
@@ -198,8 +205,8 @@ export const Pricing = () => (
           "Version history (30 days)",
           "MCP Server support",
         ]}
-        price="$14"
         originalPrice="$20"
+        price="$14"
         recommended
         title="Sync"
       />
@@ -219,20 +226,20 @@ export const Pricing = () => (
       />
     </motion.div>
 
-    <motion.div 
+    <motion.div
       className="mt-16 border-zinc-800 border-t pt-10 pb-12 md:mt-20 md:pt-12"
       initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true }}
       transition={{ duration: 0.8, delay: 0.4 }}
+      viewport={{ once: true }}
+      whileInView={{ opacity: 1 }}
     >
       <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-        <motion.div 
+        <motion.div
           className="flex flex-col items-center text-center md:items-start md:text-left"
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.5 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80">
             <Database className="h-5 w-5 text-zinc-400" />
@@ -244,12 +251,12 @@ export const Pricing = () => (
             Your data lives on your device. We just help you move it around.
           </p>
         </motion.div>
-        <motion.div 
+        <motion.div
           className="flex flex-col items-center text-center md:items-start md:text-left"
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.6 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80">
             <Globe className="h-5 w-5 text-zinc-400" />
@@ -261,12 +268,12 @@ export const Pricing = () => (
             Sync servers distributed worldwide for low-latency updates.
           </p>
         </motion.div>
-        <motion.div 
+        <motion.div
           className="flex flex-col items-center text-center md:items-start md:text-left"
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.7 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80">
             <Users className="h-5 w-5 text-zinc-400" />

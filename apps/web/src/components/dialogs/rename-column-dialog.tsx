@@ -3,7 +3,7 @@
 
 import { Columns, GripHorizontal, X } from "lucide-react";
 import type { PointerEvent } from "react";
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
@@ -32,14 +32,20 @@ export const RenameColumnDialog = memo(
     onClose,
   }: RenameColumnDialogProps) => {
     const [name, setName] = useState(currentName);
-    const [position, setPosition] = useState(() => ({
-      x: window.innerWidth / 2 - DIALOG_WIDTH / 2,
-      y: window.innerHeight / 3,
-    }));
+    const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      setPosition({
+        x: window.innerWidth / 2 - DIALOG_WIDTH / 2,
+        y: window.innerHeight / 3,
+      });
+      setMounted(true);
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -88,6 +94,10 @@ export const RenameColumnDialog = memo(
       },
       [isDragging]
     );
+
+    if (!mounted) {
+      return null;
+    }
 
     const dialogContent = (
       <>

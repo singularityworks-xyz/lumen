@@ -33,6 +33,7 @@ export const ColumnConflictDialog = memo(
     const [renameValue, setRenameValue] = useState(columnName);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [renameError, setRenameError] = useState<string | null>(null);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,16 @@ export const ColumnConflictDialog = memo(
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);
     }, [onClose]);
+
+    useEffect(() => {
+      if (
+        renameError &&
+        renameValue.trim() !== columnName &&
+        renameValue.trim()
+      ) {
+        setRenameError(null);
+      }
+    }, [renameValue, renameError, columnName]);
 
     const handleDragStart = useCallback(
       (e: React.PointerEvent) => {
@@ -95,8 +106,20 @@ export const ColumnConflictDialog = memo(
     );
 
     const handleRenameAndMove = () => {
-      const newName = renameValue.trim() || columnName;
-      onRenameAndMove(newName);
+      const trimmedValue = renameValue.trim();
+
+      if (!trimmedValue) {
+        setRenameError("Column name cannot be empty");
+        return;
+      }
+
+      if (trimmedValue === columnName) {
+        setRenameError("Column name must be different from the original");
+        return;
+      }
+
+      setRenameError(null);
+      onRenameAndMove(trimmedValue);
     };
 
     if (!mounted) {
@@ -171,11 +194,18 @@ export const ColumnConflictDialog = memo(
                 New Name
               </label>
               <Input
-                className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                className={cn(
+                  "rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
+                  renameError &&
+                    "border-destructive/50 focus:border-destructive/50"
+                )}
                 id="column-new-name"
                 onChange={(e) => setRenameValue(e.target.value)}
                 value={renameValue}
               />
+              {renameError && (
+                <p className="text-destructive text-xs">{renameError}</p>
+              )}
             </div>
           </div>
 
@@ -190,7 +220,8 @@ export const ColumnConflictDialog = memo(
               Cancel
             </Button>
             <Button
-              className="h-8 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+              className="h-8 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+              disabled={!!renameError}
               onClick={handleRenameAndMove}
               type="button"
             >

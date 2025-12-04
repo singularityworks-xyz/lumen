@@ -246,8 +246,9 @@ export const TaskDetailForm = memo(
             <ScaledSelect
               onValueChange={(newColumnId) => {
                 if (newColumnId !== selectedColumnId) {
+                  const fromColumnId = selectedColumnId;
                   setSelectedColumnId(newColumnId);
-                  moveTask(task.id, task.column_id, newColumnId, boardId);
+                  moveTask(task.id, fromColumnId, newColumnId, boardId);
                 }
               }}
               value={selectedColumnId}
