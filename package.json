@@ -1,6 +1,5 @@
 {
   "name": "lumen",
-  "private": true,
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -12,21 +11,17 @@
     "check:ci": "biome ci .",
     "check-types": "turbo run check-types"
   },
-  "dependencies": {
-    "next": "^16.0.7",
-    "typescript": "^5.9.3"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.0.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
     "lint-staged": "^16.2.7",
-    "turbo": "^2.6.1",
+    "turbo": "^2.6.3",
     "ultracite": "6.3.4"
   },
-  "packageManager": "pnpm@10.24.0",
+  "packageManager": "pnpm@10.25.0",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
       "pnpm ultracite fix"
@@ -43,5 +38,6 @@
       "lefthook",
       "sharp"
     ]
-  }
+  },
+  "private": true
 }
