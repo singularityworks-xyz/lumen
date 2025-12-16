@@ -69,6 +69,25 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       },
     ];
 
+    const COLUMN_WIDTH = 300;
+    const COLUMN_GAP = 12;
+    const BOARD_PADDING = 24;
+    const HEADER_HEIGHT = 42;
+    const COLUMN_HEADER = 56;
+    const COLUMN_PADDING = 24;
+    const SKELETON_COLUMN_WIDTH = 225;
+    const columnCount = columns.length;
+
+    const initialWidth =
+      columnCount * COLUMN_WIDTH +
+      (columnCount > 0 ? columnCount * COLUMN_GAP : 0) +
+      (columnCount > 0 ? COLUMN_GAP : 0) +
+      SKELETON_COLUMN_WIDTH +
+      BOARD_PADDING * 2;
+
+    const initialHeight =
+      HEADER_HEIGHT + COLUMN_HEADER + 160 + COLUMN_PADDING + BOARD_PADDING;
+
     set((state) => {
       state.boards.byId[boardId] = board;
       state.boards.allIds.push(boardId);
@@ -81,6 +100,8 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
         x: position.x,
         y: position.y,
         zIndex: getNextZIndex(state.boardPositions),
+        width: initialWidth,
+        height: initialHeight,
       };
       state.boardPositions.byId[boardId] = boardPosition;
       state.boardPositions.allIds.push(boardId);
