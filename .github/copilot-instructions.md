@@ -1,6 +1,6 @@
 # Lumen Project Instructions
 
-A Bun/Turborepo monorepo for an infinite-canvas Kanban board built with Next.js 16, React 19, and tRPC.
+A Bun/Turborepo monorepo for an infinite-canvas Kanban board.
 
 # Ultracite Code Standards
 
@@ -125,75 +125,3 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 ---
 
 Most formatting and common issues are automatically fixed by Biome. Run `npx ultracite fix` before committing to ensure compliance.
-
-## Architecture Overview
-
-```
-apps/web/          → Next.js App Router frontend (port 3000)
-packages/
-  trpc/            → tRPC router and procedures (@lumen/trpc)
-  logger/          → Pino logger with browser/server support (@lumen/logger)
-  configs/         → Shared TypeScript configs (@lumen/configs)
-```
-
-### Data Flow
-- **Frontend state**: Zustand store with Immer (`features/kanban/store/kanban-store.ts`) persists to IndexedDB via `idb-keyval`
-- **Server communication**: tRPC client → `/api/trpc` route → `@lumen/trpc`
-- **Canvas rendering**: React Flow (`@xyflow/react`) renders board nodes on infinite canvas
-- **Drag-and-drop**: `@dnd-kit` handles column/task reordering within boards
-
-### State Management Pattern
-Normalized entity maps with `EntityMap<T>` pattern (`{ byId: Record<string, T>, allIds: string[] }`):
-```typescript
-// Access entities
-const board = state.boards.byId[boardId];
-const allBoardIds = state.boards.allIds;
-// Denormalize for rendering via getDenormalizedBoard()
-```
-
-## Essential Commands
-
-```bash
-bun dev              # Start all packages in dev mode
-bun check            # Lint + format with Ultracite/Biome
-```
-
-## Code Conventions
-
-### Linting & Formatting
-Uses **Ultracite** (Biome preset). Run `bun ultracite fix` before committing. Key rules:
-- No barrel files except feature entry points (see `features/kanban/index.ts`)
-- UI components in `components/ui/` are excluded from strict linting
-
-### Environment Variables
-Type-safe env with `@t3-oss/env-core` + Zod:
-
-### Logging
-Use `@lumen/logger` with structured context:
-```typescript
-import { createLogger, createChildLogger } from "@lumen/logger";
-const logger = createLogger({ name: "[scope] module" });
-const childLogger = createChildLogger(logger, { requestId: "abc" });
-```
-
-### Component Patterns
-- Feature components in `features/<name>/components/` with barrel export
-- Use `memo()` for expensive list items (see `KanbanBoard`, `KanbanColumn`)
-- Store selectors in `features/kanban/store/selectors.ts` for derived state
-
-### ID Generation
-Use typed ID generators from `features/kanban/store/ids.ts`:
-```typescript
-import { generateBoardId, generateTaskId } from "./ids";
-```
-
-## Key Files Reference
-
-| Pattern | Example |
-|---------|---------|
-| Feature module | `apps/web/src/features/kanban/` |
-| Zustand store | `features/kanban/store/kanban-store.ts` |
-| tRPC router | `packages/trpc/src/router.ts` |
-| DB schema | `packages/db/src/schema.ts` |
-| Type definitions | `features/kanban/types/index.ts` |
-| API route | `apps/web/src/app/api/trpc/[trpc]/route.ts` |

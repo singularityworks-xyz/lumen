@@ -43,7 +43,7 @@ const Cursor = ({
 }) => (
   <div className={`relative ${className}`}>
     <svg
-      className="-top-[3px] -left-[3px] relative z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
+      className="relative -top-[3px] -left-[3px] z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" }}
       viewBox="0 0 24 24"
     >

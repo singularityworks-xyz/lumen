@@ -62,7 +62,7 @@ const Cursor = ({
 }) => (
   <div className={`relative ${className}`}>
     <svg
-      className="-top-[3px] -left-[3px] relative z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
+      className="relative -top-[3px] -left-[3px] z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" }}
       viewBox="0 0 24 24"
     >
@@ -611,7 +611,7 @@ export const HeroAnimation = () => {
                     phase.includes("drag") ? (
                       <motion.div
                         animate={{ scale: 1 }}
-                        className="-top-1 -right-1 absolute flex h-1.5 w-1.5 items-center justify-center rounded-full border border-zinc-800 bg-purple-500 sm:h-2 sm:w-2 md:h-3 md:w-3"
+                        className="absolute -top-1 -right-1 flex h-1.5 w-1.5 items-center justify-center rounded-full border border-zinc-800 bg-purple-500 sm:h-2 sm:w-2 md:h-3 md:w-3"
                         initial={{ scale: 0 }}
                       >
                         <div className="h-0.5 w-0.5 rounded-full bg-white md:h-1 md:w-1" />
@@ -624,7 +624,7 @@ export const HeroAnimation = () => {
                   {showCommentDialog && (
                     <motion.div
                       animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-                      className="-left-2.5 md:-left-5 absolute top-5 z-50 w-20 rounded-lg border border-zinc-800 bg-[#171717] p-1 shadow-2xl ring-1 ring-white/10 sm:top-8 sm:left-[-15px] sm:w-24 sm:p-1.5 md:top-10 md:w-32 md:p-2"
+                      className="absolute top-5 -left-2.5 z-50 w-20 rounded-lg border border-zinc-800 bg-[#171717] p-1 shadow-2xl ring-1 ring-white/10 sm:top-8 sm:left-[-15px] sm:w-24 sm:p-1.5 md:top-10 md:-left-5 md:w-32 md:p-2"
                       exit={{ opacity: 0, scale: 0.9 }}
                       initial={{ opacity: 0, y: 5, x: 10, scale: 0.9 }}
                     >
@@ -652,7 +652,7 @@ export const HeroAnimation = () => {
                       >
                         Comment
                       </motion.div>
-                      <div className="-top-1 absolute left-4 h-1.5 w-1.5 rotate-45 transform border-zinc-800 border-t border-l bg-[#171717] sm:h-2 sm:w-2" />
+                      <div className="absolute -top-1 left-4 h-1.5 w-1.5 rotate-45 transform border-zinc-800 border-t border-l bg-[#171717] sm:h-2 sm:w-2" />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -675,7 +675,7 @@ export const HeroAnimation = () => {
           <div className="mb-0.5 h-0.5 w-4 rounded-full bg-emerald-500/50 sm:mb-1 sm:h-1 sm:w-6 md:w-8" />
           <div className="mb-0.5 h-0.5 w-full rounded-full bg-zinc-600 sm:h-1" />
           <div className="h-0.5 w-2/3 rounded-full bg-zinc-600 sm:h-1" />
-          <div className="-top-1.5 sm:-top-2 -right-1.5 sm:-right-2 absolute rounded-full bg-blue-500/80 px-1 py-0.5 font-bold text-[5px] text-white shadow-sm backdrop-blur-sm sm:px-1.5 sm:text-[6px] md:text-[8px]">
+          <div className="absolute -top-1.5 -right-1.5 rounded-full bg-blue-500/80 px-1 py-0.5 font-bold text-[5px] text-white shadow-sm backdrop-blur-sm sm:-top-2 sm:-right-2 sm:px-1.5 sm:text-[6px] md:text-[8px]">
             Sam
           </div>
         </motion.div>

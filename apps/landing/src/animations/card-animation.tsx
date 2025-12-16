@@ -25,7 +25,7 @@ const GrayCursor = ({
   <div className={`relative ${className}`}>
     {/** biome-ignore lint/a11y/noSvgWithoutTitle: mouse */}
     <svg
-      className="-top-[3px] -left-[3px] relative z-10 fill-current text-zinc-300 drop-shadow-md"
+      className="relative -top-[3px] -left-[3px] z-10 fill-current text-zinc-300 drop-shadow-md"
       height="24"
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" }}
       viewBox="0 0 24 24"
@@ -69,7 +69,7 @@ export const OfflineAnimation = () => (
         <Cloud className="h-6 w-6 text-zinc-400" />{" "}
         <motion.div
           animate={{ scale: [0, 0, 1.2, 1, 0] }}
-          className="-right-1 -top-1 absolute h-3 w-3 rounded-full border-2 border-[#171717] bg-emerald-500"
+          className="absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-[#171717] bg-emerald-500"
           transition={{
             duration: 4,
             times: [0, 0.8, 0.85, 0.9, 1],
@@ -142,7 +142,7 @@ export const OfflineAnimation = () => (
         <Monitor className="h-6 w-6 text-zinc-400" />{" "}
         <motion.div
           animate={{ scale: [0, 1, 1, 0] }}
-          className="-right-1 -top-1 absolute h-3 w-3 rounded-full border-2 border-[#171717] bg-emerald-500"
+          className="absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-[#171717] bg-emerald-500"
           transition={{
             duration: 4,
             times: [0, 0.1, 0.2, 0.3],
@@ -173,7 +173,7 @@ export const SyncAnimation = () => (
         >
           <motion.div
             animate={{ left: ["0%", "100%"], opacity: [0, 1, 0] }}
-            className="-translate-y-1/2 absolute top-1/2 left-0 h-1 w-1 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"
+            className="absolute top-1/2 left-0 h-1 w-1 -translate-y-1/2 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"
             transition={{
               duration: 2,
               repeat: Number.POSITIVE_INFINITY,
@@ -183,7 +183,7 @@ export const SyncAnimation = () => (
           />
           <motion.div
             animate={{ left: ["100%", "0%"], opacity: [0, 1, 0] }}
-            className="-translate-y-1/2 absolute top-1/2 left-0 h-1 w-1 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]"
+            className="absolute top-1/2 left-0 h-1 w-1 -translate-y-1/2 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]"
             transition={{
               duration: 2,
               repeat: Number.POSITIVE_INFINITY,
@@ -224,7 +224,7 @@ export const CanvasAnimation = () => (
 
     <motion.div
       animate={{ y: [0, 10, 0] }}
-      className="-rotate-6 absolute top-12 right-12 h-20 w-16 rounded-lg border border-zinc-800/50 bg-zinc-900/50"
+      className="absolute top-12 right-12 h-20 w-16 -rotate-6 rounded-lg border border-zinc-800/50 bg-zinc-900/50"
       transition={{
         duration: 8,
         repeat: Number.POSITIVE_INFINITY,

@@ -69,7 +69,7 @@ const PricingCard = ({
     {recommended && (
       <motion.div
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="-top-3 -translate-x-1/2 absolute left-1/2 rounded-full border border-emerald-300/70 bg-emerald-500 px-3 py-0.5 font-bold font-mono text-[10px] text-neutral-900 uppercase tracking-[0.22em]"
+        className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300/70 bg-emerald-500 px-3 py-0.5 font-bold font-mono text-[10px] text-neutral-900 uppercase tracking-[0.22em]"
         initial={{ opacity: 0, y: -10, scale: 0.9 }}
         transition={{
           duration: 0.4,
