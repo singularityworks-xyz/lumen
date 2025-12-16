@@ -15,6 +15,12 @@ type SliceCreator = (
   | "deleteColumn"
   | "moveColumn"
   | "moveColumnToBoard"
+  | "openColumnQuickActions"
+  | "closeColumnQuickActions"
+  | "updateColumnQuickActionsPosition"
+  | "openColumnDialog"
+  | "closeColumnDialog"
+  | "updateColumnDialogPosition"
 >;
 
 export const createColumnSlice: SliceCreator = (set, get) => ({
@@ -155,6 +161,45 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
         if (col) {
           col.position = index;
         }
+      }
+    }),
+
+  openColumnQuickActions: (columnId, showAddTask, position) =>
+    set((state) => {
+      state.columnQuickActions = { columnId, showAddTask, position };
+    }),
+
+  closeColumnQuickActions: () =>
+    set((state) => {
+      state.columnQuickActions = null;
+    }),
+
+  updateColumnQuickActionsPosition: (position) =>
+    set((state) => {
+      if (state.columnQuickActions) {
+        state.columnQuickActions.position = position;
+      }
+    }),
+
+  openColumnDialog: (options) =>
+    set((state) => {
+      const { type, columnId, position } = options;
+      state.columnDialog = {
+        type,
+        columnId,
+        position,
+      };
+    }),
+
+  closeColumnDialog: () =>
+    set((state) => {
+      state.columnDialog = null;
+    }),
+
+  updateColumnDialogPosition: (position) =>
+    set((state) => {
+      if (state.columnDialog) {
+        state.columnDialog.position = position;
       }
     }),
 });

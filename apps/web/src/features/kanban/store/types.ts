@@ -45,6 +45,16 @@ export type KanbanState = {
     position?: { x: number; y: number };
     inputValue?: string;
   } | null;
+  columnQuickActions: {
+    columnId: string;
+    showAddTask: boolean;
+    position: { x: number; y: number };
+  } | null;
+  columnDialog: {
+    type: "rename" | "delete" | "move";
+    columnId: string;
+    position: { x: number; y: number };
+  } | null;
 };
 
 export type KanbanActions = {
@@ -80,6 +90,25 @@ export type KanbanActions = {
   closeWorkspaceDialog: () => void;
   updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
   updateWorkspaceDialogInputValue: (value: string) => void;
+
+  // Column actions
+  openColumnQuickActions: (
+    columnId: string,
+    showAddTask: boolean,
+    position: { x: number; y: number }
+  ) => void;
+  closeColumnQuickActions: () => void;
+  updateColumnQuickActionsPosition: (position: {
+    x: number;
+    y: number;
+  }) => void;
+  openColumnDialog: (options: {
+    type: "rename" | "delete" | "move";
+    columnId: string;
+    position: { x: number; y: number };
+  }) => void;
+  closeColumnDialog: () => void;
+  updateColumnDialogPosition: (position: { x: number; y: number }) => void;
 
   // Board actions
   addBoard: (

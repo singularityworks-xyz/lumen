@@ -58,5 +58,7 @@ export function createInitialState(): KanbanState {
     draggedTaskId: null,
     workspaceQuickActions: null,
     workspaceDialog: null,
+    columnQuickActions: null,
+    columnDialog: null,
   };
 }

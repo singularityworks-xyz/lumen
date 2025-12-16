@@ -78,6 +78,8 @@ export const useKanbanStore = create<KanbanStore>()(
           taskDetailModals: state.taskDetailModals,
           workspaceQuickActions: state.workspaceQuickActions,
           workspaceDialog: state.workspaceDialog,
+          columnQuickActions: state.columnQuickActions,
+          columnDialog: state.columnDialog,
         };
         return persisted;
       },

@@ -7,6 +7,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
+import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { cn } from "@/src/lib/utils";
@@ -18,6 +19,10 @@ type RenameColumnDialogProps = {
   isShaking?: boolean;
   onRename: (newName: string) => void;
   onClose: () => void;
+  getSourceButtonRect?: () => DOMRect | null;
+  quickActionsPosition?: { x: number; y: number };
+  position?: { x: number; y: number };
+  onPositionChange?: (position: { x: number; y: number }) => void;
 };
 
 const DIALOG_WIDTH = 380;
@@ -30,22 +35,52 @@ export const RenameColumnDialog = memo(
     isShaking = false,
     onRename,
     onClose,
+    getSourceButtonRect,
+    quickActionsPosition,
+    position: externalPosition,
+    onPositionChange,
   }: RenameColumnDialogProps) => {
     const [name, setName] = useState(currentName);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [mounted, setMounted] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
 
+    const position = externalPosition ?? internalPosition;
+    const setPosition = useCallback(
+      (newPos: { x: number; y: number }) => {
+        if (onPositionChange) {
+          onPositionChange(newPos);
+        } else {
+          setInternalPosition(newPos);
+        }
+      },
+      [onPositionChange]
+    );
+
     useEffect(() => {
-      setPosition({
-        x: window.innerWidth / 2 - DIALOG_WIDTH / 2,
-        y: window.innerHeight / 3,
-      });
+      if (!externalPosition) {
+        const rect = getSourceButtonRect?.();
+        const x = rect
+          ? rect.right + 40
+          : window.innerWidth / 2 - DIALOG_WIDTH / 2;
+        const y = rect ? rect.top - 30 : window.innerHeight / 3;
+        setInternalPosition({ x, y });
+      }
       setMounted(true);
-    }, []);
+    }, [getSourceButtonRect, externalPosition]);
+
+    useEffect(() => {
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          onClose();
+        }
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [onClose]);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -82,7 +117,7 @@ export const RenameColumnDialog = memo(
           y: positionStartRef.current.y + dy,
         });
       },
-      [isDragging]
+      [isDragging, setPosition]
     );
 
     const handleDragEnd = useCallback(
@@ -99,13 +134,41 @@ export const RenameColumnDialog = memo(
       return null;
     }
 
+    const dialogConnectionX = position.x;
+    const dialogConnectionY = position.y + 30;
+    const sourceRect = getSourceButtonRect?.();
+
+    let sourceX = 0;
+    let sourceY = 0;
+    let showConnector = false;
+
+    if (sourceRect) {
+      sourceX = sourceRect.right;
+      sourceY = sourceRect.top + sourceRect.height / 2;
+      showConnector = true;
+    } else if (quickActionsPosition) {
+      sourceX = quickActionsPosition.x + 200;
+      sourceY = quickActionsPosition.y + 60;
+      showConnector = true;
+    }
+
     const dialogContent = (
       <>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop click to close */}
         <div className="fixed inset-0 z-9998 bg-black/50" onClick={onClose} />
 
-        {/* Dialog */}
+        {showConnector && (
+          <ConnectorEdge
+            color="primary"
+            endX={dialogConnectionX}
+            endY={dialogConnectionY}
+            hideStartNode
+            startX={sourceX}
+            startY={sourceY}
+          />
+        )}
+
         <div
           className={cn(
             "fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
@@ -119,7 +182,6 @@ export const RenameColumnDialog = memo(
             width: DIALOG_WIDTH,
           }}
         >
-          {/* Header */}
           <div
             className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
             onPointerCancel={handleDragEnd}
@@ -155,7 +217,6 @@ export const RenameColumnDialog = memo(
             </div>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit}>
             <div className="p-4">
               <div className="space-y-2">
@@ -178,7 +239,6 @@ export const RenameColumnDialog = memo(
               </div>
             </div>
 
-            {/* Footer */}
             <div className="flex justify-end gap-2 border-t bg-muted/30 px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
               <Button
                 className="h-8 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
