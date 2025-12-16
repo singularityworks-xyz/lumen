@@ -217,10 +217,21 @@ export function WorkspaceSelector() {
     [workspaces.byId, openWorkspaceDialog]
   );
 
+  const handleDropdownOpenChange = useCallback(
+    (open: boolean) => {
+      setDropdownOpen(open);
+      if (open) {
+        closeWorkspaceQuickActions();
+        closeWorkspaceDialog();
+      }
+    },
+    [closeWorkspaceQuickActions, closeWorkspaceDialog]
+  );
+
   return (
     <>
       <div className="pointer-events-auto fixed top-4 left-4 z-50">
-        <DropdownMenu onOpenChange={setDropdownOpen} open={dropdownOpen}>
+        <DropdownMenu onOpenChange={handleDropdownOpenChange} open={dropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               className="h-10 gap-2 rounded-xl border-2 border-border/50 bg-card/95 px-4 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:bg-card/98 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)] dark:hover:bg-card/98"
