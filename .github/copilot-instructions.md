@@ -1,6 +1,6 @@
 # Lumen Project Instructions
 
-A pnpm/Turborepo monorepo for an infinite-canvas Kanban board built with Next.js 16, React 19, and tRPC.
+A Bun/Turborepo monorepo for an infinite-canvas Kanban board built with Next.js 16, React 19, and tRPC.
 
 # Ultracite Code Standards
 
@@ -154,14 +154,14 @@ const allBoardIds = state.boards.allIds;
 ## Essential Commands
 
 ```bash
-pnpm dev              # Start all packages in dev mode
-pnpm check            # Lint + format with Ultracite/Biome
+bun dev              # Start all packages in dev mode
+bun check            # Lint + format with Ultracite/Biome
 ```
 
 ## Code Conventions
 
 ### Linting & Formatting
-Uses **Ultracite** (Biome preset). Run `pnpm ultracite fix` before committing. Key rules:
+Uses **Ultracite** (Biome preset). Run `bun ultracite fix` before committing. Key rules:
 - No barrel files except feature entry points (see `features/kanban/index.ts`)
 - UI components in `components/ui/` are excluded from strict linting
 

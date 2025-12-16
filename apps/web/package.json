@@ -4,11 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
-    "start": "next start --port 3000",
-    "lint": "biome lint --write .",
-    "format": "biome format --write .",
+    "dev": "bun run --bun next dev --port 3000",
+    "build": "bun run --bun next build",
+    "start": "bun run --bun next start --port 3000",
     "check": "biome check --write .",
     "check-types": "tsc --noEmit"
   },
