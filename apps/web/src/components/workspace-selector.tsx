@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, Check, Plus } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "@/src/components/dialogs/create-workspace-dialog";
 import { DeleteWorkspaceDialog } from "@/src/components/dialogs/delete-workspace-dialog";
 import { DuplicateWorkspaceDialog } from "@/src/components/dialogs/duplicate-workspace-dialog";
@@ -30,6 +30,8 @@ export function WorkspaceSelector() {
   const updateWorkspace = useKanbanStore((state) => state.updateWorkspace);
   const deleteWorkspace = useKanbanStore((state) => state.deleteWorkspace);
   const resetWorkspace = useKanbanStore((state) => state.resetWorkspace);
+  const boards = useKanbanStore((state) => state.boards);
+  const columns = useKanbanStore((state) => state.columns);
   const duplicateWorkspace = useKanbanStore(
     (state) => state.duplicateWorkspace
   );
@@ -118,11 +120,50 @@ export function WorkspaceSelector() {
     [workspaceDialog, updateWorkspace]
   );
 
-  const handleResetWorkspace = useCallback(() => {
-    if (workspaceDialog?.workspaceId) {
-      resetWorkspace(workspaceDialog.workspaceId);
+  const handleResetWorkspace = useCallback(
+    (options: { clearBoardsAndColumns: boolean }) => {
+      if (workspaceDialog?.workspaceId) {
+        resetWorkspace(workspaceDialog.workspaceId, options);
+        closeWorkspaceQuickActions();
+      }
+    },
+    [workspaceDialog, resetWorkspace, closeWorkspaceQuickActions]
+  );
+
+  const resetDialogCounts = useMemo(() => {
+    if (!workspaceDialog?.workspaceId) {
+      return { taskCount: 0, boardCount: 0, columnCount: 0 };
     }
-  }, [workspaceDialog, resetWorkspace]);
+
+    const workspace = workspaces.byId[workspaceDialog.workspaceId];
+    if (!workspace) {
+      return { taskCount: 0, boardCount: 0, columnCount: 0 };
+    }
+
+    let taskCount = 0;
+    let columnCount = 0;
+    const boardCount = workspace.board_ids.length;
+
+    for (const boardId of workspace.board_ids) {
+      const board = boards.byId[boardId];
+      if (board) {
+        columnCount += board.column_ids.length;
+        for (const columnId of board.column_ids) {
+          const column = columns.byId[columnId];
+          if (column) {
+            taskCount += column.task_ids.length;
+          }
+        }
+      }
+    }
+
+    return { taskCount, boardCount, columnCount };
+  }, [
+    workspaceDialog?.workspaceId,
+    workspaces.byId,
+    boards.byId,
+    columns.byId,
+  ]);
 
   const handleDeleteWorkspace = useCallback(() => {
     if (workspaceDialog?.workspaceId) {
@@ -311,12 +352,15 @@ export function WorkspaceSelector() {
 
       {workspaceDialog?.type === "reset" && (
         <ResetWorkspaceDialog
+          boardCount={resetDialogCounts.boardCount}
+          columnCount={resetDialogCounts.columnCount}
           getSourceButtonRect={getSourceButtonRect}
           onClose={closeWorkspaceDialog}
           onConfirm={handleResetWorkspace}
           onPositionChange={updateWorkspaceDialogPosition}
           position={workspaceDialog.position}
           quickActionsPosition={workspaceQuickActions?.position}
+          taskCount={resetDialogCounts.taskCount}
           workspaceId={workspaceDialog.workspaceId}
           workspaceName={workspaceDialog.workspaceName}
         />
@@ -337,6 +381,8 @@ export function WorkspaceSelector() {
 
       {workspaceDialog?.type === "duplicate" && (
         <DuplicateWorkspaceDialog
+          boardCount={resetDialogCounts.boardCount}
+          columnCount={resetDialogCounts.columnCount}
           currentName={workspaceDialog.workspaceName}
           getSourceButtonRect={getSourceButtonRect}
           initialValue={workspaceDialog.inputValue}
@@ -346,6 +392,7 @@ export function WorkspaceSelector() {
           onPositionChange={updateWorkspaceDialogPosition}
           position={workspaceDialog.position}
           quickActionsPosition={workspaceQuickActions?.position}
+          taskCount={resetDialogCounts.taskCount}
           workspaceId={workspaceDialog.workspaceId}
         />
       )}

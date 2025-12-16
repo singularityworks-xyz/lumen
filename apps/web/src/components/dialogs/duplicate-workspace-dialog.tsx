@@ -17,6 +17,9 @@ type DuplicateWorkspaceDialogProps = {
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
   workspaceId: string;
+  taskCount: number;
+  boardCount: number;
+  columnCount: number;
   quickActionsPosition?: { x: number; y: number };
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
@@ -32,6 +35,9 @@ export const DuplicateWorkspaceDialog = memo(
     onDuplicate,
     onClose,
     getSourceButtonRect,
+    taskCount,
+    boardCount,
+    columnCount,
     position: externalPosition,
     onPositionChange,
     initialValue,
@@ -205,8 +211,19 @@ export const DuplicateWorkspaceDialog = memo(
           <form onSubmit={handleSubmit}>
             <div className="p-4">
               <p className="mb-4 text-muted-foreground text-sm">
-                This will create a copy of the workspace with all its boards,
-                columns, and tasks.
+                This will create a copy of the workspace including{" "}
+                <span className="font-medium text-foreground">
+                  {boardCount} board{boardCount !== 1 ? "s" : ""}
+                </span>
+                ,{" "}
+                <span className="font-medium text-foreground">
+                  {columnCount} column{columnCount !== 1 ? "s" : ""}
+                </span>
+                , and{" "}
+                <span className="font-medium text-foreground">
+                  {taskCount} task{taskCount !== 1 ? "s" : ""}
+                </span>
+                .
               </p>
               <div className="space-y-2">
                 <Label

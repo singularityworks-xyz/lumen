@@ -139,19 +139,16 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  resetWorkspace: (workspaceId) =>
+  resetWorkspace: (workspaceId, options) =>
     set((state) => {
-      if (state.workspaces.allIds[0] !== workspaceId) {
-        return;
-      }
-
       const workspace = state.workspaces.byId[workspaceId];
       if (!workspace) {
         return;
       }
 
-      const boardIdsToRemove = workspace.board_ids.slice();
-      for (const boardId of boardIdsToRemove) {
+      const clearBoardsAndColumns = options?.clearBoardsAndColumns ?? false;
+
+      for (const boardId of workspace.board_ids) {
         const board = state.boards.byId[boardId];
         if (board) {
           for (const columnId of board.column_ids) {
@@ -163,24 +160,46 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
                   (id) => id !== taskId
                 );
               }
+              column.task_ids = [];
             }
-            delete state.columns.byId[columnId];
-            state.columns.allIds = state.columns.allIds.filter(
-              (id) => id !== columnId
-            );
+
+            if (clearBoardsAndColumns) {
+              delete state.columns.byId[columnId];
+              state.columns.allIds = state.columns.allIds.filter(
+                (id) => id !== columnId
+              );
+            }
+          }
+
+          if (clearBoardsAndColumns) {
+            board.column_ids = [];
           }
         }
-        delete state.boards.byId[boardId];
-        state.boards.allIds = state.boards.allIds.filter(
-          (id) => id !== boardId
-        );
-        delete state.boardPositions.byId[boardId];
-        state.boardPositions.allIds = state.boardPositions.allIds.filter(
-          (id) => id !== boardId
-        );
+
+        if (clearBoardsAndColumns) {
+          delete state.boards.byId[boardId];
+          state.boards.allIds = state.boards.allIds.filter(
+            (id) => id !== boardId
+          );
+          delete state.boardPositions.byId[boardId];
+          state.boardPositions.allIds = state.boardPositions.allIds.filter(
+            (id) => id !== boardId
+          );
+        }
       }
 
-      workspace.board_ids = [];
+      if (clearBoardsAndColumns) {
+        workspace.board_ids = [];
+      }
+
+      logger.info(
+        {
+          id: workspaceId,
+          name: workspace.name,
+          clearBoardsAndColumns,
+        },
+        "Workspace reset"
+      );
     }),
 
   duplicateWorkspace: (workspaceId, newName) => {

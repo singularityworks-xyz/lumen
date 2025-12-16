@@ -56,7 +56,10 @@ export type KanbanActions = {
     updates: Partial<Pick<Workspace, "name" | "description">>
   ) => void;
   deleteWorkspace: (workspaceId: string) => void;
-  resetWorkspace: (workspaceId: string) => void;
+  resetWorkspace: (
+    workspaceId: string,
+    options?: { clearBoardsAndColumns?: boolean }
+  ) => void;
   duplicateWorkspace: (workspaceId: string, newName: string) => string | null;
   openWorkspaceQuickActions: (
     workspaceId: string,
