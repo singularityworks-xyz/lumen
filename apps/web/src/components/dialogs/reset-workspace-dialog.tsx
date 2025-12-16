@@ -209,10 +209,13 @@ export const ResetWorkspaceDialog = memo(
               action cannot be undone.
             </p>
 
-            {/** biome-ignore lint/a11y/noLabelWithoutControl: why ? */}
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+            <label
+              className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+              htmlFor="reset-workspace-checkbox"
+            >
               <Checkbox
                 checked={clearBoardsAndColumns}
+                id="reset-workspace-checkbox"
                 onCheckedChange={(checked) =>
                   setClearBoardsAndColumns(checked === true)
                 }

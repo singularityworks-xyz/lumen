@@ -9,11 +9,11 @@ import { cn } from "@/src/lib/utils";
 
 type DeleteWorkspaceDialogProps = {
   workspaceName: string;
-  workspaceId: string;
+
   onConfirm: () => void;
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
-  quickActionsPosition?: { x: number; y: number };
+
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
 };

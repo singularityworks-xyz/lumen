@@ -16,11 +16,11 @@ type DuplicateWorkspaceDialogProps = {
   onDuplicate: (newName: string) => void;
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
-  workspaceId: string;
+
   taskCount: number;
   boardCount: number;
   columnCount: number;
-  quickActionsPosition?: { x: number; y: number };
+
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
   initialValue?: string;

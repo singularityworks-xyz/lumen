@@ -158,7 +158,7 @@ export type KanbanActions = {
     >
   ) => string;
   updateTask: (taskId: string, updates: Partial<Task>) => void;
-  deleteTask: (boardId: string, taskId: string) => void;
+  deleteTask: (taskId: string) => void;
   moveTask: (
     taskId: string,
     fromColumnId: string,

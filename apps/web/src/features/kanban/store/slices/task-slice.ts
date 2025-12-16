@@ -74,7 +74,7 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
       }
     }),
 
-  deleteTask: (_boardId, taskId) =>
+  deleteTask: (taskId) =>
     set((state) => {
       const task = state.tasks.byId[taskId];
       if (!task) {

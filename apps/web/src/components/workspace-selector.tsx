@@ -387,8 +387,6 @@ export function WorkspaceSelector() {
           onConfirm={handleDeleteWorkspace}
           onPositionChange={updateWorkspaceDialogPosition}
           position={workspaceDialog.position}
-          quickActionsPosition={workspaceQuickActions?.position}
-          workspaceId={workspaceDialog.workspaceId}
           workspaceName={workspaceDialog.workspaceName}
         />
       )}
@@ -405,9 +403,7 @@ export function WorkspaceSelector() {
           onInputChange={updateWorkspaceDialogInputValue}
           onPositionChange={updateWorkspaceDialogPosition}
           position={workspaceDialog.position}
-          quickActionsPosition={workspaceQuickActions?.position}
           taskCount={resetDialogCounts.taskCount}
-          workspaceId={workspaceDialog.workspaceId}
         />
       )}
     </>

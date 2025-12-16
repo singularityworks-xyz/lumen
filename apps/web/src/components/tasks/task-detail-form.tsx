@@ -196,7 +196,7 @@ export const TaskDetailForm = memo(
     };
 
     const handleDelete = () => {
-      deleteTask(boardId, task.id);
+      deleteTask(task.id);
       closeTaskDetailModal(modalId);
     };
 
