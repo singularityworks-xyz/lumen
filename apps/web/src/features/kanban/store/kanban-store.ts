@@ -53,6 +53,17 @@ type KanbanState = {
   selectedTaskIds: string[];
   draggedTaskId: string | null;
   shakingTaskDetailModalId: string | null;
+  workspaceQuickActions: {
+    workspaceId: string;
+    position: { x: number; y: number };
+  } | null;
+  workspaceDialog: {
+    type: "rename" | "reset" | "delete" | "duplicate";
+    workspaceId: string;
+    workspaceName: string;
+    position?: { x: number; y: number };
+    inputValue?: string; // For rename and duplicate dialogs
+  } | null;
 };
 
 type KanbanActions = {
@@ -64,6 +75,7 @@ type KanbanActions = {
   ) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (workspaceId: string) => void;
+  duplicateWorkspace: (workspaceId: string, newName: string) => string | null;
   addBoard: (
     name: string,
     position: { x: number; y: number },
@@ -174,6 +186,25 @@ type KanbanActions = {
   clearTaskSelection: () => void;
   setDraggedTask: (taskId: string | null) => void;
   getDenormalizedBoard: (boardId: string) => DenormalizedBoard | null;
+  openWorkspaceQuickActions: (
+    workspaceId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeWorkspaceQuickActions: () => void;
+  updateWorkspaceQuickActionsPosition: (position: {
+    x: number;
+    y: number;
+  }) => void;
+  openWorkspaceDialog: (options: {
+    type: "rename" | "reset" | "delete" | "duplicate";
+    workspaceId: string;
+    workspaceName: string;
+    position?: { x: number; y: number };
+    inputValue?: string;
+  }) => void;
+  closeWorkspaceDialog: () => void;
+  updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
+  updateWorkspaceDialogInputValue: (value: string) => void;
 };
 
 function getNextZIndex(positions: EntityMap<BoardPosition>): number {
@@ -230,6 +261,8 @@ function createInitialState(): KanbanState {
     selectedBoardIds: [],
     selectedTaskIds: [],
     draggedTaskId: null,
+    workspaceQuickActions: null,
+    workspaceDialog: null,
   };
 }
 
@@ -391,6 +424,141 @@ const storeCreator: StateCreator<
 
       workspace.board_ids = [];
     }),
+
+  duplicateWorkspace: (workspaceId, newName) => {
+    const state = get();
+    const sourceWorkspace = state.workspaces.byId[workspaceId];
+    if (!sourceWorkspace) {
+      logger.warn({ id: workspaceId }, "Source workspace not found");
+      return null;
+    }
+
+    const newWorkspaceId = generateWorkspaceId();
+    const now = new Date().toISOString();
+    const boardIdMap = new Map<string, string>();
+    const columnIdMap = new Map<string, string>();
+    const taskIdMap = new Map<string, string>();
+
+    for (const boardId of sourceWorkspace.board_ids) {
+      boardIdMap.set(boardId, generateBoardId());
+      const board = state.boards.byId[boardId];
+      if (board) {
+        for (const columnId of board.column_ids) {
+          columnIdMap.set(columnId, generateColumnId());
+          const column = state.columns.byId[columnId];
+          if (column) {
+            for (const taskId of column.task_ids) {
+              taskIdMap.set(taskId, generateTaskId());
+            }
+          }
+        }
+      }
+    }
+
+    set((mutableState) => {
+      const newWorkspace: Workspace = {
+        id: newWorkspaceId,
+        name: newName,
+        description: sourceWorkspace.description,
+        created_at: now,
+        board_ids: [],
+      };
+
+      for (const oldBoardId of sourceWorkspace.board_ids) {
+        const oldBoard = state.boards.byId[oldBoardId];
+        const newBoardId = boardIdMap.get(oldBoardId);
+        if (!(oldBoard && newBoardId)) {
+          continue;
+        }
+
+        const newColumnIds: string[] = [];
+
+        for (const oldColumnId of oldBoard.column_ids) {
+          const oldColumn = state.columns.byId[oldColumnId];
+          const newColumnId = columnIdMap.get(oldColumnId);
+          if (!(oldColumn && newColumnId)) {
+            continue;
+          }
+
+          const newTaskIds: string[] = [];
+
+          for (const oldTaskId of oldColumn.task_ids) {
+            const oldTask = state.tasks.byId[oldTaskId];
+            const newTaskId = taskIdMap.get(oldTaskId);
+            if (!(oldTask && newTaskId)) {
+              continue;
+            }
+
+            const newTask: Task = {
+              ...oldTask,
+              id: newTaskId,
+              board_id: newBoardId,
+              column_id: newColumnId,
+              created_at: now,
+              updated_at: now,
+            };
+
+            mutableState.tasks.byId[newTaskId] = newTask;
+            mutableState.tasks.allIds.push(newTaskId);
+            newTaskIds.push(newTaskId);
+          }
+
+          const newColumn: Column = {
+            ...oldColumn,
+            id: newColumnId,
+            board_id: newBoardId,
+            task_ids: newTaskIds,
+          };
+
+          mutableState.columns.byId[newColumnId] = newColumn;
+          mutableState.columns.allIds.push(newColumnId);
+          newColumnIds.push(newColumnId);
+        }
+
+        const newBoard: Board = {
+          ...oldBoard,
+          id: newBoardId,
+          workspace_id: newWorkspaceId,
+          column_ids: newColumnIds,
+          created_at: now,
+        };
+
+        mutableState.boards.byId[newBoardId] = newBoard;
+        mutableState.boards.allIds.push(newBoardId);
+        newWorkspace.board_ids.push(newBoardId);
+
+        // Clone board position with offset
+        const oldPosition = state.boardPositions.byId[oldBoardId];
+        if (oldPosition) {
+          const newPosition: BoardPosition = {
+            id: newBoardId,
+            x: oldPosition.x + 50,
+            y: oldPosition.y + 50,
+            zIndex: getNextZIndex(mutableState.boardPositions),
+            width: oldPosition.width,
+            height: oldPosition.height,
+          };
+          mutableState.boardPositions.byId[newBoardId] = newPosition;
+          mutableState.boardPositions.allIds.push(newBoardId);
+        }
+      }
+
+      mutableState.workspaces.byId[newWorkspaceId] = newWorkspace;
+      mutableState.workspaces.allIds.push(newWorkspaceId);
+    });
+
+    logger.info(
+      {
+        sourceId: workspaceId,
+        newId: newWorkspaceId,
+        newName,
+        boardCount: sourceWorkspace.board_ids.length,
+      },
+      "Workspace duplicated"
+    );
+
+    return newWorkspaceId;
+  },
 
   addBoard: (name, position, description) => {
     const boardId = generateBoardId();
@@ -1143,7 +1311,6 @@ const storeCreator: StateCreator<
     set((state) => {
       state.shakingTaskDetailModalId = modalId;
     });
-    // Clear shake after animation completes
     setTimeout(() => {
       set((state) => {
         if (state.shakingTaskDetailModalId === modalId) {
@@ -1247,6 +1414,68 @@ const storeCreator: StateCreator<
       columns,
     };
   },
+
+  openWorkspaceQuickActions: (workspaceId, position) =>
+    set((state) => {
+      state.workspaceQuickActions = { workspaceId, position };
+    }),
+
+  closeWorkspaceQuickActions: () =>
+    set((state) => {
+      state.workspaceQuickActions = null;
+    }),
+
+  updateWorkspaceQuickActionsPosition: (position) =>
+    set((state) => {
+      if (state.workspaceQuickActions) {
+        state.workspaceQuickActions.position = position;
+      }
+    }),
+
+  openWorkspaceDialog: (options: {
+    type: "rename" | "reset" | "delete" | "duplicate";
+    workspaceId: string;
+    workspaceName: string;
+    position?: { x: number; y: number };
+    inputValue?: string;
+  }) =>
+    set((state) => {
+      const { type, workspaceId, workspaceName, position, inputValue } =
+        options;
+      let defaultInputValue: string | undefined;
+      if (type === "rename") {
+        defaultInputValue = workspaceName;
+      } else if (type === "duplicate") {
+        defaultInputValue = `${workspaceName} (Copy)`;
+      }
+
+      state.workspaceDialog = {
+        type,
+        workspaceId,
+        workspaceName,
+        position,
+        inputValue: inputValue ?? defaultInputValue,
+      };
+    }),
+
+  closeWorkspaceDialog: () =>
+    set((state) => {
+      state.workspaceDialog = null;
+    }),
+
+  updateWorkspaceDialogPosition: (position) =>
+    set((state) => {
+      if (state.workspaceDialog) {
+        state.workspaceDialog.position = position;
+      }
+    }),
+
+  updateWorkspaceDialogInputValue: (value) =>
+    set((state) => {
+      if (state.workspaceDialog) {
+        state.workspaceDialog.inputValue = value;
+      }
+    }),
 });
 
 const uiStateFields: (keyof KanbanState)[] = [
@@ -1294,6 +1523,8 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           createTaskModals: state.createTaskModals,
           editBoardModals: state.editBoardModals,
           taskDetailModals: state.taskDetailModals,
+          workspaceQuickActions: state.workspaceQuickActions,
+          workspaceDialog: state.workspaceDialog,
         };
         return persisted;
       },
@@ -1303,7 +1534,6 @@ export const useKanbanStore = create<KanbanState & KanbanActions>()(
           if (workspaceId && state.workspaces?.byId[workspaceId]) {
             const workspace = state.workspaces.byId[workspaceId];
             if (workspace.showMiniMap !== undefined) {
-              // Use setTimeout to ensure store is fully initialized
               setTimeout(() => {
                 useKanbanStore.setState({ showMiniMap: workspace.showMiniMap });
               }, 0);
