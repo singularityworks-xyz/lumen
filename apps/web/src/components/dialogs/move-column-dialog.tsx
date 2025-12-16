@@ -12,6 +12,7 @@ import {
   ScaledSelectValue,
 } from "@/src/components/scaled-dropdown";
 import { Button } from "@/src/components/ui/button";
+import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 
 type TargetBoard = {
@@ -26,6 +27,10 @@ type MoveColumnDialogProps = {
   targetBoards: TargetBoard[];
   onConfirm: (targetBoardId: string) => void;
   onClose: () => void;
+  getSourceButtonRect?: () => DOMRect | null;
+  quickActionsPosition?: { x: number; y: number };
+  position?: { x: number; y: number };
+  onPositionChange?: (position: { x: number; y: number }) => void;
 };
 
 const DIALOG_WIDTH = 420;
@@ -38,24 +43,44 @@ export const MoveColumnDialog = memo(
     targetBoards,
     onConfirm,
     onClose,
+    getSourceButtonRect,
+    quickActionsPosition,
+    position: externalPosition,
+    onPositionChange,
   }: MoveColumnDialogProps) => {
     const [mounted, setMounted] = useState(false);
     const [targetBoardId, setTargetBoardId] = useState<string>(
       targetBoards[0]?.id ?? ""
     );
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
 
+    const position = externalPosition ?? internalPosition;
+    const setPosition = useCallback(
+      (newPos: { x: number; y: number }) => {
+        if (onPositionChange) {
+          onPositionChange(newPos);
+        } else {
+          setInternalPosition(newPos);
+        }
+      },
+      [onPositionChange]
+    );
+
     useEffect(() => {
       setMounted(true);
-      setPosition({
-        x: window.innerWidth / 2 - DIALOG_WIDTH / 2,
-        y: window.innerHeight / 2 - 120,
-      });
-    }, []);
+      if (!externalPosition) {
+        const rect = getSourceButtonRect?.();
+        const x = rect
+          ? rect.right + 40
+          : window.innerWidth / 2 - DIALOG_WIDTH / 2;
+        const y = rect ? rect.top - 30 : window.innerHeight / 2 - 120;
+        setInternalPosition({ x, y });
+      }
+    }, [getSourceButtonRect, externalPosition]);
 
     useEffect(() => {
       const handleEscape = (e: KeyboardEvent) => {
@@ -93,7 +118,7 @@ export const MoveColumnDialog = memo(
           y: positionStartRef.current.y + deltaY,
         });
       },
-      [isDragging]
+      [isDragging, setPosition]
     );
 
     const handleDragEnd = useCallback(
@@ -116,12 +141,41 @@ export const MoveColumnDialog = memo(
       return null;
     }
 
+    const dialogConnectionX = position.x;
+    const dialogConnectionY = position.y + 30;
+    const sourceRect = getSourceButtonRect?.();
+    let sourceX = 0;
+    let sourceY = 0;
+    let showConnector = false;
+
+    if (sourceRect) {
+      sourceX = sourceRect.right;
+      sourceY = sourceRect.top + sourceRect.height / 2;
+      showConnector = true;
+    } else if (quickActionsPosition) {
+      sourceX = quickActionsPosition.x + 200;
+      sourceY = quickActionsPosition.y + 95;
+      showConnector = true;
+    }
+
     const dialogContent = (
       <ModalScaleProvider zIndex={9999}>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close */}
         {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Backdrop click to close */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop click to close */}
         <div className="fixed inset-0 z-9998 bg-black/50" onClick={onClose} />
+
+        {showConnector && (
+          <ConnectorEdge
+            color="primary"
+            endX={dialogConnectionX}
+            endY={dialogConnectionY}
+            hideStartNode
+            startX={sourceX}
+            startY={sourceY}
+          />
+        )}
+
         <div
           className={cn(
             "fixed z-9999 overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]",
@@ -134,7 +188,6 @@ export const MoveColumnDialog = memo(
             width: DIALOG_WIDTH,
           }}
         >
-          {/* Header with drag handle */}
           <div
             className="flex cursor-grab select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-5 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] active:cursor-grabbing dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
             onPointerCancel={handleDragEnd}
@@ -161,7 +214,6 @@ export const MoveColumnDialog = memo(
             <GripHorizontal className="h-5 w-5 text-muted-foreground/50" />
           </div>
 
-          {/* Content */}
           <div className="p-5">
             <div className="space-y-2">
               <label
@@ -192,7 +244,6 @@ export const MoveColumnDialog = memo(
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Button
               className="h-8 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"

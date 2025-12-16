@@ -1,53 +1,50 @@
 /** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: Draggable dialog requires mouse interactions */
 "use client";
 
-import { Columns, GripHorizontal, X } from "lucide-react";
+import { Building2, GripHorizontal, X } from "lucide-react";
 import type { PointerEvent } from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { cn } from "@/src/lib/utils";
 
-type RenameColumnDialogProps = {
+type RenameWorkspaceDialogProps = {
   currentName: string;
-  boardName: string;
-  columnName: string;
-  isShaking?: boolean;
+  workspaceId: string;
   onRename: (newName: string) => void;
   onClose: () => void;
-  getSourceButtonRect?: () => DOMRect | null;
+  getSourceButtonRect: () => DOMRect | null;
   quickActionsPosition?: { x: number; y: number };
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
+  initialValue?: string;
+  onInputChange?: (value: string) => void;
 };
 
 const DIALOG_WIDTH = 380;
 
-export const RenameColumnDialog = memo(
+export const RenameWorkspaceDialog = memo(
   ({
     currentName,
-    boardName,
-    columnName,
-    isShaking = false,
     onRename,
     onClose,
     getSourceButtonRect,
-    quickActionsPosition,
+    quickActionsPosition: _quickActionsPosition,
     position: externalPosition,
     onPositionChange,
-  }: RenameColumnDialogProps) => {
-    const [name, setName] = useState(currentName);
+    initialValue,
+    onInputChange,
+  }: RenameWorkspaceDialogProps) => {
+    const [name, setName] = useState(initialValue ?? currentName);
     const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [mounted, setMounted] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
-
     const position = externalPosition ?? internalPosition;
     const setPosition = useCallback(
       (newPos: { x: number; y: number }) => {
@@ -62,7 +59,7 @@ export const RenameColumnDialog = memo(
 
     useEffect(() => {
       if (!externalPosition) {
-        const rect = getSourceButtonRect?.();
+        const rect = getSourceButtonRect();
         const x = rect
           ? rect.right + 40
           : window.innerWidth / 2 - DIALOG_WIDTH / 2;
@@ -82,12 +79,22 @@ export const RenameColumnDialog = memo(
       return () => document.removeEventListener("keydown", handleEscape);
     }, [onClose]);
 
+    const handleNameChange = useCallback(
+      (newValue: string) => {
+        setName(newValue);
+        if (onInputChange) {
+          onInputChange(newValue);
+        }
+      },
+      [onInputChange]
+    );
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (name.trim()) {
+      if (name.trim() && name.trim() !== currentName) {
         onRename(name.trim());
-        onClose();
       }
+      onClose();
     };
 
     const handleDragStart = useCallback(
@@ -136,29 +143,17 @@ export const RenameColumnDialog = memo(
 
     const dialogConnectionX = position.x;
     const dialogConnectionY = position.y + 30;
-    const sourceRect = getSourceButtonRect?.();
-
-    let sourceX = 0;
-    let sourceY = 0;
-    let showConnector = false;
-
-    if (sourceRect) {
-      sourceX = sourceRect.right;
-      sourceY = sourceRect.top + sourceRect.height / 2;
-      showConnector = true;
-    } else if (quickActionsPosition) {
-      sourceX = quickActionsPosition.x + 200;
-      sourceY = quickActionsPosition.y + 60;
-      showConnector = true;
-    }
+    const sourceRect = getSourceButtonRect();
+    const sourceX = sourceRect ? sourceRect.right : 0;
+    const sourceY = sourceRect ? sourceRect.top + sourceRect.height / 2 : 0;
 
     const dialogContent = (
       <>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop click to close */}
         <div className="fixed inset-0 z-9998 bg-black/50" onClick={onClose} />
-
-        {showConnector && (
+        {/* Connector edge from source button to dialog - hidden on refresh when refs unavailable */}
+        {sourceRect && (
           <ConnectorEdge
             color="primary"
             endX={dialogConnectionX}
@@ -172,8 +167,7 @@ export const RenameColumnDialog = memo(
         <div
           className={cn(
             "fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
-            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]",
-            isShaking && "animate-shake"
+            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
           ref={dialogRef}
           style={{
@@ -191,22 +185,13 @@ export const RenameColumnDialog = memo(
           >
             <div className="flex items-center gap-2">
               <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-sm">Rename Column</span>
+              <span className="font-semibold text-sm">Rename Workspace</span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge
-                className="bg-primary/10 px-2 py-0.5 text-primary text-xs"
-                variant="secondary"
-              >
-                {boardName}
-              </Badge>
-              <Badge
-                className="bg-violet-500/20 px-2 py-0.5 text-violet-600 text-xs dark:text-violet-400"
-                variant="secondary"
-              >
-                <Columns className="mr-1 h-3 w-3" />
-                {columnName}
-              </Badge>
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                <Building2 className="h-3 w-3" />
+                {currentName}
+              </span>
               <button
                 className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 onClick={onClose}
@@ -216,29 +201,27 @@ export const RenameColumnDialog = memo(
               </button>
             </div>
           </div>
-
           <form onSubmit={handleSubmit}>
             <div className="p-4">
               <div className="space-y-2">
                 <Label
                   className="text-muted-foreground text-xs"
-                  htmlFor="column-name"
+                  htmlFor="workspace-name"
                 >
-                  Column Name
+                  Workspace Name
                 </Label>
                 <Input
                   autoFocus
                   className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
-                  id="column-name"
-                  onChange={(e) => setName(e.target.value)}
+                  id="workspace-name"
+                  onChange={(e) => handleNameChange(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
                   onPointerDown={(e) => e.stopPropagation()}
-                  placeholder="Column name"
+                  placeholder="Workspace name"
                   value={name}
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-2 border-t bg-muted/30 px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
               <Button
                 className="h-8 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
@@ -265,4 +248,4 @@ export const RenameColumnDialog = memo(
   }
 );
 
-RenameColumnDialog.displayName = "RenameColumnDialog";
+RenameWorkspaceDialog.displayName = "RenameWorkspaceDialog";

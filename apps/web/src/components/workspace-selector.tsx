@@ -1,26 +1,13 @@
 "use client";
 
-import { Building2, Check, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/src/components/ui/alert-dialog";
+import { Building2, Check, Plus } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { CreateWorkspaceDialog } from "@/src/components/dialogs/create-workspace-dialog";
+import { DeleteWorkspaceDialog } from "@/src/components/dialogs/delete-workspace-dialog";
+import { DuplicateWorkspaceDialog } from "@/src/components/dialogs/duplicate-workspace-dialog";
+import { RenameWorkspaceDialog } from "@/src/components/dialogs/rename-workspace-dialog";
+import { ResetWorkspaceDialog } from "@/src/components/dialogs/reset-workspace-dialog";
 import { Button } from "@/src/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/src/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
-import { Input } from "@/src/components/ui/input";
-import { Label } from "@/src/components/ui/label";
-import { Textarea } from "@/src/components/ui/textarea";
+import { WorkspaceQuickActions } from "@/src/components/workspace-quick-actions";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
 
 export function WorkspaceSelector() {
@@ -42,65 +27,233 @@ export function WorkspaceSelector() {
     (state) => state.setCurrentWorkspace
   );
   const addWorkspace = useKanbanStore((state) => state.addWorkspace);
+  const updateWorkspace = useKanbanStore((state) => state.updateWorkspace);
   const deleteWorkspace = useKanbanStore((state) => state.deleteWorkspace);
   const resetWorkspace = useKanbanStore((state) => state.resetWorkspace);
+  const boards = useKanbanStore((state) => state.boards);
+  const columns = useKanbanStore((state) => state.columns);
+  const duplicateWorkspace = useKanbanStore(
+    (state) => state.duplicateWorkspace
+  );
+
+  // Persistent quick actions state from store
+  const workspaceQuickActions = useKanbanStore(
+    (state) => state.workspaceQuickActions
+  );
+  const openWorkspaceQuickActions = useKanbanStore(
+    (state) => state.openWorkspaceQuickActions
+  );
+  const closeWorkspaceQuickActions = useKanbanStore(
+    (state) => state.closeWorkspaceQuickActions
+  );
+  const updateWorkspaceQuickActionsPosition = useKanbanStore(
+    (state) => state.updateWorkspaceQuickActionsPosition
+  );
+
+  // Persistent dialog state from store
+  const workspaceDialog = useKanbanStore((state) => state.workspaceDialog);
+  const openWorkspaceDialog = useKanbanStore(
+    (state) => state.openWorkspaceDialog
+  );
+  const closeWorkspaceDialog = useKanbanStore(
+    (state) => state.closeWorkspaceDialog
+  );
+  const updateWorkspaceDialogPosition = useKanbanStore(
+    (state) => state.updateWorkspaceDialogPosition
+  );
+  const updateWorkspaceDialogInputValue = useKanbanStore(
+    (state) => state.updateWorkspaceDialogInputValue
+  );
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = useState("");
-  const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("");
-  const [showDangerDialog, setShowDangerDialog] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const actionButtonRefs = useRef<{
+    rename: HTMLButtonElement | null;
+    reset: HTMLButtonElement | null;
+    duplicate: HTMLButtonElement | null;
+    delete: HTMLButtonElement | null;
+  }>({ rename: null, reset: null, duplicate: null, delete: null });
 
   const currentWorkspace = currentWorkspaceId
     ? workspaces.byId[currentWorkspaceId]
     : null;
 
   const defaultWorkspaceId = workspaces.allIds[0];
-  const isDefaultCurrent =
-    currentWorkspaceId != null && currentWorkspaceId === defaultWorkspaceId;
 
-  const handleCreateWorkspace = () => {
-    if (!newWorkspaceName.trim()) {
-      return;
+  const quickActionsWorkspace = workspaceQuickActions
+    ? workspaces.byId[workspaceQuickActions.workspaceId]
+    : null;
+
+  const getButtonRect = useCallback(() => {
+    if (buttonRef.current) {
+      return buttonRef.current.getBoundingClientRect();
+    }
+    return null;
+  }, []);
+
+  const getSourceButtonRect = useCallback(() => {
+    if (workspaceDialog?.type) {
+      const ref = actionButtonRefs.current[workspaceDialog.type];
+      if (ref) {
+        return ref.getBoundingClientRect();
+      }
+    }
+    return null;
+  }, [workspaceDialog?.type]);
+
+  const handleCreateWorkspace = useCallback(
+    (name: string, description?: string) => {
+      const newWorkspaceId = addWorkspace(name, description);
+      setCurrentWorkspace(newWorkspaceId);
+    },
+    [addWorkspace, setCurrentWorkspace]
+  );
+
+  const handleRenameWorkspace = useCallback(
+    (newName: string) => {
+      if (workspaceDialog?.workspaceId) {
+        updateWorkspace(workspaceDialog.workspaceId, { name: newName });
+      }
+    },
+    [workspaceDialog, updateWorkspace]
+  );
+
+  const handleResetWorkspace = useCallback(
+    (options: { clearBoardsAndColumns: boolean }) => {
+      if (workspaceDialog?.workspaceId) {
+        resetWorkspace(workspaceDialog.workspaceId, options);
+        closeWorkspaceQuickActions();
+      }
+    },
+    [workspaceDialog, resetWorkspace, closeWorkspaceQuickActions]
+  );
+
+  const resetDialogCounts = useMemo(() => {
+    if (!workspaceDialog?.workspaceId) {
+      return { taskCount: 0, boardCount: 0, columnCount: 0 };
     }
 
-    const newWorkspaceId = addWorkspace(
-      newWorkspaceName.trim(),
-      newWorkspaceDescription.trim() || undefined
-    );
-
-    setCurrentWorkspace(newWorkspaceId);
-    setShowCreateDialog(false);
-    setNewWorkspaceName("");
-    setNewWorkspaceDescription("");
-  };
-
-  const handleConfirmWorkspaceDanger = () => {
-    if (!currentWorkspaceId) {
-      setShowDangerDialog(false);
-      return;
+    const workspace = workspaces.byId[workspaceDialog.workspaceId];
+    if (!workspace) {
+      return { taskCount: 0, boardCount: 0, columnCount: 0 };
     }
 
-    if (isDefaultCurrent) {
-      resetWorkspace(currentWorkspaceId);
-    } else {
-      deleteWorkspace(currentWorkspaceId);
+    let taskCount = 0;
+    let columnCount = 0;
+    const boardCount = workspace.board_ids.length;
+
+    for (const boardId of workspace.board_ids) {
+      const board = boards.byId[boardId];
+      if (board) {
+        columnCount += board.column_ids.length;
+        for (const columnId of board.column_ids) {
+          const column = columns.byId[columnId];
+          if (column) {
+            taskCount += column.task_ids.length;
+          }
+        }
+      }
     }
 
-    setShowDangerDialog(false);
-  };
+    return { taskCount, boardCount, columnCount };
+  }, [
+    workspaceDialog?.workspaceId,
+    workspaces.byId,
+    boards.byId,
+    columns.byId,
+  ]);
+
+  const handleDeleteWorkspace = useCallback(() => {
+    if (workspaceDialog?.workspaceId) {
+      deleteWorkspace(workspaceDialog.workspaceId);
+    }
+  }, [workspaceDialog, deleteWorkspace]);
+
+  const handleDuplicateWorkspace = useCallback(
+    (newName: string) => {
+      if (workspaceDialog?.workspaceId) {
+        const newId = duplicateWorkspace(workspaceDialog.workspaceId, newName);
+        if (newId) {
+          setCurrentWorkspace(newId);
+        }
+      }
+    },
+    [workspaceDialog, duplicateWorkspace, setCurrentWorkspace]
+  );
+
+  const handleWorkspaceContextMenu = useCallback(
+    (e: React.MouseEvent, workspaceId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDropdownOpen(false);
+      openWorkspaceQuickActions(workspaceId, { x: 220, y: 16 });
+    },
+    [openWorkspaceQuickActions]
+  );
+
+  const handleOpenDialog = useCallback(
+    (
+      type: "rename" | "reset" | "delete" | "duplicate",
+      workspaceId: string,
+      actionButtonRef: React.RefObject<HTMLButtonElement | null>
+    ) => {
+      const workspace = workspaces.byId[workspaceId];
+      if (workspace && actionButtonRef.current) {
+        const rect = actionButtonRef.current.getBoundingClientRect();
+        actionButtonRefs.current[type] = actionButtonRef.current;
+        openWorkspaceDialog({
+          type,
+          workspaceId,
+          workspaceName: workspace.name,
+          position: {
+            x: rect.right + 40,
+            y: rect.top - 30,
+          },
+        });
+      }
+    },
+    [workspaces.byId, openWorkspaceDialog]
+  );
+
+  const handleDropdownOpenChange = useCallback(
+    (open: boolean) => {
+      setDropdownOpen(open);
+      if (open) {
+        closeWorkspaceQuickActions();
+        closeWorkspaceDialog();
+      }
+    },
+    [closeWorkspaceQuickActions, closeWorkspaceDialog]
+  );
 
   return (
     <>
       <div className="pointer-events-auto fixed top-4 left-4 z-50">
-        <DropdownMenu>
+        <DropdownMenu
+          onOpenChange={handleDropdownOpenChange}
+          open={dropdownOpen}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               className="h-10 gap-2 rounded-xl border-2 border-border/50 bg-card/95 px-4 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:bg-card/98 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)] dark:hover:bg-card/98"
+              onContextMenu={(e) => {
+                if (currentWorkspaceId) {
+                  e.preventDefault();
+                  setDropdownOpen(false);
+                  openWorkspaceQuickActions(currentWorkspaceId, {
+                    x: 220,
+                    y: 16,
+                  });
+                }
+              }}
+              ref={buttonRef}
               size="sm"
               variant="ghost"
             >
               <Building2 className="h-4 w-4" />
-              <span className="max-w-[150px] truncate text-sm">
+              <span className="max-w-37.5 truncate text-sm">
                 {currentWorkspace?.name || "Select Workspace"}
               </span>
             </Button>
@@ -121,6 +274,9 @@ export function WorkspaceSelector() {
                       className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
                       key={workspace.id}
                       onClick={() => setCurrentWorkspace(workspace.id)}
+                      onContextMenu={(e) =>
+                        handleWorkspaceContextMenu(e, workspace.id)
+                      }
                     >
                       <div className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate font-medium text-sm">
@@ -152,120 +308,104 @@ export function WorkspaceSelector() {
               <Plus className="h-4 w-4" />
               <span>Create Workspace</span>
             </DropdownMenuItem>
-            {currentWorkspace && (
-              <>
-                <DropdownMenuSeparator className="my-2 bg-border/50" />
-                <div className="px-2 pb-1">
-                  <Button
-                    className="w-full justify-start gap-2 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10"
-                    onClick={() => setShowDangerDialog(true)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>
-                      {isDefaultCurrent
-                        ? "Reset Default Workspace"
-                        : "Delete Workspace"}
-                    </span>
-                  </Button>
-                </div>
-              </>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <Dialog onOpenChange={setShowCreateDialog} open={showCreateDialog}>
-        <DialogContent className="rounded-2xl border-2 border-border/50 bg-card/95 shadow-[0_4px_24px_rgba(0,0,0,0.2),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md sm:max-w-[425px] dark:shadow-[0_4px_24px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
-          <DialogHeader className="border-border/50 border-b pb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Building2 className="h-5 w-5" />
-              Create Workspace
-            </DialogTitle>
-            <DialogDescription>
-              Create a new workspace to organize your boards and tasks.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="workspace-name">Name</Label>
-              <Input
-                autoFocus
-                className="rounded-lg border-2 border-border/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)] focus-visible:ring-2 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-                id="workspace-name"
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newWorkspaceName.trim()) {
-                    handleCreateWorkspace();
-                  }
-                }}
-                placeholder="e.g., Personal, Work, Team Alpha"
-                value={newWorkspaceName}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="workspace-description">
-                Description (Optional)
-              </Label>
-              <Textarea
-                className="min-h-20 resize-none rounded-lg border-2 border-border/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)] focus-visible:ring-2 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-                id="workspace-description"
-                onChange={(e) => setNewWorkspaceDescription(e.target.value)}
-                placeholder="Add a description for this workspace..."
-                value={newWorkspaceDescription}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2 border-border/50 border-t pt-4">
-            <Button
-              className="rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)]"
-              onClick={() => {
-                setShowCreateDialog(false);
-                setNewWorkspaceName("");
-                setNewWorkspaceDescription("");
-              }}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              className="rounded-lg bg-primary shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-primary/90 dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
-              disabled={!newWorkspaceName.trim()}
-              onClick={handleCreateWorkspace}
-            >
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {workspaceQuickActions && quickActionsWorkspace && (
+        <WorkspaceQuickActions
+          getButtonRect={getButtonRect}
+          isDefaultWorkspace={
+            workspaceQuickActions.workspaceId === defaultWorkspaceId
+          }
+          onClose={closeWorkspaceQuickActions}
+          onDelete={(ref) =>
+            handleOpenDialog("delete", workspaceQuickActions.workspaceId, ref)
+          }
+          onDuplicate={(ref) =>
+            handleOpenDialog(
+              "duplicate",
+              workspaceQuickActions.workspaceId,
+              ref
+            )
+          }
+          onPositionChange={updateWorkspaceQuickActionsPosition}
+          onRename={(ref) =>
+            handleOpenDialog("rename", workspaceQuickActions.workspaceId, ref)
+          }
+          onReset={(ref) =>
+            handleOpenDialog("reset", workspaceQuickActions.workspaceId, ref)
+          }
+          position={workspaceQuickActions.position}
+          workspaceId={workspaceQuickActions.workspaceId}
+          workspaceName={quickActionsWorkspace.name}
+        />
+      )}
 
-      <AlertDialog onOpenChange={setShowDangerDialog} open={showDangerDialog}>
-        <AlertDialogContent className="rounded-2xl border-2 border-border/50 bg-card/95 shadow-[0_4px_24px_rgba(0,0,0,0.2),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md sm:max-w-[425px] dark:shadow-[0_4px_24px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-xl">
-              <Trash2 className="h-5 w-5 text-destructive" />
-              {isDefaultCurrent
-                ? "Reset Default Workspace"
-                : "Delete Workspace"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isDefaultCurrent
-                ? "This will remove all boards in your default workspace, but keep the workspace itself."
-                : "This will permanently delete the current workspace and all of its boards. This action cannot be undone."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 border-border/50 border-t pt-4">
-            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="rounded-lg bg-destructive text-destructive-foreground shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] hover:bg-destructive/90 dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
-              onClick={handleConfirmWorkspaceDanger}
-            >
-              {isDefaultCurrent ? "Reset" : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {showCreateDialog && (
+        <CreateWorkspaceDialog
+          onClose={() => setShowCreateDialog(false)}
+          onCreate={handleCreateWorkspace}
+        />
+      )}
+
+      {workspaceDialog?.type === "rename" && (
+        <RenameWorkspaceDialog
+          currentName={workspaceDialog.workspaceName}
+          getSourceButtonRect={getSourceButtonRect}
+          initialValue={workspaceDialog.inputValue}
+          onClose={closeWorkspaceDialog}
+          onInputChange={updateWorkspaceDialogInputValue}
+          onPositionChange={updateWorkspaceDialogPosition}
+          onRename={handleRenameWorkspace}
+          position={workspaceDialog.position}
+          quickActionsPosition={workspaceQuickActions?.position}
+          workspaceId={workspaceDialog.workspaceId}
+        />
+      )}
+
+      {workspaceDialog?.type === "reset" && (
+        <ResetWorkspaceDialog
+          boardCount={resetDialogCounts.boardCount}
+          columnCount={resetDialogCounts.columnCount}
+          getSourceButtonRect={getSourceButtonRect}
+          onClose={closeWorkspaceDialog}
+          onConfirm={handleResetWorkspace}
+          onPositionChange={updateWorkspaceDialogPosition}
+          position={workspaceDialog.position}
+          quickActionsPosition={workspaceQuickActions?.position}
+          taskCount={resetDialogCounts.taskCount}
+          workspaceId={workspaceDialog.workspaceId}
+          workspaceName={workspaceDialog.workspaceName}
+        />
+      )}
+
+      {workspaceDialog?.type === "delete" && (
+        <DeleteWorkspaceDialog
+          getSourceButtonRect={getSourceButtonRect}
+          onClose={closeWorkspaceDialog}
+          onConfirm={handleDeleteWorkspace}
+          onPositionChange={updateWorkspaceDialogPosition}
+          position={workspaceDialog.position}
+          workspaceName={workspaceDialog.workspaceName}
+        />
+      )}
+
+      {workspaceDialog?.type === "duplicate" && (
+        <DuplicateWorkspaceDialog
+          boardCount={resetDialogCounts.boardCount}
+          columnCount={resetDialogCounts.columnCount}
+          currentName={workspaceDialog.workspaceName}
+          getSourceButtonRect={getSourceButtonRect}
+          initialValue={workspaceDialog.inputValue}
+          onClose={closeWorkspaceDialog}
+          onDuplicate={handleDuplicateWorkspace}
+          onInputChange={updateWorkspaceDialogInputValue}
+          onPositionChange={updateWorkspaceDialogPosition}
+          position={workspaceDialog.position}
+          taskCount={resetDialogCounts.taskCount}
+        />
+      )}
     </>
   );
 }

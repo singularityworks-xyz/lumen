@@ -67,7 +67,7 @@ export const TaskViewForm = memo(
     const currentColumn = columnsById[selectedColumnId];
 
     const handleDelete = () => {
-      deleteTask(boardId, task.id);
+      deleteTask(task.id);
       closeTaskDetailModal(modalId);
     };
 
