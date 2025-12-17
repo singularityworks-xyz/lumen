@@ -51,6 +51,18 @@ export type Board = {
   column_ids: string[];
 };
 
+export type BoardConnection = {
+  id: string;
+  source_board_id: string;
+  target_board_id: string;
+  label?: string;
+  lineStyle: "solid" | "dotted";
+  sourceHandle: "top" | "right" | "bottom" | "left";
+  targetHandle: "top" | "right" | "bottom" | "left";
+  showArrow: boolean;
+  created_at: string;
+};
+
 export type Workspace = {
   id: string;
   name: string;
@@ -146,6 +158,7 @@ export type PersistedState = {
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
+  boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
 };

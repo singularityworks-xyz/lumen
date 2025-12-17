@@ -39,6 +39,7 @@ export function createInitialState(): KanbanState {
     columns: { byId: {}, allIds: [] },
     tasks: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
+    boardConnections: { byId: {}, allIds: [] },
     currentWorkspaceId: id,
     canvas: {
       viewport: { x: 0, y: 0, zoom: 1 },

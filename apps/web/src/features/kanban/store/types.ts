@@ -1,5 +1,6 @@
 import type {
   Board,
+  BoardConnection,
   BoardPosition,
   CanvasState,
   Column,
@@ -21,6 +22,7 @@ export type KanbanState = {
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
+  boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
   showCommandPalette: boolean;
@@ -168,6 +170,33 @@ export type KanbanActions = {
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
   setDraggedTask: (taskId: string | null) => void;
+
+  // Connection actions
+  addConnection: (
+    sourceBoardId: string,
+    targetBoardId: string,
+    options?: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
+    }
+  ) => string | null;
+  removeConnection: (connectionId: string) => void;
+  updateConnection: (
+    connectionId: string,
+    updates: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
+    }
+  ) => void;
+  updateConnectionLabel: (connectionId: string, label?: string) => void;
+  toggleConnectionLineStyle: (connectionId: string) => void;
+  getConnectionsByBoardId: (boardId: string) => BoardConnection[];
 
   // Modal actions
   openCreateTaskModal: (

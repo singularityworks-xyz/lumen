@@ -151,7 +151,6 @@ export const CommandPalette = memo(() => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Disable Cmd+K shortcut when welcome screen is visible
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         if (showWelcomeScreen) {
           return;
@@ -244,7 +243,7 @@ export const CommandPalette = memo(() => {
         type="button"
       />
 
-      <div className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 w-full max-w-md">
+      <div className="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
         <div className="overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2 border-border border-b px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Search className="h-4 w-4 text-muted-foreground" />

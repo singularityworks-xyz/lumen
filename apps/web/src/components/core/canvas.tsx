@@ -15,12 +15,17 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
   Background,
   BackgroundVariant,
+  type EdgeTypes,
+  MarkerType,
   MiniMap,
   type Node,
+  type OnConnect,
+  type OnEdgesChange,
   type OnMove,
   type OnNodesChange,
   ReactFlow,
   SelectionMode,
+  useEdgesState,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
@@ -46,13 +51,14 @@ import {
 } from "../../features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
 import type { BoardNode } from "../../features/kanban/types";
+import { type BoardEdge, BoardEdgeComponent } from "../core/board-edge";
 import { CustomControls } from "../custom-controls";
 import { WelcomeScreen } from "../dialogs/welcome-screen";
+import { EdgeContextMenu } from "../edge-context-menu";
 import { RightControls } from "../right-controls";
 import { WorkspaceSelector } from "../workspace-selector";
 import { MiniMapNode } from "./minimap-node";
 
-// Context for sharing active column drag state with boards
 type ColumnDragContextType = {
   activeColumnData: {
     columnId: string;
@@ -66,7 +72,6 @@ export const ColumnDragContext = createContext<ColumnDragContextType>({
 
 export const useColumnDragContext = () => useContext(ColumnDragContext);
 
-// Drag overlay component for column - minimal and clean
 function ColumnDragOverlay({
   columnName,
   taskCount,
@@ -167,8 +172,16 @@ export function KanbanCanvas() {
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const columns = useKanbanStore((state) => state.columns);
   const showWelcomeScreen = useShowWelcomeScreen();
+  const boardConnections = useKanbanStore((state) => state.boardConnections);
+  const addConnection = useKanbanStore((state) => state.addConnection);
+  const removeConnection = useKanbanStore((state) => state.removeConnection);
+  const edgeTypes: EdgeTypes = useMemo(
+    () => ({
+      default: BoardEdgeComponent,
+    }),
+    []
+  );
 
-  // Cross-board column drag state
   const [activeColumnData, setActiveColumnData] = useState<{
     columnId: string;
     sourceBoardId: string;
@@ -176,7 +189,12 @@ export function KanbanCanvas() {
     taskCount: number;
   } | null>(null);
 
-  // DnD sensors for cross-board column dragging
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{
+    edgeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -227,14 +245,11 @@ export function KanbanCanvas() {
         | { boardId?: string; columnId?: string; type?: string }
         | undefined;
 
-      // Determine target board ID
       let targetBoardId: string | null = null;
 
       if (overData?.type === "column" && overData.boardId) {
-        // Dropped on another column
         targetBoardId = overData.boardId;
       } else if (overData?.type === "board-droppable" && overData.boardId) {
-        // Dropped on a board droppable zone
         targetBoardId = overData.boardId;
       }
 
@@ -244,17 +259,14 @@ export function KanbanCanvas() {
       }
 
       if (sourceBoardId === targetBoardId) {
-        // Same board - reorder columns
         const board = boards.byId[targetBoardId];
         if (board) {
           const columnIds = board.column_ids;
           const oldIndex = columnIds.indexOf(columnId);
           const overId = over.id as string;
 
-          // Find the new index based on what we're dropping over
           let newIndex = columnIds.indexOf(overId);
           if (newIndex === -1) {
-            // If we're dropping over a droppable zone, put at the end
             newIndex = columnIds.length - 1;
           }
 
@@ -263,7 +275,6 @@ export function KanbanCanvas() {
           }
         }
       } else {
-        // Different board - move column to new board
         moveColumnToBoard(sourceBoardId, columnId, targetBoardId);
       }
 
@@ -275,7 +286,6 @@ export function KanbanCanvas() {
   const { setViewport: setReactFlowViewport, fitView } = useReactFlow();
   const prevWorkspaceIdRef = useRef(currentWorkspaceId);
 
-  // Animate viewport when switching workspaces
   useEffect(() => {
     const prevWorkspaceId = prevWorkspaceIdRef.current;
     if (currentWorkspaceId === prevWorkspaceId) {
@@ -283,7 +293,6 @@ export function KanbanCanvas() {
     }
     prevWorkspaceIdRef.current = currentWorkspaceId;
 
-    // Skip animation on initial mount or if no workspace selected
     if (!currentWorkspaceId || prevWorkspaceId === null) {
       return;
     }
@@ -446,6 +455,52 @@ export function KanbanCanvas() {
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const isUpdatingFromStore = useRef(false);
+  const edges: BoardEdge[] = useMemo(() => {
+    const currentWorkspace = currentWorkspaceId
+      ? workspaces.byId[currentWorkspaceId]
+      : null;
+    const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+
+    return boardConnections.allIds
+      .map((connectionId) => {
+        const connection = boardConnections.byId[connectionId];
+        if (!connection) {
+          return null;
+        }
+
+        const isSourceVisible = boardIds.includes(connection.source_board_id);
+        const isTargetVisible = boardIds.includes(connection.target_board_id);
+        const bothVisible = isSourceVisible && isTargetVisible;
+        if (!bothVisible) {
+          return null;
+        }
+
+        const edge: BoardEdge = {
+          id: connectionId,
+          source: connection.source_board_id,
+          target: connection.target_board_id,
+          sourceHandle: connection.sourceHandle,
+          targetHandle: `${connection.targetHandle}-target`,
+          type: "default",
+          data: {
+            label: connection.label,
+            lineStyle: connection.lineStyle,
+          },
+          markerEnd: connection.showArrow
+            ? {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: "#71717a",
+              }
+            : undefined,
+        };
+        return edge;
+      })
+      .filter((edge): edge is BoardEdge => edge !== null);
+  }, [boardConnections, currentWorkspaceId, workspaces, boards.allIds]);
+
+  const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
 
   const handleToggleMode = useCallback(
     (event: KeyboardEvent) => {
@@ -467,6 +522,21 @@ export function KanbanCanvas() {
       }
     },
     [interactionMode, clearBoardSelection]
+  );
+
+  const handleDeleteKey = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        const selectedEdges = localEdges.filter((edge) => edge.selected);
+        if (selectedEdges.length > 0) {
+          event.preventDefault();
+          for (const edge of selectedEdges) {
+            removeConnection(edge.id);
+          }
+        }
+      }
+    },
+    [localEdges, removeConnection]
   );
 
   const handleUndoRedo = useCallback((event: KeyboardEvent) => {
@@ -507,12 +577,19 @@ export function KanbanCanvas() {
 
       handleToggleMode(event);
       handleEscapeKey(event);
+      handleDeleteKey(event);
       handleUndoRedo(event);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showWelcomeScreen, handleToggleMode, handleEscapeKey, handleUndoRedo]);
+  }, [
+    showWelcomeScreen,
+    handleToggleMode,
+    handleEscapeKey,
+    handleDeleteKey,
+    handleUndoRedo,
+  ]);
 
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
@@ -558,10 +635,53 @@ export function KanbanCanvas() {
     [setViewport]
   );
 
+  const handleEdgesChange: OnEdgesChange<BoardEdge> = useCallback(
+    (changes) => {
+      onEdgesChange(changes);
+
+      for (const change of changes) {
+        if (change.type === "remove") {
+          removeConnection(change.id);
+        }
+      }
+    },
+    [onEdgesChange, removeConnection]
+  );
+
+  const handleConnect: OnConnect = useCallback(
+    (connection) => {
+      const hasSource = Boolean(connection.source);
+      const hasTarget = Boolean(connection.target);
+      const isValid = hasSource && hasTarget;
+      if (!isValid) {
+        return;
+      }
+
+      addConnection(connection.source, connection.target);
+    },
+    [addConnection]
+  );
+
+  const handleEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: BoardEdge) => {
+      event.preventDefault();
+      setEdgeContextMenu({
+        edgeId: edge.id,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     isUpdatingFromStore.current = true;
     setLocalNodes(nodes);
   }, [nodes, setLocalNodes]);
+
+  useEffect(() => {
+    setLocalEdges(edges);
+  }, [edges, setLocalEdges]);
 
   useEffect(() => {
     const handleWheel = (e: Event) => {
@@ -599,6 +719,8 @@ export function KanbanCanvas() {
           <ReactFlow
             className="bg-background"
             defaultViewport={canvas.viewport}
+            edges={localEdges}
+            edgeTypes={edgeTypes}
             elementsSelectable={
               !showWelcomeScreen && interactionMode === "select"
             }
@@ -607,9 +729,14 @@ export function KanbanCanvas() {
             minZoom={0.1}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable={false}
+            nodesConnectable={
+              !showWelcomeScreen && interactionMode === "select"
+            }
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
             nodeTypes={nodeTypes}
+            onConnect={handleConnect}
+            onEdgeContextMenu={handleEdgeContextMenu}
+            onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
             onNodesChange={handleNodesChange}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
@@ -654,6 +781,14 @@ export function KanbanCanvas() {
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />
+          {edgeContextMenu && (
+            <EdgeContextMenu
+              edgeId={edgeContextMenu.edgeId}
+              onClose={() => setEdgeContextMenu(null)}
+              x={edgeContextMenu.x}
+              y={edgeContextMenu.y}
+            />
+          )}
         </div>
       </ColumnDragContext.Provider>
       <DragOverlay dropAnimation={null}>

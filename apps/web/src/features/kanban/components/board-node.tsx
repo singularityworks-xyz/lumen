@@ -1,10 +1,17 @@
 "use client";
 
-import type { Node, NodeProps } from "@xyflow/react";
-import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  NodeResizer as Resizer,
+  useReactFlow,
+} from "@xyflow/react";
 import { GripVertical, Plus, SquarePen, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
+import { CreateConnectionDialog } from "@/src/components/dialogs/create-connection-dialog";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -94,6 +101,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const triggerTaskDetailModalShake = useKanbanStore(
       (state) => state.triggerTaskDetailModalShake
+    );
+
+    const [connectionDialog, setConnectionDialog] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
+
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    const getBoardHeaderRect = useCallback(
+      () => headerRef.current?.getBoundingClientRect() ?? null,
+      []
     );
 
     const handleOpenTaskDetail = useCallback(
@@ -305,7 +324,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       e.stopPropagation();
       const firstColumn = board?.columns?.[0];
       if (firstColumn) {
-        // Convert button's screen position to canvas coordinates
         const buttonPosition = screenToFlowPosition({
           x: e.clientX,
           y: e.clientY,
@@ -315,9 +333,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           boardId,
           buttonPosition
         );
-        // If modal already existed, smoothly pan camera to center it
         if (result.isExisting) {
-          // Add half modal dimensions to center it (modal is ~400x300)
           setCenter(result.position.x + 200, result.position.y + 150, {
             duration: 500,
             zoom: 1,
@@ -348,15 +364,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Convert button's screen position to canvas coordinates
       const buttonPosition = screenToFlowPosition({
         x: e.clientX,
         y: e.clientY,
       });
       const result = openEditBoardModal(boardId, buttonPosition);
-      // If modal already existed, smoothly pan camera to center it
       if (result.isExisting) {
-        // Add half modal dimensions to center it (modal is ~400x250)
         setCenter(result.position.x + 200, result.position.y + 125, {
           duration: 500,
           zoom: 1,
@@ -430,7 +443,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           role="button"
           tabIndex={0}
         >
-          <div className="group flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary">
+          {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
+          {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
+          <div
+            className="group flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setConnectionDialog({
+                x: e.clientX,
+                y: e.clientY,
+              });
+            }}
+            ref={headerRef}
+          >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 items-center gap-1">
@@ -491,6 +517,74 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             />
           </div>
         </div>
+
+        {/* Connection handles for all four sides */}
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="top"
+          position={Position.Top}
+          style={{ top: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="top-target"
+          position={Position.Top}
+          style={{ top: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="right"
+          position={Position.Right}
+          style={{ right: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="right-target"
+          position={Position.Right}
+          style={{ right: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="bottom"
+          position={Position.Bottom}
+          style={{ bottom: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="bottom-target"
+          position={Position.Bottom}
+          style={{ bottom: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="left"
+          position={Position.Left}
+          style={{ left: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="left-target"
+          position={Position.Left}
+          style={{ left: -6 }}
+          type="target"
+        />
+
+        {connectionDialog && (
+          <CreateConnectionDialog
+            getBoardHeaderRect={getBoardHeaderRect}
+            onClose={() => setConnectionDialog(null)}
+            sourceBoardId={boardId}
+            x={connectionDialog.x}
+            y={connectionDialog.y}
+          />
+        )}
       </>
     );
   }
