@@ -374,7 +374,7 @@ export const CreateConnectionDialog = memo(
                 />
 
                 <button
-                  className="mt-3 w-full rounded bg-primary py-1.5 font-medium text-primary-foreground text-xs transition-colors hover:bg-primary/90"
+                  className="mt-3 w-full rounded-md bg-primary/90 px-3 py-1.5 font-medium text-primary-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-colors hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
                   onClick={handleCreateConnection}
                   type="button"
                 >
@@ -385,7 +385,7 @@ export const CreateConnectionDialog = memo(
               <>
                 <input
                   autoFocus
-                  className="mb-2 w-full rounded border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="mb-2 w-full rounded-lg border border-border/30 bg-muted/80 px-3 py-1.5 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] focus:outline-none dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search boards..."
                   type="text"

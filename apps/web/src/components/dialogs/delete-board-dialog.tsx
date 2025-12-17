@@ -199,16 +199,16 @@ export const DeleteBoardDialog = memo(
             </div>
           </div>
 
-          <div className="flex gap-2 border-t bg-muted/50 px-3 py-2">
+          <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
             <button
-              className="flex-1 rounded bg-background px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+              className="flex-1 rounded-md bg-card/80 px-3 py-1.5 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
               onClick={onClose}
               type="button"
             >
               Cancel
             </button>
             <button
-              className="flex-1 rounded bg-destructive px-3 py-1.5 font-medium text-destructive-foreground text-xs transition-colors hover:bg-destructive/90"
+              className="flex-1 rounded-md bg-destructive px-3 py-1.5 font-medium text-destructive-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-colors hover:bg-destructive/90 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
               onClick={handleConfirm}
               type="button"
             >

@@ -187,7 +187,7 @@ export const DuplicateBoardDialog = memo(
                 </label>
                 <input
                   autoFocus
-                  className="w-full rounded border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-border/30 bg-muted/80 px-3 py-1.5 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] focus:outline-none dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
                   id="duplicate-name"
                   onChange={(e) => setNewName(e.target.value)}
                   type="text"
@@ -196,7 +196,7 @@ export const DuplicateBoardDialog = memo(
               </div>
 
               {connectionCount > 0 && (
-                <div className="space-y-2 rounded border border-border/50 bg-muted/30 p-2">
+                <div className="space-y-2 rounded-lg border border-border/30 bg-muted/50 p-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
                   <div className="flex items-center gap-2 text-xs">
                     <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>
@@ -219,16 +219,16 @@ export const DuplicateBoardDialog = memo(
               )}
             </div>
 
-            <div className="flex gap-2 border-t bg-muted/50 px-3 py-2">
+            <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
               <button
-                className="flex-1 rounded bg-background px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+                className="flex-1 rounded-md bg-card/80 px-3 py-1.5 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
                 onClick={onClose}
                 type="button"
               >
                 Cancel
               </button>
               <button
-                className="flex-1 rounded bg-primary px-3 py-1.5 font-medium text-primary-foreground text-xs transition-colors hover:bg-primary/90"
+                className="flex-1 rounded-md bg-primary/90 px-3 py-1.5 font-medium text-primary-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-colors hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
                 type="submit"
               >
                 Duplicate
