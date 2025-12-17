@@ -135,6 +135,11 @@ export type KanbanActions = {
   getDenormalizedBoard: (
     boardId: string
   ) => import("../types").DenormalizedBoard | null;
+  duplicateBoard: (
+    boardId: string,
+    newName: string,
+    options?: { copyConnections?: boolean }
+  ) => string | null;
 
   // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;
@@ -202,7 +207,8 @@ export type KanbanActions = {
   openCreateTaskModal: (
     columnId: string,
     boardId: string,
-    position?: { x: number; y: number }
+    position?: { x: number; y: number },
+    sourcePosition?: { x: number; y: number }
   ) => { id: string; position: { x: number; y: number }; isExisting: boolean };
   closeCreateTaskModal: (modalId: string) => void;
   updateModalPosition: (
@@ -216,7 +222,8 @@ export type KanbanActions = {
   bringModalToFront: (modalId: string) => void;
   openEditBoardModal: (
     boardId: string,
-    position?: { x: number; y: number }
+    position?: { x: number; y: number },
+    sourcePosition?: { x: number; y: number }
   ) => {
     id: string;
     position: { x: number; y: number };

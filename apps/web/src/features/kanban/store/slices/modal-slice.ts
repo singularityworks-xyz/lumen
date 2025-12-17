@@ -29,7 +29,7 @@ type SliceCreator = (
 >;
 
 export const createModalSlice: SliceCreator = (set, get) => ({
-  openCreateTaskModal: (columnId, boardId, position) => {
+  openCreateTaskModal: (columnId, boardId, position, sourcePosition) => {
     const existingModals = Object.values(get().createTaskModals);
 
     const existingModalForBoard = existingModals.find(
@@ -79,6 +79,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
         dueDate: "",
         tags: "",
       },
+      sourcePosition,
       zIndex: maxZIndex + 1,
     };
 
@@ -126,7 +127,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openEditBoardModal: (boardId, position) => {
+  openEditBoardModal: (boardId, position, sourcePosition) => {
     const existingModals = Object.values(get().editBoardModals);
 
     const existingModalForBoard = existingModals.find(
@@ -168,6 +169,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       id: modalId,
       boardId,
       position: { x: modalX, y: modalY },
+      sourcePosition,
       formData: {
         name: board?.name ?? "",
         description: board?.description ?? "",

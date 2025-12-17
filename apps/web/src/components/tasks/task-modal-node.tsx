@@ -1,8 +1,9 @@
 "use client";
 
-import type { Node, NodeProps } from "@xyflow/react";
+import { type Node, type NodeProps, useReactFlow } from "@xyflow/react";
 import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ScaledSelect,
   ScaledSelectContent,
@@ -11,6 +12,7 @@ import {
   ScaledSelectValue,
 } from "@/src/components/scaled-dropdown";
 import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
+import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
@@ -33,18 +35,81 @@ type TaskModalNodeProps = NodeProps<Node<TaskModalNodeData>>;
 const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
-  ({ data, selected }) => {
-    const modalFormData = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.formData
-    );
+  ({ id, data, selected }) => {
+    const { getNode, flowToScreenPosition } = useReactFlow();
+    const [mounted, setMounted] = useState(false);
+    const [connectorState, setConnectorState] = useState<{
+      start: { x: number; y: number };
+      end: { x: number; y: number };
+    } | null>(null);
+
     const modalBoardId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.boardId
+    );
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    // Live update loop for connector
+    useEffect(() => {
+      let rAFId: number;
+      const updateConnector = () => {
+        const myNode = getNode(id);
+        const boardNode = modalBoardId ? getNode(modalBoardId) : null;
+
+        // Use stored sourcePosition as fallback if board node is not found/measured
+        // But sourcePosition is stale if board moved.
+        // If we can't find board, we can't do better than nothing?
+        // Or we can retrieve sourcePosition from store inside loop?
+        // Accessing store inside RAF is fine via getState() if available, but we have hooks.
+        // Let's stick to Node logic first.
+
+        if (myNode && boardNode && myNode.measured && boardNode.measured) {
+          // Calculate Board "Quick Actions" position estimation
+          // Quick actions is top-right of board header.
+          // Board Header width is full width.
+          // Quick Actions button is ~40px from right?
+          const boardScreenPos = flowToScreenPosition({
+            x: boardNode.position.x + (boardNode.measured.width ?? 300) - 40,
+            y: boardNode.position.y + 20,
+          });
+
+          // Calculate Modal "Top Left" or "Center"
+          const myScreenPos = flowToScreenPosition({
+            x: myNode.position.x,
+            y: myNode.position.y,
+          });
+
+          // ConnectorEdge expects endX/Y to be the dot.
+          // Let's put dot at top-left + padding? Or center-left?
+          // Dialog usually connects to left side if it's to the right.
+          // Task Modal spawns to the right.
+          // So dot at { x: myScreenPos.x, y: myScreenPos.y + 20 }
+
+          setConnectorState({
+            start: boardScreenPos,
+            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+          });
+        }
+        rAFId = requestAnimationFrame(updateConnector);
+      };
+
+      updateConnector();
+      return () => cancelAnimationFrame(rAFId);
+    }, [id, modalBoardId, getNode, flowToScreenPosition]);
+
+    const modalFormData = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.formData
     );
     const modalColumnId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.columnId
     );
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
+    );
+    const _sourcePosition = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.sourcePosition
     );
     const bringModalToFront = useKanbanStore(
       (state) => state.bringModalToFront
@@ -158,6 +223,17 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           width: MODAL_WIDTH,
         }}
       >
+        {mounted &&
+          connectorState &&
+          createPortal(
+            <ConnectorEdge
+              endX={connectorState.end.x}
+              endY={connectorState.end.y}
+              startX={connectorState.start.x}
+              startY={connectorState.start.y}
+            />,
+            document.body
+          )}
         <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />

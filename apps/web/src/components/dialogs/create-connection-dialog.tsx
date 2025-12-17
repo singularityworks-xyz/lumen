@@ -21,6 +21,7 @@ import {
 import { createPortal } from "react-dom";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { cn } from "@/src/lib/utils";
+import { ConnectorEdge } from "../ui/connector-edge";
 import { ConnectionConfigSection } from "./connection-config-section";
 
 type HandlePosition = "top" | "right" | "bottom" | "left";
@@ -32,62 +33,10 @@ type CreateConnectionDialogProps = {
   y: number;
   onClose: () => void;
   getBoardHeaderRect?: () => DOMRect | null;
+  quickActionsPosition?: { x: number; y: number };
 };
 
 const DIALOG_WIDTH = 380;
-
-const ConnectorEdge = memo(
-  ({
-    startRect,
-    endX,
-    endY,
-  }: {
-    startRect: DOMRect | null;
-    endX: number;
-    endY: number;
-  }) => {
-    if (!startRect) {
-      return null;
-    }
-
-    const startX = startRect.right;
-    const startY = startRect.top + startRect.height / 2;
-    const controlX1 = startX + 40;
-    const controlX2 = endX - 40;
-
-    return (
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none fixed top-0 left-0"
-        height="100vh"
-        style={{ zIndex: 9997 }}
-        width="100vw"
-      >
-        <title>Connector line</title>
-        <path
-          className="stroke-primary"
-          d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
-          fill="none"
-          strokeDasharray="6 6"
-          strokeLinecap="round"
-          strokeOpacity="0.6"
-          strokeWidth="2"
-        >
-          <animate
-            attributeName="stroke-dashoffset"
-            dur="0.6s"
-            from="0"
-            repeatCount="indefinite"
-            to="-12"
-          />
-        </path>
-        <circle className="fill-primary" cx={endX} cy={endY} r="5" />
-      </svg>
-    );
-  }
-);
-
-ConnectorEdge.displayName = "ConnectorEdge";
 
 export const CreateConnectionDialog = memo(
   ({
@@ -96,6 +45,7 @@ export const CreateConnectionDialog = memo(
     y,
     onClose,
     getBoardHeaderRect,
+    quickActionsPosition,
   }: CreateConnectionDialogProps) => {
     const dialogRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x, y });
@@ -332,9 +282,10 @@ export const CreateConnectionDialog = memo(
     const dialogContent = (
       <>
         <ConnectorEdge
+          buttonRect={boardRect}
           endX={dialogConnectionX}
           endY={dialogConnectionY}
-          startRect={boardRect}
+          fallbackPosition={quickActionsPosition}
         />
 
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop for click capture */}
@@ -351,6 +302,11 @@ export const CreateConnectionDialog = memo(
 
         <div
           className="fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+            }
+          }}
           ref={dialogRef}
           style={{
             left: position.x,

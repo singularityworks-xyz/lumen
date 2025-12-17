@@ -24,6 +24,7 @@ type SliceCreator = (
   | "updateBoardDimensions"
   | "bringBoardToFront"
   | "getDenormalizedBoard"
+  | "duplicateBoard"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -244,5 +245,143 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       created_at: board.created_at,
       columns,
     };
+  },
+
+  duplicateBoard: (boardId, newName, options = {}) => {
+    const { copyConnections = false } = options;
+    const state = get();
+    const board = state.boards.byId[boardId];
+    const boardPosition = state.boardPositions.byId[boardId];
+
+    if (!(board && boardPosition)) {
+      logger.warn({ id: boardId }, "Board not found for duplication");
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    const newBoardId = generateBoardId();
+    const columnIdMap = new Map<string, string>();
+    const taskIdMap = new Map<string, string>();
+
+    const newColumnIds: string[] = [];
+    for (const oldColumnId of board.column_ids) {
+      const oldColumn = state.columns.byId[oldColumnId];
+      if (!oldColumn) {
+        continue;
+      }
+      const newColumnId = generateColumnId();
+      columnIdMap.set(oldColumnId, newColumnId);
+      newColumnIds.push(newColumnId);
+    }
+
+    set((draft) => {
+      const newBoard: Board = {
+        id: newBoardId,
+        name: newName,
+        description: board.description,
+        workspace_id: board.workspace_id,
+        created_by: board.created_by,
+        created_at: now,
+        column_ids: newColumnIds,
+      };
+      draft.boards.byId[newBoardId] = newBoard;
+      draft.boards.allIds.push(newBoardId);
+
+      const newBoardPosition: BoardPosition = {
+        id: newBoardId,
+        x: boardPosition.x + 50,
+        y: boardPosition.y + 50,
+        zIndex: getNextZIndex(draft.boardPositions),
+        width: boardPosition.width,
+        height: boardPosition.height,
+      };
+      draft.boardPositions.byId[newBoardId] = newBoardPosition;
+      draft.boardPositions.allIds.push(newBoardId);
+
+      for (const oldColumnId of board.column_ids) {
+        const oldColumn = state.columns.byId[oldColumnId];
+        if (!oldColumn) {
+          continue;
+        }
+        const newColumnId = columnIdMap.get(oldColumnId);
+        if (!newColumnId) {
+          continue;
+        }
+
+        const newTaskIds: string[] = [];
+        for (const oldTaskId of oldColumn.task_ids) {
+          const newTaskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+          taskIdMap.set(oldTaskId, newTaskId);
+          newTaskIds.push(newTaskId);
+        }
+
+        const newColumn: Column = {
+          id: newColumnId,
+          board_id: newBoardId,
+          name: oldColumn.name,
+          position: oldColumn.position,
+          task_ids: newTaskIds,
+        };
+        draft.columns.byId[newColumnId] = newColumn;
+        draft.columns.allIds.push(newColumnId);
+
+        for (const oldTaskId of oldColumn.task_ids) {
+          const oldTask = state.tasks.byId[oldTaskId];
+          if (!oldTask) {
+            continue;
+          }
+          const newTaskId = taskIdMap.get(oldTaskId);
+          if (!newTaskId) {
+            continue;
+          }
+
+          const newTask: Task = {
+            ...oldTask,
+            id: newTaskId,
+            column_id: newColumnId,
+            created_at: now,
+          };
+          draft.tasks.byId[newTaskId] = newTask;
+          draft.tasks.allIds.push(newTaskId);
+        }
+      }
+
+      const workspace = draft.workspaces.byId[board.workspace_id];
+      if (workspace) {
+        workspace.board_ids.push(newBoardId);
+        workspace.lastFocusedBoardId = newBoardId;
+      }
+
+      if (copyConnections) {
+        const connectionsToBoard = state.boardConnections.allIds
+          .map((id) => state.boardConnections.byId[id])
+          .filter((conn) => conn && conn.source_board_id === boardId);
+
+        for (const conn of connectionsToBoard) {
+          if (!conn) {
+            continue;
+          }
+          const newConnId = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+          draft.boardConnections.byId[newConnId] = {
+            id: newConnId,
+            source_board_id: newBoardId,
+            target_board_id: conn.target_board_id,
+            label: conn.label,
+            lineStyle: conn.lineStyle,
+            sourceHandle: conn.sourceHandle,
+            targetHandle: conn.targetHandle,
+            showArrow: conn.showArrow,
+            created_at: now,
+          };
+          draft.boardConnections.allIds.push(newConnId);
+        }
+      }
+    });
+
+    logger.info(
+      { id: newBoardId, name: newName, sourceId: boardId, copyConnections },
+      "Board duplicated"
+    );
+    return newBoardId;
   },
 });

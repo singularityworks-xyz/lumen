@@ -1,11 +1,12 @@
 "use client";
 
 import {
-  Building2,
   Copy,
   Edit2,
   GripHorizontal,
-  RotateCcw,
+  LayoutGrid,
+  Link2,
+  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -14,21 +15,25 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
-type WorkspaceQuickActionsProps = {
-  workspaceId: string;
-  workspaceName: string;
-  isDefaultWorkspace: boolean;
+type BoardQuickActionsProps = {
+  boardId: string;
+  boardName: string;
+  columnCount: number;
+  taskCount: number;
+  connectionCount: number;
   onRename: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
-  onReset: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
+  onAddTask: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onDuplicate: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
+  onConnections: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onDelete: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onClose: () => void;
   position: { x: number; y: number };
   onPositionChange: (position: { x: number; y: number }) => void;
-  getButtonRect: () => DOMRect | null;
+  getBoardHeaderRect: () => DOMRect | null;
+  zoom?: number;
 };
 
-const DIALOG_WIDTH = 200;
+const DIALOG_WIDTH = 220;
 
 const ConnectorEdge = memo(
   ({
@@ -45,8 +50,8 @@ const ConnectorEdge = memo(
     }
     const startX = buttonRect.right;
     const startY = buttonRect.top + buttonRect.height / 2;
-    const controlX1 = startX + 30;
-    const controlX2 = endX - 30;
+    const controlX1 = startX + 40;
+    const controlX2 = endX - 40;
 
     return (
       <svg
@@ -82,43 +87,51 @@ const ConnectorEdge = memo(
 
 ConnectorEdge.displayName = "ConnectorEdge";
 
-export const WorkspaceQuickActions = memo(
+export const BoardQuickActions = memo(
   ({
-    workspaceId: _workspaceId,
-    workspaceName,
-    isDefaultWorkspace,
+    boardId: _boardId,
+    boardName,
+    columnCount,
+    taskCount,
+    connectionCount,
     onRename,
-    onReset,
+    onAddTask,
     onDuplicate,
+    onConnections,
     onDelete,
     onClose,
     position,
     onPositionChange,
-    getButtonRect,
-  }: WorkspaceQuickActionsProps) => {
+    getBoardHeaderRect,
+    zoom = 1,
+  }: BoardQuickActionsProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
+    const [boardRect, setBoardRect] = useState<DOMRect | null>(null);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
+
     const renameButtonRef = useRef<HTMLButtonElement>(null);
-    const resetButtonRef = useRef<HTMLButtonElement>(null);
+    const addTaskButtonRef = useRef<HTMLButtonElement>(null);
     const duplicateButtonRef = useRef<HTMLButtonElement>(null);
+    const connectionsButtonRef = useRef<HTMLButtonElement>(null);
     const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
       setMounted(true);
-      setButtonRect(getButtonRect());
-    }, [getButtonRect]);
+      setBoardRect(getBoardHeaderRect());
+    }, [getBoardHeaderRect]);
 
     useEffect(() => {
+      let animationFrameId: number;
       const updateRect = () => {
-        setButtonRect(getButtonRect());
+        setBoardRect(getBoardHeaderRect());
+        animationFrameId = requestAnimationFrame(updateRect);
       };
-      window.addEventListener("resize", updateRect);
-      return () => window.removeEventListener("resize", updateRect);
-    }, [getButtonRect]);
+      animationFrameId = requestAnimationFrame(updateRect);
+      return () => cancelAnimationFrame(animationFrameId);
+    }, [getBoardHeaderRect]);
 
     useEffect(() => {
       const handleEscape = (e: KeyboardEvent) => {
@@ -180,7 +193,7 @@ export const WorkspaceQuickActions = memo(
     const dialogContent = (
       <>
         <ConnectorEdge
-          buttonRect={buttonRect}
+          buttonRect={boardRect}
           endX={dialogConnectionX}
           endY={dialogConnectionY}
         />
@@ -191,7 +204,6 @@ export const WorkspaceQuickActions = memo(
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
           onWheel={(e) => {
-            // Prevent browser zoom (Ctrl+scroll) when hovering over dialog
             if (e.ctrlKey || e.metaKey) {
               e.preventDefault();
             }
@@ -201,6 +213,8 @@ export const WorkspaceQuickActions = memo(
             left: position.x,
             top: position.y,
             width: DIALOG_WIDTH,
+            transform: `scale(${zoom})`,
+            transformOrigin: "top left",
           }}
         >
           <div
@@ -213,8 +227,8 @@ export const WorkspaceQuickActions = memo(
             <div className="flex items-center gap-1.5">
               <GripHorizontal className="h-3 w-3 text-muted-foreground" />
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
-                <Building2 className="h-3 w-3" />
-                <span className="max-w-20 truncate">{workspaceName}</span>
+                <LayoutGrid className="h-3 w-3" />
+                <span className="max-w-24 truncate">{boardName}</span>
               </span>
             </div>
             <button
@@ -224,6 +238,21 @@ export const WorkspaceQuickActions = memo(
             >
               <X className="h-3 w-3" />
             </button>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
+            <span className="text-[10px] text-muted-foreground">
+              {columnCount} columns
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {taskCount} tasks
+            </span>
+            {connectionCount > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                {connectionCount} connections
+              </span>
+            )}
           </div>
 
           <div className="p-1">
@@ -236,15 +265,17 @@ export const WorkspaceQuickActions = memo(
               <Edit2 className="h-3.5 w-3.5" />
               <span>Rename</span>
             </button>
+
             <button
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-              onClick={() => onReset(resetButtonRef)}
-              ref={resetButtonRef}
+              onClick={() => onAddTask(addTaskButtonRef)}
+              ref={addTaskButtonRef}
               type="button"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reset</span>
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Task</span>
             </button>
+
             <button
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
               onClick={() => onDuplicate(duplicateButtonRef)}
@@ -253,22 +284,37 @@ export const WorkspaceQuickActions = memo(
             >
               <Copy className="h-3.5 w-3.5" />
               <span>Duplicate</span>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {taskCount}
+              </span>
             </button>
 
-            {!isDefaultWorkspace && (
-              <>
-                <div className="my-0.5 h-px bg-border/50" />
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
-                  onClick={() => onDelete(deleteButtonRef)}
-                  ref={deleteButtonRef}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Workspace</span>
-                </button>
-              </>
-            )}
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+              onClick={() => onConnections(connectionsButtonRef)}
+              ref={connectionsButtonRef}
+              type="button"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              <span>Connections</span>
+              {connectionCount > 0 && (
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {connectionCount}
+                </span>
+              )}
+            </button>
+
+            <div className="my-0.5 h-px bg-border/50" />
+
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+              onClick={() => onDelete(deleteButtonRef)}
+              ref={deleteButtonRef}
+              type="button"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Board</span>
+            </button>
           </div>
         </div>
       </>
@@ -278,4 +324,4 @@ export const WorkspaceQuickActions = memo(
   }
 );
 
-WorkspaceQuickActions.displayName = "WorkspaceQuickActions";
+BoardQuickActions.displayName = "BoardQuickActions";

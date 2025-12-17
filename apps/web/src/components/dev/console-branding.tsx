@@ -66,7 +66,7 @@ export function ConsoleBranding() {
       s.ascii,
       s.title,
       s.body,
-      "color: #EC4899; font-weight: bold; text-shadow: 0 0 5px rgba(236,72,153,0.5);", // Heart style
+      "color: #EC4899; font-weight: bold; text-shadow: 0 0 5px rgba(236,72,153,0.5);",
       s.body
     );
   }, []);

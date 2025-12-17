@@ -116,6 +116,7 @@ export type CreateTaskModalState = {
   boardId: string;
   columnId: string;
   position: { x: number; y: number };
+  sourcePosition?: { x: number; y: number };
   formData: CreateTaskModalFormData;
   zIndex: number;
 };
@@ -129,6 +130,7 @@ export type EditBoardModalState = {
   id: string;
   boardId: string;
   position: { x: number; y: number };
+  sourcePosition?: { x: number; y: number };
   formData: EditBoardModalFormData;
   zIndex: number;
 };
