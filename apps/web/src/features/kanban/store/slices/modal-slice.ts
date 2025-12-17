@@ -26,6 +26,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
     position,
     sourcePosition,
     sourceRect,
+    sourceType,
   }) => {
     const existingModals = Object.values(get().createTaskModals);
 
@@ -87,6 +88,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
             height: sourceRect.height,
           }
         : undefined,
+      sourceType,
       zIndex: maxZIndex + 1,
     };
 

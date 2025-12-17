@@ -213,8 +213,14 @@ export const KanbanColumn = memo(
     );
 
     const handleAddTask = useCallback(
-      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        openCreateTaskModal({ columnId: column.id, boardId });
+      (buttonRef: React.RefObject<HTMLButtonElement | null>) => {
+        const rect = buttonRef.current?.getBoundingClientRect();
+        openCreateTaskModal({
+          columnId: column.id,
+          boardId,
+          sourceRect: rect ?? undefined,
+          sourceType: "column-menu",
+        });
         closeColumnQuickActions();
       },
       [column.id, boardId, openCreateTaskModal, closeColumnQuickActions]

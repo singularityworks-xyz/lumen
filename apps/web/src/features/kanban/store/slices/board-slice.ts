@@ -408,6 +408,33 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.boardQuickActions) {
         state.boardQuickActions.position = position;
+
+        const boardId = state.boardQuickActions.boardId;
+        for (const modalId of Object.keys(state.createTaskModals)) {
+          const modal = state.createTaskModals[modalId];
+          if (
+            modal?.boardId === boardId &&
+            modal?.sourceType === "board-menu" &&
+            modal?.sourceRect
+          ) {
+            // We only need to update the right/top/height for the connector
+            // Since the menu is DIALOG_WIDTH wide, we can estimate the button position
+            // or just use the menu's right edge.
+            // The BoardQuickActions component uses buttonRect.right and buttonRect.top + height/2
+            // In TaskModalNodeComponent, it uses sourceRect.right and sourceRect.top + height/2
+
+            // Let's update the sourceRect to match the new menu position
+            // We'll assume the "Add Task" button is roughly at the same relative position
+            // But for simplicity, we can just point to the menu's right edge
+            modal.sourceRect = {
+              ...modal.sourceRect,
+              left: position.x,
+              top: position.y + 80,
+              right: position.x + 220,
+              bottom: position.y + 110,
+            };
+          }
+        }
       }
     }),
 

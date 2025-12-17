@@ -125,6 +125,7 @@ export type CreateTaskModalState = {
     width: number;
     height: number;
   };
+  sourceType?: "board-menu" | "board-header" | "column-menu" | "column-header";
   formData: CreateTaskModalFormData;
   zIndex: number;
 };

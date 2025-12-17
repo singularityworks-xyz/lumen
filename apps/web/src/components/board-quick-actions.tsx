@@ -13,6 +13,12 @@ import {
 import type { PointerEvent } from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/src/components/ui/tooltip";
 import { cn } from "@/src/lib/utils";
 
 type BoardQuickActionsProps = {
@@ -27,6 +33,7 @@ type BoardQuickActionsProps = {
   onConnections: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onDelete: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onClose: () => void;
+  hasOpenDialogs?: boolean;
   position: { x: number; y: number };
   onPositionChange: (position: { x: number; y: number }) => void;
   getBoardHeaderRect: () => DOMRect | null;
@@ -100,6 +107,7 @@ export const BoardQuickActions = memo(
     onConnections,
     onDelete,
     onClose,
+    hasOpenDialogs = false,
     position,
     onPositionChange,
     getBoardHeaderRect,
@@ -231,16 +239,26 @@ export const BoardQuickActions = memo(
                 <span className="max-w-24 truncate">{boardName}</span>
               </span>
             </div>
-            <button
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-              onClick={onClose}
-              type="button"
-            >
-              <X className="h-3 w-3" />
-            </button>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                    onClick={onClose}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                {hasOpenDialogs && (
+                  <TooltipContent side="top">
+                    <p className="text-xs">Close associated dialogs first</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
-          {/* Stats row */}
           <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
             <span className="text-[10px] text-muted-foreground">
               {columnCount} columns

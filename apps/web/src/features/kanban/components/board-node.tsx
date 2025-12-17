@@ -185,6 +185,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       return ref?.current?.getBoundingClientRect() ?? null;
     }, []);
 
+    const createTaskModals = useKanbanStore((state) => state.createTaskModals);
+
+    const hasOpenDialogs = useMemo(() => {
+      const hasBoardDialog = Object.values(boardDialogs).some(
+        (d) => d.boardId === boardId
+      );
+      const hasTaskModal = Object.values(createTaskModals).some(
+        (m) => m.boardId === boardId
+      );
+      return hasBoardDialog || hasTaskModal;
+    }, [boardDialogs, createTaskModals, boardId]);
+
     const getBoardHeaderRect = useCallback(
       () => headerRef.current?.getBoundingClientRect() ?? null,
       []
@@ -421,6 +433,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           boardId,
           position: buttonPosition,
           sourceRect: rect,
+          sourceType: "board-header",
         });
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 150, {
@@ -685,6 +698,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             columnCount={columnCount}
             connectionCount={connectionCount}
             getBoardHeaderRect={getBoardHeaderRect}
+            hasOpenDialogs={hasOpenDialogs}
             onAddTask={(buttonRef) => {
               actionButtonRefs.current.addTask = buttonRef;
               const rect = buttonRef.current?.getBoundingClientRect();
@@ -699,6 +713,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                   boardId,
                   position: flowPos,
                   sourceRect: rect,
+                  sourceType: "board-menu",
                 });
               }
             }}

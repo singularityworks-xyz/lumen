@@ -240,6 +240,11 @@ export type KanbanActions = {
     position?: { x: number; y: number };
     sourcePosition?: { x: number; y: number };
     sourceRect?: DOMRect;
+    sourceType?:
+      | "board-menu"
+      | "board-header"
+      | "column-menu"
+      | "column-header";
   }) => { id: string; position: { x: number; y: number }; isExisting: boolean };
   closeCreateTaskModal: (modalId: string) => void;
   updateModalPosition: (
