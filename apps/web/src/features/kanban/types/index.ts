@@ -117,6 +117,14 @@ export type CreateTaskModalState = {
   columnId: string;
   position: { x: number; y: number };
   sourcePosition?: { x: number; y: number };
+  sourceRect?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    width: number;
+    height: number;
+  };
   formData: CreateTaskModalFormData;
   zIndex: number;
 };
@@ -141,6 +149,23 @@ export type TaskDetailModalState = {
   boardId: string;
   position: { x: number; y: number };
   zIndex: number;
+};
+
+export type BoardDialogType = "rename" | "duplicate" | "delete";
+
+export type BoardDialogState = {
+  id: string;
+  type: BoardDialogType;
+  boardId: string;
+  boardName: string;
+  position: { x: number; y: number };
+  zIndex: number;
+  inputValue?: string;
+  newName?: string;
+  copyConnections?: boolean;
+  columnCount?: number;
+  taskCount?: number;
+  connectionCount?: number;
 };
 
 export type UIState = {

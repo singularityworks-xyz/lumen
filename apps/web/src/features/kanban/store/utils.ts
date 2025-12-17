@@ -49,7 +49,6 @@ export function createInitialState(): KanbanState {
     showCommandPalette: false,
     showMiniMap: false,
     createTaskModals: {},
-    editBoardModals: {},
     taskDetailModals: {},
     interactionMode: "drag",
     shakingTaskDetailModalId: null,
@@ -61,5 +60,7 @@ export function createInitialState(): KanbanState {
     workspaceDialog: null,
     columnQuickActions: null,
     columnDialog: null,
+    boardQuickActions: null,
+    boardDialogs: {},
   };
 }

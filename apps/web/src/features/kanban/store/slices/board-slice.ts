@@ -25,6 +25,15 @@ type SliceCreator = (
   | "bringBoardToFront"
   | "getDenormalizedBoard"
   | "duplicateBoard"
+  | "openBoardQuickActions"
+  | "closeBoardQuickActions"
+  | "updateBoardQuickActionsPosition"
+  | "openBoardDialog"
+  | "closeBoardDialog"
+  | "updateBoardDialogPosition"
+  | "updateBoardDialogInputValue"
+  | "updateBoardDialogNewName"
+  | "updateBoardDialogCopyConnections"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -384,4 +393,67 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     );
     return newBoardId;
   },
+
+  openBoardQuickActions: (boardId, position) =>
+    set((state) => {
+      state.boardQuickActions = { boardId, position };
+    }),
+
+  closeBoardQuickActions: () =>
+    set((state) => {
+      state.boardQuickActions = null;
+    }),
+
+  updateBoardQuickActionsPosition: (position) =>
+    set((state) => {
+      if (state.boardQuickActions) {
+        state.boardQuickActions.position = position;
+      }
+    }),
+
+  openBoardDialog: (options) => {
+    const id = crypto.randomUUID();
+    set((state) => {
+      state.boardDialogs[id] = {
+        ...options,
+        id,
+        position: options.position ?? { x: 0, y: 0 },
+        zIndex: getNextZIndex(state.boardPositions),
+      };
+    });
+    return id;
+  },
+
+  closeBoardDialog: (id) =>
+    set((state) => {
+      delete state.boardDialogs[id];
+    }),
+
+  updateBoardDialogPosition: (id, position) =>
+    set((state) => {
+      if (state.boardDialogs[id]) {
+        state.boardDialogs[id].position = position;
+      }
+    }),
+
+  updateBoardDialogInputValue: (id, value) =>
+    set((state) => {
+      if (state.boardDialogs[id]) {
+        state.boardDialogs[id].inputValue = value;
+      }
+    }),
+
+  updateBoardDialogNewName: (id, value) =>
+    set((state) => {
+      if (state.boardDialogs[id]) {
+        state.boardDialogs[id].newName = value;
+      }
+    }),
+
+  updateBoardDialogCopyConnections: (id, value) =>
+    set((state) => {
+      if (state.boardDialogs[id]) {
+        state.boardDialogs[id].copyConnections = value;
+      }
+    }),
 });

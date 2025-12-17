@@ -1,8 +1,4 @@
-import type {
-  CreateTaskModalState,
-  EditBoardModalState,
-  TaskDetailModalState,
-} from "../../types";
+import type { CreateTaskModalState, TaskDetailModalState } from "../../types";
 import { generateId } from "../ids";
 import type { KanbanStore } from "../types";
 
@@ -16,11 +12,6 @@ type SliceCreator = (
   | "updateModalPosition"
   | "updateModalFormData"
   | "bringModalToFront"
-  | "openEditBoardModal"
-  | "closeEditBoardModal"
-  | "updateEditBoardModalPosition"
-  | "updateEditBoardModalFormData"
-  | "bringEditBoardModalToFront"
   | "openTaskDetailModal"
   | "closeTaskDetailModal"
   | "updateTaskDetailModalPosition"
@@ -29,7 +20,13 @@ type SliceCreator = (
 >;
 
 export const createModalSlice: SliceCreator = (set, get) => ({
-  openCreateTaskModal: (columnId, boardId, position, sourcePosition) => {
+  openCreateTaskModal: ({
+    columnId,
+    boardId,
+    position,
+    sourcePosition,
+    sourceRect,
+  }) => {
     const existingModals = Object.values(get().createTaskModals);
 
     const existingModalForBoard = existingModals.find(
@@ -80,6 +77,16 @@ export const createModalSlice: SliceCreator = (set, get) => ({
         tags: "",
       },
       sourcePosition,
+      sourceRect: sourceRect
+        ? {
+            top: sourceRect.top,
+            right: sourceRect.right,
+            bottom: sourceRect.bottom,
+            left: sourceRect.left,
+            width: sourceRect.width,
+            height: sourceRect.height,
+          }
+        : undefined,
       zIndex: maxZIndex + 1,
     };
 
@@ -120,100 +127,6 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       const modal = state.createTaskModals[modalId];
       if (modal) {
         const maxZIndex = Object.values(state.createTaskModals).reduce(
-          (max, m) => Math.max(max, m.zIndex),
-          99
-        );
-        modal.zIndex = maxZIndex + 1;
-      }
-    }),
-
-  openEditBoardModal: (boardId, position, sourcePosition) => {
-    const existingModals = Object.values(get().editBoardModals);
-
-    const existingModalForBoard = existingModals.find(
-      (m) => m.boardId === boardId
-    );
-    if (existingModalForBoard) {
-      get().bringEditBoardModalToFront(existingModalForBoard.id);
-      return {
-        id: existingModalForBoard.id,
-        position: existingModalForBoard.position,
-        isExisting: true,
-      };
-    }
-
-    const modalId = generateId();
-    const board = get().boards.byId[boardId];
-
-    let modalX: number;
-    let modalY: number;
-    if (position) {
-      modalX = position.x;
-      modalY = position.y;
-    } else {
-      const offset = existingModals.length * 30;
-      const boardPosition = get().boardPositions.byId[boardId];
-      const boardX = boardPosition?.x ?? 0;
-      const boardY = boardPosition?.y ?? 0;
-      const boardWidth = boardPosition?.width ?? 400;
-      modalX = boardX + boardWidth + 20 + offset;
-      modalY = boardY + offset;
-    }
-
-    const maxZIndex = existingModals.reduce(
-      (max, m) => Math.max(max, m.zIndex),
-      99
-    );
-
-    const modalState: EditBoardModalState = {
-      id: modalId,
-      boardId,
-      position: { x: modalX, y: modalY },
-      sourcePosition,
-      formData: {
-        name: board?.name ?? "",
-        description: board?.description ?? "",
-      },
-      zIndex: maxZIndex + 1,
-    };
-
-    set((state) => {
-      state.editBoardModals[modalId] = modalState;
-    });
-
-    return {
-      id: modalId,
-      position: modalState.position,
-      isExisting: false,
-    };
-  },
-
-  closeEditBoardModal: (modalId) =>
-    set((state) => {
-      delete state.editBoardModals[modalId];
-    }),
-
-  updateEditBoardModalPosition: (modalId, position) =>
-    set((state) => {
-      const modal = state.editBoardModals[modalId];
-      if (modal) {
-        modal.position = position;
-      }
-    }),
-
-  updateEditBoardModalFormData: (modalId, formData) =>
-    set((state) => {
-      const modal = state.editBoardModals[modalId];
-      if (modal) {
-        Object.assign(modal.formData, formData);
-      }
-    }),
-
-  bringEditBoardModalToFront: (modalId) =>
-    set((state) => {
-      const modal = state.editBoardModals[modalId];
-      if (modal) {
-        const maxZIndex = Object.values(state.editBoardModals).reduce(
           (max, m) => Math.max(max, m.zIndex),
           99
         );

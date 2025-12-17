@@ -19,6 +19,11 @@ type DuplicateBoardDialogProps = {
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
   quickActionsPosition?: { x: number; y: number };
+  newName?: string;
+  onNewNameChange?: (value: string) => void;
+  copyConnections?: boolean;
+  onCopyConnectionsChange?: (value: boolean) => void;
+  zIndex?: number;
 };
 
 const DIALOG_WIDTH = 320;
@@ -35,15 +40,48 @@ export const DuplicateBoardDialog = memo(
     onClose,
     getSourceButtonRect,
     quickActionsPosition,
+    newName: externalNewName,
+    onNewNameChange,
+    copyConnections: externalCopyConnections,
+    onCopyConnectionsChange,
+    zIndex = 9999,
   }: DuplicateBoardDialogProps) => {
-    const [newName, setNewName] = useState(`${boardName} (Copy)`);
-    const [copyConnections, setCopyConnections] = useState(false);
+    const [internalNewName, setInternalNewName] = useState(
+      `${boardName} (Copy)`
+    );
+    const [internalCopyConnections, setInternalCopyConnections] =
+      useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
+
+    const newName = externalNewName ?? internalNewName;
+    const copyConnections = externalCopyConnections ?? internalCopyConnections;
+
+    const setNewName = useCallback(
+      (val: string) => {
+        if (onNewNameChange) {
+          onNewNameChange(val);
+        } else {
+          setInternalNewName(val);
+        }
+      },
+      [onNewNameChange]
+    );
+
+    const setCopyConnections = useCallback(
+      (val: boolean) => {
+        if (onCopyConnectionsChange) {
+          onCopyConnectionsChange(val);
+        } else {
+          setInternalCopyConnections(val);
+        }
+      },
+      [onCopyConnectionsChange]
+    );
 
     useEffect(() => {
       setMounted(true);
@@ -141,7 +179,7 @@ export const DuplicateBoardDialog = memo(
 
         <div
           className={cn(
-            "fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
+            "fixed flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
           onWheel={(e) => {
@@ -154,6 +192,7 @@ export const DuplicateBoardDialog = memo(
             left: position.x,
             top: position.y,
             width: DIALOG_WIDTH,
+            zIndex,
           }}
         >
           <div

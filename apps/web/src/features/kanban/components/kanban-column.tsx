@@ -214,7 +214,7 @@ export const KanbanColumn = memo(
 
     const handleAddTask = useCallback(
       (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        openCreateTaskModal(column.id, boardId);
+        openCreateTaskModal({ columnId: column.id, boardId });
         closeColumnQuickActions();
       },
       [column.id, boardId, openCreateTaskModal, closeColumnQuickActions]
@@ -409,7 +409,7 @@ export const KanbanColumn = memo(
     return (
       <section
         aria-label={`Column: ${column.name}`}
-        className="flex max-h-full w-[285px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        className="flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         ref={setNodeRef}

@@ -16,6 +16,7 @@ import { BoardQuickActions } from "@/src/components/board-quick-actions";
 import { CreateConnectionDialog } from "@/src/components/dialogs/create-connection-dialog";
 import { DeleteBoardDialog } from "@/src/components/dialogs/delete-board-dialog";
 import { DuplicateBoardDialog } from "@/src/components/dialogs/duplicate-board-dialog";
+import { RenameBoardDialog } from "@/src/components/dialogs/rename-board-dialog";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -104,10 +105,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.triggerTaskDetailModalShake
     );
 
-    const openEditBoardModal = useKanbanStore(
-      (state) => state.openEditBoardModal
-    );
-
     const openCreateTaskModal = useKanbanStore(
       (state) => state.openCreateTaskModal
     );
@@ -115,6 +112,36 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const duplicateBoard = useKanbanStore((state) => state.duplicateBoard);
     const removeBoard = useKanbanStore((state) => state.removeBoard);
     const removeConnection = useKanbanStore((state) => state.removeConnection);
+    const updateBoard = useKanbanStore((state) => state.updateBoard);
+
+    const boardQuickActions = useKanbanStore(
+      (state) => state.boardQuickActions
+    );
+    const openBoardQuickActions = useKanbanStore(
+      (state) => state.openBoardQuickActions
+    );
+    const closeBoardQuickActions = useKanbanStore(
+      (state) => state.closeBoardQuickActions
+    );
+    const updateBoardQuickActionsPosition = useKanbanStore(
+      (state) => state.updateBoardQuickActionsPosition
+    );
+
+    const boardDialogs = useKanbanStore((state) => state.boardDialogs);
+    const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
+    const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
+    const updateBoardDialogPosition = useKanbanStore(
+      (state) => state.updateBoardDialogPosition
+    );
+    const updateBoardDialogInputValue = useKanbanStore(
+      (state) => state.updateBoardDialogInputValue
+    );
+    const updateBoardDialogNewName = useKanbanStore(
+      (state) => state.updateBoardDialogNewName
+    );
+    const updateBoardDialogCopyConnections = useKanbanStore(
+      (state) => state.updateBoardDialogCopyConnections
+    );
 
     const columnCount = useKanbanStore((state) => {
       const boardEntity = state.boards.byId[boardId];
@@ -143,17 +170,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         }).length
     );
 
-    const [quickActions, setQuickActions] = useState<{
-      x: number;
-      y: number;
-    } | null>(null);
-
     const [activeDialog, setActiveDialog] = useState<{
-      type: "duplicate" | "connections" | "delete";
+      type: "connections";
       position?: { x: number; y: number };
     } | null>(null);
 
     const headerRef = useRef<HTMLDivElement>(null);
+    const actionButtonRefs = useRef<
+      Record<string, React.RefObject<HTMLButtonElement | null>>
+    >({});
+
+    const getSourceButtonRect = useCallback((type: string) => {
+      const ref = actionButtonRefs.current[type];
+      return ref?.current?.getBoundingClientRect() ?? null;
+    }, []);
 
     const getBoardHeaderRect = useCallback(
       () => headerRef.current?.getBoundingClientRect() ?? null,
@@ -367,17 +397,31 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleAddTask = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const firstColumn = board?.columns?.[0];
+      if (!board) {
+        return;
+      }
+
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const headerRect = headerRef.current?.getBoundingClientRect();
+      const baseRight = headerRect?.right ?? rect.right;
+
+      openBoardQuickActions(boardId, {
+        x: baseRight + 40,
+        y: rect.top - 30,
+      });
+
+      const firstColumn = board.columns?.[0];
       if (firstColumn) {
         const buttonPosition = screenToFlowPosition({
-          x: e.clientX,
-          y: e.clientY,
+          x: baseRight + 260, // Offset to the right of quick actions
+          y: rect.top,
         });
-        const result = openCreateTaskModal(
-          firstColumn.id,
+        const result = openCreateTaskModal({
+          columnId: firstColumn.id,
           boardId,
-          buttonPosition
-        );
+          position: buttonPosition,
+          sourceRect: rect,
+        });
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 150, {
             duration: 500,
@@ -409,17 +453,28 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const buttonPosition = screenToFlowPosition({
-        x: e.clientX,
-        y: e.clientY,
-      });
-      const result = openEditBoardModal(boardId, buttonPosition);
-      if (result.isExisting) {
-        setCenter(result.position.x + 200, result.position.y + 125, {
-          duration: 500,
-          zoom: 1,
-        });
+      if (!board) {
+        return;
       }
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const headerRect = headerRef.current?.getBoundingClientRect();
+      const baseRight = headerRect?.right ?? rect.right;
+
+      openBoardQuickActions(boardId, {
+        x: baseRight + 40,
+        y: rect.top - 30,
+      });
+
+      openBoardDialog({
+        type: "rename",
+        boardId,
+        boardName: board.name,
+        inputValue: board.name,
+        position: {
+          x: baseRight + 260,
+          y: rect.top - 30,
+        },
+      });
     };
 
     if (!board) {
@@ -496,7 +551,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               e.preventDefault();
               e.stopPropagation();
               const headerRect = headerRef.current?.getBoundingClientRect();
-              setQuickActions({
+              openBoardQuickActions(boardId, {
                 x: headerRect ? headerRect.right + 20 : e.clientX,
                 y: headerRect ? headerRect.top : e.clientY,
               });
@@ -623,153 +678,173 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
 
-        {quickActions && (
+        {boardQuickActions?.boardId === boardId && (
           <BoardQuickActions
             boardId={boardId}
             boardName={board.name}
             columnCount={columnCount}
             connectionCount={connectionCount}
             getBoardHeaderRect={getBoardHeaderRect}
-            onAddTask={() => {
-              if (boardData && boardData.column_ids.length > 0) {
-                const firstColId = boardData.column_ids[0];
-                const headerRect = getBoardHeaderRect();
-                if (firstColId && headerRect && quickActions) {
-                  openCreateTaskModal(
-                    firstColId,
-                    boardId,
-                    {
-                      x: headerRect.right + 20,
-                      y: headerRect.top,
-                    },
-                    {
-                      x: quickActions.x + 220,
-                      y: quickActions.y + 24,
-                    }
-                  );
-                }
+            onAddTask={(buttonRef) => {
+              actionButtonRefs.current.addTask = buttonRef;
+              const rect = buttonRef.current?.getBoundingClientRect();
+              const firstColumn = board.columns[0];
+              if (rect && firstColumn) {
+                const flowPos = screenToFlowPosition({
+                  x: rect.right + 40,
+                  y: rect.top,
+                });
+                openCreateTaskModal({
+                  columnId: firstColumn.id,
+                  boardId,
+                  position: flowPos,
+                  sourceRect: rect,
+                });
               }
-              // Keep quick actions open - don't call setQuickActions(null)
             }}
-            onClose={() => setQuickActions(null)}
-            onConnections={() => {
-              const currentPos = quickActions;
-              // setQuickActions(null); // Keep open
+            onClose={closeBoardQuickActions}
+            onConnections={(buttonRef) => {
+              actionButtonRefs.current.connections = buttonRef;
+              const rect = buttonRef.current?.getBoundingClientRect();
               setActiveDialog({
                 type: "connections",
-                position: currentPos
-                  ? { x: currentPos.x + 240, y: currentPos.y }
+                position: rect
+                  ? { x: rect.right + 40, y: rect.top - 30 }
                   : undefined,
               });
             }}
-            onDelete={() => {
-              const currentPos = quickActions;
-              // setQuickActions(null); // Keep open
-              setActiveDialog({
+            onDelete={(buttonRef) => {
+              actionButtonRefs.current.delete = buttonRef;
+              const rect = buttonRef.current?.getBoundingClientRect();
+              openBoardDialog({
                 type: "delete",
-                position: currentPos
-                  ? { x: currentPos.x + 240, y: currentPos.y }
+                boardId,
+                boardName: board.name,
+                columnCount,
+                taskCount,
+                connectionCount,
+                position: rect
+                  ? { x: rect.right + 40, y: rect.top - 30 }
                   : undefined,
               });
             }}
-            onDuplicate={() => {
-              const currentPos = quickActions;
-              // setQuickActions(null); // Keep open
-              setActiveDialog({
+            onDuplicate={(buttonRef) => {
+              actionButtonRefs.current.duplicate = buttonRef;
+              const rect = buttonRef.current?.getBoundingClientRect();
+              openBoardDialog({
                 type: "duplicate",
-                position: currentPos
-                  ? { x: currentPos.x + 240, y: currentPos.y }
+                boardId,
+                boardName: board.name,
+                newName: `${board.name} (Copy)`,
+                copyConnections: false,
+                columnCount,
+                taskCount,
+                connectionCount,
+                position: rect
+                  ? { x: rect.right + 40, y: rect.top - 30 }
                   : undefined,
               });
             }}
-            onPositionChange={setQuickActions}
-            onRename={() => {
-              const currentPos = quickActions;
-              // Keep quick actions open
-
-              if (currentPos) {
-                // Offset by 240px to right
-                const flowPos = screenToFlowPosition({
-                  x: currentPos.x + 240,
-                  y: currentPos.y,
-                });
-                // Pass sourcePosition for connector edge (use screen coordinates)
-                const sourcePos = {
-                  x: currentPos.x + 220,
-                  y: currentPos.y + 24,
-                };
-                openEditBoardModal(boardId, flowPos, sourcePos);
-              } else {
-                const headerRect = getBoardHeaderRect();
-                if (headerRect) {
-                  const flowPos = screenToFlowPosition({
-                    x: headerRect.right + 20 + 240,
-                    y: headerRect.top,
-                  });
-                  openEditBoardModal(boardId, flowPos);
-                }
-              }
+            onPositionChange={updateBoardQuickActionsPosition}
+            onRename={(buttonRef) => {
+              actionButtonRefs.current.rename = buttonRef;
+              const rect = buttonRef.current?.getBoundingClientRect();
+              openBoardDialog({
+                type: "rename",
+                boardId,
+                boardName: board.name,
+                inputValue: board.name,
+                position: rect
+                  ? { x: rect.right + 40, y: rect.top - 30 }
+                  : undefined,
+              });
             }}
-            position={quickActions}
+            position={boardQuickActions.position}
             taskCount={taskCount}
             zoom={zoom}
           />
         )}
 
-        {(() => {
-          const anchorPos = quickActions ?? activeDialog?.position;
-          const dialogPos = activeDialog?.position;
+        {activeDialog?.type === "connections" && activeDialog.position && (
+          <CreateConnectionDialog
+            getBoardHeaderRect={() => getSourceButtonRect("connections")}
+            onClose={() => setActiveDialog(null)}
+            quickActionsPosition={boardQuickActions?.position}
+            sourceBoardId={boardId}
+            x={activeDialog.position.x}
+            y={activeDialog.position.y}
+          />
+        )}
 
-          if (!(anchorPos && dialogPos)) {
+        {Object.entries(boardDialogs).map(([dialogId, dialog]) => {
+          if (dialog.boardId !== boardId) {
             return null;
           }
 
           return (
-            <>
-              {activeDialog?.type === "connections" && (
-                <CreateConnectionDialog
-                  getBoardHeaderRect={getBoardHeaderRect}
-                  onClose={() => setActiveDialog(null)}
-                  quickActionsPosition={anchorPos}
-                  sourceBoardId={boardId}
-                  x={dialogPos.x}
-                  y={dialogPos.y}
+            <div key={dialogId}>
+              {dialog.type === "rename" && (
+                <RenameBoardDialog
+                  boardId={boardId}
+                  currentName={dialog.boardName}
+                  getSourceButtonRect={() =>
+                    getSourceButtonRect("rename") || getBoardHeaderRect()
+                  }
+                  initialValue={dialog.inputValue}
+                  onClose={() => closeBoardDialog(dialogId)}
+                  onInputChange={(val) =>
+                    updateBoardDialogInputValue(dialogId, val)
+                  }
+                  onPositionChange={(pos) =>
+                    updateBoardDialogPosition(dialogId, pos)
+                  }
+                  onRename={(newName) => {
+                    updateBoard(boardId, { name: newName });
+                    closeBoardDialog(dialogId);
+                  }}
+                  position={dialog.position}
+                  zIndex={dialog.zIndex}
                 />
               )}
 
-              {activeDialog?.type === "duplicate" && (
+              {dialog.type === "duplicate" && (
                 <DuplicateBoardDialog
                   boardId={boardId}
-                  boardName={board.name}
-                  columnCount={columnCount}
-                  connectionCount={connectionCount}
-                  getSourceButtonRect={getBoardHeaderRect}
-                  onClose={() => setActiveDialog(null)}
+                  boardName={dialog.boardName}
+                  columnCount={dialog.columnCount ?? 0}
+                  connectionCount={dialog.connectionCount ?? 0}
+                  copyConnections={dialog.copyConnections}
+                  getSourceButtonRect={() => getSourceButtonRect("duplicate")}
+                  newName={dialog.newName}
+                  onClose={() => closeBoardDialog(dialogId)}
+                  onCopyConnectionsChange={(val) =>
+                    updateBoardDialogCopyConnections(dialogId, val)
+                  }
                   onDuplicate={(newName, options) => {
                     duplicateBoard(boardId, newName, options);
-                    setActiveDialog(null);
+                    closeBoardDialog(dialogId);
                   }}
-                  onPositionChange={(pos) =>
-                    setActiveDialog((prev) =>
-                      prev
-                        ? { ...prev, position: { ...prev.position, ...pos } }
-                        : prev
-                    )
+                  onNewNameChange={(val) =>
+                    updateBoardDialogNewName(dialogId, val)
                   }
-                  position={dialogPos}
-                  quickActionsPosition={anchorPos}
-                  taskCount={taskCount}
+                  onPositionChange={(pos) =>
+                    updateBoardDialogPosition(dialogId, pos)
+                  }
+                  position={dialog.position ?? { x: 0, y: 0 }}
+                  quickActionsPosition={boardQuickActions?.position}
+                  taskCount={dialog.taskCount ?? 0}
+                  zIndex={dialog.zIndex}
                 />
               )}
 
-              {activeDialog?.type === "delete" && (
+              {dialog.type === "delete" && (
                 <DeleteBoardDialog
                   boardId={boardId}
-                  boardName={board.name}
-                  columnCount={columnCount}
-                  connectionCount={connectionCount}
-                  getSourceButtonRect={getBoardHeaderRect}
-                  onClose={() => setActiveDialog(null)}
+                  boardName={dialog.boardName}
+                  columnCount={dialog.columnCount ?? 0}
+                  connectionCount={dialog.connectionCount ?? 0}
+                  getSourceButtonRect={() => getSourceButtonRect("delete")}
+                  onClose={() => closeBoardDialog(dialogId)}
                   onConfirm={() => {
                     const connections =
                       useKanbanStore.getState().boardConnections;
@@ -786,23 +861,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                       removeConnection(connId);
                     }
                     removeBoard(boardId);
-                    setActiveDialog(null);
+                    closeBoardDialog(dialogId);
                   }}
                   onPositionChange={(pos) =>
-                    setActiveDialog((prev) =>
-                      prev
-                        ? { ...prev, position: { ...prev.position, ...pos } }
-                        : prev
-                    )
+                    updateBoardDialogPosition(dialogId, pos)
                   }
-                  position={dialogPos}
-                  quickActionsPosition={anchorPos}
-                  taskCount={taskCount}
+                  position={dialog.position ?? { x: 0, y: 0 }}
+                  quickActionsPosition={boardQuickActions?.position}
+                  taskCount={dialog.taskCount ?? 0}
+                  zIndex={dialog.zIndex}
                 />
               )}
-            </>
+            </div>
           );
-        })()}
+        })}
       </>
     );
   }
@@ -812,11 +884,9 @@ BoardNodeComponent.displayName = "BoardNode";
 
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
-import { EditBoardModalNodeComponent } from "./edit-board-modal-node";
 
 export const nodeTypes = {
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
-  editBoardModal: EditBoardModalNodeComponent,
 };

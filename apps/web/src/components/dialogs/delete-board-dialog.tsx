@@ -19,7 +19,7 @@ type DeleteBoardDialogProps = {
   onPositionChange: (position: { x: number; y: number }) => void;
   getSourceButtonRect: () => DOMRect | null;
   quickActionsPosition?: { x: number; y: number };
-  zoom?: number;
+  zIndex?: number;
 };
 
 const DIALOG_WIDTH = 320;
@@ -36,7 +36,7 @@ export const DeleteBoardDialog = memo(
     onPositionChange,
     getSourceButtonRect,
     quickActionsPosition,
-    zoom = 1,
+    zIndex = 9999,
   }: DeleteBoardDialogProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -130,7 +130,7 @@ export const DeleteBoardDialog = memo(
 
         <div
           className={cn(
-            "fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-destructive/30 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
+            "fixed flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
           onWheel={(e) => {
@@ -143,8 +143,7 @@ export const DeleteBoardDialog = memo(
             left: position.x,
             top: position.y,
             width: DIALOG_WIDTH,
-            transform: `scale(${zoom})`,
-            transformOrigin: "top left",
+            zIndex,
           }}
         >
           <div

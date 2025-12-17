@@ -1,6 +1,11 @@
 "use client";
 
-import { type Node, type NodeProps, useReactFlow } from "@xyflow/react";
+import {
+  type Node,
+  type NodeProps,
+  useReactFlow,
+  useViewport,
+} from "@xyflow/react";
 import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -37,67 +42,66 @@ const MODAL_WIDTH = 400;
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
   ({ id, data, selected }) => {
     const { getNode, flowToScreenPosition } = useReactFlow();
+    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [mounted, setMounted] = useState(false);
-    const [connectorState, setConnectorState] = useState<{
-      start: { x: number; y: number };
-      end: { x: number; y: number };
-    } | null>(null);
 
     const modalBoardId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.boardId
+    );
+    const sourceRect = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.sourceRect
     );
 
     useEffect(() => {
       setMounted(true);
     }, []);
 
-    // Live update loop for connector
-    useEffect(() => {
-      let rAFId: number;
-      const updateConnector = () => {
-        const myNode = getNode(id);
+    const connectorState = useMemo(() => {
+      // Access viewport values to ensure re-calculation on transform changes
+      // flowToScreenPosition internally uses the current viewport state
+      const _vp = { vpX, vpY, vpZoom };
+      const myNode = getNode(id);
+
+      if (myNode) {
+        const myScreenPos = flowToScreenPosition({
+          x: myNode.position.x,
+          y: myNode.position.y,
+        });
+
+        if (sourceRect) {
+          return {
+            start: {
+              x: sourceRect.right,
+              y: sourceRect.top + sourceRect.height / 2,
+            },
+            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+          };
+        }
         const boardNode = modalBoardId ? getNode(modalBoardId) : null;
-
-        // Use stored sourcePosition as fallback if board node is not found/measured
-        // But sourcePosition is stale if board moved.
-        // If we can't find board, we can't do better than nothing?
-        // Or we can retrieve sourcePosition from store inside loop?
-        // Accessing store inside RAF is fine via getState() if available, but we have hooks.
-        // Let's stick to Node logic first.
-
-        if (myNode && boardNode && myNode.measured && boardNode.measured) {
-          // Calculate Board "Quick Actions" position estimation
-          // Quick actions is top-right of board header.
-          // Board Header width is full width.
-          // Quick Actions button is ~40px from right?
+        if (boardNode) {
+          const boardWidth = boardNode.measured?.width ?? 300;
           const boardScreenPos = flowToScreenPosition({
-            x: boardNode.position.x + (boardNode.measured.width ?? 300) - 40,
+            x: boardNode.position.x + boardWidth,
             y: boardNode.position.y + 20,
           });
 
-          // Calculate Modal "Top Left" or "Center"
-          const myScreenPos = flowToScreenPosition({
-            x: myNode.position.x,
-            y: myNode.position.y,
-          });
-
-          // ConnectorEdge expects endX/Y to be the dot.
-          // Let's put dot at top-left + padding? Or center-left?
-          // Dialog usually connects to left side if it's to the right.
-          // Task Modal spawns to the right.
-          // So dot at { x: myScreenPos.x, y: myScreenPos.y + 20 }
-
-          setConnectorState({
+          return {
             start: boardScreenPos,
             end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-          });
+          };
         }
-        rAFId = requestAnimationFrame(updateConnector);
-      };
-
-      updateConnector();
-      return () => cancelAnimationFrame(rAFId);
-    }, [id, modalBoardId, getNode, flowToScreenPosition]);
+      }
+      return null;
+    }, [
+      id,
+      modalBoardId,
+      getNode,
+      flowToScreenPosition,
+      sourceRect,
+      vpX,
+      vpY,
+      vpZoom,
+    ]);
 
     const modalFormData = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.formData
