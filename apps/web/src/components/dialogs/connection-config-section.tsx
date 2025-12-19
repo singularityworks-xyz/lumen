@@ -147,6 +147,7 @@ export const ConnectionConfigSection = memo(
                   : "bg-background text-muted-foreground hover:bg-accent"
               )}
               onClick={() => onShowArrowChange(!showArrow)}
+              title={showArrow ? "Hide arrow" : "Show arrow"}
               type="button"
             >
               {showArrow ? (

@@ -57,6 +57,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const modalPosition = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.position
     );
+    const boardPosition = useKanbanStore(
+      (state) => state.boardPositions.byId[modalBoardId ?? ""]
+    );
     const boardQuickActions = useKanbanStore(
       (state) => state.boardQuickActions
     );
@@ -105,8 +108,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         };
       }
 
-      const boardPosition =
-        useKanbanStore.getState().boardPositions.byId[modalBoardId ?? ""];
       if (boardPosition) {
         const boardWidth = boardPosition.width ?? 300;
         const boardScreenPos = flowToScreenPosition({
@@ -130,6 +131,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       vpX,
       vpY,
       vpZoom,
+      boardPosition,
     ]);
 
     const modalFormData = useKanbanStore(

@@ -708,14 +708,16 @@ export function KanbanCanvas() {
 
   const handleConnect: OnConnect = useCallback(
     (connection) => {
-      const hasSource = Boolean(connection.source);
-      const hasTarget = Boolean(connection.target);
-      const isValid = hasSource && hasTarget;
-      if (!isValid) {
-        return;
-      }
+      const { source, target, sourceHandle, targetHandle } = connection;
 
-      addConnection(connection.source, connection.target);
+      if (source && target) {
+        addConnection(source, target, {
+          sourceHandle:
+            (sourceHandle as "top" | "right" | "bottom" | "left") ?? undefined,
+          targetHandle:
+            (targetHandle as "top" | "right" | "bottom" | "left") ?? undefined,
+        });
+      }
     },
     [addConnection]
   );

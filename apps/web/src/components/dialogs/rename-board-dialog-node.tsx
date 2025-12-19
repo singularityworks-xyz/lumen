@@ -151,6 +151,7 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
               {dialog.boardName}
             </span>
             <button
+              aria-label="Close rename board dialog"
               className="nodrag rounded-full p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               onClick={handleClose}
               type="button"

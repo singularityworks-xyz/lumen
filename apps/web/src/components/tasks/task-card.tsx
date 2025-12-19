@@ -107,6 +107,7 @@ export const TaskCard = memo(
               ? "border-primary shadow-lg"
               : "border-border/40 dark:border-border/70"
           }`}
+          data-task-id={task.id}
         >
           <div className="flex items-start gap-1.5">
             {showCheckbox && (

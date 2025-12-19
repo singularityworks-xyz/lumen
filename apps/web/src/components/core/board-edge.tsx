@@ -43,16 +43,6 @@ export function BoardEdgeComponent({
     (state) => state.updateConnectionLabel
   );
 
-  console.log("BoardEdge rendering:", {
-    id,
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    data,
-    selected,
-  });
-
   const lineStyle = data?.lineStyle ?? "solid";
   const strokeDasharray = lineStyle === "dotted" ? "5,5" : undefined;
 
