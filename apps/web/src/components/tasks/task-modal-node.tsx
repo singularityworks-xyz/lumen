@@ -40,8 +40,8 @@ type TaskModalNodeProps = NodeProps<Node<TaskModalNodeData>>;
 const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
-  ({ id, data, selected }) => {
-    const { getNode, flowToScreenPosition } = useReactFlow();
+  ({ data, selected }) => {
+    const { flowToScreenPosition } = useReactFlow();
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [mounted, setMounted] = useState(false);
 
@@ -50,6 +50,15 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     );
     const sourceRect = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.sourceRect
+    );
+    const sourceType = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.sourceType
+    );
+    const modalPosition = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.position
+    );
+    const boardQuickActions = useKanbanStore(
+      (state) => state.boardQuickActions
     );
 
     useEffect(() => {
@@ -60,42 +69,62 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       // Access viewport values to ensure re-calculation on transform changes
       // flowToScreenPosition internally uses the current viewport state
       const _vp = { vpX, vpY, vpZoom };
-      const myNode = getNode(id);
 
-      if (myNode) {
-        const myScreenPos = flowToScreenPosition({
-          x: myNode.position.x,
-          y: myNode.position.y,
+      if (!modalPosition) {
+        return null;
+      }
+
+      const myScreenPos = flowToScreenPosition({
+        x: modalPosition.x,
+        y: modalPosition.y,
+      });
+
+      if (
+        sourceType === "board-menu" &&
+        boardQuickActions &&
+        boardQuickActions.boardId === modalBoardId
+      ) {
+        const quickActionsWidth = 220;
+        const quickActionsScreenPos = flowToScreenPosition({
+          x: boardQuickActions.position.x + quickActionsWidth,
+          y: boardQuickActions.position.y + 80,
+        });
+        return {
+          start: quickActionsScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
+      }
+
+      if (sourceRect) {
+        return {
+          start: {
+            x: sourceRect.right,
+            y: sourceRect.top + sourceRect.height / 2,
+          },
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
+      }
+
+      const boardPosition =
+        useKanbanStore.getState().boardPositions.byId[modalBoardId ?? ""];
+      if (boardPosition) {
+        const boardWidth = boardPosition.width ?? 300;
+        const boardScreenPos = flowToScreenPosition({
+          x: boardPosition.x + boardWidth,
+          y: boardPosition.y + 20,
         });
 
-        if (sourceRect) {
-          return {
-            start: {
-              x: sourceRect.right,
-              y: sourceRect.top + sourceRect.height / 2,
-            },
-            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-          };
-        }
-        const boardNode = modalBoardId ? getNode(modalBoardId) : null;
-        if (boardNode) {
-          const boardWidth = boardNode.measured?.width ?? 300;
-          const boardScreenPos = flowToScreenPosition({
-            x: boardNode.position.x + boardWidth,
-            y: boardNode.position.y + 20,
-          });
-
-          return {
-            start: boardScreenPos,
-            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-          };
-        }
+        return {
+          start: boardScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
       }
       return null;
     }, [
-      id,
       modalBoardId,
-      getNode,
+      modalPosition,
+      sourceType,
+      boardQuickActions,
       flowToScreenPosition,
       sourceRect,
       vpX,
@@ -111,9 +140,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     );
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
-    );
-    const _sourcePosition = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.sourcePosition
     );
     const bringModalToFront = useKanbanStore(
       (state) => state.bringModalToFront
@@ -265,7 +291,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
                 ))}
               </ScaledSelectContent>
             </ScaledSelect>
-            {/* <span className="text-muted-foreground text-xs">/</span> */}
             <EllipsisVertical className="size-4 text-muted-foreground" />
             <ScaledSelect
               onValueChange={setSelectedColumnId}

@@ -62,5 +62,6 @@ export function createInitialState(): KanbanState {
     columnDialog: null,
     boardQuickActions: null,
     boardDialogs: {},
+    connectionDialog: null,
   };
 }

@@ -7,16 +7,10 @@ import {
   Position,
   NodeResizer as Resizer,
   useReactFlow,
-  useStore,
 } from "@xyflow/react";
 import { GripVertical, Plus, SquarePen, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
-import { BoardQuickActions } from "@/src/components/board-quick-actions";
-import { CreateConnectionDialog } from "@/src/components/dialogs/create-connection-dialog";
-import { DeleteBoardDialog } from "@/src/components/dialogs/delete-board-dialog";
-import { DuplicateBoardDialog } from "@/src/components/dialogs/duplicate-board-dialog";
-import { RenameBoardDialog } from "@/src/components/dialogs/rename-board-dialog";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -97,8 +91,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const { getNode, setNodes, setCenter, screenToFlowPosition } =
       useReactFlow();
 
-    const zoom = useStore((state) => state.transform[2]);
-
     const { boardId, isSelected } = data as BoardNode["data"];
 
     const triggerTaskDetailModalShake = useKanbanStore(
@@ -108,104 +100,17 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const openCreateTaskModal = useKanbanStore(
       (state) => state.openCreateTaskModal
     );
-
-    const duplicateBoard = useKanbanStore((state) => state.duplicateBoard);
     const removeBoard = useKanbanStore((state) => state.removeBoard);
-    const removeConnection = useKanbanStore((state) => state.removeConnection);
-    const updateBoard = useKanbanStore((state) => state.updateBoard);
-
-    const boardQuickActions = useKanbanStore(
-      (state) => state.boardQuickActions
-    );
     const openBoardQuickActions = useKanbanStore(
       (state) => state.openBoardQuickActions
     );
-    const closeBoardQuickActions = useKanbanStore(
-      (state) => state.closeBoardQuickActions
-    );
-    const updateBoardQuickActionsPosition = useKanbanStore(
-      (state) => state.updateBoardQuickActionsPosition
-    );
-
-    const boardDialogs = useKanbanStore((state) => state.boardDialogs);
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
-    const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
-    const updateBoardDialogPosition = useKanbanStore(
-      (state) => state.updateBoardDialogPosition
-    );
-    const updateBoardDialogInputValue = useKanbanStore(
-      (state) => state.updateBoardDialogInputValue
-    );
-    const updateBoardDialogNewName = useKanbanStore(
-      (state) => state.updateBoardDialogNewName
-    );
-    const updateBoardDialogCopyConnections = useKanbanStore(
-      (state) => state.updateBoardDialogCopyConnections
-    );
-
-    const columnCount = useKanbanStore((state) => {
-      const boardEntity = state.boards.byId[boardId];
-      return boardEntity?.column_ids.length ?? 0;
-    });
-
-    const taskCount = useKanbanStore((state) => {
-      const boardEntity = state.boards.byId[boardId];
-      if (!boardEntity) {
-        return 0;
-      }
-      return boardEntity.column_ids.reduce((acc: number, colId: string) => {
-        const col = state.columns.byId[colId];
-        return acc + (col?.task_ids.length ?? 0);
-      }, 0);
-    });
-
-    const connectionCount = useKanbanStore(
-      (state) =>
-        state.boardConnections.allIds.filter((connId) => {
-          const conn = state.boardConnections.byId[connId];
-          return (
-            conn?.source_board_id === boardId ||
-            conn?.target_board_id === boardId
-          );
-        }).length
-    );
-
-    const [activeDialog, setActiveDialog] = useState<{
-      type: "connections";
-      position?: { x: number; y: number };
-    } | null>(null);
 
     const headerRef = useRef<HTMLDivElement>(null);
-    const actionButtonRefs = useRef<
-      Record<string, React.RefObject<HTMLButtonElement | null>>
-    >({});
-
-    const getSourceButtonRect = useCallback((type: string) => {
-      const ref = actionButtonRefs.current[type];
-      return ref?.current?.getBoundingClientRect() ?? null;
-    }, []);
-
-    const createTaskModals = useKanbanStore((state) => state.createTaskModals);
-
-    const hasOpenDialogs = useMemo(() => {
-      const hasBoardDialog = Object.values(boardDialogs).some(
-        (d) => d.boardId === boardId
-      );
-      const hasTaskModal = Object.values(createTaskModals).some(
-        (m) => m.boardId === boardId
-      );
-      return hasBoardDialog || hasTaskModal;
-    }, [boardDialogs, createTaskModals, boardId]);
-
-    const getBoardHeaderRect = useCallback(
-      () => headerRef.current?.getBoundingClientRect() ?? null,
-      []
-    );
 
     const handleOpenTaskDetail = useCallback(
-      (taskId: string, screenX: number, screenY: number) => {
-        const canvasPosition = screenToFlowPosition({ x: screenX, y: screenY });
-        const result = openTaskDetailModal(taskId, boardId, canvasPosition);
+      (taskId: string, _screenX: number, _screenY: number) => {
+        const result = openTaskDetailModal(taskId, boardId);
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 175, {
             duration: 500,
@@ -216,13 +121,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }, 300);
         }
       },
-      [
-        screenToFlowPosition,
-        openTaskDetailModal,
-        boardId,
-        setCenter,
-        triggerTaskDetailModalShake,
-      ]
+      [openTaskDetailModal, boardId, setCenter, triggerTaskDetailModalShake]
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
@@ -416,16 +315,16 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
-
-      openBoardQuickActions(boardId, {
+      const quickActionsPos = screenToFlowPosition({
         x: baseRight + 40,
         y: rect.top - 30,
       });
+      openBoardQuickActions(boardId, quickActionsPos);
 
       const firstColumn = board.columns?.[0];
       if (firstColumn) {
         const buttonPosition = screenToFlowPosition({
-          x: baseRight + 260, // Offset to the right of quick actions
+          x: baseRight + 260,
           y: rect.top,
         });
         const result = openCreateTaskModal({
@@ -473,20 +372,22 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
 
-      openBoardQuickActions(boardId, {
+      const quickActionsPos = screenToFlowPosition({
         x: baseRight + 40,
         y: rect.top - 30,
       });
+      openBoardQuickActions(boardId, quickActionsPos);
 
+      const dialogPos = screenToFlowPosition({
+        x: baseRight + 260,
+        y: rect.top - 30,
+      });
       openBoardDialog({
         type: "rename",
         boardId,
         boardName: board.name,
         inputValue: board.name,
-        position: {
-          x: baseRight + 260,
-          y: rect.top - 30,
-        },
+        position: dialogPos,
       });
     };
 
@@ -533,28 +434,19 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           </div>
         )}
 
-        {/** biome-ignore lint/a11y/useSemanticElements: TODO: fl */}
-        <div
+        <button
           aria-pressed={isSelected || selected || isMultiSelected}
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-              : // biome-ignore lint/style/noNestedTernary: TODO: fix later
+              : // biome-ignore lint/style/noNestedTernary: its cleaner this way
                 isSelected || selected
                 ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
         `}
           onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              // @ts-expect-error: TODO: fix later
-              handleClick();
-            }
-          }}
-          role="button"
-          tabIndex={0}
+          type="button"
         >
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
@@ -564,11 +456,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               e.preventDefault();
               e.stopPropagation();
               const headerRect = headerRef.current?.getBoundingClientRect();
-              openBoardQuickActions(boardId, {
-                x: headerRect ? headerRect.right + 20 : e.clientX,
-                y: headerRect ? headerRect.top : e.clientY,
-              });
-              setActiveDialog(null);
+              const screenX = headerRect ? headerRect.right + 20 : e.clientX;
+              const screenY = headerRect ? headerRect.top : e.clientY;
+              const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
+              openBoardQuickActions(boardId, flowPos);
             }}
             ref={headerRef}
           >
@@ -631,7 +522,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               onOpenTaskDetail={handleOpenTaskDetail}
             />
           </div>
-        </div>
+        </button>
 
         {/* Connection handles for all four sides */}
         <Handle
@@ -690,206 +581,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           style={{ left: -6 }}
           type="target"
         />
-
-        {boardQuickActions?.boardId === boardId && (
-          <BoardQuickActions
-            boardId={boardId}
-            boardName={board.name}
-            columnCount={columnCount}
-            connectionCount={connectionCount}
-            getBoardHeaderRect={getBoardHeaderRect}
-            hasOpenDialogs={hasOpenDialogs}
-            onAddTask={(buttonRef) => {
-              actionButtonRefs.current.addTask = buttonRef;
-              const rect = buttonRef.current?.getBoundingClientRect();
-              const firstColumn = board.columns[0];
-              if (rect && firstColumn) {
-                const flowPos = screenToFlowPosition({
-                  x: rect.right + 40,
-                  y: rect.top,
-                });
-                openCreateTaskModal({
-                  columnId: firstColumn.id,
-                  boardId,
-                  position: flowPos,
-                  sourceRect: rect,
-                  sourceType: "board-menu",
-                });
-              }
-            }}
-            onClose={closeBoardQuickActions}
-            onConnections={(buttonRef) => {
-              actionButtonRefs.current.connections = buttonRef;
-              const rect = buttonRef.current?.getBoundingClientRect();
-              setActiveDialog({
-                type: "connections",
-                position: rect
-                  ? { x: rect.right + 40, y: rect.top - 30 }
-                  : undefined,
-              });
-            }}
-            onDelete={(buttonRef) => {
-              actionButtonRefs.current.delete = buttonRef;
-              const rect = buttonRef.current?.getBoundingClientRect();
-              openBoardDialog({
-                type: "delete",
-                boardId,
-                boardName: board.name,
-                columnCount,
-                taskCount,
-                connectionCount,
-                position: rect
-                  ? { x: rect.right + 40, y: rect.top - 30 }
-                  : undefined,
-              });
-            }}
-            onDuplicate={(buttonRef) => {
-              actionButtonRefs.current.duplicate = buttonRef;
-              const rect = buttonRef.current?.getBoundingClientRect();
-              openBoardDialog({
-                type: "duplicate",
-                boardId,
-                boardName: board.name,
-                newName: `${board.name} (Copy)`,
-                copyConnections: false,
-                columnCount,
-                taskCount,
-                connectionCount,
-                position: rect
-                  ? { x: rect.right + 40, y: rect.top - 30 }
-                  : undefined,
-              });
-            }}
-            onPositionChange={updateBoardQuickActionsPosition}
-            onRename={(buttonRef) => {
-              actionButtonRefs.current.rename = buttonRef;
-              const rect = buttonRef.current?.getBoundingClientRect();
-              openBoardDialog({
-                type: "rename",
-                boardId,
-                boardName: board.name,
-                inputValue: board.name,
-                position: rect
-                  ? { x: rect.right + 40, y: rect.top - 30 }
-                  : undefined,
-              });
-            }}
-            position={boardQuickActions.position}
-            taskCount={taskCount}
-            zoom={zoom}
-          />
-        )}
-
-        {activeDialog?.type === "connections" && activeDialog.position && (
-          <CreateConnectionDialog
-            getBoardHeaderRect={() => getSourceButtonRect("connections")}
-            onClose={() => setActiveDialog(null)}
-            quickActionsPosition={boardQuickActions?.position}
-            sourceBoardId={boardId}
-            x={activeDialog.position.x}
-            y={activeDialog.position.y}
-          />
-        )}
-
-        {Object.entries(boardDialogs).map(([dialogId, dialog]) => {
-          if (dialog.boardId !== boardId) {
-            return null;
-          }
-
-          return (
-            <div key={dialogId}>
-              {dialog.type === "rename" && (
-                <RenameBoardDialog
-                  boardId={boardId}
-                  currentName={dialog.boardName}
-                  getSourceButtonRect={() =>
-                    getSourceButtonRect("rename") || getBoardHeaderRect()
-                  }
-                  initialValue={dialog.inputValue}
-                  onClose={() => closeBoardDialog(dialogId)}
-                  onInputChange={(val) =>
-                    updateBoardDialogInputValue(dialogId, val)
-                  }
-                  onPositionChange={(pos) =>
-                    updateBoardDialogPosition(dialogId, pos)
-                  }
-                  onRename={(newName) => {
-                    updateBoard(boardId, { name: newName });
-                    closeBoardDialog(dialogId);
-                  }}
-                  position={dialog.position}
-                  zIndex={dialog.zIndex}
-                />
-              )}
-
-              {dialog.type === "duplicate" && (
-                <DuplicateBoardDialog
-                  boardId={boardId}
-                  boardName={dialog.boardName}
-                  columnCount={dialog.columnCount ?? 0}
-                  connectionCount={dialog.connectionCount ?? 0}
-                  copyConnections={dialog.copyConnections}
-                  getSourceButtonRect={() => getSourceButtonRect("duplicate")}
-                  newName={dialog.newName}
-                  onClose={() => closeBoardDialog(dialogId)}
-                  onCopyConnectionsChange={(val) =>
-                    updateBoardDialogCopyConnections(dialogId, val)
-                  }
-                  onDuplicate={(newName, options) => {
-                    duplicateBoard(boardId, newName, options);
-                    closeBoardDialog(dialogId);
-                  }}
-                  onNewNameChange={(val) =>
-                    updateBoardDialogNewName(dialogId, val)
-                  }
-                  onPositionChange={(pos) =>
-                    updateBoardDialogPosition(dialogId, pos)
-                  }
-                  position={dialog.position ?? { x: 0, y: 0 }}
-                  quickActionsPosition={boardQuickActions?.position}
-                  taskCount={dialog.taskCount ?? 0}
-                  zIndex={dialog.zIndex}
-                />
-              )}
-
-              {dialog.type === "delete" && (
-                <DeleteBoardDialog
-                  boardId={boardId}
-                  boardName={dialog.boardName}
-                  columnCount={dialog.columnCount ?? 0}
-                  connectionCount={dialog.connectionCount ?? 0}
-                  getSourceButtonRect={() => getSourceButtonRect("delete")}
-                  onClose={() => closeBoardDialog(dialogId)}
-                  onConfirm={() => {
-                    const connections =
-                      useKanbanStore.getState().boardConnections;
-                    const connectionsToRemove = connections.allIds.filter(
-                      (connId) => {
-                        const conn = connections.byId[connId];
-                        return (
-                          conn?.source_board_id === boardId ||
-                          conn?.target_board_id === boardId
-                        );
-                      }
-                    );
-                    for (const connId of connectionsToRemove) {
-                      removeConnection(connId);
-                    }
-                    removeBoard(boardId);
-                    closeBoardDialog(dialogId);
-                  }}
-                  onPositionChange={(pos) =>
-                    updateBoardDialogPosition(dialogId, pos)
-                  }
-                  position={dialog.position ?? { x: 0, y: 0 }}
-                  quickActionsPosition={boardQuickActions?.position}
-                  taskCount={dialog.taskCount ?? 0}
-                  zIndex={dialog.zIndex}
-                />
-              )}
-            </div>
-          );
-        })}
       </>
     );
   }
@@ -897,6 +588,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
+// refactored the dialogs to use portals
+
+import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
+import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
+import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
+import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 
@@ -904,4 +602,9 @@ export const nodeTypes = {
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
+  boardQuickActions: BoardQuickActionsNodeComponent,
+  boardRenameDialog: RenameBoardDialogNodeComponent,
+  boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
+  boardDeleteDialog: DeleteBoardDialogNodeComponent,
+  connectionDialog: ConnectionDialogNodeComponent,
 };

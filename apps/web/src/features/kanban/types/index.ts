@@ -150,6 +150,7 @@ export type TaskDetailModalState = {
   boardId: string;
   position: { x: number; y: number };
   zIndex: number;
+  sourceTaskId: string;
 };
 
 export type BoardDialogType = "rename" | "duplicate" | "delete";
@@ -168,6 +169,11 @@ export type BoardDialogState = {
   taskCount?: number;
   connectionCount?: number;
 };
+
+export type ConnectionDialogState = {
+  boardId: string;
+  position: { x: number; y: number };
+} | null;
 
 export type UIState = {
   showCommandPalette: boolean;

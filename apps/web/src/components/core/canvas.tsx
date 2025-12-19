@@ -112,11 +112,17 @@ type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
+type BoardQuickActionsNode = Node<{ boardId: string }>;
+type BoardDialogNode = Node<{ dialogId: string }>;
+type ConnectionDialogNode = Node<{ boardId: string }>;
 type CanvasNode =
   | KanbanNode
   | TaskModalNode
   | EditBoardModalNode
-  | TaskDetailModalNode;
+  | TaskDetailModalNode
+  | BoardQuickActionsNode
+  | BoardDialogNode
+  | ConnectionDialogNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -152,7 +158,6 @@ export function KanbanCanvas() {
   // Get the full createTaskModals to access position data in useMemo
   // This won't cause re-renders by itself since we use modalIds for the dependency
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
-  // Get task detail modal IDs
   const taskDetailModalIds = useKanbanStore(
     useShallow((state) => Object.keys(state.taskDetailModals))
   );
@@ -167,6 +172,21 @@ export function KanbanCanvas() {
   const boardConnections = useKanbanStore((state) => state.boardConnections);
   const addConnection = useKanbanStore((state) => state.addConnection);
   const removeConnection = useKanbanStore((state) => state.removeConnection);
+  const boardQuickActions = useKanbanStore((state) => state.boardQuickActions);
+  const boardDialogs = useKanbanStore((state) => state.boardDialogs);
+  const boardDialogIds = useKanbanStore(
+    useShallow((state) => Object.keys(state.boardDialogs))
+  );
+  const connectionDialog = useKanbanStore((state) => state.connectionDialog);
+  const updateBoardQuickActionsPosition = useKanbanStore(
+    (state) => state.updateBoardQuickActionsPosition
+  );
+  const updateBoardDialogPosition = useKanbanStore(
+    (state) => state.updateBoardDialogPosition
+  );
+  const updateConnectionDialogPosition = useKanbanStore(
+    (state) => state.updateConnectionDialogPosition
+  );
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
       default: BoardEdgeComponent,
@@ -407,7 +427,68 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskDetailModalNode => node !== null);
 
-    return [...boardNodes, ...modalNodes, ...taskDetailModalNodes];
+    const quickActionsNodes: BoardQuickActionsNode[] = [];
+    if (boardQuickActions) {
+      quickActionsNodes.push({
+        id: `quick-actions-${boardQuickActions.boardId}`,
+        type: "boardQuickActions",
+        position: {
+          x: boardQuickActions.position.x,
+          y: boardQuickActions.position.y,
+        },
+        data: { boardId: boardQuickActions.boardId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      });
+    }
+
+    const dialogNodes: BoardDialogNode[] = boardDialogIds
+      .map((id) => {
+        const dialog = boardDialogs[id];
+        if (!dialog) {
+          return null;
+        }
+        const node: BoardDialogNode = {
+          id: `board-dialog-${dialog.id}`,
+          type:
+            dialog.type === "rename"
+              ? "boardRenameDialog"
+              : // biome-ignore lint/style/noNestedTernary: it's cleaner this way
+                dialog.type === "duplicate"
+                ? "boardDuplicateDialog"
+                : "boardDeleteDialog",
+          position: { x: dialog.position.x, y: dialog.position.y },
+          data: { dialogId: dialog.id },
+          style: { zIndex: 2000 + dialog.zIndex },
+          draggable: true,
+        };
+        return node;
+      })
+      .filter((node): node is BoardDialogNode => node !== null);
+
+    const connectionDialogNodes: ConnectionDialogNode[] = [];
+    if (connectionDialog) {
+      connectionDialogNodes.push({
+        id: `connection-dialog-${connectionDialog.boardId}`,
+        type: "connectionDialog",
+        position: {
+          x: connectionDialog.position.x,
+          y: connectionDialog.position.y,
+        },
+        data: { boardId: connectionDialog.boardId },
+        style: { zIndex: 2100 },
+        draggable: true,
+      });
+    }
+
+    return [
+      ...boardNodes,
+      ...modalNodes,
+      ...taskDetailModalNodes,
+      ...quickActionsNodes,
+      ...dialogNodes,
+      ...connectionDialogNodes,
+    ];
   }, [
     boards,
     boardPositions,
@@ -418,6 +499,10 @@ export function KanbanCanvas() {
     createTaskModals,
     taskDetailModalIds,
     taskDetailModals,
+    boardQuickActions,
+    boardDialogIds,
+    boardDialogs,
+    connectionDialog,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -570,6 +655,13 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("task-detail-modal-")) {
             const modalId = change.id.replace("task-detail-modal-", "");
             updateTaskDetailModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("quick-actions-")) {
+            updateBoardQuickActionsPosition(change.position);
+          } else if (change.id.startsWith("board-dialog-")) {
+            const dialogId = change.id.replace("board-dialog-", "");
+            updateBoardDialogPosition(dialogId, change.position);
+          } else if (change.id.startsWith("connection-dialog-")) {
+            updateConnectionDialogPosition(change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -585,6 +677,9 @@ export function KanbanCanvas() {
       updateBoardDimensions,
       updateModalPosition,
       updateTaskDetailModalPosition,
+      updateBoardQuickActionsPosition,
+      updateBoardDialogPosition,
+      updateConnectionDialogPosition,
     ]
   );
 

@@ -61,6 +61,10 @@ export type KanbanState = {
     position: { x: number; y: number };
   } | null;
   boardDialogs: Record<string, BoardDialogState>;
+  connectionDialog: {
+    boardId: string;
+    position: { x: number; y: number };
+  } | null;
 };
 
 export type KanbanActions = {
@@ -170,6 +174,12 @@ export type KanbanActions = {
   updateBoardDialogInputValue: (id: string, value: string) => void;
   updateBoardDialogNewName: (id: string, value: string) => void;
   updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
+  openConnectionDialog: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeConnectionDialog: () => void;
+  updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
 
   // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;

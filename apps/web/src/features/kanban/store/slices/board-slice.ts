@@ -34,6 +34,9 @@ type SliceCreator = (
   | "updateBoardDialogInputValue"
   | "updateBoardDialogNewName"
   | "updateBoardDialogCopyConnections"
+  | "openConnectionDialog"
+  | "closeConnectionDialog"
+  | "updateConnectionDialogPosition"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -481,6 +484,26 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.boardDialogs[id]) {
         state.boardDialogs[id].copyConnections = value;
+      }
+    }),
+
+  openConnectionDialog: (boardId, position) =>
+    set((state) => {
+      state.connectionDialog = {
+        boardId,
+        position,
+      };
+    }),
+
+  closeConnectionDialog: () =>
+    set((state) => {
+      state.connectionDialog = null;
+    }),
+
+  updateConnectionDialogPosition: (position) =>
+    set((state) => {
+      if (state.connectionDialog) {
+        state.connectionDialog.position = position;
       }
     }),
 });

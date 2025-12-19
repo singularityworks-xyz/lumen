@@ -179,6 +179,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       boardId,
       position: { x: modalX, y: modalY },
       zIndex: maxZIndex + 1,
+      sourceTaskId: taskId,
     };
 
     set((state) => {
