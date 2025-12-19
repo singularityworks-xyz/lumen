@@ -51,6 +51,18 @@ export type Board = {
   column_ids: string[];
 };
 
+export type BoardConnection = {
+  id: string;
+  source_board_id: string;
+  target_board_id: string;
+  label?: string;
+  lineStyle: "solid" | "dotted";
+  sourceHandle: "top" | "right" | "bottom" | "left";
+  targetHandle: "top" | "right" | "bottom" | "left";
+  showArrow: boolean;
+  created_at: string;
+};
+
 export type Workspace = {
   id: string;
   name: string;
@@ -104,6 +116,16 @@ export type CreateTaskModalState = {
   boardId: string;
   columnId: string;
   position: { x: number; y: number };
+  sourcePosition?: { x: number; y: number };
+  sourceRect?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    width: number;
+    height: number;
+  };
+  sourceType?: "board-menu" | "board-header" | "column-menu" | "column-header";
   formData: CreateTaskModalFormData;
   zIndex: number;
 };
@@ -117,6 +139,7 @@ export type EditBoardModalState = {
   id: string;
   boardId: string;
   position: { x: number; y: number };
+  sourcePosition?: { x: number; y: number };
   formData: EditBoardModalFormData;
   zIndex: number;
 };
@@ -127,7 +150,30 @@ export type TaskDetailModalState = {
   boardId: string;
   position: { x: number; y: number };
   zIndex: number;
+  sourceTaskId: string;
 };
+
+export type BoardDialogType = "rename" | "duplicate" | "delete";
+
+export type BoardDialogState = {
+  id: string;
+  type: BoardDialogType;
+  boardId: string;
+  boardName: string;
+  position: { x: number; y: number };
+  zIndex: number;
+  inputValue?: string;
+  newName?: string;
+  copyConnections?: boolean;
+  columnCount?: number;
+  taskCount?: number;
+  connectionCount?: number;
+};
+
+export type ConnectionDialogState = {
+  boardId: string;
+  position: { x: number; y: number };
+} | null;
 
 export type UIState = {
   showCommandPalette: boolean;
@@ -146,6 +192,7 @@ export type PersistedState = {
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
+  boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
 };

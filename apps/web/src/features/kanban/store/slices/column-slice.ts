@@ -178,6 +178,24 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.columnQuickActions) {
         state.columnQuickActions.position = position;
+
+        const columnId = state.columnQuickActions.columnId;
+        for (const modalId of Object.keys(state.createTaskModals)) {
+          const modal = state.createTaskModals[modalId];
+          if (
+            modal?.columnId === columnId &&
+            modal?.sourceType === "column-menu" &&
+            modal?.sourceRect
+          ) {
+            modal.sourceRect = {
+              ...modal.sourceRect,
+              left: position.x,
+              top: position.y + 160,
+              right: position.x + 220,
+              bottom: position.y + 190,
+            };
+          }
+        }
       }
     }),
 

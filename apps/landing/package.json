@@ -6,8 +6,6 @@
   "scripts": {
     "dev": "vite --port 3001",
     "build": "tsc -b && vite build",
-    "lint": "biome lint --write .",
-    "format": "biome format --write .",
     "check": "biome check --write .",
     "check-types": "tsc --noEmit",
     "preview": "vite preview"
@@ -19,7 +17,6 @@
     "@fontsource/playfair": "^5.2.8",
     "@fontsource/space-mono": "^5.2.9",
     "@lumen/logger": "workspace:^",
-    "@lumen/trpc": "workspace:^",
     "@tailwindcss/vite": "^4.1.18",
     "lucide-react": "^0.554.0",
     "motion": "^12.23.26",

@@ -15,12 +15,17 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
   Background,
   BackgroundVariant,
+  type EdgeTypes,
+  MarkerType,
   MiniMap,
   type Node,
+  type OnConnect,
+  type OnEdgesChange,
   type OnMove,
   type OnNodesChange,
   ReactFlow,
   SelectionMode,
+  useEdgesState,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
@@ -46,13 +51,14 @@ import {
 } from "../../features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
 import type { BoardNode } from "../../features/kanban/types";
+import { type BoardEdge, BoardEdgeComponent } from "../core/board-edge";
 import { CustomControls } from "../custom-controls";
 import { WelcomeScreen } from "../dialogs/welcome-screen";
+import { EdgeContextMenu } from "../edge-context-menu";
 import { RightControls } from "../right-controls";
 import { WorkspaceSelector } from "../workspace-selector";
 import { MiniMapNode } from "./minimap-node";
 
-// Context for sharing active column drag state with boards
 type ColumnDragContextType = {
   activeColumnData: {
     columnId: string;
@@ -66,7 +72,6 @@ export const ColumnDragContext = createContext<ColumnDragContextType>({
 
 export const useColumnDragContext = () => useContext(ColumnDragContext);
 
-// Drag overlay component for column - minimal and clean
 function ColumnDragOverlay({
   columnName,
   taskCount,
@@ -107,11 +112,17 @@ type KanbanNode = Node<BoardNode["data"]>;
 type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
+type BoardQuickActionsNode = Node<{ boardId: string }>;
+type BoardDialogNode = Node<{ dialogId: string }>;
+type ConnectionDialogNode = Node<{ boardId: string }>;
 type CanvasNode =
   | KanbanNode
   | TaskModalNode
   | EditBoardModalNode
-  | TaskDetailModalNode;
+  | TaskDetailModalNode
+  | BoardQuickActionsNode
+  | BoardDialogNode
+  | ConnectionDialogNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -147,15 +158,6 @@ export function KanbanCanvas() {
   // Get the full createTaskModals to access position data in useMemo
   // This won't cause re-renders by itself since we use modalIds for the dependency
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
-  // Get edit board modal IDs
-  const editBoardModalIds = useKanbanStore(
-    useShallow((state) => Object.keys(state.editBoardModals))
-  );
-  const editBoardModals = useKanbanStore((state) => state.editBoardModals);
-  const updateEditBoardModalPosition = useKanbanStore(
-    (state) => state.updateEditBoardModalPosition
-  );
-  // Get task detail modal IDs
   const taskDetailModalIds = useKanbanStore(
     useShallow((state) => Object.keys(state.taskDetailModals))
   );
@@ -167,8 +169,31 @@ export function KanbanCanvas() {
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const columns = useKanbanStore((state) => state.columns);
   const showWelcomeScreen = useShowWelcomeScreen();
+  const boardConnections = useKanbanStore((state) => state.boardConnections);
+  const addConnection = useKanbanStore((state) => state.addConnection);
+  const removeConnection = useKanbanStore((state) => state.removeConnection);
+  const boardQuickActions = useKanbanStore((state) => state.boardQuickActions);
+  const boardDialogs = useKanbanStore((state) => state.boardDialogs);
+  const boardDialogIds = useKanbanStore(
+    useShallow((state) => Object.keys(state.boardDialogs))
+  );
+  const connectionDialog = useKanbanStore((state) => state.connectionDialog);
+  const updateBoardQuickActionsPosition = useKanbanStore(
+    (state) => state.updateBoardQuickActionsPosition
+  );
+  const updateBoardDialogPosition = useKanbanStore(
+    (state) => state.updateBoardDialogPosition
+  );
+  const updateConnectionDialogPosition = useKanbanStore(
+    (state) => state.updateConnectionDialogPosition
+  );
+  const edgeTypes: EdgeTypes = useMemo(
+    () => ({
+      default: BoardEdgeComponent,
+    }),
+    []
+  );
 
-  // Cross-board column drag state
   const [activeColumnData, setActiveColumnData] = useState<{
     columnId: string;
     sourceBoardId: string;
@@ -176,7 +201,12 @@ export function KanbanCanvas() {
     taskCount: number;
   } | null>(null);
 
-  // DnD sensors for cross-board column dragging
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{
+    edgeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -227,14 +257,11 @@ export function KanbanCanvas() {
         | { boardId?: string; columnId?: string; type?: string }
         | undefined;
 
-      // Determine target board ID
       let targetBoardId: string | null = null;
 
       if (overData?.type === "column" && overData.boardId) {
-        // Dropped on another column
         targetBoardId = overData.boardId;
       } else if (overData?.type === "board-droppable" && overData.boardId) {
-        // Dropped on a board droppable zone
         targetBoardId = overData.boardId;
       }
 
@@ -244,17 +271,14 @@ export function KanbanCanvas() {
       }
 
       if (sourceBoardId === targetBoardId) {
-        // Same board - reorder columns
         const board = boards.byId[targetBoardId];
         if (board) {
           const columnIds = board.column_ids;
           const oldIndex = columnIds.indexOf(columnId);
           const overId = over.id as string;
 
-          // Find the new index based on what we're dropping over
           let newIndex = columnIds.indexOf(overId);
           if (newIndex === -1) {
-            // If we're dropping over a droppable zone, put at the end
             newIndex = columnIds.length - 1;
           }
 
@@ -263,7 +287,6 @@ export function KanbanCanvas() {
           }
         }
       } else {
-        // Different board - move column to new board
         moveColumnToBoard(sourceBoardId, columnId, targetBoardId);
       }
 
@@ -275,7 +298,6 @@ export function KanbanCanvas() {
   const { setViewport: setReactFlowViewport, fitView } = useReactFlow();
   const prevWorkspaceIdRef = useRef(currentWorkspaceId);
 
-  // Animate viewport when switching workspaces
   useEffect(() => {
     const prevWorkspaceId = prevWorkspaceIdRef.current;
     if (currentWorkspaceId === prevWorkspaceId) {
@@ -283,7 +305,6 @@ export function KanbanCanvas() {
     }
     prevWorkspaceIdRef.current = currentWorkspaceId;
 
-    // Skip animation on initial mount or if no workspace selected
     if (!currentWorkspaceId || prevWorkspaceId === null) {
       return;
     }
@@ -388,24 +409,6 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskModalNode => node !== null);
 
-    const editBoardModalNodes: EditBoardModalNode[] = editBoardModalIds
-      .map((id) => {
-        const modal = editBoardModals[id];
-        if (!modal) {
-          return null;
-        }
-        const node: EditBoardModalNode = {
-          id: `edit-board-modal-${modal.id}`,
-          type: "editBoardModal",
-          position: { x: modal.position.x, y: modal.position.y },
-          data: { modalId: modal.id },
-          style: { zIndex: 1000 + modal.zIndex },
-          draggable: true,
-        };
-        return node;
-      })
-      .filter((node): node is EditBoardModalNode => node !== null);
-
     const taskDetailModalNodes: TaskDetailModalNode[] = taskDetailModalIds
       .map((id) => {
         const modal = taskDetailModals[id];
@@ -424,11 +427,67 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskDetailModalNode => node !== null);
 
+    const quickActionsNodes: BoardQuickActionsNode[] = [];
+    if (boardQuickActions) {
+      quickActionsNodes.push({
+        id: `quick-actions-${boardQuickActions.boardId}`,
+        type: "boardQuickActions",
+        position: {
+          x: boardQuickActions.position.x,
+          y: boardQuickActions.position.y,
+        },
+        data: { boardId: boardQuickActions.boardId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      });
+    }
+
+    const dialogNodes: BoardDialogNode[] = boardDialogIds
+      .map((id) => {
+        const dialog = boardDialogs[id];
+        if (!dialog) {
+          return null;
+        }
+        const node: BoardDialogNode = {
+          id: `board-dialog-${dialog.id}`,
+          type:
+            dialog.type === "rename"
+              ? "boardRenameDialog"
+              : // biome-ignore lint/style/noNestedTernary: it's cleaner this way
+                dialog.type === "duplicate"
+                ? "boardDuplicateDialog"
+                : "boardDeleteDialog",
+          position: { x: dialog.position.x, y: dialog.position.y },
+          data: { dialogId: dialog.id },
+          style: { zIndex: 2000 + dialog.zIndex },
+          draggable: true,
+        };
+        return node;
+      })
+      .filter((node): node is BoardDialogNode => node !== null);
+
+    const connectionDialogNodes: ConnectionDialogNode[] = [];
+    if (connectionDialog) {
+      connectionDialogNodes.push({
+        id: `connection-dialog-${connectionDialog.boardId}`,
+        type: "connectionDialog",
+        position: {
+          x: connectionDialog.position.x,
+          y: connectionDialog.position.y,
+        },
+        data: { boardId: connectionDialog.boardId },
+        style: { zIndex: 2100 },
+        draggable: true,
+      });
+    }
+
     return [
       ...boardNodes,
       ...modalNodes,
-      ...editBoardModalNodes,
       ...taskDetailModalNodes,
+      ...quickActionsNodes,
+      ...dialogNodes,
+      ...connectionDialogNodes,
     ];
   }, [
     boards,
@@ -438,14 +497,62 @@ export function KanbanCanvas() {
     selectedBoardId,
     modalIds,
     createTaskModals,
-    editBoardModalIds,
-    editBoardModals,
     taskDetailModalIds,
     taskDetailModals,
+    boardQuickActions,
+    boardDialogIds,
+    boardDialogs,
+    connectionDialog,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const isUpdatingFromStore = useRef(false);
+  const edges: BoardEdge[] = useMemo(() => {
+    const currentWorkspace = currentWorkspaceId
+      ? workspaces.byId[currentWorkspaceId]
+      : null;
+    const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+
+    return boardConnections.allIds
+      .map((connectionId) => {
+        const connection = boardConnections.byId[connectionId];
+        if (!connection) {
+          return null;
+        }
+
+        const isSourceVisible = boardIds.includes(connection.source_board_id);
+        const isTargetVisible = boardIds.includes(connection.target_board_id);
+        const bothVisible = isSourceVisible && isTargetVisible;
+        if (!bothVisible) {
+          return null;
+        }
+
+        const edge: BoardEdge = {
+          id: connectionId,
+          source: connection.source_board_id,
+          target: connection.target_board_id,
+          sourceHandle: connection.sourceHandle,
+          targetHandle: `${connection.targetHandle}-target`,
+          type: "default",
+          data: {
+            label: connection.label,
+            lineStyle: connection.lineStyle,
+          },
+          markerEnd: connection.showArrow
+            ? {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: "#71717a",
+              }
+            : undefined,
+        };
+        return edge;
+      })
+      .filter((edge): edge is BoardEdge => edge !== null);
+  }, [boardConnections, currentWorkspaceId, workspaces, boards.allIds]);
+
+  const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
 
   const handleToggleMode = useCallback(
     (event: KeyboardEvent) => {
@@ -467,6 +574,21 @@ export function KanbanCanvas() {
       }
     },
     [interactionMode, clearBoardSelection]
+  );
+
+  const handleDeleteKey = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        const selectedEdges = localEdges.filter((edge) => edge.selected);
+        if (selectedEdges.length > 0) {
+          event.preventDefault();
+          for (const edge of selectedEdges) {
+            removeConnection(edge.id);
+          }
+        }
+      }
+    },
+    [localEdges, removeConnection]
   );
 
   const handleUndoRedo = useCallback((event: KeyboardEvent) => {
@@ -507,12 +629,19 @@ export function KanbanCanvas() {
 
       handleToggleMode(event);
       handleEscapeKey(event);
+      handleDeleteKey(event);
       handleUndoRedo(event);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showWelcomeScreen, handleToggleMode, handleEscapeKey, handleUndoRedo]);
+  }, [
+    showWelcomeScreen,
+    handleToggleMode,
+    handleEscapeKey,
+    handleDeleteKey,
+    handleUndoRedo,
+  ]);
 
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
@@ -523,12 +652,16 @@ export function KanbanCanvas() {
           if (change.id.startsWith("modal-")) {
             const modalId = change.id.replace("modal-", "");
             updateModalPosition(modalId, change.position);
-          } else if (change.id.startsWith("edit-board-modal-")) {
-            const modalId = change.id.replace("edit-board-modal-", "");
-            updateEditBoardModalPosition(modalId, change.position);
           } else if (change.id.startsWith("task-detail-modal-")) {
             const modalId = change.id.replace("task-detail-modal-", "");
             updateTaskDetailModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("quick-actions-")) {
+            updateBoardQuickActionsPosition(change.position);
+          } else if (change.id.startsWith("board-dialog-")) {
+            const dialogId = change.id.replace("board-dialog-", "");
+            updateBoardDialogPosition(dialogId, change.position);
+          } else if (change.id.startsWith("connection-dialog-")) {
+            updateConnectionDialogPosition(change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -543,8 +676,10 @@ export function KanbanCanvas() {
       updateBoardPosition,
       updateBoardDimensions,
       updateModalPosition,
-      updateEditBoardModalPosition,
       updateTaskDetailModalPosition,
+      updateBoardQuickActionsPosition,
+      updateBoardDialogPosition,
+      updateConnectionDialogPosition,
     ]
   );
 
@@ -558,10 +693,55 @@ export function KanbanCanvas() {
     [setViewport]
   );
 
+  const handleEdgesChange: OnEdgesChange<BoardEdge> = useCallback(
+    (changes) => {
+      onEdgesChange(changes);
+
+      for (const change of changes) {
+        if (change.type === "remove") {
+          removeConnection(change.id);
+        }
+      }
+    },
+    [onEdgesChange, removeConnection]
+  );
+
+  const handleConnect: OnConnect = useCallback(
+    (connection) => {
+      const { source, target, sourceHandle, targetHandle } = connection;
+
+      if (source && target) {
+        addConnection(source, target, {
+          sourceHandle:
+            (sourceHandle as "top" | "right" | "bottom" | "left") ?? undefined,
+          targetHandle:
+            (targetHandle as "top" | "right" | "bottom" | "left") ?? undefined,
+        });
+      }
+    },
+    [addConnection]
+  );
+
+  const handleEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: BoardEdge) => {
+      event.preventDefault();
+      setEdgeContextMenu({
+        edgeId: edge.id,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     isUpdatingFromStore.current = true;
     setLocalNodes(nodes);
   }, [nodes, setLocalNodes]);
+
+  useEffect(() => {
+    setLocalEdges(edges);
+  }, [edges, setLocalEdges]);
 
   useEffect(() => {
     const handleWheel = (e: Event) => {
@@ -599,6 +779,8 @@ export function KanbanCanvas() {
           <ReactFlow
             className="bg-background"
             defaultViewport={canvas.viewport}
+            edges={localEdges}
+            edgeTypes={edgeTypes}
             elementsSelectable={
               !showWelcomeScreen && interactionMode === "select"
             }
@@ -607,9 +789,14 @@ export function KanbanCanvas() {
             minZoom={0.1}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable={false}
+            nodesConnectable={
+              !showWelcomeScreen && interactionMode === "select"
+            }
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
             nodeTypes={nodeTypes}
+            onConnect={handleConnect}
+            onEdgeContextMenu={handleEdgeContextMenu}
+            onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
             onNodesChange={handleNodesChange}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
@@ -654,6 +841,14 @@ export function KanbanCanvas() {
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />
+          {edgeContextMenu && (
+            <EdgeContextMenu
+              edgeId={edgeContextMenu.edgeId}
+              onClose={() => setEdgeContextMenu(null)}
+              x={edgeContextMenu.x}
+              y={edgeContextMenu.y}
+            />
+          )}
         </div>
       </ColumnDragContext.Provider>
       <DragOverlay dropAnimation={null}>

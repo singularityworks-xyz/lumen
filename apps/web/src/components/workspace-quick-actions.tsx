@@ -102,8 +102,6 @@ export const WorkspaceQuickActions = memo(
     const dragStartRef = useRef({ x: 0, y: 0 });
     const positionStartRef = useRef({ x: 0, y: 0 });
     const dialogRef = useRef<HTMLDivElement>(null);
-
-    // Refs for each action button
     const renameButtonRef = useRef<HTMLButtonElement>(null);
     const resetButtonRef = useRef<HTMLButtonElement>(null);
     const duplicateButtonRef = useRef<HTMLButtonElement>(null);
@@ -176,7 +174,6 @@ export const WorkspaceQuickActions = memo(
       return null;
     }
 
-    // Connection point on the left edge of the dialog, vertically centered on header
     const dialogConnectionX = position.x;
     const dialogConnectionY = position.y + 24;
 
@@ -193,6 +190,12 @@ export const WorkspaceQuickActions = memo(
             "fixed z-9999 flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
+          onWheel={(e) => {
+            // Prevent browser zoom (Ctrl+scroll) when hovering over dialog
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+            }
+          }}
           ref={dialogRef}
           style={{
             left: position.x,
@@ -214,7 +217,6 @@ export const WorkspaceQuickActions = memo(
                 <span className="max-w-20 truncate">{workspaceName}</span>
               </span>
             </div>
-            {/* Close button - same style as kanban board */}
             <button
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
               onClick={onClose}

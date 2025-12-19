@@ -39,6 +39,7 @@ export function createInitialState(): KanbanState {
     columns: { byId: {}, allIds: [] },
     tasks: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
+    boardConnections: { byId: {}, allIds: [] },
     currentWorkspaceId: id,
     canvas: {
       viewport: { x: 0, y: 0, zoom: 1 },
@@ -48,7 +49,6 @@ export function createInitialState(): KanbanState {
     showCommandPalette: false,
     showMiniMap: false,
     createTaskModals: {},
-    editBoardModals: {},
     taskDetailModals: {},
     interactionMode: "drag",
     shakingTaskDetailModalId: null,
@@ -60,5 +60,8 @@ export function createInitialState(): KanbanState {
     workspaceDialog: null,
     columnQuickActions: null,
     columnDialog: null,
+    boardQuickActions: null,
+    boardDialogs: {},
+    connectionDialog: null,
   };
 }

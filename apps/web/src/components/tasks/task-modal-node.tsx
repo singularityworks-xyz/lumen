@@ -1,8 +1,14 @@
 "use client";
 
-import type { Node, NodeProps } from "@xyflow/react";
+import {
+  type Node,
+  type NodeProps,
+  useReactFlow,
+  useViewport,
+} from "@xyflow/react";
 import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ScaledSelect,
   ScaledSelectContent,
@@ -11,6 +17,7 @@ import {
   ScaledSelectValue,
 } from "@/src/components/scaled-dropdown";
 import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
+import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
@@ -34,11 +41,101 @@ const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
   ({ data, selected }) => {
-    const modalFormData = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.formData
-    );
+    const { flowToScreenPosition } = useReactFlow();
+    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    const [mounted, setMounted] = useState(false);
+
     const modalBoardId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.boardId
+    );
+    const sourceRect = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.sourceRect
+    );
+    const sourceType = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.sourceType
+    );
+    const modalPosition = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.position
+    );
+    const boardPosition = useKanbanStore(
+      (state) => state.boardPositions.byId[modalBoardId ?? ""]
+    );
+    const boardQuickActions = useKanbanStore(
+      (state) => state.boardQuickActions
+    );
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    const connectorState = useMemo(() => {
+      // Access viewport values to ensure re-calculation on transform changes
+      // flowToScreenPosition internally uses the current viewport state
+      const _vp = { vpX, vpY, vpZoom };
+
+      if (!modalPosition) {
+        return null;
+      }
+
+      const myScreenPos = flowToScreenPosition({
+        x: modalPosition.x,
+        y: modalPosition.y,
+      });
+
+      if (
+        sourceType === "board-menu" &&
+        boardQuickActions &&
+        boardQuickActions.boardId === modalBoardId
+      ) {
+        const quickActionsWidth = 220;
+        const quickActionsScreenPos = flowToScreenPosition({
+          x: boardQuickActions.position.x + quickActionsWidth,
+          y: boardQuickActions.position.y + 80,
+        });
+        return {
+          start: quickActionsScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
+      }
+
+      if (sourceRect) {
+        return {
+          start: {
+            x: sourceRect.right,
+            y: sourceRect.top + sourceRect.height / 2,
+          },
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
+      }
+
+      if (boardPosition) {
+        const boardWidth = boardPosition.width ?? 300;
+        const boardScreenPos = flowToScreenPosition({
+          x: boardPosition.x + boardWidth,
+          y: boardPosition.y + 20,
+        });
+
+        return {
+          start: boardScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+        };
+      }
+      return null;
+    }, [
+      modalBoardId,
+      modalPosition,
+      sourceType,
+      boardQuickActions,
+      flowToScreenPosition,
+      sourceRect,
+      vpX,
+      vpY,
+      vpZoom,
+      boardPosition,
+    ]);
+
+    const modalFormData = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.formData
     );
     const modalColumnId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.columnId
@@ -158,6 +255,17 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           width: MODAL_WIDTH,
         }}
       >
+        {mounted &&
+          connectorState &&
+          createPortal(
+            <ConnectorEdge
+              endX={connectorState.end.x}
+              endY={connectorState.end.y}
+              startX={connectorState.start.x}
+              startY={connectorState.start.y}
+            />,
+            document.body
+          )}
         <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
@@ -185,7 +293,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
                 ))}
               </ScaledSelectContent>
             </ScaledSelect>
-            {/* <span className="text-muted-foreground text-xs">/</span> */}
             <EllipsisVertical className="size-4 text-muted-foreground" />
             <ScaledSelect
               onValueChange={setSelectedColumnId}

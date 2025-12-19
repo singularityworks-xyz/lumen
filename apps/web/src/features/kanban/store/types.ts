@@ -1,12 +1,13 @@
 import type {
   Board,
+  BoardConnection,
+  BoardDialogState,
+  BoardDialogType,
   BoardPosition,
   CanvasState,
   Column,
   CreateTaskModalFormData,
   CreateTaskModalState,
-  EditBoardModalFormData,
-  EditBoardModalState,
   EntityMap,
   InteractionMode,
   Task,
@@ -21,12 +22,12 @@ export type KanbanState = {
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
+  boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskModals: Record<string, CreateTaskModalState>;
-  editBoardModals: Record<string, EditBoardModalState>;
   taskDetailModals: Record<string, TaskDetailModalState>;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
@@ -53,6 +54,15 @@ export type KanbanState = {
   columnDialog: {
     type: "rename" | "delete" | "move";
     columnId: string;
+    position: { x: number; y: number };
+  } | null;
+  boardQuickActions: {
+    boardId: string;
+    position: { x: number; y: number };
+  } | null;
+  boardDialogs: Record<string, BoardDialogState>;
+  connectionDialog: {
+    boardId: string;
     position: { x: number; y: number };
   } | null;
 };
@@ -133,6 +143,43 @@ export type KanbanActions = {
   getDenormalizedBoard: (
     boardId: string
   ) => import("../types").DenormalizedBoard | null;
+  duplicateBoard: (
+    boardId: string,
+    newName: string,
+    options?: { copyConnections?: boolean }
+  ) => string | null;
+  openBoardQuickActions: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeBoardQuickActions: () => void;
+  updateBoardQuickActionsPosition: (position: { x: number; y: number }) => void;
+  openBoardDialog: (options: {
+    type: BoardDialogType;
+    boardId: string;
+    boardName: string;
+    position?: { x: number; y: number };
+    inputValue?: string;
+    newName?: string;
+    copyConnections?: boolean;
+    columnCount?: number;
+    taskCount?: number;
+    connectionCount?: number;
+  }) => string;
+  closeBoardDialog: (id: string) => void;
+  updateBoardDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateBoardDialogInputValue: (id: string, value: string) => void;
+  updateBoardDialogNewName: (id: string, value: string) => void;
+  updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
+  openConnectionDialog: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeConnectionDialog: () => void;
+  updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
 
   // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;
@@ -169,12 +216,46 @@ export type KanbanActions = {
   bulkDeleteTasks: (taskIds: string[]) => void;
   setDraggedTask: (taskId: string | null) => void;
 
+  // Connection actions
+  addConnection: (
+    sourceBoardId: string,
+    targetBoardId: string,
+    options?: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
+    }
+  ) => string | null;
+  removeConnection: (connectionId: string) => void;
+  updateConnection: (
+    connectionId: string,
+    updates: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
+    }
+  ) => void;
+  updateConnectionLabel: (connectionId: string, label?: string) => void;
+  toggleConnectionLineStyle: (connectionId: string) => void;
+  getConnectionsByBoardId: (boardId: string) => BoardConnection[];
+
   // Modal actions
-  openCreateTaskModal: (
-    columnId: string,
-    boardId: string,
-    position?: { x: number; y: number }
-  ) => { id: string; position: { x: number; y: number }; isExisting: boolean };
+  openCreateTaskModal: (options: {
+    columnId: string;
+    boardId: string;
+    position?: { x: number; y: number };
+    sourcePosition?: { x: number; y: number };
+    sourceRect?: DOMRect;
+    sourceType?:
+      | "board-menu"
+      | "board-header"
+      | "column-menu"
+      | "column-header";
+  }) => { id: string; position: { x: number; y: number }; isExisting: boolean };
   closeCreateTaskModal: (modalId: string) => void;
   updateModalPosition: (
     modalId: string,
@@ -185,24 +266,6 @@ export type KanbanActions = {
     formData: Partial<CreateTaskModalFormData>
   ) => void;
   bringModalToFront: (modalId: string) => void;
-  openEditBoardModal: (
-    boardId: string,
-    position?: { x: number; y: number }
-  ) => {
-    id: string;
-    position: { x: number; y: number };
-    isExisting: boolean;
-  };
-  closeEditBoardModal: (modalId: string) => void;
-  updateEditBoardModalPosition: (
-    modalId: string,
-    position: { x: number; y: number }
-  ) => void;
-  updateEditBoardModalFormData: (
-    modalId: string,
-    formData: Partial<EditBoardModalFormData>
-  ) => void;
-  bringEditBoardModalToFront: (modalId: string) => void;
   openTaskDetailModal: (
     taskId: string,
     boardId: string,

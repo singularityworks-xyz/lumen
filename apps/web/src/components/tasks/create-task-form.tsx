@@ -136,6 +136,33 @@ export const CreateTaskForm = memo(
       if (value.trim()) {
         setTitleError(false);
       }
+      updateModalFormData(modalId, { title: value });
+    };
+
+    const handleDescriptionChange = (value: string) => {
+      setDescription(value);
+      updateModalFormData(modalId, { description: value });
+    };
+
+    const handlePriorityChange = (value: Task["priority"]) => {
+      setPriority(value);
+      updateModalFormData(modalId, { priority: value });
+    };
+
+    const handleProgressChange = (value: number[]) => {
+      const val = value[0] ?? 0;
+      setProgress(val);
+      updateModalFormData(modalId, { progress: val });
+    };
+
+    const handleDueDateChange = (date: Date | undefined) => {
+      setDueDate(date);
+      updateModalFormData(modalId, { dueDate: date?.toISOString() ?? "" });
+    };
+
+    const handleTagsChange = (value: string) => {
+      setTagsInput(value);
+      updateModalFormData(modalId, { tags: value });
     };
 
     return (
@@ -167,7 +194,9 @@ export const CreateTaskForm = memo(
             <div className="space-y-2">
               <Label htmlFor={`task-priority-${modalId}`}>Priority</Label>
               <ScaledSelect
-                onValueChange={(v) => setPriority(v as Task["priority"])}
+                onValueChange={(v) =>
+                  handlePriorityChange(v as Task["priority"])
+                }
                 value={priority}
               >
                 <ScaledSelectTrigger
@@ -219,7 +248,7 @@ export const CreateTaskForm = memo(
                   <Calendar
                     mode="single"
                     onSelect={(date) => {
-                      setDueDate(date);
+                      handleDueDateChange(date);
                       setCalendarOpen(false);
                     }}
                     selected={dueDate}
@@ -270,7 +299,7 @@ export const CreateTaskForm = memo(
                 className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
-                onValueChange={([v]) => setProgress(v ?? 0)}
+                onValueChange={handleProgressChange}
                 step={5}
                 value={[progress]}
               />
@@ -291,7 +320,7 @@ export const CreateTaskForm = memo(
             <Input
               className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
-              onChange={(e) => setTagsInput(e.target.value)}
+              onChange={(e) => handleTagsChange(e.target.value)}
               placeholder="design, research, bug"
               value={tagsInput}
             />
@@ -324,7 +353,7 @@ export const CreateTaskForm = memo(
             <Textarea
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
               placeholder="Add more details about this task..."
               value={description}
             />

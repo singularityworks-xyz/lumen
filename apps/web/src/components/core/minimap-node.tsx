@@ -58,7 +58,6 @@ export const MiniMapNode = memo(
     const boardsById = useKanbanStore((state) => state.boards.byId);
     const tasksById = useKanbanStore((state) => state.tasks.byId);
     const createTaskModals = useKanbanStore((state) => state.createTaskModals);
-    const editBoardModals = useKanbanStore((state) => state.editBoardModals);
     const taskDetailModals = useKanbanStore((state) => state.taskDetailModals);
 
     const handleClick = useCallback(
@@ -101,13 +100,6 @@ export const MiniMapNode = memo(
       if (modal) {
         const board = boardsById[modal.boardId];
         initials = board ? getInitials(board.name).toUpperCase() : "NT";
-        nodeColor = "var(--primary)";
-      }
-    } else if (nodeInfo.type === "editBoardModal") {
-      const modal = editBoardModals[nodeInfo.modalId];
-      if (modal) {
-        const board = boardsById[modal.boardId];
-        initials = board ? getInitials(board.name).toUpperCase() : "EB";
         nodeColor = "var(--primary)";
       }
     } else if (nodeInfo.type === "taskDetailModal") {

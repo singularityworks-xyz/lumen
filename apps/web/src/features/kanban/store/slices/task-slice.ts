@@ -112,16 +112,6 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
         );
         return;
       }
-
-      logger.debug(
-        {
-          id: taskId,
-          from: fromColumnId,
-          to: toColumnId,
-          boardId: targetBoardId,
-        },
-        "Task moved"
-      );
       fromColumn.task_ids = fromColumn.task_ids.filter((id) => id !== taskId);
       task.column_id = toColumnId;
       task.board_id = targetBoardId;

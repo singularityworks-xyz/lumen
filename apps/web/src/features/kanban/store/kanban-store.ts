@@ -6,6 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createBoardSlice } from "./slices/board-slice";
 import { createColumnSlice } from "./slices/column-slice";
+import { createConnectionSlice } from "./slices/connection-slice";
 import { createModalSlice } from "./slices/modal-slice";
 import { createTaskSlice } from "./slices/task-slice";
 import { createUiSlice } from "./slices/ui-slice";
@@ -27,6 +28,7 @@ const storeCreator: StateCreator<
   ...createBoardSlice(set, get),
   ...createColumnSlice(set, get),
   ...createTaskSlice(set, get),
+  ...createConnectionSlice(set, get),
   ...createModalSlice(set, get),
   ...createUiSlice(set, get),
 });
@@ -71,15 +73,17 @@ export const useKanbanStore = create<KanbanStore>()(
           columns: state.columns,
           tasks: state.tasks,
           boardPositions: state.boardPositions,
+          boardConnections: state.boardConnections,
           currentWorkspaceId: state.currentWorkspaceId,
           canvas: state.canvas,
           createTaskModals: state.createTaskModals,
-          editBoardModals: state.editBoardModals,
           taskDetailModals: state.taskDetailModals,
           workspaceQuickActions: state.workspaceQuickActions,
           workspaceDialog: state.workspaceDialog,
           columnQuickActions: state.columnQuickActions,
           columnDialog: state.columnDialog,
+          boardQuickActions: state.boardQuickActions,
+          boardDialogs: state.boardDialogs,
         };
         return persisted;
       },

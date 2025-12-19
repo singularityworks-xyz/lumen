@@ -182,7 +182,7 @@ export default function App() {
 
                 {/* Hero Visual / Dashboard Preview */}
                 <div className="group relative mt-16 w-full md:mt-20">
-                  <div className="-inset-1 absolute rounded-lg bg-linear-to-r from-zinc-800 to-zinc-900 opacity-25 blur transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
+                  <div className="absolute -inset-1 rounded-lg bg-linear-to-r from-zinc-800 to-zinc-900 opacity-25 blur transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
                   <div className="relative w-full overflow-hidden rounded-lg border border-zinc-800 bg-neutral-900 shadow-2xl">
                     {/* Simulated Interface Header */}
                     <div className="absolute top-0 left-0 z-20 flex h-6 w-full items-center gap-1.5 border-zinc-800 border-b bg-neutral-900/90 px-3 md:h-8 md:gap-2 md:px-4">

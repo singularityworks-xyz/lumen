@@ -34,19 +34,16 @@ export const WelcomeScreen = memo(() => {
       .getState()
       .addBoard("New Board", { x: 100, y: 100 }, "New project board");
 
-    // Focus on the newly created board after a short delay for the node to render
     setTimeout(() => {
       const boardPosition =
         useKanbanStore.getState().boardPositions.byId[boardId];
       if (boardPosition) {
-        // Center viewport on the new board with animation
         setCenter(
           boardPosition.x + (boardPosition.width ?? 400) / 2,
           boardPosition.y + (boardPosition.height ?? 300) / 2,
           { zoom: 1, duration: 300 }
         );
       } else {
-        // Fallback to fitView if position not found
         fitView({ padding: 0.3, duration: 300 });
       }
     }, 100);
@@ -148,7 +145,7 @@ export const WelcomeScreen = memo(() => {
             </div>
           </div>
 
-          <div className="-z-10 pointer-events-none absolute inset-0 rounded-3xl bg-linear-to-br from-primary/20 via-transparent to-primary/10 opacity-30 blur-2xl" />
+          <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-linear-to-br from-primary/20 via-transparent to-primary/10 opacity-30 blur-2xl" />
         </div>
       </div>
 

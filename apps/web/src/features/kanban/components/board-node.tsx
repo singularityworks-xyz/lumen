@@ -1,9 +1,15 @@
 "use client";
 
-import type { Node, NodeProps } from "@xyflow/react";
-import { NodeResizer as Resizer, useReactFlow } from "@xyflow/react";
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  NodeResizer as Resizer,
+  useReactFlow,
+} from "@xyflow/react";
 import { GripVertical, Plus, SquarePen, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
@@ -20,22 +26,17 @@ type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
 
 export const BoardNodeComponent = memo<BoardNodeProps>(
   ({ id, data, selected }) => {
-    const removeBoard = useKanbanStore((state) => state.removeBoard);
     const setSelectedBoard = useKanbanStore((state) => state.setSelectedBoard);
     const bringBoardToFront = useKanbanStore(
       (state) => state.bringBoardToFront
     );
-    const openCreateTaskModal = useKanbanStore(
-      (state) => state.openCreateTaskModal
-    );
+
     const interactionMode = useKanbanStore((state) => state.interactionMode);
     const selectedBoardIds = useKanbanStore((state) => state.selectedBoardIds);
     const toggleBoardSelection = useKanbanStore(
       (state) => state.toggleBoardSelection
     );
-    const openEditBoardModal = useKanbanStore(
-      (state) => state.openEditBoardModal
-    );
+
     const openTaskDetailModal = useKanbanStore(
       (state) => state.openTaskDetailModal
     );
@@ -96,10 +97,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.triggerTaskDetailModalShake
     );
 
+    const openCreateTaskModal = useKanbanStore(
+      (state) => state.openCreateTaskModal
+    );
+    const removeBoard = useKanbanStore((state) => state.removeBoard);
+    const openBoardQuickActions = useKanbanStore(
+      (state) => state.openBoardQuickActions
+    );
+    const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
+
+    const headerRef = useRef<HTMLDivElement>(null);
+
     const handleOpenTaskDetail = useCallback(
-      (taskId: string, screenX: number, screenY: number) => {
-        const canvasPosition = screenToFlowPosition({ x: screenX, y: screenY });
-        const result = openTaskDetailModal(taskId, boardId, canvasPosition);
+      (taskId: string, _screenX: number, _screenY: number) => {
+        const result = openTaskDetailModal(taskId, boardId);
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 175, {
             duration: 500,
@@ -110,20 +121,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }, 300);
         }
       },
-      [
-        screenToFlowPosition,
-        openTaskDetailModal,
-        boardId,
-        setCenter,
-        triggerTaskDetailModalShake,
-      ]
+      [openTaskDetailModal, boardId, setCenter, triggerTaskDetailModalShake]
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
-      const columnCount = boardColumns.length;
+      const numColumns = boardColumns.length;
 
       const COLUMN_WIDTH = 300;
       const COLUMN_GAP = 12;
@@ -142,9 +147,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       );
 
       const maxWidth =
-        columnCount * COLUMN_WIDTH +
-        (columnCount > 0 ? columnCount * COLUMN_GAP : 0) +
-        (columnCount > 0 ? COLUMN_GAP : 0) +
+        numColumns * COLUMN_WIDTH +
+        (numColumns > 0 ? numColumns * COLUMN_GAP : 0) +
+        (numColumns > 0 ? COLUMN_GAP : 0) +
         SKELETON_COLUMN_WIDTH +
         BOARD_PADDING * 2;
 
@@ -157,17 +162,17 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         BOARD_PADDING;
 
       const contentWidth =
-        columnCount * COLUMN_WIDTH +
-        (columnCount - 1) * COLUMN_GAP +
+        numColumns * COLUMN_WIDTH +
+        (numColumns - 1) * COLUMN_GAP +
         BOARD_PADDING;
 
       let maxColumnHeight = 0;
       for (const col of boardColumns) {
-        const taskCount = col.tasks?.length ?? 0;
+        const numTasks = col.tasks?.length ?? 0;
         const columnHeight =
           COLUMN_HEADER +
-          (taskCount > 0
-            ? taskCount * TASK_HEIGHT + (taskCount - 1) * TASK_GAP
+          (numTasks > 0
+            ? numTasks * TASK_HEIGHT + (numTasks - 1) * TASK_GAP
             : 160) +
           COLUMN_PADDING;
 
@@ -303,21 +308,33 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleAddTask = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const firstColumn = board?.columns?.[0];
+      if (!board) {
+        return;
+      }
+
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const headerRect = headerRef.current?.getBoundingClientRect();
+      const baseRight = headerRect?.right ?? rect.right;
+      const quickActionsPos = screenToFlowPosition({
+        x: baseRight + 40,
+        y: rect.top - 30,
+      });
+      openBoardQuickActions(boardId, quickActionsPos);
+
+      const firstColumn = board.columns?.[0];
       if (firstColumn) {
-        // Convert button's screen position to canvas coordinates
         const buttonPosition = screenToFlowPosition({
-          x: e.clientX,
-          y: e.clientY,
+          x: baseRight + 260,
+          y: rect.top,
         });
-        const result = openCreateTaskModal(
-          firstColumn.id,
+        const result = openCreateTaskModal({
+          columnId: firstColumn.id,
           boardId,
-          buttonPosition
-        );
-        // If modal already existed, smoothly pan camera to center it
+          position: buttonPosition,
+          sourceRect: rect,
+          sourceType: "board-header",
+        });
         if (result.isExisting) {
-          // Add half modal dimensions to center it (modal is ~400x300)
           setCenter(result.position.x + 200, result.position.y + 150, {
             duration: 500,
             zoom: 1,
@@ -348,20 +365,30 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Convert button's screen position to canvas coordinates
-      const buttonPosition = screenToFlowPosition({
-        x: e.clientX,
-        y: e.clientY,
-      });
-      const result = openEditBoardModal(boardId, buttonPosition);
-      // If modal already existed, smoothly pan camera to center it
-      if (result.isExisting) {
-        // Add half modal dimensions to center it (modal is ~400x250)
-        setCenter(result.position.x + 200, result.position.y + 125, {
-          duration: 500,
-          zoom: 1,
-        });
+      if (!board) {
+        return;
       }
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const headerRect = headerRef.current?.getBoundingClientRect();
+      const baseRight = headerRect?.right ?? rect.right;
+
+      const quickActionsPos = screenToFlowPosition({
+        x: baseRight + 40,
+        y: rect.top - 30,
+      });
+      openBoardQuickActions(boardId, quickActionsPos);
+
+      const dialogPos = screenToFlowPosition({
+        x: baseRight + 260,
+        y: rect.top - 30,
+      });
+      openBoardDialog({
+        type: "rename",
+        boardId,
+        boardName: board.name,
+        inputValue: board.name,
+        position: dialogPos,
+      });
     };
 
     if (!board) {
@@ -407,30 +434,35 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           </div>
         )}
 
-        {/** biome-ignore lint/a11y/useSemanticElements: TODO: fl */}
-        <div
+        <button
           aria-pressed={isSelected || selected || isMultiSelected}
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-              : // biome-ignore lint/style/noNestedTernary: TODO: fix later
+              : // biome-ignore lint/style/noNestedTernary: its cleaner this way
                 isSelected || selected
                 ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
         `}
           onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              // @ts-expect-error: TODO: fix later
-              handleClick();
-            }
-          }}
-          role="button"
-          tabIndex={0}
+          type="button"
         >
-          <div className="group flex cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary">
+          {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
+          {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
+          <div
+            className="group flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const headerRect = headerRef.current?.getBoundingClientRect();
+              const screenX = headerRect ? headerRect.right + 20 : e.clientX;
+              const screenY = headerRect ? headerRect.top : e.clientY;
+              const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
+              openBoardQuickActions(boardId, flowPos);
+            }}
+            ref={headerRef}
+          >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 items-center gap-1">
@@ -490,7 +522,65 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               onOpenTaskDetail={handleOpenTaskDetail}
             />
           </div>
-        </div>
+        </button>
+
+        {/* Connection handles for all four sides */}
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="top"
+          position={Position.Top}
+          style={{ top: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="top-target"
+          position={Position.Top}
+          style={{ top: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="right"
+          position={Position.Right}
+          style={{ right: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="right-target"
+          position={Position.Right}
+          style={{ right: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="bottom"
+          position={Position.Bottom}
+          style={{ bottom: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="bottom-target"
+          position={Position.Bottom}
+          style={{ bottom: -6 }}
+          type="target"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="left"
+          position={Position.Left}
+          style={{ left: -6 }}
+          type="source"
+        />
+        <Handle
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          id="left-target"
+          position={Position.Left}
+          style={{ left: -6 }}
+          type="target"
+        />
       </>
     );
   }
@@ -498,13 +588,23 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
+// refactored the dialogs to use portals
+
+import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
+import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
+import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
+import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
-import { EditBoardModalNodeComponent } from "./edit-board-modal-node";
 
 export const nodeTypes = {
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
-  editBoardModal: EditBoardModalNodeComponent,
+  boardQuickActions: BoardQuickActionsNodeComponent,
+  boardRenameDialog: RenameBoardDialogNodeComponent,
+  boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
+  boardDeleteDialog: DeleteBoardDialogNodeComponent,
+  connectionDialog: ConnectionDialogNodeComponent,
 };
