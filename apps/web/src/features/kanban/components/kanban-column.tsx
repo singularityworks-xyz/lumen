@@ -192,36 +192,6 @@ export const KanbanColumn = memo(
       column.id,
     ]);
 
-    const handleHeaderContextMenu = useCallback(
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const flowPos = calculateQuickActionsPosition();
-        openColumnQuickActions(column.id, boardId, false, flowPos);
-      },
-      [
-        column.id,
-        boardId,
-        openColumnQuickActions,
-        calculateQuickActionsPosition,
-      ]
-    );
-
-    const handleBodyContextMenu = useCallback(
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const flowPos = calculateQuickActionsPosition();
-        openColumnQuickActions(column.id, boardId, true, flowPos);
-      },
-      [
-        column.id,
-        boardId,
-        openColumnQuickActions,
-        calculateQuickActionsPosition,
-      ]
-    );
-
     const DIALOG_WIDTH = 320;
     const DIALOG_HEIGHT = 180;
     const VIEWPORT_PADDING = 100;
@@ -265,6 +235,40 @@ export const KanbanColumn = memo(
         }
       },
       [getViewport, setViewport]
+    );
+
+    const handleHeaderContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const flowPos = calculateQuickActionsPosition();
+        openColumnQuickActions(column.id, boardId, false, flowPos);
+        ensureDialogVisible(flowPos.x, flowPos.y);
+      },
+      [
+        column.id,
+        boardId,
+        openColumnQuickActions,
+        calculateQuickActionsPosition,
+        ensureDialogVisible,
+      ]
+    );
+
+    const handleBodyContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const flowPos = calculateQuickActionsPosition();
+        openColumnQuickActions(column.id, boardId, true, flowPos);
+        ensureDialogVisible(flowPos.x, flowPos.y);
+      },
+      [
+        column.id,
+        boardId,
+        openColumnQuickActions,
+        calculateQuickActionsPosition,
+        ensureDialogVisible,
+      ]
     );
 
     const handleDirectRename = useCallback(() => {
