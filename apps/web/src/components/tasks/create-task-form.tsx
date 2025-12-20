@@ -8,6 +8,7 @@ import { Calendar } from "@/src/components/ui/calendar";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Slider } from "@/src/components/ui/slider";
+import { TagInput } from "@/src/components/ui/tag-input";
 import { Textarea } from "@/src/components/ui/textarea";
 import {
   type Column,
@@ -15,6 +16,7 @@ import {
   type Task,
   useKanbanStore,
 } from "@/src/features/kanban";
+import { useTagSuggestions } from "@/src/features/kanban/hooks/use-tag-suggestions";
 import { cn } from "@/src/lib/utils";
 import {
   ScaledPopover,
@@ -66,7 +68,13 @@ export const CreateTaskForm = memo(
     const [dueDate, setDueDate] = useState<Date | undefined>(
       formData.dueDate ? new Date(formData.dueDate) : undefined
     );
-    const [tagsInput, setTagsInput] = useState(formData.tags);
+    const [tags, setTags] = useState<string[]>(
+      formData.tags
+        ? formData.tags.split(",").filter((t) => t.trim().length > 0)
+        : []
+    );
+
+    const suggestions = useTagSuggestions(boardId, selectedColumnId, tags);
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
@@ -77,8 +85,10 @@ export const CreateTaskForm = memo(
       priority,
       progress,
       dueDate,
-      tagsInput,
+      tags,
     });
+
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     formValuesRef.current = {
       title,
@@ -86,8 +96,15 @@ export const CreateTaskForm = memo(
       priority,
       progress,
       dueDate,
-      tagsInput,
+      tags,
     };
+
+    useEffect(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
+    }, []);
 
     useEffect(
       () => () => {
@@ -98,7 +115,7 @@ export const CreateTaskForm = memo(
           priority: values.priority,
           progress: values.progress,
           dueDate: values.dueDate?.toISOString() ?? "",
-          tags: values.tagsInput,
+          tags: values.tags.join(","),
         });
       },
       [modalId, updateModalFormData]
@@ -114,18 +131,12 @@ export const CreateTaskForm = memo(
         return;
       }
 
-      const tags =
-        tagsInput
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean) || undefined;
-
       addTask(selectedColumnId, boardId, title, {
         description,
         priority,
         progress,
         due_date: dueDate?.toISOString(),
-        tags: tags && tags.length > 0 ? tags : undefined,
+        tags: tags.length > 0 ? tags : undefined,
       });
 
       closeCreateTaskModal(modalId);
@@ -139,9 +150,15 @@ export const CreateTaskForm = memo(
       updateModalFormData(modalId, { title: value });
     };
 
-    const handleDescriptionChange = (value: string) => {
+    const handleDescriptionChange = (
+      e: React.ChangeEvent<HTMLTextAreaElement>
+    ) => {
+      const value = e.target.value;
       setDescription(value);
       updateModalFormData(modalId, { description: value });
+
+      e.target.style.height = "auto";
+      e.target.style.height = `${e.target.scrollHeight}px`;
     };
 
     const handlePriorityChange = (value: Task["priority"]) => {
@@ -160,9 +177,9 @@ export const CreateTaskForm = memo(
       updateModalFormData(modalId, { dueDate: date?.toISOString() ?? "" });
     };
 
-    const handleTagsChange = (value: string) => {
-      setTagsInput(value);
-      updateModalFormData(modalId, { tags: value });
+    const handleTagsChange = (newTags: string[]) => {
+      setTags(newTags);
+      updateModalFormData(modalId, { tags: newTags.join(",") });
     };
 
     return (
@@ -313,33 +330,13 @@ export const CreateTaskForm = memo(
             >
               <Tag className="h-3.5 w-3.5" />
               Tags
-              <span className="font-normal text-muted-foreground text-xs">
-                (comma separated)
-              </span>
             </Label>
-            <Input
-              className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
-              id={`task-tags-${modalId}`}
-              onChange={(e) => handleTagsChange(e.target.value)}
-              placeholder="design, research, bug"
-              value={tagsInput}
+            <TagInput
+              onTagsChange={handleTagsChange}
+              placeholder="Search or create tags..."
+              suggestions={suggestions}
+              tags={tags}
             />
-            {tagsInput && (
-              <div className="flex flex-wrap gap-1">
-                {tagsInput
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter(Boolean)
-                  .map((tag) => (
-                    <span
-                      className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
-                      key={tag}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-              </div>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -353,8 +350,9 @@ export const CreateTaskForm = memo(
             <Textarea
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
-              onChange={(e) => handleDescriptionChange(e.target.value)}
+              onChange={handleDescriptionChange}
               placeholder="Add more details about this task..."
+              ref={textareaRef}
               value={description}
             />
           </div>
