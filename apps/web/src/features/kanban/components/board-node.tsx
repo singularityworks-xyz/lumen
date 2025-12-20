@@ -546,8 +546,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-              : // biome-ignore lint/style/noNestedTernary: its cleaner this way
-                isSelected || selected
+              : isSelected || selected
                 ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
@@ -712,6 +711,7 @@ BoardNodeComponent.displayName = "BoardNode";
 // refactored the dialogs to use portals
 
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
@@ -727,6 +727,7 @@ export const nodeTypes = {
   taskDetailModal: TaskDetailModalNodeComponent,
   boardQuickActions: BoardQuickActionsNodeComponent,
   taskQuickActions: TaskQuickActionsNodeComponent,
+  columnQuickActions: ColumnQuickActionsNodeComponent,
   boardRenameDialog: RenameBoardDialogNodeComponent,
   boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
   boardDeleteDialog: DeleteBoardDialogNodeComponent,

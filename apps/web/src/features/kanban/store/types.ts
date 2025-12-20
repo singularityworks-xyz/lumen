@@ -46,11 +46,15 @@ export type KanbanState = {
     position?: { x: number; y: number };
     inputValue?: string;
   } | null;
-  columnQuickActions: {
-    columnId: string;
-    showAddTask: boolean;
-    position: { x: number; y: number };
-  } | null;
+  columnQuickActions: Record<
+    string,
+    {
+      columnId: string;
+      boardId: string;
+      showAddTask: boolean;
+      position: { x: number; y: number };
+    }
+  >;
   columnDialog: {
     type: "rename" | "delete" | "move";
     columnId: string;
@@ -120,14 +124,15 @@ export type KanbanActions = {
   // Column actions
   openColumnQuickActions: (
     columnId: string,
+    boardId: string,
     showAddTask: boolean,
     position: { x: number; y: number }
   ) => void;
-  closeColumnQuickActions: () => void;
-  updateColumnQuickActionsPosition: (position: {
-    x: number;
-    y: number;
-  }) => void;
+  closeColumnQuickActions: (columnId: string) => void;
+  updateColumnQuickActionsPosition: (
+    columnId: string,
+    position: { x: number; y: number }
+  ) => void;
   openColumnDialog: (options: {
     type: "rename" | "delete" | "move";
     columnId: string;
@@ -255,6 +260,7 @@ export type KanbanActions = {
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
   setDraggedTask: (taskId: string | null) => void;
+  duplicateTask: (taskId: string) => string | null;
 
   // Connection actions
   addConnection: (

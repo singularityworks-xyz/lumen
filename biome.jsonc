@@ -8,6 +8,9 @@
     "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": "off"
+      },
+      "style": {
+        "noNestedTernary": "off"
       }
     }
   }

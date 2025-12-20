@@ -114,6 +114,7 @@ type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
 type BoardQuickActionsNode = Node<{ boardId: string }>;
 type TaskQuickActionsNode = Node<{ taskId: string }>;
+type ColumnQuickActionsNode = Node<{ columnId: string }>;
 type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
 type ColumnDialogNode = Node<{ columnId: string }>;
@@ -124,6 +125,7 @@ type CanvasNode =
   | TaskDetailModalNode
   | BoardQuickActionsNode
   | TaskQuickActionsNode
+  | ColumnQuickActionsNode
   | BoardDialogNode
   | ConnectionDialogNode
   | ColumnDialogNode;
@@ -194,6 +196,12 @@ export function KanbanCanvas() {
   );
   const updateColumnDialogPosition = useKanbanStore(
     (state) => state.updateColumnDialogPosition
+  );
+  const columnQuickActions = useKanbanStore(
+    (state) => state.columnQuickActions
+  );
+  const updateColumnQuickActionsPosition = useKanbanStore(
+    (state) => state.updateColumnQuickActionsPosition
   );
   const taskQuickActions = useKanbanStore((state) => state.taskQuickActions);
   const updateTaskQuickActionsPosition = useKanbanStore(
@@ -468,8 +476,7 @@ export function KanbanCanvas() {
           type:
             dialog.type === "rename"
               ? "boardRenameDialog"
-              : // biome-ignore lint/style/noNestedTernary: it's cleaner this way
-                dialog.type === "duplicate"
+              : dialog.type === "duplicate"
                 ? "boardDuplicateDialog"
                 : "boardDeleteDialog",
           position: { x: dialog.position.x, y: dialog.position.y },
@@ -529,12 +536,31 @@ export function KanbanCanvas() {
         draggable: true,
       }));
 
+    const columnQuickActionsNodes: ColumnQuickActionsNode[] = Object.values(
+      columnQuickActions ?? {}
+    )
+      .filter(
+        (qa): qa is NonNullable<typeof qa> => qa != null && qa.position != null
+      )
+      .map((qa) => ({
+        id: `column-quick-actions-${qa.columnId}`,
+        type: "columnQuickActions" as const,
+        position: {
+          x: qa.position.x,
+          y: qa.position.y,
+        },
+        data: { columnId: qa.columnId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      }));
+
     return [
       ...boardNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
       ...quickActionsNodes,
       ...taskQuickActionsNodes,
+      ...columnQuickActionsNodes,
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
@@ -555,6 +581,7 @@ export function KanbanCanvas() {
     connectionDialog,
     columnDialog,
     taskQuickActions,
+    columnQuickActions,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -710,6 +737,9 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("task-quick-actions-")) {
             const taskId = change.id.replace("task-quick-actions-", "");
             updateTaskQuickActionsPosition(taskId, change.position);
+          } else if (change.id.startsWith("column-quick-actions-")) {
+            const columnId = change.id.replace("column-quick-actions-", "");
+            updateColumnQuickActionsPosition(columnId, change.position);
           } else if (change.id.startsWith("quick-actions-")) {
             const boardId = change.id.replace("quick-actions-", "");
             updateBoardQuickActionsPosition(boardId, change.position);
@@ -737,6 +767,7 @@ export function KanbanCanvas() {
       updateTaskDetailModalPosition,
       updateBoardQuickActionsPosition,
       updateTaskQuickActionsPosition,
+      updateColumnQuickActionsPosition,
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
       updateColumnDialogPosition,

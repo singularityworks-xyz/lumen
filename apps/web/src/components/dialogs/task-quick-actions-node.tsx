@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
@@ -41,6 +41,13 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
       useReactFlow();
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+      const timer = setTimeout(() => setMounted(true), 100);
+      return () => clearTimeout(timer);
+    }, []);
+
     const taskId = data.taskId;
     const task = useKanbanStore((state) => state.tasks.byId[taskId]);
     const closeTaskQuickActions = useKanbanStore(
@@ -51,12 +58,14 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     const openTaskDetailModal = useKanbanStore(
       (state) => state.openTaskDetailModal
     );
+    const duplicateTask = useKanbanStore((state) => state.duplicateTask);
     const taskDetailModals = useKanbanStore((state) => state.taskDetailModals);
 
     const taskQuickActionsState = useKanbanStore(
       (state) => state.taskQuickActions[taskId]
     );
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: TODO: check tis
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
 
@@ -84,7 +93,15 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
         },
         end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
       };
-    }, [taskQuickActionsState, taskId, flowToScreenPosition, vpX, vpY, vpZoom]);
+    }, [
+      taskQuickActionsState,
+      taskId,
+      flowToScreenPosition,
+      vpX,
+      vpY,
+      vpZoom,
+      mounted,
+    ]);
 
     const taskDetailConnectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
@@ -249,9 +266,14 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     }, [task, updateTask, handleClose]);
 
     const handleDuplicate = useCallback(() => {
-      // TODO: Implement task duplication
-      handleClose();
-    }, [handleClose]);
+      if (!task) {
+        return;
+      }
+      const newTaskId = duplicateTask(task.id);
+      if (newTaskId) {
+        handleClose();
+      }
+    }, [task, duplicateTask, handleClose]);
 
     if (!task) {
       return null;
@@ -330,17 +352,27 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
         <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
           <span
             className={cn(
-              "text-[10px]",
+              "flex items-center gap-1 text-[10px]",
               isDone
                 ? "text-green-500"
-                : // biome-ignore lint/style/noNestedTernary: why ?
-                  isTrash
+                : isTrash
                   ? "text-red-500"
                   : "text-muted-foreground"
             )}
           >
-            {/** biome-ignore lint/style/noNestedTernary: better */}
-            {isDone ? "✓ Done" : isTrash ? "🗑 Trash" : "To Do"}
+            {isDone ? (
+              <>
+                <Check className="h-2.5 w-2.5" />
+                Done
+              </>
+            ) : isTrash ? (
+              <>
+                <Trash2 className="h-2.5 w-2.5" />
+                Trash
+              </>
+            ) : (
+              "To Do"
+            )}
           </span>
           <span className="text-[10px] text-muted-foreground">
             {task.priority}
@@ -422,7 +454,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-muted-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
                   onClick={handleDuplicate}
                   type="button"
                 >

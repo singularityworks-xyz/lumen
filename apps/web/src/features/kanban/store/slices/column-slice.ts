@@ -165,22 +165,32 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openColumnQuickActions: (columnId, showAddTask, position) =>
+  openColumnQuickActions: (columnId, boardId, showAddTask, position) =>
     set((state) => {
-      state.columnQuickActions = { columnId, showAddTask, position };
+      if (!state.columnQuickActions) {
+        state.columnQuickActions = {};
+      }
+      state.columnQuickActions[columnId] = {
+        columnId,
+        boardId,
+        showAddTask,
+        position,
+      };
     }),
 
-  closeColumnQuickActions: () =>
-    set((state) => {
-      state.columnQuickActions = null;
-    }),
-
-  updateColumnQuickActionsPosition: (position) =>
+  closeColumnQuickActions: (columnId) =>
     set((state) => {
       if (state.columnQuickActions) {
-        state.columnQuickActions.position = position;
+        delete state.columnQuickActions[columnId];
+      }
+    }),
 
-        const columnId = state.columnQuickActions.columnId;
+  updateColumnQuickActionsPosition: (columnId, position) =>
+    set((state) => {
+      const columnQuickAction = state.columnQuickActions?.[columnId];
+      if (columnQuickAction) {
+        columnQuickAction.position = position;
+
         for (const modalId of Object.keys(state.createTaskModals)) {
           const modal = state.createTaskModals[modalId];
           if (

@@ -343,8 +343,7 @@ export const TaskCard = memo(
             className={`flex flex-1 items-center justify-center rounded-tl transition-all active:scale-95 ${
               task.status === "trash"
                 ? "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
-                : // biome-ignore lint/style/noNestedTernary: better for readability
-                  task.status === "done"
+                : task.status === "done"
                   ? "text-muted-foreground/70 hover:bg-primary hover:text-white"
                   : "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
             }`}
@@ -352,8 +351,7 @@ export const TaskCard = memo(
             title={
               task.status === "trash"
                 ? "Restore task"
-                : // biome-ignore lint/style/noNestedTernary: better for readability
-                  task.status === "done"
+                : task.status === "done"
                   ? "Mark as to do"
                   : "Mark as done"
             }
