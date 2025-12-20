@@ -283,9 +283,11 @@ export const KanbanColumn = memo(
         type: "rename",
         columnId: column.id,
         columnName: column.name,
+        columnDescription: column.description,
         boardId,
         boardName: boards.byId[boardId]?.name ?? "Unknown Board",
         inputValue: column.name,
+        descriptionValue: column.description,
         position: { x: renameDialogX, y: renameDialogY },
       });
 
@@ -293,6 +295,7 @@ export const KanbanColumn = memo(
     }, [
       column.id,
       column.name,
+      column.description,
       boardId,
       boards.byId,
       calculateQuickActionsPosition,
@@ -357,9 +360,14 @@ export const KanbanColumn = memo(
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-card-foreground text-xs">
-                {column.name}
-              </h3>
+              <div className="flex flex-col gap-0.5">
+                <h3 className="font-semibold text-card-foreground text-xs">
+                  {column.name}
+                </h3>
+                <p className="line-clamp-1 text-[10px] text-foreground">
+                  {column.description || `This is ${column.name} column`}
+                </p>
+              </div>
               <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   aria-label="Rename column"
@@ -404,108 +412,120 @@ export const KanbanColumn = memo(
           onDrop={handleDrop}
           ref={columnBodyRef}
         >
-          {todoTasks.length > 0 ||
-          doneTasks.length > 0 ||
-          trashTasks.length > 0 ? (
-            <>
-              {todoTasks.map((task) => (
-                <TaskCard
-                  boardId={boardId}
-                  isSelected={selectedTaskIds.includes(task.id)}
-                  key={task.id}
-                  onDragStart={handleDragStart}
-                  onOpenDetail={onOpenTaskDetail}
-                  task={task}
-                />
-              ))}
+          {todoTasks.map((task) => (
+            <TaskCard
+              boardId={boardId}
+              isSelected={selectedTaskIds.includes(task.id)}
+              key={task.id}
+              onDragStart={handleDragStart}
+              onOpenDetail={onOpenTaskDetail}
+              task={task}
+            />
+          ))}
 
-              {(doneTasks.length > 0 || trashTasks.length > 0) && (
-                <div className="mt-4 space-y-1.5 pt-2">
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="flex items-center justify-center rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                      onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
-                      type="button"
-                    >
-                      {isFinishedExpanded ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3" />
-                      )}
-                    </button>
+          {todoTasks.length === 0 && (
+            <div
+              className={`fade-in zoom-in-95 flex animate-in flex-col items-center justify-center gap-1 p-4 text-center duration-300 ${
+                doneTasks.length > 0 ? "py-6" : "h-full min-h-40"
+              }`}
+            >
+              {doneTasks.length > 0 ? (
+                <p className="font-medium text-muted-foreground/70 text-xs">
+                  Hurray! All done
+                </p>
+              ) : (
+                <>
+                  <p className="font-medium text-muted-foreground/50 text-xs">
+                    No tasks yet
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/40">
+                    Drag or add a new task
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
-                          bottomView === "finished"
-                            ? "text-foreground"
-                            : "text-muted-foreground/60"
-                        }`}
-                        onClick={() => {
-                          setBottomView("finished");
-                          setIsFinishedExpanded(true);
-                        }}
-                        type="button"
-                      >
-                        <Check className="h-2.5 w-2.5" />
-                        <span>Finished</span>
-                        <span className="text-muted-foreground/70">
-                          {doneTasks.length}
-                        </span>
-                      </button>
-                      <span className="text-muted-foreground/30">|</span>
-                      <button
-                        className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
-                          bottomView === "trash"
-                            ? "text-red-500"
-                            : "text-muted-foreground/60"
-                        }`}
-                        onClick={() => {
-                          setBottomView("trash");
-                          setIsFinishedExpanded(true);
-                        }}
-                        type="button"
-                      >
-                        <Trash2 className="h-2.5 w-2.5" />
-                        <span>Trash</span>
-                        <span className="text-muted-foreground/70">
-                          {trashTasks.length}
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* Decorative line extending to the right */}
-                    <div className="relative ml-2 flex-1">
-                      <div className="h-px w-full bg-border/40" />
-                    </div>
-                  </div>
-
-                  {isFinishedExpanded && activeBottomTasks.length > 0 && (
-                    <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
-                      {activeBottomTasks.map((task) => (
-                        <TaskCard
-                          boardId={boardId}
-                          isSelected={selectedTaskIds.includes(task.id)}
-                          key={task.id}
-                          onDragStart={handleDragStart}
-                          onOpenDetail={onOpenTaskDetail}
-                          task={task}
-                        />
-                      ))}
-                    </div>
+          {(doneTasks.length > 0 || trashTasks.length > 0) && (
+            <div className="mt-4 space-y-1.5 pt-2">
+              <div className="flex items-center gap-1">
+                <button
+                  className="flex items-center justify-center rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
+                  type="button"
+                >
+                  {isFinishedExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
                   )}
+                </button>
 
-                  {isFinishedExpanded && activeBottomTasks.length === 0 && (
-                    <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
-                      Empty {bottomView}
-                    </div>
-                  )}
+                <div className="flex items-center gap-2">
+                  <button
+                    className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                      bottomView === "finished"
+                        ? "text-foreground"
+                        : "text-muted-foreground/60"
+                    }`}
+                    onClick={() => {
+                      setBottomView("finished");
+                      setIsFinishedExpanded(true);
+                    }}
+                    type="button"
+                  >
+                    <Check className="h-2.5 w-2.5" />
+                    <span>Finished</span>
+                    <span className="text-muted-foreground/70">
+                      {doneTasks.length}
+                    </span>
+                  </button>
+                  <span className="text-muted-foreground/30">|</span>
+                  <button
+                    className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                      bottomView === "trash"
+                        ? "text-red-500"
+                        : "text-muted-foreground/60"
+                    }`}
+                    onClick={() => {
+                      setBottomView("trash");
+                      setIsFinishedExpanded(true);
+                    }}
+                    type="button"
+                  >
+                    <Trash2 className="h-2.5 w-2.5" />
+                    <span>Trash</span>
+                    <span className="text-muted-foreground/70">
+                      {trashTasks.length}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="relative ml-2 flex-1">
+                  <div className="h-px w-full bg-border/40" />
+                </div>
+              </div>
+
+              {isFinishedExpanded && activeBottomTasks.length > 0 && (
+                <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
+                  {activeBottomTasks.map((task) => (
+                    <TaskCard
+                      boardId={boardId}
+                      isSelected={selectedTaskIds.includes(task.id)}
+                      key={task.id}
+                      onDragStart={handleDragStart}
+                      onOpenDetail={onOpenTaskDetail}
+                      task={task}
+                    />
+                  ))}
                 </div>
               )}
-            </>
-          ) : (
-            <div className="flex h-40 items-center justify-center text-center">
-              <p className="text-muted-foreground/60 text-xs">No tasks yet</p>
+
+              {isFinishedExpanded && activeBottomTasks.length === 0 && (
+                <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
+                  Empty {bottomView}
+                </div>
+              )}
             </div>
           )}
         </section>

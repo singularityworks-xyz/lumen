@@ -22,6 +22,7 @@ type SliceCreator = (
   | "closeColumnDialog"
   | "updateColumnDialogPosition"
   | "updateColumnDialogInputValue"
+  | "updateColumnDialogDescriptionValue"
 >;
 
 export const createColumnSlice: SliceCreator = (set, get) => ({
@@ -216,18 +217,22 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
         type,
         columnId,
         columnName,
+        columnDescription,
         boardId,
         boardName,
         inputValue,
+        descriptionValue,
         position,
       } = options;
       state.columnDialog = {
         type,
         columnId,
         columnName,
+        columnDescription,
         boardId,
         boardName,
         inputValue,
+        descriptionValue,
         position,
       };
     }),
@@ -248,6 +253,13 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.columnDialog) {
         state.columnDialog.inputValue = value;
+      }
+    }),
+
+  updateColumnDialogDescriptionValue: (value) =>
+    set((state) => {
+      if (state.columnDialog) {
+        state.columnDialog.descriptionValue = value;
       }
     }),
 });

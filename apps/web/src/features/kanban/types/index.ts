@@ -38,6 +38,7 @@ export type Column = {
   id: string;
   board_id: string;
   name: string;
+  description?: string;
   position: number;
   task_ids: string[];
 };
@@ -228,6 +229,7 @@ export type DenormalizedColumn = {
   id: string;
   board_id: string;
   name: string;
+  description?: string;
   position: number;
   tasks: Task[];
 };

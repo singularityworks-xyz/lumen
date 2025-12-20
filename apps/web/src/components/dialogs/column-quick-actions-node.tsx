@@ -242,9 +242,11 @@ export const ColumnQuickActionsNodeComponent =
           type: "rename",
           columnId: column.id,
           columnName: column.name,
+          columnDescription: column.description,
           boardId,
           boardName: board?.name ?? "Unknown Board",
           inputValue: column.name,
+          descriptionValue: column.description,
           position: { x: dialogX, y: dialogY },
         });
 

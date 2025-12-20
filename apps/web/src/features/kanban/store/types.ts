@@ -59,9 +59,11 @@ export type KanbanState = {
     type: "rename" | "delete" | "move";
     columnId: string;
     columnName: string;
+    columnDescription?: string;
     boardId: string;
     boardName: string;
     inputValue?: string;
+    descriptionValue?: string;
     position: { x: number; y: number };
   } | null;
   boardQuickActions: Record<
@@ -137,14 +139,17 @@ export type KanbanActions = {
     type: "rename" | "delete" | "move";
     columnId: string;
     columnName: string;
+    columnDescription?: string;
     boardId: string;
     boardName: string;
     inputValue?: string;
+    descriptionValue?: string;
     position: { x: number; y: number };
   }) => void;
   closeColumnDialog: () => void;
   updateColumnDialogPosition: (position: { x: number; y: number }) => void;
   updateColumnDialogInputValue: (value: string) => void;
+  updateColumnDialogDescriptionValue: (value: string) => void;
 
   // Board actions
   addBoard: (
@@ -230,7 +235,7 @@ export type KanbanActions = {
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
     columnId: string,
-    updates: Partial<Pick<Column, "name" | "position">>
+    updates: Partial<Pick<Column, "name" | "position" | "description">>
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   moveColumn: (boardId: string, columnId: string, newPosition: number) => void;

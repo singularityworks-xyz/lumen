@@ -70,9 +70,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             id: column.id,
             board_id: column.board_id,
             name: column.name,
+            description: column.description,
             position: column.position,
             tasks: columnTasks,
-          };
+          } as DenormalizedColumn;
         })
         .filter((col): col is DenormalizedColumn => col !== null)
         .sort((a, b) => a.position - b.position);
@@ -708,7 +709,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
-// refactored the dialogs to use portals
+// refactored the dialogs to not use portals, so they can be used as nodes
 
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
