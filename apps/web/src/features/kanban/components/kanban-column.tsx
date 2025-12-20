@@ -4,8 +4,14 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useReactFlow } from "@xyflow/react";
-import { ArrowUpRight, SquarePen } from "lucide-react";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import {
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColumnQuickActions } from "@/src/components/column-quick-actions";
 import { TaskCard } from "@/src/components/tasks/task-card";
 import { ColumnConflictDialog } from "../../../components/dialogs/column-conflict-dialog";
@@ -24,6 +30,10 @@ export const KanbanColumn = memo(
   ({ column, boardId, onOpenTaskDetail }: KanbanColumnProps) => {
     const [_isHovered, setIsHovered] = useState(false);
     const [_isDragOver, setIsDragOver] = useState(false);
+    const [isFinishedExpanded, setIsFinishedExpanded] = useState(false);
+    const [bottomView, setBottomView] = useState<"finished" | "trash">(
+      "finished"
+    );
 
     const globalQuickActions = useKanbanStore(
       (state) => state.columnQuickActions
@@ -117,7 +127,31 @@ export const KanbanColumn = memo(
     };
 
     const columnTasks = column.tasks;
+    const todoTasks = useMemo(
+      () => columnTasks.filter((t) => t.status !== "done"),
+      [columnTasks]
+    );
+    const doneTasks = useMemo(
+      () => columnTasks.filter((t) => t.status === "done"),
+      [columnTasks]
+    );
+    const trashTasks = useMemo(
+      () => columnTasks.filter((t) => t.status === "trash"),
+      [columnTasks]
+    );
+
+    const activeBottomTasks =
+      bottomView === "finished" ? doneTasks : trashTasks;
     const taskCount = columnTasks.length;
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: it's complicated >~<
+    useEffect(() => {
+      if (activeBottomTasks.length > 2) {
+        setIsFinishedExpanded(false);
+      } else if (activeBottomTasks.length > 0) {
+        setIsFinishedExpanded(true);
+      }
+    }, [activeBottomTasks.length, bottomView]);
 
     const handleDragStart = useCallback(
       (task: Task) => {
@@ -148,7 +182,6 @@ export const KanbanColumn = memo(
       [draggedTask, column.id, boardId, moveTask, setDraggedTask]
     );
 
-    // Get source rect for quick actions connector edge
     const getSourceRect = useCallback(() => {
       if (columnHeaderRef.current) {
         return columnHeaderRef.current.getBoundingClientRect();
@@ -156,7 +189,6 @@ export const KanbanColumn = memo(
       return null;
     }, []);
 
-    // Get source button rect for dialog connector edges
     const getSourceButtonRect = useCallback(() => {
       if (dialogState?.type) {
         const ref = actionButtonRefs.current[dialogState.type];
@@ -578,17 +610,93 @@ export const KanbanColumn = memo(
           onDrop={handleDrop}
           ref={columnBodyRef}
         >
-          {columnTasks.length > 0 ? (
-            columnTasks.map((task) => (
-              <TaskCard
-                boardId={boardId}
-                isSelected={selectedTaskIds.includes(task.id)}
-                key={task.id}
-                onDragStart={handleDragStart}
-                onOpenDetail={onOpenTaskDetail}
-                task={task}
-              />
-            ))
+          {todoTasks.length > 0 ||
+          doneTasks.length > 0 ||
+          trashTasks.length > 0 ? (
+            <>
+              {todoTasks.map((task) => (
+                <TaskCard
+                  boardId={boardId}
+                  isSelected={selectedTaskIds.includes(task.id)}
+                  key={task.id}
+                  onDragStart={handleDragStart}
+                  onOpenDetail={onOpenTaskDetail}
+                  task={task}
+                />
+              ))}
+
+              {(doneTasks.length > 0 || trashTasks.length > 0) && (
+                <div className="mt-4 space-y-1.5 border-border/40 border-t pt-4">
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
+                      type="button"
+                    >
+                      {isFinishedExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+
+                    <div className="flex flex-1 items-center gap-2">
+                      <button
+                        className={`px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                          bottomView === "finished"
+                            ? "text-foreground"
+                            : "text-muted-foreground/50"
+                        }`}
+                        onClick={() => {
+                          setBottomView("finished");
+                          setIsFinishedExpanded(true);
+                        }}
+                        type="button"
+                      >
+                        Finished ({doneTasks.length})
+                      </button>
+                      <div className="h-3 w-px bg-border/40" />
+                      <button
+                        className={`flex items-center gap-1 px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                          bottomView === "trash"
+                            ? "text-red-500"
+                            : "text-muted-foreground/50"
+                        }`}
+                        onClick={() => {
+                          setBottomView("trash");
+                          setIsFinishedExpanded(true);
+                        }}
+                        type="button"
+                      >
+                        <Trash2 className="h-2.5 w-2.5" />
+                        Trash ({trashTasks.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {isFinishedExpanded && activeBottomTasks.length > 0 && (
+                    <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
+                      {activeBottomTasks.map((task) => (
+                        <TaskCard
+                          boardId={boardId}
+                          isSelected={selectedTaskIds.includes(task.id)}
+                          key={task.id}
+                          onDragStart={handleDragStart}
+                          onOpenDetail={onOpenTaskDetail}
+                          task={task}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {isFinishedExpanded && activeBottomTasks.length === 0 && (
+                    <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
+                      Empty {bottomView}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex h-40 items-center justify-center text-center">
               <p className="text-muted-foreground/60 text-xs">No tasks yet</p>

@@ -23,6 +23,7 @@ export type Task = {
   updated_at: string;
   tags?: string[];
   checklists?: Checklist[];
+  status: "todo" | "done" | "trash";
 };
 
 export type Checklist = {

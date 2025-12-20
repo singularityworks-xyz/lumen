@@ -38,6 +38,7 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
       created_at: now,
       updated_at: now,
       tags: options.tags,
+      status: "todo",
     };
 
     set((state) => {
