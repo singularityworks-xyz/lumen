@@ -32,14 +32,10 @@ export const KanbanColumn = memo(
       "finished"
     );
 
-    const globalDialogState = useKanbanStore((state) => state.columnDialog);
-
     const openColumnQuickActions = useKanbanStore(
       (state) => state.openColumnQuickActions
     );
     const openColumnDialog = useKanbanStore((state) => state.openColumnDialog);
-    const isDialogOpen = globalDialogState?.columnId === column.id;
-    const dialogState = isDialogOpen ? globalDialogState : null;
     const columnHeaderRef = useRef<HTMLDivElement>(null);
     const columnBodyRef = useRef<HTMLElement>(null);
     const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
@@ -529,8 +525,6 @@ export const KanbanColumn = memo(
             </div>
           )}
         </section>
-
-        {dialogState?.type === "delete" && null}
       </section>
     );
   }
