@@ -60,8 +60,8 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const boardPosition = useKanbanStore(
       (state) => state.boardPositions.byId[modalBoardId ?? ""]
     );
-    const boardQuickActions = useKanbanStore(
-      (state) => state.boardQuickActions
+    const boardQuickActions = useKanbanStore((state) =>
+      modalBoardId ? state.boardQuickActions[modalBoardId] : null
     );
 
     useEffect(() => {
@@ -69,8 +69,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     }, []);
 
     const connectorState = useMemo(() => {
-      // Access viewport values to ensure re-calculation on transform changes
-      // flowToScreenPosition internally uses the current viewport state
       const _vp = { vpX, vpY, vpZoom };
 
       if (!modalPosition) {
@@ -82,11 +80,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         y: modalPosition.y,
       });
 
-      if (
-        sourceType === "board-menu" &&
-        boardQuickActions &&
-        boardQuickActions.boardId === modalBoardId
-      ) {
+      if (sourceType === "board-menu" && boardQuickActions) {
         const quickActionsWidth = 220;
         const quickActionsScreenPos = flowToScreenPosition({
           x: boardQuickActions.position.x + quickActionsWidth,
@@ -122,7 +116,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       }
       return null;
     }, [
-      modalBoardId,
       modalPosition,
       sourceType,
       boardQuickActions,

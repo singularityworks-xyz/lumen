@@ -84,11 +84,22 @@ export const useKanbanStore = create<KanbanStore>()(
           columnDialog: state.columnDialog,
           boardQuickActions: state.boardQuickActions,
           boardDialogs: state.boardDialogs,
+          connectionDialog: state.connectionDialog,
         };
         return persisted;
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // Migrate boardQuickActions from old null format to new Record format
+          if (
+            state.boardQuickActions === null ||
+            typeof state.boardQuickActions !== "object"
+          ) {
+            setTimeout(() => {
+              useKanbanStore.setState({ boardQuickActions: {} });
+            }, 0);
+          }
+
           const workspaceId = state.currentWorkspaceId;
           if (workspaceId && state.workspaces?.byId[workspaceId]) {
             const workspace = state.workspaces.byId[workspaceId];

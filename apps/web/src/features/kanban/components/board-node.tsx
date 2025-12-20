@@ -88,8 +88,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [boardData, columnsMap, tasksMap]);
 
-    const { getNode, setNodes, setCenter, screenToFlowPosition } =
-      useReactFlow();
+    const {
+      getNode,
+      setNodes,
+      setCenter,
+      screenToFlowPosition,
+      getViewport,
+      setViewport,
+    } = useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
 
@@ -108,6 +114,53 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const headerRef = useRef<HTMLDivElement>(null);
 
+    const VIEWPORT_PADDING = 100;
+    const ensureDialogVisible = useCallback(
+      (
+        dialogX: number,
+        dialogY: number,
+        dialogWidth: number,
+        dialogHeight: number
+      ) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + dialogWidth) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + dialogHeight) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
     const handleOpenTaskDetail = useCallback(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal(taskId, boardId);
@@ -119,9 +172,26 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
+        } else {
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
         }
       },
-      [openTaskDetailModal, boardId, setCenter, triggerTaskDetailModalShake]
+      [
+        openTaskDetailModal,
+        boardId,
+        setCenter,
+        triggerTaskDetailModalShake,
+        ensureDialogVisible,
+      ]
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
@@ -290,7 +360,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       removeBoard(id);
     };
 
-    const handleClick = (e: React.MouseEvent) => {
+    const handleClick = (e: {
+      metaKey: boolean;
+      ctrlKey: boolean;
+      shiftKey?: boolean;
+      stopPropagation: () => void;
+    }) => {
       bringBoardToFront(id);
 
       if (interactionMode === "select") {
@@ -312,6 +387,11 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         return;
       }
 
+      const firstColumn = board.columns?.[0];
+      if (!firstColumn) {
+        return;
+      }
+
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
@@ -321,25 +401,37 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       });
       openBoardQuickActions(boardId, quickActionsPos);
 
-      const firstColumn = board.columns?.[0];
-      if (firstColumn) {
-        const buttonPosition = screenToFlowPosition({
-          x: baseRight + 260,
-          y: rect.top,
+      setTimeout(
+        () =>
+          ensureDialogVisible(quickActionsPos.x, quickActionsPos.y, 220, 280),
+        50
+      );
+
+      const QUICK_ACTIONS_WIDTH = 220;
+      const dialogPosition = {
+        x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
+        y: quickActionsPos.y,
+      };
+
+      const result = openCreateTaskModal({
+        columnId: firstColumn.id,
+        boardId,
+        position: dialogPosition,
+        sourceRect: rect,
+        sourceType: "board-menu",
+      });
+
+      if (result.isExisting) {
+        setCenter(result.position.x + 200, result.position.y + 150, {
+          duration: 500,
+          zoom: 1,
         });
-        const result = openCreateTaskModal({
-          columnId: firstColumn.id,
-          boardId,
-          position: buttonPosition,
-          sourceRect: rect,
-          sourceType: "board-header",
-        });
-        if (result.isExisting) {
-          setCenter(result.position.x + 200, result.position.y + 150, {
-            duration: 500,
-            zoom: 1,
-          });
-        }
+      } else {
+        setTimeout(
+          () =>
+            ensureDialogVisible(dialogPosition.x, dialogPosition.y, 400, 300),
+          100
+        );
       }
     };
 
@@ -371,24 +463,38 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
-
       const quickActionsPos = screenToFlowPosition({
         x: baseRight + 40,
         y: rect.top - 30,
       });
       openBoardQuickActions(boardId, quickActionsPos);
 
-      const dialogPos = screenToFlowPosition({
-        x: baseRight + 260,
-        y: rect.top - 30,
-      });
+      setTimeout(
+        () =>
+          ensureDialogVisible(quickActionsPos.x, quickActionsPos.y, 220, 280),
+        50
+      );
+
+      const QUICK_ACTIONS_WIDTH = 220;
+      const dialogPosition = {
+        x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
+        y: quickActionsPos.y,
+      };
+
       openBoardDialog({
         type: "rename",
         boardId,
         boardName: board.name,
+        boardDescription: board.description,
         inputValue: board.name,
-        position: dialogPos,
+        descriptionValue: board.description,
+        position: dialogPosition,
       });
+
+      setTimeout(
+        () => ensureDialogVisible(dialogPosition.x, dialogPosition.y, 320, 280),
+        100
+      );
     };
 
     if (!board) {
@@ -434,7 +540,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           </div>
         )}
 
-        <button
+        {/** biome-ignore lint/a11y/useSemanticElements: skip */}
+        <div
           aria-pressed={isSelected || selected || isMultiSelected}
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
@@ -446,7 +553,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }
         `}
           onClick={handleClick}
-          type="button"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              handleClick({
+                metaKey: e.metaKey,
+                ctrlKey: e.ctrlKey,
+                shiftKey: e.shiftKey,
+                stopPropagation: () => e.stopPropagation(),
+              });
+            }
+          }}
+          role="button"
+          tabIndex={0}
         >
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
@@ -460,6 +578,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               const screenY = headerRect ? headerRect.top : e.clientY;
               const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
               openBoardQuickActions(boardId, flowPos);
+              setTimeout(
+                () => ensureDialogVisible(flowPos.x, flowPos.y, 220, 280),
+                50
+              );
             }}
             ref={headerRef}
           >
@@ -522,9 +644,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               onOpenTaskDetail={handleOpenTaskDetail}
             />
           </div>
-        </button>
+        </div>
 
-        {/* Connection handles for all four sides */}
         <Handle
           className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
           id="top"
@@ -595,6 +716,7 @@ import { ConnectionDialogNodeComponent } from "../../../components/dialogs/conne
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
 import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
+import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 
@@ -607,4 +729,5 @@ export const nodeTypes = {
   boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
   boardDeleteDialog: DeleteBoardDialogNodeComponent,
   connectionDialog: ConnectionDialogNodeComponent,
+  columnRenameDialog: RenameColumnDialogNodeComponent,
 };

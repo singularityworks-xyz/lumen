@@ -3,14 +3,20 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowUpRight, SquarePen } from "lucide-react";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { useReactFlow } from "@xyflow/react";
+import {
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColumnQuickActions } from "@/src/components/column-quick-actions";
 import { TaskCard } from "@/src/components/tasks/task-card";
 import { ColumnConflictDialog } from "../../../components/dialogs/column-conflict-dialog";
 import { DeleteColumnDialog } from "../../../components/dialogs/delete-column-dialog";
 import { MoveColumnDialog } from "../../../components/dialogs/move-column-dialog";
-import { RenameColumnDialog } from "../../../components/dialogs/rename-column-dialog";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
 
@@ -24,14 +30,16 @@ export const KanbanColumn = memo(
   ({ column, boardId, onOpenTaskDetail }: KanbanColumnProps) => {
     const [_isHovered, setIsHovered] = useState(false);
     const [_isDragOver, setIsDragOver] = useState(false);
+    const [isFinishedExpanded, setIsFinishedExpanded] = useState(false);
+    const [bottomView, setBottomView] = useState<"finished" | "trash">(
+      "finished"
+    );
 
-    // Global state selectors
     const globalQuickActions = useKanbanStore(
       (state) => state.columnQuickActions
     );
     const globalDialogState = useKanbanStore((state) => state.columnDialog);
 
-    // Actions
     const openColumnQuickActions = useKanbanStore(
       (state) => state.openColumnQuickActions
     );
@@ -49,18 +57,13 @@ export const KanbanColumn = memo(
       (state) => state.updateColumnDialogPosition
     );
 
-    // Derived state
     const isQuickActionsOpen = globalQuickActions?.columnId === column.id;
     const isDialogOpen = globalDialogState?.columnId === column.id;
-
     const quickActions = isQuickActionsOpen ? globalQuickActions : null;
     const dialogState = isDialogOpen ? globalDialogState : null;
-
-    // Refs for source elements
     const columnHeaderRef = useRef<HTMLDivElement>(null);
     const columnBodyRef = useRef<HTMLElement>(null);
 
-    // Button refs for dialog connections
     const actionButtonRefs = useRef<{
       rename: HTMLButtonElement | null;
       delete: HTMLButtonElement | null;
@@ -81,9 +84,8 @@ export const KanbanColumn = memo(
       (state) => state.moveColumnToBoard
     );
     const boards = useKanbanStore((state) => state.boards);
+    const boardPositions = useKanbanStore((state) => state.boardPositions);
     const columnsStore = useKanbanStore((state) => state.columns);
-
-    // Get dragged task from store
     const draggedTask = draggedTaskId ? tasksStore.byId[draggedTaskId] : null;
 
     const availableTargetBoards = useMemo(() => {
@@ -125,7 +127,31 @@ export const KanbanColumn = memo(
     };
 
     const columnTasks = column.tasks;
+    const todoTasks = useMemo(
+      () => columnTasks.filter((t) => t.status !== "done"),
+      [columnTasks]
+    );
+    const doneTasks = useMemo(
+      () => columnTasks.filter((t) => t.status === "done"),
+      [columnTasks]
+    );
+    const trashTasks = useMemo(
+      () => columnTasks.filter((t) => t.status === "trash"),
+      [columnTasks]
+    );
+
+    const activeBottomTasks =
+      bottomView === "finished" ? doneTasks : trashTasks;
     const taskCount = columnTasks.length;
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: it's complicated >~<
+    useEffect(() => {
+      if (activeBottomTasks.length > 2) {
+        setIsFinishedExpanded(false);
+      } else if (activeBottomTasks.length > 0) {
+        setIsFinishedExpanded(true);
+      }
+    }, [activeBottomTasks.length, bottomView]);
 
     const handleDragStart = useCallback(
       (task: Task) => {
@@ -156,7 +182,6 @@ export const KanbanColumn = memo(
       [draggedTask, column.id, boardId, moveTask, setDraggedTask]
     );
 
-    // Get source rect for quick actions connector edge
     const getSourceRect = useCallback(() => {
       if (columnHeaderRef.current) {
         return columnHeaderRef.current.getBoundingClientRect();
@@ -164,7 +189,6 @@ export const KanbanColumn = memo(
       return null;
     }, []);
 
-    // Get source button rect for dialog connector edges
     const getSourceButtonRect = useCallback(() => {
       if (dialogState?.type) {
         const ref = actionButtonRefs.current[dialogState.type];
@@ -227,51 +251,89 @@ export const KanbanColumn = memo(
     );
 
     const handleOpenRenameDialog = useCallback(
-      (buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        if (buttonRef.current) {
-          actionButtonRefs.current.rename = buttonRef.current;
-          const rect = buttonRef.current.getBoundingClientRect();
+      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
+        const boardPos = boardPositions.byId[boardId];
+        if (boardPos) {
+          const dialogX = boardPos.x - 320 - 40;
+          const dialogY = boardPos.y + 50;
+
           openColumnDialog({
             type: "rename",
             columnId: column.id,
-            position: { x: rect.right + 40, y: rect.top - 30 },
+            columnName: column.name,
+            boardId,
+            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+            inputValue: column.name,
+            position: { x: dialogX, y: dialogY },
           });
         }
       },
-      [column.id, openColumnDialog]
+      [
+        column.id,
+        column.name,
+        boardId,
+        boards.byId,
+        boardPositions.byId,
+        openColumnDialog,
+      ]
     );
 
     const handleOpenDeleteDialog = useCallback(
-      (buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        if (buttonRef.current) {
-          actionButtonRefs.current.delete = buttonRef.current;
-          const rect = buttonRef.current.getBoundingClientRect();
+      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
+        const boardPos = boardPositions.byId[boardId];
+        if (boardPos) {
+          const dialogX = boardPos.x - 320 - 40;
+          const dialogY = boardPos.y + 50;
+
           openColumnDialog({
             type: "delete",
             columnId: column.id,
-            position: { x: rect.right + 40, y: rect.top - 30 },
+            columnName: column.name,
+            boardId,
+            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+            position: { x: dialogX, y: dialogY },
           });
         }
       },
-      [column.id, openColumnDialog]
+      [
+        column.id,
+        column.name,
+        boardId,
+        boards.byId,
+        boardPositions.byId,
+        openColumnDialog,
+      ]
     );
 
     const handleOpenMoveDialog = useCallback(
-      (buttonRef: React.RefObject<HTMLButtonElement | null>) => {
+      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
         if (availableTargetBoards.length === 0) {
           return;
         }
-        if (buttonRef.current) {
-          actionButtonRefs.current.move = buttonRef.current;
-          const rect = buttonRef.current.getBoundingClientRect();
+        const boardPos = boardPositions.byId[boardId];
+        if (boardPos) {
+          const dialogX = boardPos.x - 320 - 40;
+          const dialogY = boardPos.y + 50;
+
           openColumnDialog({
             type: "move",
             columnId: column.id,
-            position: { x: rect.right + 40, y: rect.top - 30 },
+            columnName: column.name,
+            boardId,
+            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+            position: { x: dialogX, y: dialogY },
           });
         }
       },
-      [availableTargetBoards.length, column.id, openColumnDialog]
+      [
+        availableTargetBoards.length,
+        column.id,
+        column.name,
+        boardId,
+        boards.byId,
+        boardPositions.byId,
+        openColumnDialog,
+      ]
     );
 
     const handleDialogPositionChange = useCallback(
@@ -285,7 +347,6 @@ export const KanbanColumn = memo(
       closeColumnDialog();
     }, [closeColumnDialog]);
 
-    // Move column handlers
     const [targetBoardId, setTargetBoardId] = useState<string | null>(null);
     const [showConflictDialog, setShowConflictDialog] = useState(false);
     const [conflictExistingColumn, setConflictExistingColumn] = useState<{
@@ -373,44 +434,115 @@ export const KanbanColumn = memo(
       closeColumnQuickActions,
     ]);
 
-    const handleRename = useCallback(
-      (newName: string) => {
-        updateColumn(column.id, { name: newName });
-        closeColumnQuickActions();
-      },
-      [column.id, updateColumn, closeColumnQuickActions]
-    );
-
     const handleRemove = useCallback(() => {
       deleteColumn(boardId, column.id);
       closeColumnQuickActions();
     }, [boardId, column.id, deleteColumn, closeColumnQuickActions]);
 
-    // Direct action handlers for column header buttons
+    const DIALOG_WIDTH = 320;
+    const DIALOG_HEIGHT = 180;
+    const VIEWPORT_PADDING = 100;
+    const { getViewport, setViewport } = useReactFlow();
+
+    const ensureDialogVisible = useCallback(
+      (dialogX: number, dialogY: number) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + DIALOG_WIDTH) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + DIALOG_HEIGHT) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
     const handleDirectRename = useCallback(() => {
-      const rect = columnHeaderRef.current?.getBoundingClientRect();
-      if (rect) {
+      const boardPos = boardPositions.byId[boardId];
+      if (boardPos) {
+        const dialogX = boardPos.x - DIALOG_WIDTH - 40;
+        const dialogY = boardPos.y + 50;
+
         openColumnDialog({
           type: "rename",
           columnId: column.id,
-          position: { x: rect.right + 40, y: rect.top - 30 },
+          columnName: column.name,
+          boardId,
+          boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+          inputValue: column.name,
+          position: { x: dialogX, y: dialogY },
         });
+
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY), 50);
       }
-    }, [column.id, openColumnDialog]);
+    }, [
+      column.id,
+      column.name,
+      boardId,
+      boards.byId,
+      boardPositions.byId,
+      openColumnDialog,
+      ensureDialogVisible,
+    ]);
 
     const handleDirectMoveToBoard = useCallback(() => {
       if (availableTargetBoards.length === 0) {
         return;
       }
-      const rect = columnHeaderRef.current?.getBoundingClientRect();
-      if (rect) {
+      const boardPos = boardPositions.byId[boardId];
+      if (boardPos) {
+        const dialogX = boardPos.x - DIALOG_WIDTH - 40;
+        const dialogY = boardPos.y + 50;
+
         openColumnDialog({
           type: "move",
           columnId: column.id,
-          position: { x: rect.right + 40, y: rect.top - 30 },
+          columnName: column.name,
+          boardId,
+          boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+          position: { x: dialogX, y: dialogY },
         });
+
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY), 50);
       }
-    }, [availableTargetBoards.length, column.id, openColumnDialog]);
+    }, [
+      availableTargetBoards.length,
+      column.id,
+      column.name,
+      boardId,
+      boards.byId,
+      boardPositions.byId,
+      openColumnDialog,
+      ensureDialogVisible,
+    ]);
 
     return (
       <section
@@ -478,17 +610,93 @@ export const KanbanColumn = memo(
           onDrop={handleDrop}
           ref={columnBodyRef}
         >
-          {columnTasks.length > 0 ? (
-            columnTasks.map((task) => (
-              <TaskCard
-                boardId={boardId}
-                isSelected={selectedTaskIds.includes(task.id)}
-                key={task.id}
-                onDragStart={handleDragStart}
-                onOpenDetail={onOpenTaskDetail}
-                task={task}
-              />
-            ))
+          {todoTasks.length > 0 ||
+          doneTasks.length > 0 ||
+          trashTasks.length > 0 ? (
+            <>
+              {todoTasks.map((task) => (
+                <TaskCard
+                  boardId={boardId}
+                  isSelected={selectedTaskIds.includes(task.id)}
+                  key={task.id}
+                  onDragStart={handleDragStart}
+                  onOpenDetail={onOpenTaskDetail}
+                  task={task}
+                />
+              ))}
+
+              {(doneTasks.length > 0 || trashTasks.length > 0) && (
+                <div className="mt-4 space-y-1.5 border-border/40 border-t pt-4">
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
+                      type="button"
+                    >
+                      {isFinishedExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+
+                    <div className="flex flex-1 items-center gap-2">
+                      <button
+                        className={`px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                          bottomView === "finished"
+                            ? "text-foreground"
+                            : "text-muted-foreground/50"
+                        }`}
+                        onClick={() => {
+                          setBottomView("finished");
+                          setIsFinishedExpanded(true);
+                        }}
+                        type="button"
+                      >
+                        Finished ({doneTasks.length})
+                      </button>
+                      <div className="h-3 w-px bg-border/40" />
+                      <button
+                        className={`flex items-center gap-1 px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                          bottomView === "trash"
+                            ? "text-red-500"
+                            : "text-muted-foreground/50"
+                        }`}
+                        onClick={() => {
+                          setBottomView("trash");
+                          setIsFinishedExpanded(true);
+                        }}
+                        type="button"
+                      >
+                        <Trash2 className="h-2.5 w-2.5" />
+                        Trash ({trashTasks.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {isFinishedExpanded && activeBottomTasks.length > 0 && (
+                    <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
+                      {activeBottomTasks.map((task) => (
+                        <TaskCard
+                          boardId={boardId}
+                          isSelected={selectedTaskIds.includes(task.id)}
+                          key={task.id}
+                          onDragStart={handleDragStart}
+                          onOpenDetail={onOpenTaskDetail}
+                          task={task}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {isFinishedExpanded && activeBottomTasks.length === 0 && (
+                    <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
+                      Empty {bottomView}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex h-40 items-center justify-center text-center">
               <p className="text-muted-foreground/60 text-xs">No tasks yet</p>
@@ -496,7 +704,6 @@ export const KanbanColumn = memo(
           )}
         </section>
 
-        {/* Column Quick Actions Dialog */}
         {quickActions && (
           <ColumnQuickActions
             boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
@@ -519,22 +726,6 @@ export const KanbanColumn = memo(
           />
         )}
 
-        {/* Rename Column Dialog */}
-        {dialogState?.type === "rename" && (
-          <RenameColumnDialog
-            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
-            columnName={column.name}
-            currentName={column.name}
-            getSourceButtonRect={getSourceButtonRect}
-            onClose={handleCloseDialog}
-            onPositionChange={handleDialogPositionChange}
-            onRename={handleRename}
-            position={dialogState.position}
-            quickActionsPosition={quickActions?.position}
-          />
-        )}
-
-        {/* Delete Column Dialog */}
         {dialogState?.type === "delete" && (
           <DeleteColumnDialog
             boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
@@ -548,7 +739,6 @@ export const KanbanColumn = memo(
           />
         )}
 
-        {/* Move Column Dialog */}
         {dialogState?.type === "move" && (
           <MoveColumnDialog
             boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
@@ -566,7 +756,6 @@ export const KanbanColumn = memo(
           />
         )}
 
-        {/* Column Conflict Dialog */}
         {showConflictDialog && targetBoardId && (
           <ColumnConflictDialog
             boardName={boards.byId[boardId]?.name ?? "Unknown Board"}

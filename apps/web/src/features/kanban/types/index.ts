@@ -23,6 +23,7 @@ export type Task = {
   updated_at: string;
   tags?: string[];
   checklists?: Checklist[];
+  status: "todo" | "done" | "trash";
 };
 
 export type Checklist = {
@@ -160,9 +161,11 @@ export type BoardDialogState = {
   type: BoardDialogType;
   boardId: string;
   boardName: string;
+  boardDescription?: string;
   position: { x: number; y: number };
   zIndex: number;
   inputValue?: string;
+  descriptionValue?: string;
   newName?: string;
   copyConnections?: boolean;
   columnCount?: number;

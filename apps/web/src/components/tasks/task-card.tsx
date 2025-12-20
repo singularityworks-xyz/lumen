@@ -1,7 +1,8 @@
 "use client";
 
-import { Calendar, CheckSquare } from "lucide-react";
-import { memo } from "react";
+import { useReactFlow } from "@xyflow/react";
+import { Calendar, Check, CheckSquare, RotateCcw, Trash2 } from "lucide-react";
+import { memo, useCallback } from "react";
 import { Badge } from "@/src/components/ui/badge";
 import { Checkbox } from "@/src/components/ui/checkbox";
 import { type Task, useKanbanStore } from "@/src/features/kanban";
@@ -22,11 +23,60 @@ export const TaskCard = memo(
     const openTaskDetailModal = useKanbanStore(
       (state) => state.openTaskDetailModal
     );
+    const updateTask = useKanbanStore((state) => state.updateTask);
+    const deleteTask = useKanbanStore((state) => state.deleteTask);
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
+    const { getViewport, setViewport } = useReactFlow();
 
     const showCheckbox = selectedTaskIds.length > 0;
 
-    // Track if we're dragging to differentiate from clicks
+    const VIEWPORT_PADDING = 100;
+    const ensureDialogVisible = useCallback(
+      (
+        dialogX: number,
+        dialogY: number,
+        dialogWidth: number,
+        dialogHeight: number
+      ) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + dialogWidth) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + dialogHeight) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
     const dragStartPos = { current: { x: 0, y: 0 } };
     const isDragging = { current: false };
 
@@ -45,27 +95,55 @@ export const TaskCard = memo(
     };
 
     const handleClick = (e: React.MouseEvent) => {
-      // Calculate distance moved to differentiate drag from click
       const distance = Math.sqrt(
         (e.clientX - dragStartPos.current.x) ** 2 +
           (e.clientY - dragStartPos.current.y) ** 2
       );
 
-      // If we dragged more than 5px or drag was initiated, don't open modal
       if (isDragging.current || distance > 5) {
         return;
       }
 
-      // Don't open modal if in multi-select mode (checkbox mode)
       if (showCheckbox) {
         return;
       }
 
-      // Open task detail modal - use callback if available (for canvas position), otherwise fallback
       if (onOpenDetail) {
         onOpenDetail(task.id, e.clientX, e.clientY);
       } else {
-        openTaskDetailModal(task.id, boardId);
+        const result = openTaskDetailModal(task.id, boardId);
+        if (!result.isExisting) {
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
+        }
+      }
+    };
+
+    const handleStatusToggle = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (task.status === "trash") {
+        updateTask(task.id, { status: "todo" });
+      } else {
+        updateTask(task.id, {
+          status: task.status === "done" ? "todo" : "done",
+        });
+      }
+    };
+
+    const handleDelete = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (task.status === "trash") {
+        deleteTask(task.id);
+      } else {
+        updateTask(task.id, { status: "trash" });
       }
     };
 
@@ -118,7 +196,11 @@ export const TaskCard = memo(
               />
             )}
             <div className="min-w-0 flex-1 space-y-1.5">
-              <h4 className="line-clamp-2 font-medium text-card-foreground text-xs">
+              <h4
+                className={`line-clamp-2 font-medium text-card-foreground text-xs ${
+                  task.status === "done" ? "line-through opacity-60" : ""
+                }`}
+              >
                 {task.title}
               </h4>
 
@@ -194,100 +276,164 @@ export const TaskCard = memo(
     }
 
     return (
-      // biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: refactor later
-      // biome-ignore lint/a11y/noStaticElementInteractions: TODO: refactor later
       <div
-        className={`cursor-pointer rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
+        className={`group relative overflow-hidden rounded border transition-all hover:shadow-md ${
           isSelected
             ? "border-primary shadow-lg"
             : "border-border/40 dark:border-border/70"
-        }`}
+        } ${task.status === "done" ? "bg-muted/30" : "bg-card"}`}
         data-task-id={task.id}
-        draggable
-        onClick={handleClick}
-        onDragStart={handleDragStart}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            if (!showCheckbox) {
-              // For keyboard, use default position (no screen coords available)
-              openTaskDetailModal(task.id, boardId);
-            }
-          }
-        }}
-        onMouseDown={handleMouseDown}
       >
-        <div className="flex items-start gap-1.5">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <h4 className="line-clamp-2 font-medium text-card-foreground text-xs">
-              {task.title}
-            </h4>
-
-            {task.description && (
-              <p className="line-clamp-5 w-full overflow-hidden text-[11px] text-muted-foreground">
-                {task.description}
-              </p>
+        <div className="absolute inset-y-0 left-0 flex w-9 flex-col border-border/40 border-r opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            className={`flex flex-1 items-center justify-center rounded-tl transition-all active:scale-95 ${
+              task.status === "trash"
+                ? "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
+                : // biome-ignore lint/style/noNestedTernary: better for readability
+                  task.status === "done"
+                  ? "text-muted-foreground/70 hover:bg-primary hover:text-white"
+                  : "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
+            }`}
+            onClick={handleStatusToggle}
+            title={
+              task.status === "trash"
+                ? "Restore task"
+                : // biome-ignore lint/style/noNestedTernary: better for readability
+                  task.status === "done"
+                  ? "Mark as to do"
+                  : "Mark as done"
+            }
+            type="button"
+          >
+            {task.status === "trash" || task.status === "done" ? (
+              <RotateCcw className="h-4 w-4" />
+            ) : (
+              <Check className="h-4 w-4" />
             )}
+          </button>
+          <div className="h-px w-full bg-border/40" />
+          <button
+            className="flex flex-1 items-center justify-center rounded-bl text-muted-foreground/70 transition-all hover:bg-red-500 hover:text-white active:scale-95"
+            onClick={handleDelete}
+            title={
+              task.status === "trash" ? "Delete permanently" : "Move to trash"
+            }
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
 
-            {task.progress > 0 && (
-              <div className="space-y-0.5">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium text-card-foreground">
-                    {task.progress}%
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: TODO: i'll check later */}
+        {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: i'll check later */}
+        <div
+          className="relative h-full w-full bg-inherit p-2 transition-transform duration-300 ease-out group-hover:translate-x-9"
+          draggable
+          onClick={handleClick}
+          onDragStart={handleDragStart}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (!showCheckbox) {
+                const result = openTaskDetailModal(task.id, boardId);
+                if (!result.isExisting) {
+                  setTimeout(
+                    () =>
+                      ensureDialogVisible(
+                        result.position.x,
+                        result.position.y,
+                        450,
+                        500
+                      ),
+                    50
+                  );
+                }
+              }
+            }
+          }}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="flex items-start gap-1.5">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <h4
+                className={`line-clamp-2 font-medium text-card-foreground text-xs ${
+                  task.status === "done" ? "line-through opacity-60" : ""
+                } ${task.status === "trash" ? "opacity-40 grayscale" : ""}`}
+              >
+                {task.title}
+                {task.status === "trash" && (
+                  <span className="ml-1.5 inline-flex items-center rounded bg-red-500/10 px-1 py-0.5 font-bold text-[8px] text-red-500 uppercase tracking-wider">
+                    Trash
                   </span>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${task.progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
+                )}
+              </h4>
 
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <Badge
-                  className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
-                  variant="outline"
-                >
-                  {task.priority}
-                </Badge>
+              {task.description && (
+                <p className="line-clamp-5 w-full overflow-hidden text-[11px] text-muted-foreground">
+                  {task.description}
+                </p>
+              )}
 
-                {totalChecklist > 0 && (
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    <CheckSquare className="h-2.5 w-2.5" />
-                    <span>
-                      {completedChecklist}/{totalChecklist}
+              {task.progress > 0 && (
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium text-card-foreground">
+                      {task.progress}%
                     </span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${task.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
+                    variant="outline"
+                  >
+                    {task.priority}
+                  </Badge>
+
+                  {totalChecklist > 0 && (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <CheckSquare className="h-2.5 w-2.5" />
+                      <span>
+                        {completedChecklist}/{totalChecklist}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {task.due_date && (
+                  <div
+                    className={`flex items-center gap-1 text-[9px] ${getDueDateClassName()}`}
+                  >
+                    <Calendar className="h-2.5 w-2.5" />
+                    <span>{new Date(task.due_date).toLocaleDateString()}</span>
                   </div>
                 )}
               </div>
 
-              {task.due_date && (
-                <div
-                  className={`flex items-center gap-1 text-[9px] ${getDueDateClassName()}`}
-                >
-                  <Calendar className="h-2.5 w-2.5" />
-                  <span>{new Date(task.due_date).toLocaleDateString()}</span>
+              {task.tags && task.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {task.tags.map((tag) => (
+                    <Badge
+                      className="h-3.5 bg-secondary/50 px-1.5 py-0 text-[9px]"
+                      key={tag}
+                      variant="secondary"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               )}
             </div>
-
-            {task.tags && task.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {task.tags.map((tag) => (
-                  <Badge
-                    className="h-3.5 bg-secondary/50 px-1.5 py-0 text-[9px]"
-                    key={tag}
-                    variant="secondary"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>

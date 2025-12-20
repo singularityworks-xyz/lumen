@@ -54,12 +54,19 @@ export type KanbanState = {
   columnDialog: {
     type: "rename" | "delete" | "move";
     columnId: string;
-    position: { x: number; y: number };
-  } | null;
-  boardQuickActions: {
+    columnName: string;
     boardId: string;
+    boardName: string;
+    inputValue?: string;
     position: { x: number; y: number };
   } | null;
+  boardQuickActions: Record<
+    string,
+    {
+      boardId: string;
+      position: { x: number; y: number };
+    }
+  >;
   boardDialogs: Record<string, BoardDialogState>;
   connectionDialog: {
     boardId: string;
@@ -115,10 +122,15 @@ export type KanbanActions = {
   openColumnDialog: (options: {
     type: "rename" | "delete" | "move";
     columnId: string;
+    columnName: string;
+    boardId: string;
+    boardName: string;
+    inputValue?: string;
     position: { x: number; y: number };
   }) => void;
   closeColumnDialog: () => void;
   updateColumnDialogPosition: (position: { x: number; y: number }) => void;
+  updateColumnDialogInputValue: (value: string) => void;
 
   // Board actions
   addBoard: (
@@ -152,14 +164,19 @@ export type KanbanActions = {
     boardId: string,
     position: { x: number; y: number }
   ) => void;
-  closeBoardQuickActions: () => void;
-  updateBoardQuickActionsPosition: (position: { x: number; y: number }) => void;
+  closeBoardQuickActions: (boardId: string) => void;
+  updateBoardQuickActionsPosition: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
   openBoardDialog: (options: {
     type: BoardDialogType;
     boardId: string;
     boardName: string;
+    boardDescription?: string;
     position?: { x: number; y: number };
     inputValue?: string;
+    descriptionValue?: string;
     newName?: string;
     copyConnections?: boolean;
     columnCount?: number;
@@ -172,6 +189,7 @@ export type KanbanActions = {
     position: { x: number; y: number }
   ) => void;
   updateBoardDialogInputValue: (id: string, value: string) => void;
+  updateBoardDialogDescriptionValue: (id: string, value: string) => void;
   updateBoardDialogNewName: (id: string, value: string) => void;
   updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
   openConnectionDialog: (
