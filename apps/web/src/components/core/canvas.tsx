@@ -115,6 +115,7 @@ type TaskDetailModalNode = Node<{ modalId: string }>;
 type BoardQuickActionsNode = Node<{ boardId: string }>;
 type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
+type ColumnDialogNode = Node<{ columnId: string }>;
 type CanvasNode =
   | KanbanNode
   | TaskModalNode
@@ -122,7 +123,8 @@ type CanvasNode =
   | TaskDetailModalNode
   | BoardQuickActionsNode
   | BoardDialogNode
-  | ConnectionDialogNode;
+  | ConnectionDialogNode
+  | ColumnDialogNode;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -178,6 +180,7 @@ export function KanbanCanvas() {
     useShallow((state) => Object.keys(state.boardDialogs))
   );
   const connectionDialog = useKanbanStore((state) => state.connectionDialog);
+  const columnDialog = useKanbanStore((state) => state.columnDialog);
   const updateBoardQuickActionsPosition = useKanbanStore(
     (state) => state.updateBoardQuickActionsPosition
   );
@@ -186,6 +189,9 @@ export function KanbanCanvas() {
   );
   const updateConnectionDialogPosition = useKanbanStore(
     (state) => state.updateConnectionDialogPosition
+  );
+  const updateColumnDialogPosition = useKanbanStore(
+    (state) => state.updateColumnDialogPosition
   );
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
@@ -481,6 +487,21 @@ export function KanbanCanvas() {
       });
     }
 
+    const columnDialogNodes: ColumnDialogNode[] = [];
+    if (columnDialog && columnDialog.type === "rename") {
+      columnDialogNodes.push({
+        id: `column-dialog-${columnDialog.columnId}`,
+        type: "columnRenameDialog",
+        position: {
+          x: columnDialog.position.x,
+          y: columnDialog.position.y,
+        },
+        data: { columnId: columnDialog.columnId },
+        style: { zIndex: 2100 },
+        draggable: true,
+      });
+    }
+
     return [
       ...boardNodes,
       ...modalNodes,
@@ -488,6 +509,7 @@ export function KanbanCanvas() {
       ...quickActionsNodes,
       ...dialogNodes,
       ...connectionDialogNodes,
+      ...columnDialogNodes,
     ];
   }, [
     boards,
@@ -503,6 +525,7 @@ export function KanbanCanvas() {
     boardDialogIds,
     boardDialogs,
     connectionDialog,
+    columnDialog,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -662,6 +685,8 @@ export function KanbanCanvas() {
             updateBoardDialogPosition(dialogId, change.position);
           } else if (change.id.startsWith("connection-dialog-")) {
             updateConnectionDialogPosition(change.position);
+          } else if (change.id.startsWith("column-dialog-")) {
+            updateColumnDialogPosition(change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -680,6 +705,7 @@ export function KanbanCanvas() {
       updateBoardQuickActionsPosition,
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
+      updateColumnDialogPosition,
     ]
   );
 

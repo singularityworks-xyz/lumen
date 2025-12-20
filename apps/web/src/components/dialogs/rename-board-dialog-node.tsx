@@ -84,8 +84,21 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
           return;
         }
         const name = dialog.inputValue?.trim();
+        const description = dialog.descriptionValue;
+        const updates: { name?: string; description?: string } = {};
+
         if (name && name !== dialog.boardName) {
-          updateBoard(dialog.boardId, { name });
+          updates.name = name;
+        }
+        if (
+          description !== undefined &&
+          description !== dialog.boardDescription
+        ) {
+          updates.description = description;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updateBoard(dialog.boardId, updates);
         }
         closeBoardDialog(dialogId);
       },
@@ -101,6 +114,17 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
         updateBoardDialogInputValue(dialogId, value);
       },
       [dialogId, updateBoardDialogInputValue]
+    );
+
+    const updateBoardDialogDescriptionValue = useKanbanStore(
+      (state) => state.updateBoardDialogDescriptionValue
+    );
+
+    const handleDescriptionChange = useCallback(
+      (value: string) => {
+        updateBoardDialogDescriptionValue(dialogId, value);
+      },
+      [dialogId, updateBoardDialogDescriptionValue]
     );
 
     if (!dialog || dialog.type !== "rename") {
@@ -162,7 +186,7 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="nodrag p-4">
+          <div className="nodrag space-y-4 p-4">
             <div className="space-y-2">
               <Label
                 className="text-muted-foreground text-xs"
@@ -179,6 +203,24 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
                 onPointerDown={(e) => e.stopPropagation()}
                 placeholder="Board name"
                 value={dialog.inputValue ?? dialog.boardName}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                className="text-muted-foreground text-xs"
+                htmlFor={`board-description-${dialogId}`}
+              >
+                Description
+              </Label>
+              <textarea
+                className="min-h-20 w-full resize-none rounded-lg border border-border/30 bg-muted/80 px-3 py-2 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] focus:outline-none dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                id={`board-description-${dialogId}`}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                placeholder="Add a description for this board..."
+                value={dialog.descriptionValue ?? dialog.boardDescription ?? ""}
               />
             </div>
           </div>

@@ -88,8 +88,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [boardData, columnsMap, tasksMap]);
 
-    const { getNode, setNodes, setCenter, screenToFlowPosition } =
-      useReactFlow();
+    const {
+      getNode,
+      setNodes,
+      setCenter,
+      screenToFlowPosition,
+      getViewport,
+      setViewport,
+    } = useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
 
@@ -108,6 +114,53 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const headerRef = useRef<HTMLDivElement>(null);
 
+    const VIEWPORT_PADDING = 100;
+    const ensureDialogVisible = useCallback(
+      (
+        dialogX: number,
+        dialogY: number,
+        dialogWidth: number,
+        dialogHeight: number
+      ) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + dialogWidth) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + dialogHeight) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
     const handleOpenTaskDetail = useCallback(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal(taskId, boardId);
@@ -119,9 +172,26 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
+        } else {
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
         }
       },
-      [openTaskDetailModal, boardId, setCenter, triggerTaskDetailModalShake]
+      [
+        openTaskDetailModal,
+        boardId,
+        setCenter,
+        triggerTaskDetailModalShake,
+        ensureDialogVisible,
+      ]
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
@@ -325,6 +395,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         y: rect.top - 30,
       });
       openBoardQuickActions(boardId, quickActionsPos);
+
+      setTimeout(
+        () =>
+          ensureDialogVisible(quickActionsPos.x, quickActionsPos.y, 220, 280),
+        50
+      );
+
       const QUICK_ACTIONS_WIDTH = 220;
       const dialogPosition = {
         x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
@@ -344,6 +421,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           duration: 500,
           zoom: 1,
         });
+      } else {
+        setTimeout(
+          () =>
+            ensureDialogVisible(dialogPosition.x, dialogPosition.y, 400, 300),
+          100
+        );
       }
     };
 
@@ -381,6 +464,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       });
       openBoardQuickActions(boardId, quickActionsPos);
 
+      setTimeout(
+        () =>
+          ensureDialogVisible(quickActionsPos.x, quickActionsPos.y, 220, 280),
+        50
+      );
+
       const QUICK_ACTIONS_WIDTH = 220;
       const dialogPosition = {
         x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
@@ -391,9 +480,16 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         type: "rename",
         boardId,
         boardName: board.name,
+        boardDescription: board.description,
         inputValue: board.name,
+        descriptionValue: board.description,
         position: dialogPosition,
       });
+
+      setTimeout(
+        () => ensureDialogVisible(dialogPosition.x, dialogPosition.y, 320, 280),
+        100
+      );
     };
 
     if (!board) {
@@ -472,6 +568,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               const screenY = headerRect ? headerRect.top : e.clientY;
               const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
               openBoardQuickActions(boardId, flowPos);
+              setTimeout(
+                () => ensureDialogVisible(flowPos.x, flowPos.y, 220, 280),
+                50
+              );
             }}
             ref={headerRef}
           >
@@ -606,6 +706,7 @@ import { ConnectionDialogNodeComponent } from "../../../components/dialogs/conne
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
 import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
+import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 
@@ -618,4 +719,5 @@ export const nodeTypes = {
   boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
   boardDeleteDialog: DeleteBoardDialogNodeComponent,
   connectionDialog: ConnectionDialogNodeComponent,
+  columnRenameDialog: RenameColumnDialogNodeComponent,
 };

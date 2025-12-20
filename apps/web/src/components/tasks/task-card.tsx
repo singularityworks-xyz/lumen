@@ -1,7 +1,8 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import { Calendar, CheckSquare } from "lucide-react";
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Badge } from "@/src/components/ui/badge";
 import { Checkbox } from "@/src/components/ui/checkbox";
 import { type Task, useKanbanStore } from "@/src/features/kanban";
@@ -23,10 +24,57 @@ export const TaskCard = memo(
       (state) => state.openTaskDetailModal
     );
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
+    const { getViewport, setViewport } = useReactFlow();
 
     const showCheckbox = selectedTaskIds.length > 0;
 
-    // Track if we're dragging to differentiate from clicks
+    const VIEWPORT_PADDING = 100;
+    const ensureDialogVisible = useCallback(
+      (
+        dialogX: number,
+        dialogY: number,
+        dialogWidth: number,
+        dialogHeight: number
+      ) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + dialogWidth) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + dialogHeight) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
     const dragStartPos = { current: { x: 0, y: 0 } };
     const isDragging = { current: false };
 
@@ -45,27 +93,35 @@ export const TaskCard = memo(
     };
 
     const handleClick = (e: React.MouseEvent) => {
-      // Calculate distance moved to differentiate drag from click
       const distance = Math.sqrt(
         (e.clientX - dragStartPos.current.x) ** 2 +
           (e.clientY - dragStartPos.current.y) ** 2
       );
 
-      // If we dragged more than 5px or drag was initiated, don't open modal
       if (isDragging.current || distance > 5) {
         return;
       }
 
-      // Don't open modal if in multi-select mode (checkbox mode)
       if (showCheckbox) {
         return;
       }
 
-      // Open task detail modal - use callback if available (for canvas position), otherwise fallback
       if (onOpenDetail) {
         onOpenDetail(task.id, e.clientX, e.clientY);
       } else {
-        openTaskDetailModal(task.id, boardId);
+        const result = openTaskDetailModal(task.id, boardId);
+        if (!result.isExisting) {
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
+        }
       }
     };
 
@@ -210,8 +266,19 @@ export const TaskCard = memo(
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             if (!showCheckbox) {
-              // For keyboard, use default position (no screen coords available)
-              openTaskDetailModal(task.id, boardId);
+              const result = openTaskDetailModal(task.id, boardId);
+              if (!result.isExisting) {
+                setTimeout(
+                  () =>
+                    ensureDialogVisible(
+                      result.position.x,
+                      result.position.y,
+                      450,
+                      500
+                    ),
+                  50
+                );
+              }
             }
           }
         }}

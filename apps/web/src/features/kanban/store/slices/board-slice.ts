@@ -32,6 +32,7 @@ type SliceCreator = (
   | "closeBoardDialog"
   | "updateBoardDialogPosition"
   | "updateBoardDialogInputValue"
+  | "updateBoardDialogDescriptionValue"
   | "updateBoardDialogNewName"
   | "updateBoardDialogCopyConnections"
   | "openConnectionDialog"
@@ -477,6 +478,13 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.boardDialogs[id]) {
         state.boardDialogs[id].newName = value;
+      }
+    }),
+
+  updateBoardDialogDescriptionValue: (id, value) =>
+    set((state) => {
+      if (state.boardDialogs[id]) {
+        state.boardDialogs[id].descriptionValue = value;
       }
     }),
 
