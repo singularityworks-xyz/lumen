@@ -60,10 +60,13 @@ export type KanbanState = {
     inputValue?: string;
     position: { x: number; y: number };
   } | null;
-  boardQuickActions: {
-    boardId: string;
-    position: { x: number; y: number };
-  } | null;
+  boardQuickActions: Record<
+    string,
+    {
+      boardId: string;
+      position: { x: number; y: number };
+    }
+  >;
   boardDialogs: Record<string, BoardDialogState>;
   connectionDialog: {
     boardId: string;
@@ -161,8 +164,11 @@ export type KanbanActions = {
     boardId: string,
     position: { x: number; y: number }
   ) => void;
-  closeBoardQuickActions: () => void;
-  updateBoardQuickActionsPosition: (position: { x: number; y: number }) => void;
+  closeBoardQuickActions: (boardId: string) => void;
+  updateBoardQuickActionsPosition: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
   openBoardDialog: (options: {
     type: BoardDialogType;
     boardId: string;

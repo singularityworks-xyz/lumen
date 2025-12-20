@@ -151,16 +151,13 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       (state) => state.boardPositions.byId[boardId]
     );
     const boardQuickActionsState = useKanbanStore(
-      (state) => state.boardQuickActions
+      (state) => state.boardQuickActions[boardId]
     );
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
 
-      if (
-        !(boardPosition && boardQuickActionsState) ||
-        boardQuickActionsState.boardId !== boardId
-      ) {
+      if (!(boardPosition && boardQuickActionsState)) {
         return null;
       }
 
@@ -180,7 +177,6 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
       };
     }, [
-      boardId,
       boardPosition,
       boardQuickActionsState,
       flowToScreenPosition,
@@ -190,8 +186,8 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     ]);
 
     const handleClose = useCallback(() => {
-      closeBoardQuickActions();
-    }, [closeBoardQuickActions]);
+      closeBoardQuickActions(boardId);
+    }, [closeBoardQuickActions, boardId]);
 
     const VIEWPORT_PADDING = 100;
     const ensureDialogVisible = useCallback(

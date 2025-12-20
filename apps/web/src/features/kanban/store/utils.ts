@@ -60,7 +60,7 @@ export function createInitialState(): KanbanState {
     workspaceDialog: null,
     columnQuickActions: null,
     columnDialog: null,
-    boardQuickActions: null,
+    boardQuickActions: {},
     boardDialogs: {},
     connectionDialog: null,
   };

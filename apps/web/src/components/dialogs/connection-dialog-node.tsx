@@ -69,7 +69,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const updateConnection = useKanbanStore((state) => state.updateConnection);
     const boardConnections = useKanbanStore((state) => state.boardConnections);
     const boardQuickActions = useKanbanStore(
-      (state) => state.boardQuickActions
+      (state) => state.boardQuickActions[boardId]
     );
 
     const sourceBoard = boards.byId[boardId];
@@ -104,11 +104,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
 
-      if (
-        !boardQuickActions ||
-        boardQuickActions.boardId !== boardId ||
-        !connectionDialog?.position
-      ) {
+      if (!(boardQuickActions && connectionDialog?.position)) {
         return null;
       }
 
@@ -128,7 +124,6 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
         end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
       };
     }, [
-      boardId,
       connectionDialog?.position,
       boardQuickActions,
       flowToScreenPosition,

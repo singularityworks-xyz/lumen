@@ -13,6 +13,16 @@ import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
+const WORD_SPLIT_REGEX = /\s+/;
+
+const getInitials = (name: string): string =>
+  name
+    .split(WORD_SPLIT_REGEX)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+
 type DuplicateBoardDialogNodeData = {
   dialogId: string;
 };
@@ -39,18 +49,14 @@ export const DuplicateBoardDialogNodeComponent =
     const updateBoardDialogCopyConnections = useKanbanStore(
       (state) => state.updateBoardDialogCopyConnections
     );
-    const boardQuickActions = useKanbanStore(
-      (state) => state.boardQuickActions
+    const boardQuickActions = useKanbanStore((state) =>
+      dialog?.boardId ? state.boardQuickActions[dialog.boardId] : null
     );
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
 
-      if (
-        !boardQuickActions ||
-        boardQuickActions.boardId !== dialog?.boardId ||
-        !dialog.position
-      ) {
+      if (!(boardQuickActions && dialog?.position)) {
         return null;
       }
 
@@ -70,7 +76,6 @@ export const DuplicateBoardDialogNodeComponent =
         end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
       };
     }, [
-      dialog?.boardId,
       dialog?.position,
       boardQuickActions,
       flowToScreenPosition,
@@ -116,11 +121,11 @@ export const DuplicateBoardDialogNodeComponent =
       <div
         aria-labelledby={`dialog-title-${dialogId}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
           selected || isFocused
             ? "shadow-xl ring-2 ring-primary/50"
-            : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
-          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            : "shadow-lg ring-1 ring-border/50",
+          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) {
@@ -142,20 +147,30 @@ export const DuplicateBoardDialogNodeComponent =
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
-            <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-            <Copy className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Duplicate Board</h3>
+            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/20 font-bold text-[10px] text-blue-600 dark:text-blue-400">
+              <Copy className="h-3 w-3" />
+            </span>
+            <span className="font-semibold text-xs">Duplicate Board</span>
           </div>
-          <button
-            aria-label="Close duplicate board dialog"
-            className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-            onClick={handleClose}
-            type="button"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10px] text-primary">
+              <span className="flex h-4 w-4 items-center justify-center rounded bg-primary/20 font-bold text-[9px]">
+                {getInitials(dialog.boardName)}
+              </span>
+              <span className="max-w-20 truncate">{dialog.boardName}</span>
+            </span>
+            <button
+              aria-label="Close duplicate board dialog"
+              className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+              onClick={handleClose}
+              type="button"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
