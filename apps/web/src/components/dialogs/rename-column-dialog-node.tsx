@@ -115,8 +115,16 @@ export const RenameColumnDialogNodeComponent =
         const name = columnDialog.inputValue?.trim();
         const description = columnDialog.descriptionValue?.trim();
 
-        if (name) {
-          updateColumn(columnDialog.columnId, { name, description });
+        const updates: { name?: string; description?: string } = {};
+        if (name !== undefined) {
+          updates.name = name;
+        }
+        if (description !== undefined) {
+          updates.description = description;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updateColumn(columnDialog.columnId, updates);
         }
         closeColumnDialog();
       },
