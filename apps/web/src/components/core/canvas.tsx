@@ -504,18 +504,44 @@ export function KanbanCanvas() {
     }
 
     const columnDialogNodes: ColumnDialogNode[] = [];
-    if (columnDialog && columnDialog.type === "rename") {
-      columnDialogNodes.push({
-        id: `column-dialog-${columnDialog.columnId}`,
-        type: "columnRenameDialog",
-        position: {
-          x: columnDialog.position.x,
-          y: columnDialog.position.y,
-        },
-        data: { columnId: columnDialog.columnId },
-        style: { zIndex: 2100 },
-        draggable: true,
-      });
+    if (columnDialog) {
+      if (columnDialog.type === "rename") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnRenameDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      } else if (columnDialog.type === "delete") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnDeleteDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      } else if (columnDialog.type === "move") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnMoveDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      }
     }
 
     const taskQuickActionsNodes: TaskQuickActionsNode[] = Object.values(

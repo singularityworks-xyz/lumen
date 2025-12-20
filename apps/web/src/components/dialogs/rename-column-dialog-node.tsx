@@ -48,6 +48,9 @@ export const RenameColumnDialogNodeComponent =
     const updateColumnDialogInputValue = useKanbanStore(
       (state) => state.updateColumnDialogInputValue
     );
+    const columnQuickActions = useKanbanStore(
+      (state) => state.columnQuickActions
+    );
     const boardPositions = useKanbanStore((state) => state.boardPositions);
 
     const connectorState = useMemo(() => {
@@ -58,9 +61,21 @@ export const RenameColumnDialogNodeComponent =
       }
 
       const myScreenPos = flowToScreenPosition({
-        x: columnDialog.position.x + DIALOG_WIDTH,
+        x: columnDialog.position.x,
         y: columnDialog.position.y,
       });
+
+      const quickActions = columnQuickActions?.[data.columnId];
+      if (quickActions) {
+        const sourceScreenPos = flowToScreenPosition({
+          x: quickActions.position.x + 200,
+          y: quickActions.position.y + 20,
+        });
+        return {
+          start: sourceScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
+        };
+      }
 
       const boardPos = boardPositions.byId[columnDialog.boardId];
       if (!boardPos) {
@@ -73,12 +88,13 @@ export const RenameColumnDialogNodeComponent =
       });
 
       return {
-        start: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-        end: sourceScreenPos,
+        start: sourceScreenPos,
+        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
       };
     }, [
       columnDialog,
       data.columnId,
+      columnQuickActions,
       boardPositions,
       flowToScreenPosition,
       vpX,

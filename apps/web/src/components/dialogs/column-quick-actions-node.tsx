@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
@@ -89,22 +89,45 @@ export const ColumnQuickActionsNodeComponent =
       return hasColumnDialog || hasTaskModal;
     }, [columnDialog, createTaskModals, columnId]);
 
+    const [sourceElement, setSourceElement] = useState<Element | null>(null);
+
+    useEffect(() => {
+      const idSelector = `#kanban-column-${columnId}`;
+      const find = () => {
+        const el = document.querySelector(idSelector);
+        if (el) {
+          setSourceElement(el);
+          return true;
+        }
+        return false;
+      };
+
+      if (find()) {
+        return;
+      }
+
+      const interval = setInterval(() => {
+        if (find()) {
+          clearInterval(interval);
+        }
+      }, 100);
+
+      const timeout = setTimeout(() => clearInterval(interval), 5000);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }, [columnId]);
+
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
 
-      if (!(boardPosition && columnQuickActionsState)) {
+      if (!(boardPosition && columnQuickActionsState && sourceElement)) {
         return null;
       }
 
-      const columnElement = document.querySelector(
-        `[aria-label="Column: ${column?.name}"]`
-      );
-
-      if (!columnElement) {
-        return null;
-      }
-
-      const columnRect = columnElement.getBoundingClientRect();
+      const columnRect = sourceElement.getBoundingClientRect();
       const myScreenPos = flowToScreenPosition({
         x: columnQuickActionsState.position.x,
         y: columnQuickActionsState.position.y,
@@ -120,7 +143,7 @@ export const ColumnQuickActionsNodeComponent =
     }, [
       boardPosition,
       columnQuickActionsState,
-      column?.name,
+      sourceElement,
       flowToScreenPosition,
       vpX,
       vpY,
@@ -256,7 +279,7 @@ export const ColumnQuickActionsNodeComponent =
           position: { x: dialogX, y: dialogY },
         });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 280), 50);
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 300), 50);
       }
     }, [
       column,
@@ -288,7 +311,7 @@ export const ColumnQuickActionsNodeComponent =
           position: { x: dialogX, y: dialogY },
         });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 380, 220), 50);
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 180), 50);
       }
     }, [
       column,

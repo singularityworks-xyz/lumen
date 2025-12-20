@@ -714,7 +714,9 @@ import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/boar
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
+import { DeleteColumnDialogNodeComponent } from "../../../components/dialogs/delete-column-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
+import { MoveColumnDialogNodeComponent } from "../../../components/dialogs/move-column-dialog-node";
 import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
 import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
 import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
@@ -733,4 +735,6 @@ export const nodeTypes = {
   boardDeleteDialog: DeleteBoardDialogNodeComponent,
   connectionDialog: ConnectionDialogNodeComponent,
   columnRenameDialog: RenameColumnDialogNodeComponent,
+  columnDeleteDialog: DeleteColumnDialogNodeComponent,
+  columnMoveDialog: MoveColumnDialogNodeComponent,
 };
