@@ -13,6 +13,7 @@ import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
+import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
@@ -48,6 +49,12 @@ export const RenameColumnDialogNodeComponent =
     const updateColumnDialogInputValue = useKanbanStore(
       (state) => state.updateColumnDialogInputValue
     );
+    const updateColumnDialogDescriptionValue = useKanbanStore(
+      (state) => state.updateColumnDialogDescriptionValue
+    );
+    const columnQuickActions = useKanbanStore(
+      (state) => state.columnQuickActions
+    );
     const boardPositions = useKanbanStore((state) => state.boardPositions);
 
     const connectorState = useMemo(() => {
@@ -58,9 +65,21 @@ export const RenameColumnDialogNodeComponent =
       }
 
       const myScreenPos = flowToScreenPosition({
-        x: columnDialog.position.x + DIALOG_WIDTH,
+        x: columnDialog.position.x,
         y: columnDialog.position.y,
       });
+
+      const quickActions = columnQuickActions?.[data.columnId];
+      if (quickActions) {
+        const sourceScreenPos = flowToScreenPosition({
+          x: quickActions.position.x + 200,
+          y: quickActions.position.y + 20,
+        });
+        return {
+          start: sourceScreenPos,
+          end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
+        };
+      }
 
       const boardPos = boardPositions.byId[columnDialog.boardId];
       if (!boardPos) {
@@ -73,12 +92,13 @@ export const RenameColumnDialogNodeComponent =
       });
 
       return {
-        start: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-        end: sourceScreenPos,
+        start: sourceScreenPos,
+        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
       };
     }, [
       columnDialog,
       data.columnId,
+      columnQuickActions,
       boardPositions,
       flowToScreenPosition,
       vpX,
@@ -93,8 +113,18 @@ export const RenameColumnDialogNodeComponent =
           return;
         }
         const name = columnDialog.inputValue?.trim();
-        if (name && name !== columnDialog.columnName) {
-          updateColumn(columnDialog.columnId, { name });
+        const description = columnDialog.descriptionValue?.trim();
+
+        const updates: { name?: string; description?: string } = {};
+        if (name !== undefined) {
+          updates.name = name;
+        }
+        if (description !== undefined) {
+          updates.description = description;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updateColumn(columnDialog.columnId, updates);
         }
         closeColumnDialog();
       },
@@ -110,6 +140,13 @@ export const RenameColumnDialogNodeComponent =
         updateColumnDialogInputValue(value);
       },
       [updateColumnDialogInputValue]
+    );
+
+    const handleDescriptionChange = useCallback(
+      (value: string) => {
+        updateColumnDialogDescriptionValue(value);
+      },
+      [updateColumnDialogDescriptionValue]
     );
 
     if (
@@ -206,6 +243,26 @@ export const RenameColumnDialogNodeComponent =
               onPointerDown={(e) => e.stopPropagation()}
               placeholder="New column name"
               value={columnDialog.inputValue ?? columnDialog.columnName}
+            />
+
+            <Label
+              className="sr-only"
+              htmlFor={`column-description-${columnDialog.columnId}`}
+            >
+              Description (optional)
+            </Label>
+            <Textarea
+              className="min-h-15 resize-none rounded-md border border-border/30 bg-muted/80 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+              id={`column-description-${columnDialog.columnId}`}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              placeholder="Description (optional)"
+              value={
+                columnDialog.descriptionValue ??
+                columnDialog.columnDescription ??
+                ""
+              }
             />
           </div>
 

@@ -113,6 +113,8 @@ type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
 type BoardQuickActionsNode = Node<{ boardId: string }>;
+type TaskQuickActionsNode = Node<{ taskId: string }>;
+type ColumnQuickActionsNode = Node<{ columnId: string }>;
 type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
 type ColumnDialogNode = Node<{ columnId: string }>;
@@ -122,6 +124,8 @@ type CanvasNode =
   | EditBoardModalNode
   | TaskDetailModalNode
   | BoardQuickActionsNode
+  | TaskQuickActionsNode
+  | ColumnQuickActionsNode
   | BoardDialogNode
   | ConnectionDialogNode
   | ColumnDialogNode;
@@ -192,6 +196,16 @@ export function KanbanCanvas() {
   );
   const updateColumnDialogPosition = useKanbanStore(
     (state) => state.updateColumnDialogPosition
+  );
+  const columnQuickActions = useKanbanStore(
+    (state) => state.columnQuickActions
+  );
+  const updateColumnQuickActionsPosition = useKanbanStore(
+    (state) => state.updateColumnQuickActionsPosition
+  );
+  const taskQuickActions = useKanbanStore((state) => state.taskQuickActions);
+  const updateTaskQuickActionsPosition = useKanbanStore(
+    (state) => state.updateTaskQuickActionsPosition
   );
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
@@ -462,8 +476,7 @@ export function KanbanCanvas() {
           type:
             dialog.type === "rename"
               ? "boardRenameDialog"
-              : // biome-ignore lint/style/noNestedTernary: it's cleaner this way
-                dialog.type === "duplicate"
+              : dialog.type === "duplicate"
                 ? "boardDuplicateDialog"
                 : "boardDeleteDialog",
           position: { x: dialog.position.x, y: dialog.position.y },
@@ -491,25 +504,89 @@ export function KanbanCanvas() {
     }
 
     const columnDialogNodes: ColumnDialogNode[] = [];
-    if (columnDialog && columnDialog.type === "rename") {
-      columnDialogNodes.push({
-        id: `column-dialog-${columnDialog.columnId}`,
-        type: "columnRenameDialog",
-        position: {
-          x: columnDialog.position.x,
-          y: columnDialog.position.y,
-        },
-        data: { columnId: columnDialog.columnId },
-        style: { zIndex: 2100 },
-        draggable: true,
-      });
+    if (columnDialog) {
+      if (columnDialog.type === "rename") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnRenameDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      } else if (columnDialog.type === "delete") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnDeleteDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      } else if (columnDialog.type === "move") {
+        columnDialogNodes.push({
+          id: `column-dialog-${columnDialog.columnId}`,
+          type: "columnMoveDialog",
+          position: {
+            x: columnDialog.position.x,
+            y: columnDialog.position.y,
+          },
+          data: { columnId: columnDialog.columnId },
+          style: { zIndex: 2100 },
+          draggable: true,
+        });
+      }
     }
+
+    const taskQuickActionsNodes: TaskQuickActionsNode[] = Object.values(
+      taskQuickActions
+    )
+      .filter(
+        (qa): qa is NonNullable<typeof qa> => qa != null && qa.position != null
+      )
+      .map((qa) => ({
+        id: `task-quick-actions-${qa.taskId}`,
+        type: "taskQuickActions" as const,
+        position: {
+          x: qa.position.x,
+          y: qa.position.y,
+        },
+        data: { taskId: qa.taskId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      }));
+
+    const columnQuickActionsNodes: ColumnQuickActionsNode[] = Object.values(
+      columnQuickActions ?? {}
+    )
+      .filter(
+        (qa): qa is NonNullable<typeof qa> => qa != null && qa.position != null
+      )
+      .map((qa) => ({
+        id: `column-quick-actions-${qa.columnId}`,
+        type: "columnQuickActions" as const,
+        position: {
+          x: qa.position.x,
+          y: qa.position.y,
+        },
+        data: { columnId: qa.columnId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      }));
 
     return [
       ...boardNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
       ...quickActionsNodes,
+      ...taskQuickActionsNodes,
+      ...columnQuickActionsNodes,
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
@@ -529,6 +606,8 @@ export function KanbanCanvas() {
     boardDialogs,
     connectionDialog,
     columnDialog,
+    taskQuickActions,
+    columnQuickActions,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -669,6 +748,42 @@ export function KanbanCanvas() {
     handleUndoRedo,
   ]);
 
+  const focusedBoardId = useKanbanStore((state) => state.canvas.focusedBoardId);
+  const setFocusedBoard = useKanbanStore((state) => state.setFocusedBoard);
+
+  useEffect(() => {
+    if (!focusedBoardId) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      const boardPos = boardPositions.byId[focusedBoardId];
+      if (boardPos) {
+        const centerX = boardPos.x + (boardPos.width ?? 400) / 2;
+        const centerY = boardPos.y + (boardPos.height ?? 300) / 2;
+
+        setReactFlowViewport(
+          {
+            x: -centerX + window.innerWidth / 2,
+            y: -centerY + window.innerHeight / 2,
+            zoom: 1,
+          },
+          { duration: 800 }
+        );
+      }
+
+      // Clear the focus after panning so we can re-trigger if needed,
+      // though typically this is a one-off event.
+      // However, keeping it in store allows for other components to trigger focus.
+      // We might want to clear it to avoid re-panning on minor re-renders,
+      // but only if we treat it as an impulse.
+      // For now, let's leave it, but if it causes issues, we can clear it:
+      setFocusedBoard(null);
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
+
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -681,6 +796,12 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("task-detail-modal-")) {
             const modalId = change.id.replace("task-detail-modal-", "");
             updateTaskDetailModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("task-quick-actions-")) {
+            const taskId = change.id.replace("task-quick-actions-", "");
+            updateTaskQuickActionsPosition(taskId, change.position);
+          } else if (change.id.startsWith("column-quick-actions-")) {
+            const columnId = change.id.replace("column-quick-actions-", "");
+            updateColumnQuickActionsPosition(columnId, change.position);
           } else if (change.id.startsWith("quick-actions-")) {
             const boardId = change.id.replace("quick-actions-", "");
             updateBoardQuickActionsPosition(boardId, change.position);
@@ -707,6 +828,8 @@ export function KanbanCanvas() {
       updateModalPosition,
       updateTaskDetailModalPosition,
       updateBoardQuickActionsPosition,
+      updateTaskQuickActionsPosition,
+      updateColumnQuickActionsPosition,
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
       updateColumnDialogPosition,

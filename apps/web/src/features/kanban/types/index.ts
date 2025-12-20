@@ -38,6 +38,7 @@ export type Column = {
   id: string;
   board_id: string;
   name: string;
+  description?: string;
   position: number;
   task_ids: string[];
 };
@@ -152,6 +153,8 @@ export type TaskDetailModalState = {
   position: { x: number; y: number };
   zIndex: number;
   sourceTaskId: string;
+  initialIsEditing?: boolean;
+  openedFromQuickActions?: boolean;
 };
 
 export type BoardDialogType = "rename" | "duplicate" | "delete";
@@ -226,6 +229,7 @@ export type DenormalizedColumn = {
   id: string;
   board_id: string;
   name: string;
+  description?: string;
   position: number;
   tasks: Task[];
 };

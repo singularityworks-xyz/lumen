@@ -70,9 +70,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             id: column.id,
             board_id: column.board_id,
             name: column.name,
+            description: column.description,
             position: column.position,
             tasks: columnTasks,
-          };
+          } as DenormalizedColumn;
         })
         .filter((col): col is DenormalizedColumn => col !== null)
         .sort((a, b) => a.position - b.position);
@@ -163,7 +164,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenTaskDetail = useCallback(
       (taskId: string, _screenX: number, _screenY: number) => {
-        const result = openTaskDetailModal(taskId, boardId);
+        const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 175, {
             duration: 500,
@@ -546,8 +547,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-              : // biome-ignore lint/style/noNestedTernary: its cleaner this way
-                isSelected || selected
+              : isSelected || selected
                 ? "border-2 border-primary shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_0_20px_rgba(128,128,128,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
@@ -709,14 +709,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
-// refactored the dialogs to use portals
-
+// Dialog components are rendered as React Flow nodes; they still use portals internally
+// for certain elements like connector edges.
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
+import { DeleteColumnDialogNodeComponent } from "../../../components/dialogs/delete-column-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
+import { MoveColumnDialogNodeComponent } from "../../../components/dialogs/move-column-dialog-node";
 import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
 import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
+import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 
@@ -725,9 +729,13 @@ export const nodeTypes = {
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
   boardQuickActions: BoardQuickActionsNodeComponent,
+  taskQuickActions: TaskQuickActionsNodeComponent,
+  columnQuickActions: ColumnQuickActionsNodeComponent,
   boardRenameDialog: RenameBoardDialogNodeComponent,
   boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
   boardDeleteDialog: DeleteBoardDialogNodeComponent,
   connectionDialog: ConnectionDialogNodeComponent,
   columnRenameDialog: RenameColumnDialogNodeComponent,
+  columnDeleteDialog: DeleteColumnDialogNodeComponent,
+  columnMoveDialog: MoveColumnDialogNodeComponent,
 };

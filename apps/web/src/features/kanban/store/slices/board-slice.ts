@@ -103,6 +103,49 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       HEADER_HEIGHT + COLUMN_HEADER + 160 + COLUMN_PADDING + BOARD_PADDING;
 
     set((state) => {
+      let finalPosition: { x: number; y: number } = position || { x: 0, y: 0 };
+
+      if (!position) {
+        // Use get() to safely access current state logic, but we still need to write to 'state' (draft).
+        // Actually, we can just read from 'state' carefully.
+        // But to be safe against any proxy weirdness.
+        const workspace = state.workspaces.byId[workspaceId];
+
+        if (workspace) {
+          const workspaceBoards = workspace.board_ids;
+          const currentSelectedBoardId = state.selectedBoardId;
+          const lastFocusedBoardId = workspace.lastFocusedBoardId;
+
+          if (workspaceBoards.length > 0) {
+            let targetBoardId: string | undefined;
+
+            if (
+              currentSelectedBoardId &&
+              workspaceBoards.includes(currentSelectedBoardId)
+            ) {
+              targetBoardId = currentSelectedBoardId;
+            } else if (
+              lastFocusedBoardId &&
+              workspaceBoards.includes(lastFocusedBoardId)
+            ) {
+              targetBoardId = lastFocusedBoardId;
+            } else {
+              targetBoardId = workspaceBoards.at(-1);
+            }
+
+            if (targetBoardId) {
+              const targetBoardPos = state.boardPositions.byId[targetBoardId];
+              if (targetBoardPos) {
+                finalPosition = {
+                  x: targetBoardPos.x,
+                  y: targetBoardPos.y + (targetBoardPos.height || 500) + 50,
+                };
+              }
+            }
+          }
+        }
+      }
+
       state.boards.byId[boardId] = board;
       state.boards.allIds.push(boardId);
       for (const column of columns) {
@@ -111,8 +154,8 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       }
       const boardPosition: BoardPosition = {
         id: boardId,
-        x: position.x,
-        y: position.y,
+        x: finalPosition.x,
+        y: finalPosition.y,
         zIndex: getNextZIndex(state.boardPositions),
         width: initialWidth,
         height: initialHeight,
@@ -124,6 +167,9 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
         workspace.board_ids.push(boardId);
         workspace.lastFocusedBoardId = boardId;
       }
+
+      state.canvas.focusedBoardId = boardId;
+      state.selectedBoardId = boardId;
     });
 
     logger.info({ id: boardId, name, workspaceId }, "Board created");

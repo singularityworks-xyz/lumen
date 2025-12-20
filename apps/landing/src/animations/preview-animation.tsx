@@ -422,12 +422,11 @@ export const HeroAnimation = () => {
             animate={
               isBoard1BeingDragged
                 ? { ...POS.board1Exit, scale: 1.05, rotate: -5, opacity: 0 }
-                : // biome-ignore lint/style/noNestedTernary: required
-                  isBoard1Grabbed
+                : isBoard1Grabbed
                   ? { ...POS.board1, scale: 1.05, zIndex: 50 }
                   : { opacity: 1, scale: 1, ...POS.board1 }
             }
-            className="absolute z-10 flex h-[100px] w-[140px] origin-center flex-col overflow-hidden rounded-lg border border-zinc-800 bg-[#171717] shadow-2xl sm:h-40 sm:w-[220px] sm:rounded-xl md:h-[220px] md:w-[300px]"
+            className="absolute z-10 flex h-25 w-35 origin-center flex-col overflow-hidden rounded-lg border border-zinc-800 bg-[#171717] shadow-2xl sm:h-40 sm:w-55 sm:rounded-xl md:h-55 md:w-75"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0, scale: 0.9, ...POS.board1 }}
             key="board-1"

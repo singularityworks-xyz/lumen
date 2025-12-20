@@ -136,7 +136,13 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openTaskDetailModal: (taskId, boardId, position) => {
+  openTaskDetailModal: ({
+    taskId,
+    boardId,
+    position,
+    initialIsEditing,
+    openedFromQuickActions,
+  }) => {
     const existingModals = Object.values(get().taskDetailModals);
 
     const existingModalForTask = existingModals.find(
@@ -159,13 +165,17 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       modalX = position.x;
       modalY = position.y;
     } else {
-      const offset = existingModals.length * 30;
+      const MODAL_WIDTH = 450;
+      const STACK_GAP = 20;
+      // Stack horizontally: each additional modal shifts to the right
+      const horizontalOffset =
+        existingModals.length * (MODAL_WIDTH + STACK_GAP);
       const boardPosition = get().boardPositions.byId[boardId];
       const boardX = boardPosition?.x ?? 0;
       const boardY = boardPosition?.y ?? 0;
       const boardWidth = boardPosition?.width ?? 400;
-      modalX = boardX + boardWidth + 20 + offset;
-      modalY = boardY + offset;
+      modalX = boardX + boardWidth + 20 + horizontalOffset;
+      modalY = boardY; // Keep same Y position for horizontal stacking
     }
 
     const maxZIndex = existingModals.reduce(
@@ -180,6 +190,8 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       position: { x: modalX, y: modalY },
       zIndex: maxZIndex + 1,
       sourceTaskId: taskId,
+      initialIsEditing: initialIsEditing ?? false,
+      openedFromQuickActions: openedFromQuickActions ?? false,
     };
 
     set((state) => {

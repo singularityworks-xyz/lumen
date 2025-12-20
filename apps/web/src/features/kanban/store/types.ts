@@ -46,18 +46,24 @@ export type KanbanState = {
     position?: { x: number; y: number };
     inputValue?: string;
   } | null;
-  columnQuickActions: {
-    columnId: string;
-    showAddTask: boolean;
-    position: { x: number; y: number };
-  } | null;
+  columnQuickActions: Record<
+    string,
+    {
+      columnId: string;
+      boardId: string;
+      showAddTask: boolean;
+      position: { x: number; y: number };
+    }
+  >;
   columnDialog: {
     type: "rename" | "delete" | "move";
     columnId: string;
     columnName: string;
+    columnDescription?: string;
     boardId: string;
     boardName: string;
     inputValue?: string;
+    descriptionValue?: string;
     position: { x: number; y: number };
   } | null;
   boardQuickActions: Record<
@@ -72,6 +78,15 @@ export type KanbanState = {
     boardId: string;
     position: { x: number; y: number };
   } | null;
+  taskQuickActions: Record<
+    string,
+    {
+      taskId: string;
+      boardId: string;
+      columnId: string;
+      position: { x: number; y: number };
+    }
+  >;
 };
 
 export type KanbanActions = {
@@ -111,31 +126,35 @@ export type KanbanActions = {
   // Column actions
   openColumnQuickActions: (
     columnId: string,
+    boardId: string,
     showAddTask: boolean,
     position: { x: number; y: number }
   ) => void;
-  closeColumnQuickActions: () => void;
-  updateColumnQuickActionsPosition: (position: {
-    x: number;
-    y: number;
-  }) => void;
+  closeColumnQuickActions: (columnId: string) => void;
+  updateColumnQuickActionsPosition: (
+    columnId: string,
+    position: { x: number; y: number }
+  ) => void;
   openColumnDialog: (options: {
     type: "rename" | "delete" | "move";
     columnId: string;
     columnName: string;
+    columnDescription?: string;
     boardId: string;
     boardName: string;
     inputValue?: string;
+    descriptionValue?: string;
     position: { x: number; y: number };
   }) => void;
   closeColumnDialog: () => void;
   updateColumnDialogPosition: (position: { x: number; y: number }) => void;
   updateColumnDialogInputValue: (value: string) => void;
+  updateColumnDialogDescriptionValue: (value: string) => void;
 
   // Board actions
   addBoard: (
     name: string,
-    position: { x: number; y: number },
+    position?: { x: number; y: number },
     description?: string
   ) => string;
   updateBoard: (
@@ -199,11 +218,24 @@ export type KanbanActions = {
   closeConnectionDialog: () => void;
   updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
 
+  // Task quick actions
+  openTaskQuickActions: (
+    taskId: string,
+    boardId: string,
+    columnId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeTaskQuickActions: (taskId: string) => void;
+  updateTaskQuickActionsPosition: (
+    taskId: string,
+    position: { x: number; y: number }
+  ) => void;
+
   // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
     columnId: string,
-    updates: Partial<Pick<Column, "name" | "position">>
+    updates: Partial<Pick<Column, "name" | "position" | "description">>
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
@@ -233,6 +265,7 @@ export type KanbanActions = {
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
   setDraggedTask: (taskId: string | null) => void;
+  duplicateTask: (taskId: string) => string | null;
 
   // Connection actions
   addConnection: (
@@ -284,11 +317,13 @@ export type KanbanActions = {
     formData: Partial<CreateTaskModalFormData>
   ) => void;
   bringModalToFront: (modalId: string) => void;
-  openTaskDetailModal: (
-    taskId: string,
-    boardId: string,
-    position?: { x: number; y: number }
-  ) => {
+  openTaskDetailModal: (options: {
+    taskId: string;
+    boardId: string;
+    position?: { x: number; y: number };
+    initialIsEditing?: boolean;
+    openedFromQuickActions?: boolean;
+  }) => {
     id: string;
     position: { x: number; y: number };
     isExisting: boolean;

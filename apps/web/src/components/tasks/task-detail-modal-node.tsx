@@ -148,7 +148,9 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     const isShaking = shakingModalId === data.modalId;
 
     const [isFocused, setIsFocused] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing, setIsEditing] = useState(
+      modalState?.initialIsEditing ?? false
+    );
 
     const handleMouseDown = useCallback(() => {
       bringTaskDetailModalToFront(data.modalId);
@@ -163,6 +165,9 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     }
 
     const renderConnectorLine = () => {
+      if (modalState?.openedFromQuickActions) {
+        return null;
+      }
       if (!(mounted && connectorState)) {
         return null;
       }

@@ -26,7 +26,14 @@ export const TaskCard = memo(
     const updateTask = useKanbanStore((state) => state.updateTask);
     const deleteTask = useKanbanStore((state) => state.deleteTask);
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
-    const { getViewport, setViewport } = useReactFlow();
+    const openTaskQuickActions = useKanbanStore(
+      (state) => state.openTaskQuickActions
+    );
+    const boardPosition = useKanbanStore(
+      (state) => state.boardPositions.byId[boardId]
+    );
+    const taskQuickActions = useKanbanStore((state) => state.taskQuickActions);
+    const { getViewport, setViewport, screenToFlowPosition } = useReactFlow();
 
     const showCheckbox = selectedTaskIds.length > 0;
 
@@ -111,7 +118,10 @@ export const TaskCard = memo(
       if (onOpenDetail) {
         onOpenDetail(task.id, e.clientX, e.clientY);
       } else {
-        const result = openTaskDetailModal(task.id, boardId);
+        const result = openTaskDetailModal({
+          taskId: task.id,
+          boardId,
+        });
         if (!result.isExisting) {
           setTimeout(
             () =>
@@ -150,6 +160,50 @@ export const TaskCard = memo(
     const handleCheckboxChange = (_checked: boolean) => {
       toggleTaskSelection(task.id);
     };
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: TODO: i'll check later
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const SPACING = 20;
+        const MENU_HEIGHT = 300;
+        const STACK_GAP = 10;
+
+        const boardWidth = boardPosition?.width ?? 400;
+        const boardX = boardPosition?.x ?? 0;
+        const boardY = boardPosition?.y ?? 0;
+        const menuX = boardX + boardWidth + SPACING;
+        const existingMenusForBoard = Object.values(taskQuickActions).filter(
+          (qa) => qa && qa.boardId === boardId
+        );
+        const stackOffset =
+          existingMenusForBoard.length * (MENU_HEIGHT + STACK_GAP);
+        const menuY = boardY + stackOffset;
+
+        openTaskQuickActions(task.id, task.board_id, task.column_id, {
+          x: menuX,
+          y: menuY,
+        });
+
+        setTimeout(
+          () => ensureDialogVisible(menuX, menuY, 200, MENU_HEIGHT),
+          50
+        );
+      },
+      [
+        task.id,
+        task.board_id,
+        task.column_id,
+        boardId,
+        boardPosition,
+        taskQuickActions,
+        screenToFlowPosition,
+        openTaskQuickActions,
+        ensureDialogVisible,
+      ]
+    );
 
     const priorityColors = {
       low: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -289,8 +343,7 @@ export const TaskCard = memo(
             className={`flex flex-1 items-center justify-center rounded-tl transition-all active:scale-95 ${
               task.status === "trash"
                 ? "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
-                : // biome-ignore lint/style/noNestedTernary: better for readability
-                  task.status === "done"
+                : task.status === "done"
                   ? "text-muted-foreground/70 hover:bg-primary hover:text-white"
                   : "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
             }`}
@@ -298,8 +351,7 @@ export const TaskCard = memo(
             title={
               task.status === "trash"
                 ? "Restore task"
-                : // biome-ignore lint/style/noNestedTernary: better for readability
-                  task.status === "done"
+                : task.status === "done"
                   ? "Mark as to do"
                   : "Mark as done"
             }
@@ -330,12 +382,16 @@ export const TaskCard = memo(
           className="relative h-full w-full bg-inherit p-2 transition-transform duration-300 ease-out group-hover:translate-x-9"
           draggable
           onClick={handleClick}
+          onContextMenu={handleContextMenu}
           onDragStart={handleDragStart}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               if (!showCheckbox) {
-                const result = openTaskDetailModal(task.id, boardId);
+                const result = openTaskDetailModal({
+                  taskId: task.id,
+                  boardId,
+                });
                 if (!result.isExisting) {
                   setTimeout(
                     () =>

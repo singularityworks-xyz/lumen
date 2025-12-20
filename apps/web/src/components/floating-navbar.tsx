@@ -56,11 +56,7 @@ export const FloatingNavbar = memo(() => {
       return;
     }
 
-    addBoard(
-      "New Board",
-      { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
-      "New project board"
-    );
+    addBoard("New Board", undefined, "New project board");
   };
 
   return (

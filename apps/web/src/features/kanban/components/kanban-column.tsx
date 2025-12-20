@@ -6,17 +6,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { useReactFlow } from "@xyflow/react";
 import {
   ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronRight,
   SquarePen,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ColumnQuickActions } from "@/src/components/column-quick-actions";
 import { TaskCard } from "@/src/components/tasks/task-card";
-import { ColumnConflictDialog } from "../../../components/dialogs/column-conflict-dialog";
-import { DeleteColumnDialog } from "../../../components/dialogs/delete-column-dialog";
-import { MoveColumnDialog } from "../../../components/dialogs/move-column-dialog";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
 
@@ -35,58 +32,25 @@ export const KanbanColumn = memo(
       "finished"
     );
 
-    const globalQuickActions = useKanbanStore(
-      (state) => state.columnQuickActions
-    );
-    const globalDialogState = useKanbanStore((state) => state.columnDialog);
-
     const openColumnQuickActions = useKanbanStore(
       (state) => state.openColumnQuickActions
     );
-    const closeColumnQuickActions = useKanbanStore(
-      (state) => state.closeColumnQuickActions
-    );
-    const updateColumnQuickActionsPosition = useKanbanStore(
-      (state) => state.updateColumnQuickActionsPosition
-    );
     const openColumnDialog = useKanbanStore((state) => state.openColumnDialog);
-    const closeColumnDialog = useKanbanStore(
-      (state) => state.closeColumnDialog
-    );
-    const updateColumnDialogPosition = useKanbanStore(
-      (state) => state.updateColumnDialogPosition
-    );
-
-    const isQuickActionsOpen = globalQuickActions?.columnId === column.id;
-    const isDialogOpen = globalDialogState?.columnId === column.id;
-    const quickActions = isQuickActionsOpen ? globalQuickActions : null;
-    const dialogState = isDialogOpen ? globalDialogState : null;
     const columnHeaderRef = useRef<HTMLDivElement>(null);
     const columnBodyRef = useRef<HTMLElement>(null);
-
-    const actionButtonRefs = useRef<{
-      rename: HTMLButtonElement | null;
-      delete: HTMLButtonElement | null;
-      move: HTMLButtonElement | null;
-    }>({ rename: null, delete: null, move: null });
-
     const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
     const tasksStore = useKanbanStore((state) => state.tasks);
     const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
     const moveTask = useKanbanStore((state) => state.moveTask);
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
-    const updateColumn = useKanbanStore((state) => state.updateColumn);
-    const deleteColumn = useKanbanStore((state) => state.deleteColumn);
-    const openCreateTaskModal = useKanbanStore(
-      (state) => state.openCreateTaskModal
-    );
-    const moveColumnToBoard = useKanbanStore(
-      (state) => state.moveColumnToBoard
-    );
     const boards = useKanbanStore((state) => state.boards);
     const boardPositions = useKanbanStore((state) => state.boardPositions);
-    const columnsStore = useKanbanStore((state) => state.columns);
+    const allColumnQuickActions = useKanbanStore(
+      (state) => state.columnQuickActions
+    );
     const draggedTask = draggedTaskId ? tasksStore.byId[draggedTaskId] : null;
+    const { getViewport, setViewport, screenToFlowPosition, getNode } =
+      useReactFlow();
 
     const availableTargetBoards = useMemo(() => {
       const sourceBoard = boards.byId[boardId];
@@ -128,7 +92,8 @@ export const KanbanColumn = memo(
 
     const columnTasks = column.tasks;
     const todoTasks = useMemo(
-      () => columnTasks.filter((t) => t.status !== "done"),
+      () =>
+        columnTasks.filter((t) => t.status !== "done" && t.status !== "trash"),
       [columnTasks]
     );
     const doneTasks = useMemo(
@@ -182,267 +147,50 @@ export const KanbanColumn = memo(
       [draggedTask, column.id, boardId, moveTask, setDraggedTask]
     );
 
-    const getSourceRect = useCallback(() => {
-      if (columnHeaderRef.current) {
-        return columnHeaderRef.current.getBoundingClientRect();
-      }
-      return null;
-    }, []);
+    const calculateQuickActionsPosition = useCallback(() => {
+      const QUICK_ACTIONS_HEIGHT = 200;
+      const SPACING = 20;
 
-    const getSourceButtonRect = useCallback(() => {
-      if (dialogState?.type) {
-        const ref = actionButtonRefs.current[dialogState.type];
-        if (ref) {
-          return ref.getBoundingClientRect();
-        }
-      }
-      return null;
-    }, [dialogState?.type]);
+      const boardNode = getNode(boardId);
+      const boardPos = boardPositions.byId[boardId];
 
-    const handleHeaderContextMenu = useCallback(
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+      if (!(boardNode && boardPos)) {
         const rect = columnHeaderRef.current?.getBoundingClientRect();
-        openColumnQuickActions(column.id, false, {
-          x: rect ? rect.right + 20 : e.clientX + 20,
-          y: rect ? rect.top : e.clientY,
-        });
-      },
-      [column.id, openColumnQuickActions]
-    );
-
-    const handleBodyContextMenu = useCallback(
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const rect = columnHeaderRef.current?.getBoundingClientRect();
-        openColumnQuickActions(column.id, true, {
-          x: rect ? rect.right + 20 : e.clientX + 20,
-          y: rect ? rect.top : e.clientY,
-        });
-      },
-      [column.id, openColumnQuickActions]
-    );
-
-    const handleCloseQuickActions = useCallback(() => {
-      closeColumnQuickActions();
-    }, [closeColumnQuickActions]);
-
-    const handleQuickActionsPositionChange = useCallback(
-      (position: { x: number; y: number }) => {
-        updateColumnQuickActionsPosition(position);
-      },
-      [updateColumnQuickActionsPosition]
-    );
-
-    const handleAddTask = useCallback(
-      (buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        const rect = buttonRef.current?.getBoundingClientRect();
-        openCreateTaskModal({
-          columnId: column.id,
-          boardId,
-          sourceRect: rect ?? undefined,
-          sourceType: "column-menu",
-        });
-        closeColumnQuickActions();
-      },
-      [column.id, boardId, openCreateTaskModal, closeColumnQuickActions]
-    );
-
-    const handleOpenRenameDialog = useCallback(
-      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        const boardPos = boardPositions.byId[boardId];
-        if (boardPos) {
-          const dialogX = boardPos.x - 320 - 40;
-          const dialogY = boardPos.y + 50;
-
-          openColumnDialog({
-            type: "rename",
-            columnId: column.id,
-            columnName: column.name,
-            boardId,
-            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
-            inputValue: column.name,
-            position: { x: dialogX, y: dialogY },
+        if (rect) {
+          return screenToFlowPosition({
+            x: rect.right + 20,
+            y: rect.top,
           });
         }
-      },
-      [
-        column.id,
-        column.name,
-        boardId,
-        boards.byId,
-        boardPositions.byId,
-        openColumnDialog,
-      ]
-    );
-
-    const handleOpenDeleteDialog = useCallback(
-      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        const boardPos = boardPositions.byId[boardId];
-        if (boardPos) {
-          const dialogX = boardPos.x - 320 - 40;
-          const dialogY = boardPos.y + 50;
-
-          openColumnDialog({
-            type: "delete",
-            columnId: column.id,
-            columnName: column.name,
-            boardId,
-            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
-            position: { x: dialogX, y: dialogY },
-          });
-        }
-      },
-      [
-        column.id,
-        column.name,
-        boardId,
-        boards.byId,
-        boardPositions.byId,
-        openColumnDialog,
-      ]
-    );
-
-    const handleOpenMoveDialog = useCallback(
-      (_buttonRef: React.RefObject<HTMLButtonElement | null>) => {
-        if (availableTargetBoards.length === 0) {
-          return;
-        }
-        const boardPos = boardPositions.byId[boardId];
-        if (boardPos) {
-          const dialogX = boardPos.x - 320 - 40;
-          const dialogY = boardPos.y + 50;
-
-          openColumnDialog({
-            type: "move",
-            columnId: column.id,
-            columnName: column.name,
-            boardId,
-            boardName: boards.byId[boardId]?.name ?? "Unknown Board",
-            position: { x: dialogX, y: dialogY },
-          });
-        }
-      },
-      [
-        availableTargetBoards.length,
-        column.id,
-        column.name,
-        boardId,
-        boards.byId,
-        boardPositions.byId,
-        openColumnDialog,
-      ]
-    );
-
-    const handleDialogPositionChange = useCallback(
-      (position: { x: number; y: number }) => {
-        updateColumnDialogPosition(position);
-      },
-      [updateColumnDialogPosition]
-    );
-
-    const handleCloseDialog = useCallback(() => {
-      closeColumnDialog();
-    }, [closeColumnDialog]);
-
-    const [targetBoardId, setTargetBoardId] = useState<string | null>(null);
-    const [showConflictDialog, setShowConflictDialog] = useState(false);
-    const [conflictExistingColumn, setConflictExistingColumn] = useState<{
-      id: string;
-      name: string;
-    } | null>(null);
-
-    const handleMoveConfirm = useCallback(
-      (selectedTargetBoardId: string) => {
-        setTargetBoardId(selectedTargetBoardId);
-        const targetBoard = boards.byId[selectedTargetBoardId];
-        if (!targetBoard) {
-          return;
-        }
-
-        const existingColumn = targetBoard.column_ids
-          .map((colId) => columnsStore.byId[colId])
-          .find((col) => col?.name === column.name);
-
-        if (!existingColumn) {
-          moveColumnToBoard(boardId, column.id, selectedTargetBoardId);
-          closeColumnDialog();
-          closeColumnQuickActions();
-          return;
-        }
-
-        setConflictExistingColumn({
-          id: existingColumn.id,
-          name: existingColumn.name,
-        });
-        closeColumnDialog();
-        setShowConflictDialog(true);
-      },
-      [
-        boards.byId,
-        columnsStore.byId,
-        column.name,
-        column.id,
-        boardId,
-        moveColumnToBoard,
-        closeColumnDialog,
-        closeColumnQuickActions,
-      ]
-    );
-
-    const handleRenameAndMove = useCallback(
-      (newName: string) => {
-        if (!targetBoardId) {
-          return;
-        }
-
-        updateColumn(column.id, { name: newName });
-        moveColumnToBoard(boardId, column.id, targetBoardId);
-        setShowConflictDialog(false);
-        setConflictExistingColumn(null);
-        closeColumnQuickActions();
-      },
-      [
-        targetBoardId,
-        column.id,
-        boardId,
-        updateColumn,
-        moveColumnToBoard,
-        closeColumnQuickActions,
-      ]
-    );
-
-    const handleReplaceExisting = useCallback(() => {
-      if (!(targetBoardId && conflictExistingColumn)) {
-        return;
+        return { x: 0, y: 0 };
       }
 
-      deleteColumn(targetBoardId, conflictExistingColumn.id);
-      moveColumnToBoard(boardId, column.id, targetBoardId);
-      setShowConflictDialog(false);
-      setConflictExistingColumn(null);
-      closeColumnQuickActions();
+      const boardWidth = boardNode.width ?? 400;
+      const baseX = boardPos.x + boardWidth + SPACING;
+      const baseY = boardPos.y;
+
+      const existingMenus = Object.values(allColumnQuickActions ?? {}).filter(
+        (qa) => qa?.boardId === boardId && qa?.columnId !== column.id
+      );
+
+      const yOffset = existingMenus.length * (QUICK_ACTIONS_HEIGHT + SPACING);
+
+      return {
+        x: baseX,
+        y: baseY + yOffset,
+      };
     }, [
-      targetBoardId,
-      conflictExistingColumn,
       boardId,
+      boardPositions.byId,
+      getNode,
+      screenToFlowPosition,
+      allColumnQuickActions,
       column.id,
-      deleteColumn,
-      moveColumnToBoard,
-      closeColumnQuickActions,
     ]);
-
-    const handleRemove = useCallback(() => {
-      deleteColumn(boardId, column.id);
-      closeColumnQuickActions();
-    }, [boardId, column.id, deleteColumn, closeColumnQuickActions]);
 
     const DIALOG_WIDTH = 320;
     const DIALOG_HEIGHT = 180;
     const VIEWPORT_PADDING = 100;
-    const { getViewport, setViewport } = useReactFlow();
 
     const ensureDialogVisible = useCallback(
       (dialogX: number, dialogY: number) => {
@@ -485,30 +233,69 @@ export const KanbanColumn = memo(
       [getViewport, setViewport]
     );
 
+    const handleHeaderContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const flowPos = calculateQuickActionsPosition();
+        openColumnQuickActions(column.id, boardId, false, flowPos);
+        ensureDialogVisible(flowPos.x, flowPos.y);
+      },
+      [
+        column.id,
+        boardId,
+        openColumnQuickActions,
+        calculateQuickActionsPosition,
+        ensureDialogVisible,
+      ]
+    );
+
+    const handleBodyContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const flowPos = calculateQuickActionsPosition();
+        openColumnQuickActions(column.id, boardId, true, flowPos);
+        ensureDialogVisible(flowPos.x, flowPos.y);
+      },
+      [
+        column.id,
+        boardId,
+        openColumnQuickActions,
+        calculateQuickActionsPosition,
+        ensureDialogVisible,
+      ]
+    );
+
     const handleDirectRename = useCallback(() => {
-      const boardPos = boardPositions.byId[boardId];
-      if (boardPos) {
-        const dialogX = boardPos.x - DIALOG_WIDTH - 40;
-        const dialogY = boardPos.y + 50;
+      const quickActionsPos = calculateQuickActionsPosition();
+      openColumnQuickActions(column.id, boardId, false, quickActionsPos);
+      const QA_WIDTH = 200;
+      const RENAME_DIALOG_OFFSET = 40;
+      const renameDialogX = quickActionsPos.x + QA_WIDTH + RENAME_DIALOG_OFFSET;
+      const renameDialogY = quickActionsPos.y;
 
-        openColumnDialog({
-          type: "rename",
-          columnId: column.id,
-          columnName: column.name,
-          boardId,
-          boardName: boards.byId[boardId]?.name ?? "Unknown Board",
-          inputValue: column.name,
-          position: { x: dialogX, y: dialogY },
-        });
+      openColumnDialog({
+        type: "rename",
+        columnId: column.id,
+        columnName: column.name,
+        columnDescription: column.description,
+        boardId,
+        boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+        inputValue: column.name,
+        descriptionValue: column.description,
+        position: { x: renameDialogX, y: renameDialogY },
+      });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY), 50);
-      }
+      setTimeout(() => ensureDialogVisible(renameDialogX, renameDialogY), 100);
     }, [
       column.id,
       column.name,
+      column.description,
       boardId,
       boards.byId,
-      boardPositions.byId,
+      calculateQuickActionsPosition,
+      openColumnQuickActions,
       openColumnDialog,
       ensureDialogVisible,
     ]);
@@ -517,29 +304,34 @@ export const KanbanColumn = memo(
       if (availableTargetBoards.length === 0) {
         return;
       }
-      const boardPos = boardPositions.byId[boardId];
-      if (boardPos) {
-        const dialogX = boardPos.x - DIALOG_WIDTH - 40;
-        const dialogY = boardPos.y + 50;
 
-        openColumnDialog({
-          type: "move",
-          columnId: column.id,
-          columnName: column.name,
-          boardId,
-          boardName: boards.byId[boardId]?.name ?? "Unknown Board",
-          position: { x: dialogX, y: dialogY },
-        });
+      const quickActionsPos = calculateQuickActionsPosition();
+      openColumnQuickActions(column.id, boardId, false, quickActionsPos);
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY), 50);
-      }
+      const QA_WIDTH = 200;
+      const MOVE_DIALOG_OFFSET = 40;
+
+      const moveDialogX = quickActionsPos.x + QA_WIDTH + MOVE_DIALOG_OFFSET;
+      const moveDialogY = quickActionsPos.y + 130;
+
+      openColumnDialog({
+        type: "move",
+        columnId: column.id,
+        columnName: column.name,
+        boardId,
+        boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+        position: { x: moveDialogX, y: moveDialogY },
+      });
+
+      setTimeout(() => ensureDialogVisible(moveDialogX, moveDialogY), 100);
     }, [
       availableTargetBoards.length,
+      calculateQuickActionsPosition,
+      openColumnQuickActions,
       column.id,
       column.name,
       boardId,
       boards.byId,
-      boardPositions.byId,
       openColumnDialog,
       ensureDialogVisible,
     ]);
@@ -548,6 +340,7 @@ export const KanbanColumn = memo(
       <section
         aria-label={`Column: ${column.name}`}
         className="flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        id={`kanban-column-${column.id}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         ref={setNodeRef}
@@ -563,9 +356,14 @@ export const KanbanColumn = memo(
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-card-foreground text-xs">
-                {column.name}
-              </h3>
+              <div className="flex flex-col gap-0.5">
+                <h3 className="font-semibold text-card-foreground text-xs">
+                  {column.name}
+                </h3>
+                <p className="line-clamp-1 text-[10px] text-foreground">
+                  {column.description || `This is ${column.name} column`}
+                </p>
+              </div>
               <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   aria-label="Rename column"
@@ -610,165 +408,123 @@ export const KanbanColumn = memo(
           onDrop={handleDrop}
           ref={columnBodyRef}
         >
-          {todoTasks.length > 0 ||
-          doneTasks.length > 0 ||
-          trashTasks.length > 0 ? (
-            <>
-              {todoTasks.map((task) => (
-                <TaskCard
-                  boardId={boardId}
-                  isSelected={selectedTaskIds.includes(task.id)}
-                  key={task.id}
-                  onDragStart={handleDragStart}
-                  onOpenDetail={onOpenTaskDetail}
-                  task={task}
-                />
-              ))}
+          {todoTasks.map((task) => (
+            <TaskCard
+              boardId={boardId}
+              isSelected={selectedTaskIds.includes(task.id)}
+              key={task.id}
+              onDragStart={handleDragStart}
+              onOpenDetail={onOpenTaskDetail}
+              task={task}
+            />
+          ))}
 
-              {(doneTasks.length > 0 || trashTasks.length > 0) && (
-                <div className="mt-4 space-y-1.5 border-border/40 border-t pt-4">
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                      onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
-                      type="button"
-                    >
-                      {isFinishedExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
+          {todoTasks.length === 0 && (
+            <div
+              className={`fade-in zoom-in-95 flex animate-in flex-col items-center justify-center gap-1 p-4 text-center duration-300 ${
+                doneTasks.length > 0 ? "py-6" : "h-full min-h-40"
+              }`}
+            >
+              {doneTasks.length > 0 ? (
+                <p className="font-medium text-muted-foreground/70 text-xs">
+                  Hurray! All done
+                </p>
+              ) : (
+                <>
+                  <p className="font-medium text-muted-foreground/50 text-xs">
+                    No tasks yet
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/40">
+                    Drag or add a new task
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
-                    <div className="flex flex-1 items-center gap-2">
-                      <button
-                        className={`px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
-                          bottomView === "finished"
-                            ? "text-foreground"
-                            : "text-muted-foreground/50"
-                        }`}
-                        onClick={() => {
-                          setBottomView("finished");
-                          setIsFinishedExpanded(true);
-                        }}
-                        type="button"
-                      >
-                        Finished ({doneTasks.length})
-                      </button>
-                      <div className="h-3 w-px bg-border/40" />
-                      <button
-                        className={`flex items-center gap-1 px-1 py-0.5 font-bold text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
-                          bottomView === "trash"
-                            ? "text-red-500"
-                            : "text-muted-foreground/50"
-                        }`}
-                        onClick={() => {
-                          setBottomView("trash");
-                          setIsFinishedExpanded(true);
-                        }}
-                        type="button"
-                      >
-                        <Trash2 className="h-2.5 w-2.5" />
-                        Trash ({trashTasks.length})
-                      </button>
-                    </div>
-                  </div>
-
-                  {isFinishedExpanded && activeBottomTasks.length > 0 && (
-                    <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
-                      {activeBottomTasks.map((task) => (
-                        <TaskCard
-                          boardId={boardId}
-                          isSelected={selectedTaskIds.includes(task.id)}
-                          key={task.id}
-                          onDragStart={handleDragStart}
-                          onOpenDetail={onOpenTaskDetail}
-                          task={task}
-                        />
-                      ))}
-                    </div>
+          {(doneTasks.length > 0 || trashTasks.length > 0) && (
+            <div className="mt-4 space-y-1.5 pt-2">
+              <div className="flex items-center gap-1">
+                <button
+                  className="flex items-center justify-center rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
+                  type="button"
+                >
+                  {isFinishedExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
                   )}
+                </button>
 
-                  {isFinishedExpanded && activeBottomTasks.length === 0 && (
-                    <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
-                      Empty {bottomView}
-                    </div>
-                  )}
+                <div className="flex items-center gap-2">
+                  <button
+                    className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                      bottomView === "finished"
+                        ? "text-foreground"
+                        : "text-muted-foreground/60"
+                    }`}
+                    onClick={() => {
+                      setBottomView("finished");
+                      setIsFinishedExpanded(true);
+                    }}
+                    type="button"
+                  >
+                    <Check className="h-2.5 w-2.5" />
+                    <span>Finished</span>
+                    <span className="text-muted-foreground/70">
+                      {doneTasks.length}
+                    </span>
+                  </button>
+                  <span className="text-muted-foreground/30">|</span>
+                  <button
+                    className={`flex items-center gap-1 font-medium text-[10px] uppercase tracking-wider transition-colors hover:text-foreground ${
+                      bottomView === "trash"
+                        ? "text-red-500"
+                        : "text-muted-foreground/60"
+                    }`}
+                    onClick={() => {
+                      setBottomView("trash");
+                      setIsFinishedExpanded(true);
+                    }}
+                    type="button"
+                  >
+                    <Trash2 className="h-2.5 w-2.5" />
+                    <span>Trash</span>
+                    <span className="text-muted-foreground/70">
+                      {trashTasks.length}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="relative ml-2 flex-1">
+                  <div className="h-px w-full bg-border/40" />
+                </div>
+              </div>
+
+              {isFinishedExpanded && activeBottomTasks.length > 0 && (
+                <div className="fade-in slide-in-from-top-1 mt-2 animate-in space-y-1.5 duration-200">
+                  {activeBottomTasks.map((task) => (
+                    <TaskCard
+                      boardId={boardId}
+                      isSelected={selectedTaskIds.includes(task.id)}
+                      key={task.id}
+                      onDragStart={handleDragStart}
+                      onOpenDetail={onOpenTaskDetail}
+                      task={task}
+                    />
+                  ))}
                 </div>
               )}
-            </>
-          ) : (
-            <div className="flex h-40 items-center justify-center text-center">
-              <p className="text-muted-foreground/60 text-xs">No tasks yet</p>
+
+              {isFinishedExpanded && activeBottomTasks.length === 0 && (
+                <div className="py-8 text-center text-[10px] text-muted-foreground/40 italic">
+                  Empty {bottomView}
+                </div>
+              )}
             </div>
           )}
         </section>
-
-        {quickActions && (
-          <ColumnQuickActions
-            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
-            columnId={column.id}
-            columnName={column.name}
-            getSourceRect={getSourceRect}
-            onAddTask={handleAddTask}
-            onClose={handleCloseQuickActions}
-            onMoveToBoard={
-              availableTargetBoards.length > 0
-                ? handleOpenMoveDialog
-                : undefined
-            }
-            onPositionChange={handleQuickActionsPositionChange}
-            onRemove={handleOpenDeleteDialog}
-            onRename={handleOpenRenameDialog}
-            position={quickActions.position}
-            showAddTask={quickActions.showAddTask}
-            showMoveToBoard={availableTargetBoards.length > 0}
-          />
-        )}
-
-        {dialogState?.type === "delete" && (
-          <DeleteColumnDialog
-            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
-            columnName={column.name}
-            getSourceButtonRect={getSourceButtonRect}
-            onClose={handleCloseDialog}
-            onConfirm={handleRemove}
-            onPositionChange={handleDialogPositionChange}
-            position={dialogState.position}
-            quickActionsPosition={quickActions?.position}
-          />
-        )}
-
-        {dialogState?.type === "move" && (
-          <MoveColumnDialog
-            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
-            columnName={column.name}
-            getSourceButtonRect={getSourceButtonRect}
-            onClose={handleCloseDialog}
-            onConfirm={handleMoveConfirm}
-            onPositionChange={handleDialogPositionChange}
-            position={dialogState.position}
-            quickActionsPosition={quickActions?.position}
-            targetBoards={availableTargetBoards.map((b) => ({
-              id: b.id,
-              name: b.name,
-            }))}
-          />
-        )}
-
-        {showConflictDialog && targetBoardId && (
-          <ColumnConflictDialog
-            boardName={boards.byId[boardId]?.name ?? "Unknown Board"}
-            columnName={column.name}
-            onClose={() => {
-              setShowConflictDialog(false);
-              setConflictExistingColumn(null);
-            }}
-            onRenameAndMove={handleRenameAndMove}
-            onReplaceExisting={handleReplaceExisting}
-            targetBoardName={boards.byId[targetBoardId]?.name ?? "Target Board"}
-          />
-        )}
       </section>
     );
   }

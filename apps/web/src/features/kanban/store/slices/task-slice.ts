@@ -17,6 +17,10 @@ type SliceCreator = (
   | "bulkUpdateTasks"
   | "bulkDeleteTasks"
   | "setDraggedTask"
+  | "duplicateTask"
+  | "openTaskQuickActions"
+  | "closeTaskQuickActions"
+  | "updateTaskQuickActionsPosition"
 >;
 
 export const createTaskSlice: SliceCreator = (set, _get) => ({
@@ -159,5 +163,87 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
   setDraggedTask: (taskId) =>
     set((state) => {
       state.draggedTaskId = taskId;
+    }),
+
+  duplicateTask: (taskId) => {
+    const state = _get();
+    const sourceTask = state.tasks.byId[taskId];
+
+    if (!sourceTask) {
+      logger.warn({ id: taskId }, "Task not found for duplication");
+      return null;
+    }
+
+    const newTaskId = generateTaskId();
+    const now = new Date().toISOString();
+
+    const newTask: Task = {
+      id: newTaskId,
+      board_id: sourceTask.board_id,
+      column_id: sourceTask.column_id,
+      title: `${sourceTask.title} (Copy)`,
+      description: sourceTask.description,
+      priority: sourceTask.priority,
+      progress: 0,
+      position: 0,
+      due_date: sourceTask.due_date,
+      created_by: "current-user",
+      created_at: now,
+      updated_at: now,
+      tags: sourceTask.tags ? [...sourceTask.tags] : undefined,
+      checklists: sourceTask.checklists
+        ? sourceTask.checklists.map((c) => ({ ...c, completed: false }))
+        : undefined,
+      status: "todo",
+    };
+
+    set((draft) => {
+      draft.tasks.byId[newTaskId] = newTask;
+      draft.tasks.allIds.push(newTaskId);
+
+      const column = draft.columns.byId[sourceTask.column_id];
+      if (column) {
+        const sourceIndex = column.task_ids.indexOf(taskId);
+        if (sourceIndex !== -1) {
+          column.task_ids.splice(sourceIndex + 1, 0, newTaskId);
+          for (let i = 0; i < column.task_ids.length; i++) {
+            const tid = column.task_ids[i];
+            if (tid) {
+              const t = draft.tasks.byId[tid];
+              if (t) {
+                t.position = i;
+              }
+            }
+          }
+        } else {
+          newTask.position = column.task_ids.length;
+          column.task_ids.push(newTaskId);
+        }
+      }
+    });
+
+    logger.info(
+      { originalId: taskId, newId: newTaskId, title: newTask.title },
+      "Task duplicated"
+    );
+    return newTaskId;
+  },
+
+  openTaskQuickActions: (taskId, boardId, columnId, position) =>
+    set((state) => {
+      state.taskQuickActions[taskId] = { taskId, boardId, columnId, position };
+    }),
+
+  closeTaskQuickActions: (taskId) =>
+    set((state) => {
+      delete state.taskQuickActions[taskId];
+    }),
+
+  updateTaskQuickActionsPosition: (taskId, position) =>
+    set((state) => {
+      const quickActions = state.taskQuickActions[taskId];
+      if (quickActions) {
+        quickActions.position = position;
+      }
     }),
 });
