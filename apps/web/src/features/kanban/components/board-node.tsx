@@ -360,7 +360,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       removeBoard(id);
     };
 
-    const handleClick = (e: React.MouseEvent) => {
+    const handleClick = (e: {
+      metaKey: boolean;
+      ctrlKey: boolean;
+      shiftKey?: boolean;
+      stopPropagation: () => void;
+    }) => {
       bringBoardToFront(id);
 
       if (interactionMode === "select") {
@@ -550,7 +555,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           onClick={handleClick}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
-              handleClick(e as unknown as React.MouseEvent);
+              handleClick({
+                metaKey: e.metaKey,
+                ctrlKey: e.ctrlKey,
+                shiftKey: e.shiftKey,
+                stopPropagation: () => e.stopPropagation(),
+              });
             }
           }}
           role="button"

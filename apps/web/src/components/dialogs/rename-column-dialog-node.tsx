@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 
@@ -190,6 +191,12 @@ export const RenameColumnDialogNodeComponent =
               </span>
             </div>
 
+            <Label
+              className="sr-only"
+              htmlFor={`column-name-${columnDialog.columnId}`}
+            >
+              New column name
+            </Label>
             <Input
               autoFocus
               className="h-8 rounded-md border border-border/30 bg-muted/80 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
