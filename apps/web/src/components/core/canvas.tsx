@@ -113,6 +113,7 @@ type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
 type BoardQuickActionsNode = Node<{ boardId: string }>;
+type TaskQuickActionsNode = Node<{ taskId: string }>;
 type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
 type ColumnDialogNode = Node<{ columnId: string }>;
@@ -122,6 +123,7 @@ type CanvasNode =
   | EditBoardModalNode
   | TaskDetailModalNode
   | BoardQuickActionsNode
+  | TaskQuickActionsNode
   | BoardDialogNode
   | ConnectionDialogNode
   | ColumnDialogNode;
@@ -192,6 +194,10 @@ export function KanbanCanvas() {
   );
   const updateColumnDialogPosition = useKanbanStore(
     (state) => state.updateColumnDialogPosition
+  );
+  const taskQuickActions = useKanbanStore((state) => state.taskQuickActions);
+  const updateTaskQuickActionsPosition = useKanbanStore(
+    (state) => state.updateTaskQuickActionsPosition
   );
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
@@ -505,11 +511,30 @@ export function KanbanCanvas() {
       });
     }
 
+    const taskQuickActionsNodes: TaskQuickActionsNode[] = Object.values(
+      taskQuickActions
+    )
+      .filter(
+        (qa): qa is NonNullable<typeof qa> => qa != null && qa.position != null
+      )
+      .map((qa) => ({
+        id: `task-quick-actions-${qa.taskId}`,
+        type: "taskQuickActions" as const,
+        position: {
+          x: qa.position.x,
+          y: qa.position.y,
+        },
+        data: { taskId: qa.taskId },
+        style: { zIndex: 2000 },
+        draggable: true,
+      }));
+
     return [
       ...boardNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
       ...quickActionsNodes,
+      ...taskQuickActionsNodes,
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
@@ -529,6 +554,7 @@ export function KanbanCanvas() {
     boardDialogs,
     connectionDialog,
     columnDialog,
+    taskQuickActions,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -681,6 +707,9 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("task-detail-modal-")) {
             const modalId = change.id.replace("task-detail-modal-", "");
             updateTaskDetailModalPosition(modalId, change.position);
+          } else if (change.id.startsWith("task-quick-actions-")) {
+            const taskId = change.id.replace("task-quick-actions-", "");
+            updateTaskQuickActionsPosition(taskId, change.position);
           } else if (change.id.startsWith("quick-actions-")) {
             const boardId = change.id.replace("quick-actions-", "");
             updateBoardQuickActionsPosition(boardId, change.position);
@@ -707,6 +736,7 @@ export function KanbanCanvas() {
       updateModalPosition,
       updateTaskDetailModalPosition,
       updateBoardQuickActionsPosition,
+      updateTaskQuickActionsPosition,
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
       updateColumnDialogPosition,

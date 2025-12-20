@@ -63,5 +63,6 @@ export function createInitialState(): KanbanState {
     boardQuickActions: {},
     boardDialogs: {},
     connectionDialog: null,
+    taskQuickActions: {},
   };
 }

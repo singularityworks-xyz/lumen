@@ -163,7 +163,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const handleOpenTaskDetail = useCallback(
       (taskId: string, _screenX: number, _screenY: number) => {
-        const result = openTaskDetailModal(taskId, boardId);
+        const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
           setCenter(result.position.x + 200, result.position.y + 175, {
             duration: 500,
@@ -717,6 +717,7 @@ import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/dele
 import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
 import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
 import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
+import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
 
@@ -725,6 +726,7 @@ export const nodeTypes = {
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
   boardQuickActions: BoardQuickActionsNodeComponent,
+  taskQuickActions: TaskQuickActionsNodeComponent,
   boardRenameDialog: RenameBoardDialogNodeComponent,
   boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
   boardDeleteDialog: DeleteBoardDialogNodeComponent,

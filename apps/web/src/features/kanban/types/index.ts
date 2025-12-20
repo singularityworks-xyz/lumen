@@ -152,6 +152,8 @@ export type TaskDetailModalState = {
   position: { x: number; y: number };
   zIndex: number;
   sourceTaskId: string;
+  initialIsEditing?: boolean;
+  openedFromQuickActions?: boolean;
 };
 
 export type BoardDialogType = "rename" | "duplicate" | "delete";

@@ -17,6 +17,9 @@ type SliceCreator = (
   | "bulkUpdateTasks"
   | "bulkDeleteTasks"
   | "setDraggedTask"
+  | "openTaskQuickActions"
+  | "closeTaskQuickActions"
+  | "updateTaskQuickActionsPosition"
 >;
 
 export const createTaskSlice: SliceCreator = (set, _get) => ({
@@ -159,5 +162,23 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
   setDraggedTask: (taskId) =>
     set((state) => {
       state.draggedTaskId = taskId;
+    }),
+
+  openTaskQuickActions: (taskId, boardId, columnId, position) =>
+    set((state) => {
+      state.taskQuickActions[taskId] = { taskId, boardId, columnId, position };
+    }),
+
+  closeTaskQuickActions: (taskId) =>
+    set((state) => {
+      delete state.taskQuickActions[taskId];
+    }),
+
+  updateTaskQuickActionsPosition: (taskId, position) =>
+    set((state) => {
+      const quickActions = state.taskQuickActions[taskId];
+      if (quickActions) {
+        quickActions.position = position;
+      }
     }),
 });

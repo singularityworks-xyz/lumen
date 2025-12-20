@@ -72,6 +72,15 @@ export type KanbanState = {
     boardId: string;
     position: { x: number; y: number };
   } | null;
+  taskQuickActions: Record<
+    string,
+    {
+      taskId: string;
+      boardId: string;
+      columnId: string;
+      position: { x: number; y: number };
+    }
+  >;
 };
 
 export type KanbanActions = {
@@ -199,6 +208,19 @@ export type KanbanActions = {
   closeConnectionDialog: () => void;
   updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
 
+  // Task quick actions
+  openTaskQuickActions: (
+    taskId: string,
+    boardId: string,
+    columnId: string,
+    position: { x: number; y: number }
+  ) => void;
+  closeTaskQuickActions: (taskId: string) => void;
+  updateTaskQuickActionsPosition: (
+    taskId: string,
+    position: { x: number; y: number }
+  ) => void;
+
   // Column actions
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
@@ -284,11 +306,13 @@ export type KanbanActions = {
     formData: Partial<CreateTaskModalFormData>
   ) => void;
   bringModalToFront: (modalId: string) => void;
-  openTaskDetailModal: (
-    taskId: string,
-    boardId: string,
-    position?: { x: number; y: number }
-  ) => {
+  openTaskDetailModal: (options: {
+    taskId: string;
+    boardId: string;
+    position?: { x: number; y: number };
+    initialIsEditing?: boolean;
+    openedFromQuickActions?: boolean;
+  }) => {
     id: string;
     position: { x: number; y: number };
     isExisting: boolean;
