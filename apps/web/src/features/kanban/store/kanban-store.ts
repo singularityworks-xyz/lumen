@@ -84,6 +84,7 @@ export const useKanbanStore = create<KanbanStore>()(
           columnDialog: state.columnDialog,
           boardQuickActions: state.boardQuickActions,
           boardDialogs: state.boardDialogs,
+          connectionDialog: state.connectionDialog,
         };
         return persisted;
       },

@@ -6,7 +6,7 @@ import {
   useReactFlow,
   useViewport,
 } from "@xyflow/react";
-import { AlertTriangle, GripHorizontal, Link2, Trash2 } from "lucide-react";
+import { AlertTriangle, GripHorizontal, Link2, Trash2, X } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
@@ -144,12 +144,22 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center gap-2 border-destructive/20 border-b bg-destructive/10 px-3 py-2">
-          <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-          <Trash2 className="h-4 w-4 text-destructive" />
-          <h3 className="font-semibold text-destructive text-sm">
-            Delete Board
-          </h3>
+        <div className="flex cursor-move select-none items-center justify-between border-destructive/20 border-b bg-destructive/10 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+          <div className="flex items-center gap-2">
+            <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+            <Trash2 className="h-4 w-4 text-destructive" />
+            <h3 className="font-semibold text-destructive text-sm">
+              Delete Board
+            </h3>
+          </div>
+          <button
+            aria-label="Close delete board dialog"
+            className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+            onClick={handleClose}
+            type="button"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
 
         <div className="nodrag space-y-3 p-3">

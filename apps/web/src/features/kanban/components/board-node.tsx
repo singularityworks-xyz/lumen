@@ -312,6 +312,11 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         return;
       }
 
+      const firstColumn = board.columns?.[0];
+      if (!firstColumn) {
+        return;
+      }
+
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
@@ -320,26 +325,25 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         y: rect.top - 30,
       });
       openBoardQuickActions(boardId, quickActionsPos);
+      const QUICK_ACTIONS_WIDTH = 220;
+      const dialogPosition = {
+        x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
+        y: quickActionsPos.y,
+      };
 
-      const firstColumn = board.columns?.[0];
-      if (firstColumn) {
-        const buttonPosition = screenToFlowPosition({
-          x: baseRight + 260,
-          y: rect.top,
+      const result = openCreateTaskModal({
+        columnId: firstColumn.id,
+        boardId,
+        position: dialogPosition,
+        sourceRect: rect,
+        sourceType: "board-menu",
+      });
+
+      if (result.isExisting) {
+        setCenter(result.position.x + 200, result.position.y + 150, {
+          duration: 500,
+          zoom: 1,
         });
-        const result = openCreateTaskModal({
-          columnId: firstColumn.id,
-          boardId,
-          position: buttonPosition,
-          sourceRect: rect,
-          sourceType: "board-header",
-        });
-        if (result.isExisting) {
-          setCenter(result.position.x + 200, result.position.y + 150, {
-            duration: 500,
-            zoom: 1,
-          });
-        }
       }
     };
 
@@ -371,23 +375,24 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const headerRect = headerRef.current?.getBoundingClientRect();
       const baseRight = headerRect?.right ?? rect.right;
-
       const quickActionsPos = screenToFlowPosition({
         x: baseRight + 40,
         y: rect.top - 30,
       });
       openBoardQuickActions(boardId, quickActionsPos);
 
-      const dialogPos = screenToFlowPosition({
-        x: baseRight + 260,
-        y: rect.top - 30,
-      });
+      const QUICK_ACTIONS_WIDTH = 220;
+      const dialogPosition = {
+        x: quickActionsPos.x + QUICK_ACTIONS_WIDTH + 40,
+        y: quickActionsPos.y,
+      };
+
       openBoardDialog({
         type: "rename",
         boardId,
         boardName: board.name,
         inputValue: board.name,
-        position: dialogPos,
+        position: dialogPosition,
       });
     };
 
@@ -434,7 +439,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           </div>
         )}
 
-        <button
+        {/** biome-ignore lint/a11y/useSemanticElements: skip */}
+        <div
           aria-pressed={isSelected || selected || isMultiSelected}
           className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
             isMultiSelected
@@ -446,7 +452,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }
         `}
           onClick={handleClick}
-          type="button"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              handleClick(e as unknown as React.MouseEvent);
+            }
+          }}
+          role="button"
+          tabIndex={0}
         >
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
@@ -522,9 +534,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               onOpenTaskDetail={handleOpenTaskDetail}
             />
           </div>
-        </button>
+        </div>
 
-        {/* Connection handles for all four sides */}
         <Handle
           className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
           id="top"
