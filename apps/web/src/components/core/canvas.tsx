@@ -748,6 +748,42 @@ export function KanbanCanvas() {
     handleUndoRedo,
   ]);
 
+  const focusedBoardId = useKanbanStore((state) => state.canvas.focusedBoardId);
+  const setFocusedBoard = useKanbanStore((state) => state.setFocusedBoard);
+
+  useEffect(() => {
+    if (!focusedBoardId) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      const boardPos = boardPositions.byId[focusedBoardId];
+      if (boardPos) {
+        const centerX = boardPos.x + (boardPos.width ?? 400) / 2;
+        const centerY = boardPos.y + (boardPos.height ?? 300) / 2;
+
+        setReactFlowViewport(
+          {
+            x: -centerX + window.innerWidth / 2,
+            y: -centerY + window.innerHeight / 2,
+            zoom: 1,
+          },
+          { duration: 800 }
+        );
+      }
+
+      // Clear the focus after panning so we can re-trigger if needed,
+      // though typically this is a one-off event.
+      // However, keeping it in store allows for other components to trigger focus.
+      // We might want to clear it to avoid re-panning on minor re-renders,
+      // but only if we treat it as an impulse.
+      // For now, let's leave it, but if it causes issues, we can clear it:
+      setFocusedBoard(null);
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
+
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);

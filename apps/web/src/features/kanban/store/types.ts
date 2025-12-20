@@ -154,7 +154,7 @@ export type KanbanActions = {
   // Board actions
   addBoard: (
     name: string,
-    position: { x: number; y: number },
+    position?: { x: number; y: number },
     description?: string
   ) => string;
   updateBoard: (
