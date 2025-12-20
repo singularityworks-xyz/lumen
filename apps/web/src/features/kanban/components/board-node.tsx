@@ -709,8 +709,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
 BoardNodeComponent.displayName = "BoardNode";
 
-// refactored the dialogs to not use portals, so they can be used as nodes
-
+// Dialog components are rendered as React Flow nodes; they still use portals internally
+// for certain elements like connector edges.
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
