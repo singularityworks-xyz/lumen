@@ -226,6 +226,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
         {connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={sourceBoard?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -234,10 +235,32 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            sourceBoard?.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${sourceBoard.accentColor}15, ${sourceBoard.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-1.5">
             <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-primary text-xs",
+                !sourceBoard?.accentColor && "bg-primary/10"
+              )}
+              style={
+                sourceBoard?.accentColor
+                  ? {
+                      backgroundColor: `${sourceBoard.accentColor}25`,
+                      color: sourceBoard.accentColor,
+                    }
+                  : {}
+              }
+            >
               <Link2 className="h-3 w-3" />
               <span className="max-w-32 truncate">{sourceBoard?.name}</span>
             </span>
