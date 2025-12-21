@@ -41,9 +41,21 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
-    const bringTaskDetailModalToFront = useKanbanStore(
-      (state) => state.bringTaskDetailModalToFront
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
     );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+
+    const dialogId = `task-detail-modal-${data.modalId}`;
+
+    useEffect(() => {
+      registerDialog(dialogId);
+      return () => unregisterDialog(dialogId);
+    }, [dialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === dialogId;
     const shakingModalId = useKanbanStore(
       (state) => state.shakingTaskDetailModalId
     );
@@ -147,8 +159,8 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     );
 
     const handleMouseDown = useCallback(() => {
-      bringTaskDetailModalToFront(data.modalId);
-    }, [data.modalId, bringTaskDetailModalToFront]);
+      bringDialogToFront(dialogId);
+    }, [dialogId, bringDialogToFront]);
 
     const handleBackToView = useCallback(() => {
       setIsEditing(false);
@@ -204,7 +216,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
         <div
           className={cn(
             "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-            selected || isFocused
+            selected || isFocused || isTopmost
               ? "shadow-xl ring-2 ring-primary/50"
               : "shadow-lg ring-1 ring-border/50",
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]",

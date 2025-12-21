@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  type BlockingDialog,
+  BlockingDialogsManager,
+} from "@/src/components/dialogs/blocking-dialogs-manager";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
@@ -61,6 +65,33 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     );
     const duplicateTask = useKanbanStore((state) => state.duplicateTask);
     const taskDetailModals = useKanbanStore((state) => state.taskDetailModals);
+
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const closeTaskDetailModal = useKanbanStore(
+      (state) => state.closeTaskDetailModal
+    );
+
+    const dialogId = `task-quick-actions-${taskId}`;
+
+    useEffect(() => {
+      registerDialog(dialogId);
+      return () => unregisterDialog(dialogId);
+    }, [dialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === dialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(dialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, dialogId]);
 
     const taskQuickActionsState = useKanbanStore(
       (state) => state.taskQuickActions[taskId]
@@ -144,6 +175,32 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
       vpY,
       vpZoom,
     ]);
+
+    const blockingDialogs = useMemo(() => {
+      const dialogs: BlockingDialog[] = [];
+
+      for (const [modalId, modal] of Object.entries(taskDetailModals)) {
+        if (modal?.taskId === taskId) {
+          dialogs.push({
+            id: modalId,
+            name: "Edit Task",
+            type: "task-detail",
+            icon: Edit2,
+            accentColor: column?.accentColor,
+          });
+        }
+      }
+
+      return dialogs;
+    }, [taskDetailModals, taskId, column]);
+
+    const handleCloseBlocking = useCallback(() => {
+      for (const d of blockingDialogs) {
+        if (d.type === "task-detail") {
+          closeTaskDetailModal(d.id);
+        }
+      }
+    }, [blockingDialogs, closeTaskDetailModal]);
 
     const handleClose = useCallback(() => {
       closeTaskQuickActions(taskId);
@@ -252,13 +309,15 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
         return;
       }
 
+      handleCloseBlocking();
+
       if (task.status === "trash") {
         deleteTask(task.id);
       } else {
         updateTask(task.id, { status: "trash" });
       }
       handleClose();
-    }, [task, updateTask, deleteTask, handleClose]);
+    }, [task, updateTask, deleteTask, handleClose, handleCloseBlocking]);
 
     const handleRestore = useCallback(() => {
       if (!task) {
@@ -272,11 +331,8 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
       if (!task) {
         return;
       }
-      const newTaskId = duplicateTask(task.id);
-      if (newTaskId) {
-        handleClose();
-      }
-    }, [task, duplicateTask, handleClose]);
+      duplicateTask(task.id);
+    }, [task, duplicateTask]);
 
     if (!task) {
       return null;
@@ -290,9 +346,9 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
       <div
         aria-labelledby={`task-quick-actions-${id}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -302,6 +358,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(dialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
@@ -313,6 +370,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
             document.body
           )}
@@ -325,33 +383,43 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
               endY={taskDetailConnectorState.end.y}
               startX={taskDetailConnectorState.start.x}
               startY={taskDetailConnectorState.start.y}
+              zIndex={connectorZIndex}
             />,
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            column?.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-1.5">
             <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span className="max-w-28 truncate font-medium text-foreground text-xs">
+            <span
+              className="max-w-28 truncate font-medium text-xs"
+              style={
+                column?.accentColor
+                  ? {
+                      color: column.accentColor,
+                    }
+                  : { color: "var(--foreground)" }
+              }
+            >
               {task.title}
             </span>
           </div>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                  onClick={handleClose}
-                  type="button"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">Close menu</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <BlockingDialogsManager
+            dialogs={blockingDialogs}
+            onCloseAll={handleCloseBlocking}
+            onCloseMenu={handleClose}
+          >
+            <X className="h-3 w-3" />
+          </BlockingDialogsManager>
         </div>
 
         <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">

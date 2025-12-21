@@ -452,7 +452,7 @@ export function KanbanCanvas() {
           type: "taskDetailModal",
           position: { x: modal.position.x, y: modal.position.y },
           data: { modalId: modal.id },
-          style: { zIndex: 1000 + modal.zIndex },
+          style: { zIndex: computeZIndex(`task-detail-modal-${modal.id}`) },
           draggable: true,
         };
         return node;
