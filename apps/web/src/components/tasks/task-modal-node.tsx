@@ -70,6 +70,33 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const columnQuickActions = useKanbanStore(
       (state) => state.columnQuickActions
     );
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `task-modal-${data.modalId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
+
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
 
     useEffect(() => {
       setMounted(true);
@@ -214,7 +241,8 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
 
     const handleMouseDown = useCallback(() => {
       bringModalToFront(data.modalId);
-    }, [data.modalId, bringModalToFront]);
+      bringDialogToFront(zIndexDialogId);
+    }, [data.modalId, bringModalToFront, bringDialogToFront, zIndexDialogId]);
 
     const updatedModalState = useMemo(() => {
       if (!modalFormData) {
@@ -258,9 +286,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       // biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler
       <div
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-lg ring-1 ring-border/50",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
@@ -270,13 +298,14 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handleMouseDown}
         style={{
           width: MODAL_WIDTH,
         }}
       >
         {mounted &&
           connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={accentColor}
@@ -284,8 +313,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
         <div
           className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"

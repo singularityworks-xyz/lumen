@@ -16,6 +16,11 @@ import type {
   Workspace,
 } from "../types";
 
+export type ColumnUiState = {
+  isBottomExpanded: boolean;
+  bottomView: "finished" | "trash";
+};
+
 export type KanbanState = {
   workspaces: EntityMap<Workspace>;
   boards: EntityMap<Board>;
@@ -91,6 +96,9 @@ export type KanbanState = {
       position: { x: number; y: number };
     }
   >;
+  // Z-index management
+  dialogFocusStack: string[];
+  columnUi: Record<string, ColumnUiState>;
 };
 
 export type KanbanActions = {
@@ -381,6 +389,13 @@ export type KanbanActions = {
   clearBoardSelection: () => void;
   toggleTaskSelection: (taskId: string) => void;
   clearTaskSelection: () => void;
+  updateColumnUi: (columnId: string, updates: Partial<ColumnUiState>) => void;
+
+  // Z-index management
+  bringDialogToFront: (dialogId: string) => void;
+  registerDialog: (dialogId: string) => void;
+  unregisterDialog: (dialogId: string) => void;
+  getDialogZIndex: (dialogId: string) => number;
 };
 
 export type KanbanStore = KanbanState & KanbanActions;

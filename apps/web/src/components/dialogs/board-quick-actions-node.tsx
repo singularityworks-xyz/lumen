@@ -17,20 +17,17 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { BlockingDialogsManager } from "@/src/components/dialogs/blocking-dialogs-manager";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/src/components/ui/hover-card";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
@@ -86,6 +83,33 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const closeConnectionDialog = useKanbanStore(
       (state) => state.closeConnectionDialog
     );
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const dialogId = `board-quick-actions-${boardId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
+
+    useEffect(() => {
+      registerDialog(dialogId);
+      return () => unregisterDialog(dialogId);
+    }, [dialogId, registerDialog, unregisterDialog]);
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(dialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, dialogId]);
+
+    const isTopmost = dialogFocusStack.at(-1) === dialogId;
 
     const columnCount = board?.column_ids.length ?? 0;
     const taskCount = useMemo(() => {
@@ -119,7 +143,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         type: "board-dialog" | "task" | "connection";
       }[] = [];
 
-      for (const [dialogId, d] of Object.entries(boardDialogs)) {
+      for (const [bDialogId, d] of Object.entries(boardDialogs)) {
         if (d.boardId !== boardId) {
           continue;
         }
@@ -143,7 +167,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         }
         const b = boards.byId[d.boardId];
         dialogs.push({
-          id: dialogId,
+          id: bDialogId,
           name,
           type: "board-dialog",
           icon: b?.icon,
@@ -186,8 +210,6 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       boards.byId,
       columns.byId,
     ]);
-
-    const hasOpenDialogs = blockingDialogs.length > 0;
 
     const handleCloseBlocking = useCallback(() => {
       for (const d of blockingDialogs) {
@@ -610,9 +632,9 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       <div
         aria-labelledby={`quick-actions-${id}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -622,10 +644,12 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(dialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={board.accentColor}
@@ -633,8 +657,9 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div
@@ -673,90 +698,13 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
               <span className="max-w-24 truncate">{board.name}</span>
             </span>
           </div>
-          {hasOpenDialogs ? (
-            <HoverCard closeDelay={300} openDelay={0}>
-              <HoverCardTrigger asChild>
-                <button
-                  className="flex h-6 w-6 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-card/80 text-muted-foreground opacity-50 shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                  disabled
-                  type="button"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </HoverCardTrigger>
-              <HoverCardContent
-                className="w-auto overflow-hidden rounded-lg border-2 border-border/50 bg-card p-0 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-                side="top"
-                sideOffset={8}
-              >
-                <div className="flex items-center gap-2 px-2.5 py-2">
-                  <div className="flex items-center gap-1.5">
-                    {blockingDialogs.map((dialog) => {
-                      const IconComponent = dialog.icon
-                        ? ICON_MAP[dialog.icon]
-                        : null;
-                      return (
-                        <span
-                          className={cn(
-                            "flex h-6 items-center gap-1.5 rounded-md px-2 font-medium text-[11px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
-                            !dialog.accentColor && "bg-primary/15 text-primary"
-                          )}
-                          key={dialog.id}
-                          style={
-                            dialog.accentColor
-                              ? {
-                                  backgroundColor: `${dialog.accentColor}20`,
-                                  color: dialog.accentColor,
-                                }
-                              : {}
-                          }
-                          title={dialog.name}
-                        >
-                          {IconComponent ? (
-                            <IconComponent className="h-3.5 w-3.5" />
-                          ) : dialog.type === "task" ? (
-                            <Plus className="h-3.5 w-3.5" />
-                          ) : dialog.type === "connection" ? (
-                            <Link2 className="h-3.5 w-3.5" />
-                          ) : (
-                            <Settings className="h-3.5 w-3.5" />
-                          )}
-                          <span className="max-w-20 truncate">
-                            {dialog.name}
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <button
-                    className="flex h-6 shrink-0 items-center gap-1.5 rounded-md bg-destructive/15 px-2 font-medium text-[11px] text-destructive shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/25 dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.08)]"
-                    onClick={handleCloseBlocking}
-                    type="button"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span>Close</span>
-                  </button>
-                </div>
-              </HoverCardContent>
-            </HoverCard>
-          ) : (
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                    onClick={handleClose}
-                    type="button"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs">Close menu</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <BlockingDialogsManager
+            dialogs={blockingDialogs}
+            onCloseAll={handleCloseBlocking}
+            onCloseMenu={handleClose}
+          >
+            <X className="h-3 w-3" />
+          </BlockingDialogsManager>
         </div>
 
         <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
