@@ -41,7 +41,7 @@ export function TagInput({
     if (triggerRef.current) {
       setTriggerWidth(triggerRef.current.offsetWidth);
     }
-  }, [triggerRef.current, tags]); // Update when tags change as height might change, but width should be stable unless container resizes.
+  }, [tags]);
   // Actually, ResizeObserver would be better, but simplified for now:
   React.useEffect(() => {
      if (!triggerRef.current) return;
@@ -95,6 +95,16 @@ export function TagInput({
             className
           )}
           onClick={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              if (e.key === " ") e.preventDefault();
+              setOpen(true);
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
         >
           {tags.map((tag) => (
             <Badge
@@ -104,6 +114,7 @@ export function TagInput({
             >
               {tag}
               <button
+                aria-label={`Remove ${tag}`}
                 className="ml-1 rounded-full ring-offset-background hover:bg-destructive/20 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {

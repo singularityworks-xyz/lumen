@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useKanbanStore } from "../store/kanban-store";
-import type { Task } from "../types";
 
 export const useTagSuggestions = (
   boardId: string,
@@ -10,21 +9,17 @@ export const useTagSuggestions = (
   const tasks = useKanbanStore((state) => state.tasks);
 
   const suggestions = useMemo(() => {
-    const boardTasks: Task[] = [];
     const usageCount: Record<string, number> = {};
     const inColumn: Set<string> = new Set();
     const existingTags = new Set(currentTags);
 
     for (const taskId of tasks.allIds) {
       const task = tasks.byId[taskId];
-      if (task?.board_id === boardId) {
-        boardTasks.push(task);
-        if (task.tags) {
-          for (const tag of task.tags) {
-            usageCount[tag] = (usageCount[tag] || 0) + 1;
-            if (task.column_id === columnId) {
-              inColumn.add(tag);
-            }
+      if (task?.board_id === boardId && task.tags) {
+        for (const tag of task.tags) {
+          usageCount[tag] = (usageCount[tag] || 0) + 1;
+          if (task.column_id === columnId) {
+            inColumn.add(tag);
           }
         }
       }

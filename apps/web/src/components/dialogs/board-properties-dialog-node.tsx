@@ -354,7 +354,7 @@ export const BoardPropertiesDialogNodeComponent =
             <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-primary">
               <Settings className="h-3 w-3" />
             </span>
-            <span className="font-semibold text-xs">Column Settings</span>
+            <span className="font-semibold text-xs">Properties</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span

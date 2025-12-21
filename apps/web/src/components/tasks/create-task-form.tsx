@@ -68,11 +68,17 @@ export const CreateTaskForm = memo(
     const [dueDate, setDueDate] = useState<Date | undefined>(
       formData.dueDate ? new Date(formData.dueDate) : undefined
     );
-    const [tags, setTags] = useState<string[]>(
-      formData.tags
-        ? formData.tags.split(",").filter((t) => t.trim().length > 0)
-        : []
-    );
+    const [tags, setTags] = useState<string[]>(() => {
+      if (!formData.tags) {
+        return [];
+      }
+      try {
+        const parsed = JSON.parse(formData.tags);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return formData.tags.split(",").filter((t) => t.trim().length > 0);
+      }
+    });
 
     const suggestions = useTagSuggestions(boardId, selectedColumnId, tags);
     const [titleError, setTitleError] = useState(false);
@@ -115,7 +121,7 @@ export const CreateTaskForm = memo(
           priority: values.priority,
           progress: values.progress,
           dueDate: values.dueDate?.toISOString() ?? "",
-          tags: values.tags.join(","),
+          tags: JSON.stringify(values.tags),
         });
       },
       [modalId, updateModalFormData]

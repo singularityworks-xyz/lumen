@@ -62,6 +62,9 @@ export const ColorIconPickerDialogNodeComponent =
     );
     const updateWorkspace = useKanbanStore((state) => state.updateWorkspace);
     const dialog = useKanbanStore((state) => state.boardDialogs[dialogId]);
+    const board = useKanbanStore((state) =>
+      dialog?.boardId ? state.boards.byId[dialog.boardId] : null
+    );
 
     const customColors = workspace?.customColors ?? [];
 
@@ -174,9 +177,14 @@ export const ColorIconPickerDialogNodeComponent =
       handleColorChange,
     ]);
 
-    if (!(dialog && column)) {
+    if (!dialog || (data.targetType !== "board" && !column)) {
       return null;
     }
+
+    const isBoard = data.targetType === "board";
+    const currentName = isBoard ? dialog.boardName : column?.name;
+    const currentColor = isBoard ? board?.accentColor : column?.accentColor;
+    const currentIcon = isBoard ? board?.icon : column?.icon;
 
     return (
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
@@ -202,7 +210,7 @@ export const ColorIconPickerDialogNodeComponent =
           createPortal(
             <ConnectorEdge
               color="primary"
-              customColor={column.accentColor}
+              customColor={currentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               hideStartNode
@@ -218,7 +226,7 @@ export const ColorIconPickerDialogNodeComponent =
             <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-primary">
               <Palette className="h-3 w-3" />
             </span>
-            <span className="font-semibold text-xs">Style: {column.name}</span>
+            <span className="font-semibold text-xs">Style: {currentName}</span>
           </div>
           <button
             aria-label="Close"
@@ -237,7 +245,7 @@ export const ColorIconPickerDialogNodeComponent =
             </span>
             <div className="rounded-lg border border-border/30 bg-muted/50 p-2">
               <HexColorPicker
-                color={column.accentColor || pickerColor}
+                color={currentColor || pickerColor}
                 onChange={(color) => {
                   setPickerColor(color);
                   handleColorChange(color);
@@ -247,9 +255,10 @@ export const ColorIconPickerDialogNodeComponent =
               <div className="mt-2 flex items-center gap-2">
                 <div
                   className="h-6 w-6 rounded border border-border"
-                  style={{ backgroundColor: column.accentColor || pickerColor }}
+                  style={{ backgroundColor: currentColor || pickerColor }}
                 />
                 <input
+                  aria-label="Hex color value"
                   className="nodrag flex-1 rounded border border-border bg-background px-2 py-1 font-mono text-xs"
                   maxLength={7}
                   onChange={(e) => {
@@ -264,7 +273,7 @@ export const ColorIconPickerDialogNodeComponent =
                   onKeyDown={(e) => e.stopPropagation()}
                   placeholder="#000000"
                   type="text"
-                  value={column.accentColor || pickerColor}
+                  value={currentColor || pickerColor}
                 />
                 <button
                   className="rounded bg-primary px-2 py-1 text-primary-foreground text-xs transition-colors hover:bg-primary/90 disabled:opacity-50"
@@ -291,7 +300,7 @@ export const ColorIconPickerDialogNodeComponent =
                   className={cn(
                     "h-6 w-6 rounded-full transition-all hover:scale-110",
                     color.class,
-                    column.accentColor === color.value &&
+                    currentColor === color.value &&
                       "ring-2 ring-foreground/50 ring-offset-2 ring-offset-background"
                   )}
                   key={color.value}
@@ -304,7 +313,7 @@ export const ColorIconPickerDialogNodeComponent =
                 <button
                   className={cn(
                     "h-6 w-6 rounded-full transition-all hover:scale-110",
-                    column.accentColor === color &&
+                    currentColor === color &&
                       "ring-2 ring-foreground/50 ring-offset-2 ring-offset-background"
                   )}
                   key={color}
@@ -326,7 +335,7 @@ export const ColorIconPickerDialogNodeComponent =
                 <button
                   className={cn(
                     "nodrag flex h-7 w-7 items-center justify-center rounded transition-all hover:bg-muted",
-                    column.icon === icon.value &&
+                    currentIcon === icon.value &&
                       "bg-primary/20 text-primary ring-1 ring-primary/30"
                   )}
                   key={icon.value}
@@ -337,8 +346,8 @@ export const ColorIconPickerDialogNodeComponent =
                   <icon.Icon
                     className="h-4 w-4"
                     style={
-                      column.icon === icon.value && column.accentColor
-                        ? { color: column.accentColor }
+                      currentIcon === icon.value && currentColor
+                        ? { color: currentColor }
                         : undefined
                     }
                   />
