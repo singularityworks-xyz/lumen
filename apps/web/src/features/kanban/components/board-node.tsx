@@ -242,10 +242,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [board?.columns]);
 
-    // Smart resize effect that respects user preferences
-    // SKIP when user is actively resizing to prevent flickering
     useEffect(() => {
-      // Don't auto-resize while user is dragging the resize handle
       if (isResizing) {
         return;
       }
@@ -259,7 +256,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       const currentHeight = node.height || minDimensions.height;
       const userResized = boardPosition?.userResized ?? false;
 
-      // Determine if resize should be applied
       const { shouldResize, newDimensions } = shouldApplyResize(
         { width: currentWidth, height: currentHeight },
         contentDimensions,
@@ -799,6 +795,7 @@ BoardNodeComponent.displayName = "BoardNode";
 // Dialog components are rendered as React Flow nodes; they still use portals internally
 // for certain elements like connector edges.
 
+import { AreaPropertiesDialogNodeComponent } from "../../../components/dialogs/area-properties-dialog-node";
 import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
 import { ColorIconPickerDialogNodeComponent } from "../../../components/dialogs/color-icon-picker-dialog-node";
@@ -813,8 +810,11 @@ import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/ren
 import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
 import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
+import { AreaNodeComponent } from "./area-node";
 
 export const nodeTypes = {
+  area: AreaNodeComponent,
+  areaPropertiesDialog: AreaPropertiesDialogNodeComponent,
   board: BoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,

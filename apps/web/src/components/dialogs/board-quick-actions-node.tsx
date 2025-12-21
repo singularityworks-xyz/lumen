@@ -30,6 +30,7 @@ import {
 
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
 import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type BoardQuickActionsNodeData = {
@@ -104,9 +105,9 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const connectorZIndex = useMemo(() => {
       const index = dialogFocusStack.indexOf(dialogId);
       if (index === -1) {
-        return 1000;
+        return Z_INDEX_BASE.QUICK_ACTIONS;
       }
-      return 1000 + (index + 1) * 10;
+      return Z_INDEX_BASE.QUICK_ACTIONS + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
     const isTopmost = dialogFocusStack.at(-1) === dialogId;

@@ -30,6 +30,7 @@ import {
 } from "@/src/components/ui/tooltip";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
 
 type TaskQuickActionsNodeData = {
   taskId: string;
@@ -88,9 +89,9 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     const connectorZIndex = useMemo(() => {
       const index = dialogFocusStack.indexOf(dialogId);
       if (index === -1) {
-        return 1000;
+        return Z_INDEX_BASE.QUICK_ACTIONS;
       }
-      return 1000 + (index + 1) * 10;
+      return Z_INDEX_BASE.QUICK_ACTIONS + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
     const taskQuickActionsState = useKanbanStore(

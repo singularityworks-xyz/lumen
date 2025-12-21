@@ -1,4 +1,6 @@
 import type {
+  Area,
+  AreaPosition,
   Board,
   BoardConnection,
   BoardDialogState,
@@ -28,6 +30,9 @@ export type KanbanState = {
   tasks: EntityMap<Task>;
   boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
+  areas: EntityMap<Area>;
+  areaPositions: EntityMap<AreaPosition>;
+  selectionBox: { x: number; y: number; width: number; height: number } | null;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
   showCommandPalette: boolean;
@@ -99,6 +104,11 @@ export type KanbanState = {
   // Z-index management
   dialogFocusStack: string[];
   columnUi: Record<string, ColumnUiState>;
+  areaDialog: {
+    areaId: string;
+    areaName: string;
+    position: { x: number; y: number };
+  } | null;
 };
 
 export type KanbanActions = {
@@ -170,6 +180,40 @@ export type KanbanActions = {
   ) => void;
   updateColumnDialogInputValue: (id: string, value: string) => void;
   updateColumnDialogDescriptionValue: (id: string, value: string) => void;
+
+  // Area actions
+  addArea: (
+    name: string,
+    position: { x: number; y: number },
+    dimensions: { width: number; height: number },
+    workspaceId?: string
+  ) => string;
+  updateArea: (
+    areaId: string,
+    updates: Partial<Pick<Area, "name" | "color" | "icon">>
+  ) => void;
+  removeArea: (areaId: string) => void;
+  updateAreaPosition: (
+    areaId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateAreaDimensions: (
+    areaId: string,
+    dimensions: { width: number; height: number }
+  ) => void;
+  setSelectionBox: (
+    box: { x: number; y: number; width: number; height: number } | null
+  ) => void;
+  clearSelectionBox: () => void;
+  attachBoardToArea: (areaId: string, boardId: string) => void;
+  detachBoardFromArea: (areaId: string, boardId: string) => void;
+  openAreaDialog: (options: {
+    areaId: string;
+    areaName: string;
+    position: { x: number; y: number };
+  }) => void;
+  closeAreaDialog: () => void;
+  updateAreaDialogPosition: (position: { x: number; y: number }) => void;
 
   // Board actions
   addBoard: (

@@ -52,6 +52,7 @@ import {
   useKanbanStore,
 } from "../../features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
+import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
 import type { BoardNode } from "../../features/kanban/types";
 import { type BoardEdge, BoardEdgeComponent } from "../core/board-edge";
 import { CustomControls } from "../custom-controls";
@@ -60,6 +61,7 @@ import { EdgeContextMenu } from "../edge-context-menu";
 import { RightControls } from "../right-controls";
 import { WorkspaceSelector } from "../workspace-selector";
 import { MiniMapNode } from "./minimap-node";
+import { SelectionContextMenu } from "./selection-context-menu";
 
 type ColumnDragContextType = {
   activeColumnData: {
@@ -111,6 +113,7 @@ function ColumnDragOverlay({
 }
 
 type KanbanNode = Node<BoardNode["data"]>;
+type AreaNode = Node<{ areaId: string }>;
 type TaskModalNode = Node<{ modalId: string }>;
 type EditBoardModalNode = Node<{ modalId: string }>;
 type TaskDetailModalNode = Node<{ modalId: string }>;
@@ -121,6 +124,7 @@ type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
 type ColumnDialogNode = Node<{ columnId: string; dialogId: string }>;
 type CanvasNode =
+  | AreaNode
   | KanbanNode
   | TaskModalNode
   | EditBoardModalNode
@@ -155,16 +159,25 @@ export function KanbanCanvas() {
   const updateBoardDimensions = useKanbanStore(
     (state) => state.updateBoardDimensions
   );
+  const areas = useKanbanStore((state) => state.areas);
+  const areaPositions = useKanbanStore((state) => state.areaPositions);
+  const updateAreaPosition = useKanbanStore(
+    (state) => state.updateAreaPosition
+  );
+  const updateAreaDimensions = useKanbanStore(
+    (state) => state.updateAreaDimensions
+  );
+  const attachBoardToArea = useKanbanStore((state) => state.attachBoardToArea);
+  const detachBoardFromArea = useKanbanStore(
+    (state) => state.detachBoardFromArea
+  );
   const updateModalPosition = useKanbanStore(
     (state) => state.updateModalPosition
   );
   const selectedBoardId = useKanbanStore((state) => state.selectedBoardId);
-  // Get modal IDs to track which modals exist (shallow compare will work on string[])
   const modalIds = useKanbanStore(
     useShallow((state) => Object.keys(state.createTaskModals))
   );
-  // Get the full createTaskModals to access position data in useMemo
-  // This won't cause re-renders by itself since we use modalIds for the dependency
   const createTaskModals = useKanbanStore((state) => state.createTaskModals);
   const taskDetailModalIds = useKanbanStore(
     useShallow((state) => Object.keys(state.taskDetailModals))
@@ -209,8 +222,11 @@ export function KanbanCanvas() {
   const updateTaskQuickActionsPosition = useKanbanStore(
     (state) => state.updateTaskQuickActionsPosition
   );
-  // Subscribe to dialogFocusStack for reactive z-index computation
   const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+  const areaDialog = useKanbanStore((state) => state.areaDialog);
+  const updateAreaDialogPosition = useKanbanStore(
+    (state) => state.updateAreaDialogPosition
+  );
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
       default: BoardEdgeComponent,
@@ -348,7 +364,6 @@ export function KanbanCanvas() {
     if (workspace.lastFocusedBoardId) {
       const boardPos = boardPositions.byId[workspace.lastFocusedBoardId];
       if (boardPos) {
-        // Center on board with offset for board dimensions
         const centerX = boardPos.x + (boardPos.width ?? 400) / 2;
         const centerY = boardPos.y + (boardPos.height ?? 300) / 2;
         setReactFlowViewport(
@@ -364,7 +379,6 @@ export function KanbanCanvas() {
     }
 
     // Priority 3: Fit view to show all boards in workspace
-    // Use setTimeout to ensure nodes are rendered before fitting
     setTimeout(() => {
       fitView({ padding: 0.3, duration: 300 });
     }, 50);
@@ -380,14 +394,42 @@ export function KanbanCanvas() {
     const computeZIndex = (dialogId: string) => {
       const index = dialogFocusStack.indexOf(dialogId);
       if (index === -1) {
-        return 3000;
+        return Z_INDEX_BASE.DIALOGS;
       }
-      return 3000 + (index + 1) * 10;
+      return Z_INDEX_BASE.DIALOGS + (index + 1) * 10;
     };
 
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
+
+    const areaNodes: AreaNode[] = areaPositions.allIds
+      .filter((areaId) => {
+        const area = areas.byId[areaId];
+        const position = areaPositions.byId[areaId];
+        return (
+          area &&
+          position &&
+          (!currentWorkspaceId || area.workspace_id === currentWorkspaceId)
+        );
+      })
+      .map((areaId) => {
+        const position = areaPositions.byId[areaId];
+        if (!position) {
+          return null;
+        }
+        const node: AreaNode = {
+          id: areaId,
+          type: "area",
+          position: { x: position.x, y: position.y },
+          data: { areaId },
+          style: { zIndex: position.zIndex },
+          width: position.width,
+          height: position.height,
+        };
+        return node;
+      })
+      .filter((node): node is AreaNode => node !== null);
 
     const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
 
@@ -625,7 +667,21 @@ export function KanbanCanvas() {
         draggable: true,
       }));
 
+    const areaDialogNode = areaDialog
+      ? [
+          {
+            id: "area-properties-dialog",
+            type: "areaPropertiesDialog" as const,
+            position: areaDialog.position,
+            data: { dialogId: "area-properties-dialog" },
+            style: { zIndex: 3000 },
+            draggable: true,
+          },
+        ]
+      : [];
+
     return [
+      ...areaNodes,
       ...boardNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
@@ -635,8 +691,11 @@ export function KanbanCanvas() {
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
+      ...areaDialogNode,
     ];
   }, [
+    areas,
+    areaPositions,
     boards,
     boardPositions,
     currentWorkspaceId,
@@ -654,6 +713,7 @@ export function KanbanCanvas() {
     taskQuickActions,
     columnQuickActions,
     dialogFocusStack,
+    areaDialog,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -817,13 +877,6 @@ export function KanbanCanvas() {
           { duration: 800 }
         );
       }
-
-      // Clear the focus after panning so we can re-trigger if needed,
-      // though typically this is a one-off event.
-      // However, keeping it in store allows for other components to trigger focus.
-      // We might want to clear it to avoid re-panning on minor re-renders,
-      // but only if we treat it as an impulse.
-      // For now, let's leave it, but if it causes issues, we can clear it:
       setFocusedBoard(null);
     }, 50);
 
@@ -836,7 +889,9 @@ export function KanbanCanvas() {
 
       for (const change of changes) {
         if (change.type === "position" && change.position) {
-          if (change.id.startsWith("modal-")) {
+          if (change.id.startsWith("area_")) {
+            updateAreaPosition(change.id, change.position);
+          } else if (change.id.startsWith("modal-")) {
             const modalId = change.id.replace("modal-", "");
             updateModalPosition(modalId, change.position);
           } else if (change.id.startsWith("task-detail-modal-")) {
@@ -859,17 +914,71 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("column-dialog-")) {
             const dialogId = change.id.replace("column-dialog-", "");
             updateColumnDialogPosition(dialogId, change.position);
+          } else if (change.id === "area-properties-dialog") {
+            updateAreaDialogPosition(change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
         }
         if (change.type === "dimensions" && change.dimensions) {
-          updateBoardDimensions(change.id, change.dimensions, true);
+          if (change.id.startsWith("area_")) {
+            updateAreaDimensions(change.id, change.dimensions);
+          } else {
+            updateBoardDimensions(change.id, change.dimensions, true);
+          }
+        }
+
+        if (
+          change.type === "position" &&
+          change.position &&
+          change.id.startsWith("board_")
+        ) {
+          const boardId = change.id;
+          const boardPos = boardPositions.byId[boardId];
+          if (!boardPos) {
+            return;
+          }
+
+          const boardWidth = boardPos.width ?? 300;
+          const boardHeight = boardPos.height ?? 200;
+          const boardCenterX = change.position.x + boardWidth / 2;
+          const boardCenterY = change.position.y + boardHeight / 2;
+
+          let foundAreaId: string | null = null;
+          for (const areaId of areaPositions.allIds) {
+            const areaPos = areaPositions.byId[areaId];
+            if (!areaPos) {
+              continue;
+            }
+
+            if (
+              boardCenterX >= areaPos.x &&
+              boardCenterX <= areaPos.x + areaPos.width &&
+              boardCenterY >= areaPos.y &&
+              boardCenterY <= areaPos.y + areaPos.height
+            ) {
+              foundAreaId = areaId;
+              break;
+            }
+          }
+
+          if (foundAreaId) {
+            attachBoardToArea(foundAreaId, boardId);
+          } else {
+            for (const areaId of areas.allIds) {
+              const area = areas.byId[areaId];
+              if (area?.board_ids?.includes(boardId)) {
+                detachBoardFromArea(areaId, boardId);
+              }
+            }
+          }
         }
       }
     },
     [
       onNodesChange,
+      updateAreaPosition,
+      updateAreaDimensions,
       updateBoardPosition,
       updateBoardDimensions,
       updateModalPosition,
@@ -880,6 +989,12 @@ export function KanbanCanvas() {
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
       updateColumnDialogPosition,
+      areas,
+      areaPositions,
+      boardPositions,
+      attachBoardToArea,
+      detachBoardFromArea,
+      updateAreaDialogPosition,
     ]
   );
 
@@ -933,6 +1048,58 @@ export function KanbanCanvas() {
     },
     []
   );
+
+  const [selectionMenu, setSelectionMenu] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    screenX: number;
+    screenY: number;
+  } | null>(null);
+
+  const { screenToFlowPosition } = useReactFlow();
+
+  const handleSelectionEnd = useCallback(
+    (_event: React.MouseEvent) => {
+      const selectionBox = document.querySelector(
+        ".react-flow__selection"
+      ) as HTMLElement | null;
+
+      if (!selectionBox) {
+        return;
+      }
+
+      const rect = selectionBox.getBoundingClientRect();
+
+      if (rect.width < 50 || rect.height < 50) {
+        return;
+      }
+
+      const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
+      const bottomRight = screenToFlowPosition({
+        x: rect.right,
+        y: rect.bottom,
+      });
+
+      const width = bottomRight.x - topLeft.x;
+      const height = bottomRight.y - topLeft.y;
+
+      setSelectionMenu({
+        x: topLeft.x,
+        y: topLeft.y,
+        width,
+        height,
+        screenX: rect.right + 10,
+        screenY: rect.top,
+      });
+    },
+    [screenToFlowPosition]
+  );
+
+  const handleCloseSelectionMenu = useCallback(() => {
+    setSelectionMenu(null);
+  }, []);
 
   useEffect(() => {
     isUpdatingFromStore.current = true;
@@ -1003,6 +1170,7 @@ export function KanbanCanvas() {
             onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
             onNodesChange={handleNodesChange}
+            onSelectionEnd={handleSelectionEnd}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
             panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
             proOptions={{ hideAttribution: true }}
@@ -1057,6 +1225,17 @@ export function KanbanCanvas() {
               onClose={() => setEdgeContextMenu(null)}
               x={edgeContextMenu.x}
               y={edgeContextMenu.y}
+            />
+          )}
+          {selectionMenu && (
+            <SelectionContextMenu
+              height={selectionMenu.height}
+              onClose={handleCloseSelectionMenu}
+              screenX={selectionMenu.screenX}
+              screenY={selectionMenu.screenY}
+              width={selectionMenu.width}
+              x={selectionMenu.x}
+              y={selectionMenu.y}
             />
           )}
         </div>

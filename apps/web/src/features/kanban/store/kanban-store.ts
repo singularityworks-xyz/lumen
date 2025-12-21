@@ -4,6 +4,7 @@ import type { StateCreator } from "zustand";
 import { create, useStore } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { createAreaSlice } from "./slices/area-slice";
 import { createBoardSlice } from "./slices/board-slice";
 import { createColumnSlice } from "./slices/column-slice";
 import { createConnectionSlice } from "./slices/connection-slice";
@@ -33,6 +34,7 @@ const storeCreator: StateCreator<
   ...createModalSlice(set, get),
   ...createUiSlice(set, get),
   ...createZIndexSlice(set, get),
+  ...createAreaSlice(set, get),
 });
 
 const uiStateFields: (keyof KanbanState)[] = [
@@ -90,6 +92,8 @@ export const useKanbanStore = create<KanbanStore>()(
           connectionDialog: state.connectionDialog,
           taskQuickActions: state.taskQuickActions,
           columnUi: state.columnUi,
+          areas: state.areas,
+          areaPositions: state.areaPositions,
         };
         return persisted;
       },
