@@ -185,7 +185,7 @@ export const CreateTaskForm = memo(
 
     const handleTagsChange = (newTags: string[]) => {
       setTags(newTags);
-      updateModalFormData(modalId, { tags: newTags.join(",") });
+      updateModalFormData(modalId, { tags: JSON.stringify(newTags) });
     };
 
     return (

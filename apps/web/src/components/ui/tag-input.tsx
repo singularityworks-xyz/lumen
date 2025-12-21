@@ -167,15 +167,20 @@ export function TagInput({
           />
           <CommandList>
             {/* If input has value but no matches, show "Create tag" option? */}
-            {inputValue && !suggestions.includes(inputValue) && !tags.includes(inputValue) && (
-                 <CommandItem
-                 onSelect={() => handleSelect(inputValue)}
-                 className="flex justify-between"
-               >
-                 Create "{inputValue}"
-                 <span className="text-xs text-muted-foreground">New</span>
-               </CommandItem>
-            )}
+            {(() => {
+              const trimmed = inputValue?.trim();
+              if (!trimmed || suggestions.includes(trimmed) || tags.includes(trimmed))
+                return null;
+              return (
+                <CommandItem
+                  onSelect={() => handleSelect(inputValue)}
+                  className="flex justify-between"
+                >
+                  Create "{trimmed}"
+                  <span className="text-xs text-muted-foreground">New</span>
+                </CommandItem>
+              );
+            })()}
 
             <CommandGroup 
               heading="Suggestions" 
