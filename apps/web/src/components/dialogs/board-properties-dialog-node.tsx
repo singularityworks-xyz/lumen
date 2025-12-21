@@ -99,6 +99,8 @@ export const BoardPropertiesDialogNodeComponent =
       currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
     );
     const updateWorkspace = useKanbanStore((state) => state.updateWorkspace);
+
+    const updateBoard = useKanbanStore((state) => state.updateBoard);
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
 
     const boardColumns = useMemo(() => {
@@ -210,6 +212,65 @@ export const BoardPropertiesDialogNodeComponent =
       [dialog, board, openBoardDialog, dialogId]
     );
 
+    const handleBoardColorChange = useCallback(
+      (color: string) => {
+        if (!board) {
+          return;
+        }
+        updateBoard(board.id, { accentColor: color || undefined });
+        if (currentWorkspaceId && color) {
+          updateWorkspace(currentWorkspaceId, {
+            colorUsage: incrementColorUsage(workspace?.colorUsage, color),
+          });
+        }
+      },
+      [
+        board,
+        updateBoard,
+        currentWorkspaceId,
+        workspace?.colorUsage,
+        updateWorkspace,
+      ]
+    );
+
+    const handleBoardIconChange = useCallback(
+      (icon: string) => {
+        if (!board) {
+          return;
+        }
+        updateBoard(board.id, { icon: icon || undefined });
+        if (currentWorkspaceId && icon) {
+          updateWorkspace(currentWorkspaceId, {
+            iconUsage: incrementIconUsage(workspace?.iconUsage, icon),
+          });
+        }
+      },
+      [
+        board,
+        updateBoard,
+        currentWorkspaceId,
+        workspace?.iconUsage,
+        updateWorkspace,
+      ]
+    );
+
+    const handleOpenExtendedBoardPicker = useCallback(() => {
+      if (!(dialog && board)) {
+        return;
+      }
+      openBoardDialog({
+        type: "color-icon-picker",
+        boardId: board.id,
+        boardName: board.name,
+        position: {
+          x: dialog.position.x + DIALOG_WIDTH + 20,
+          y: dialog.position.y,
+        },
+        sourceDialogId: dialogId,
+        targetType: "board",
+      });
+    }, [dialog, board, openBoardDialog, dialogId]);
+
     const handleAutoDistribute = useCallback(() => {
       const count = boardColumns.length;
       if (count === 0) {
@@ -268,7 +329,7 @@ export const BoardPropertiesDialogNodeComponent =
         {connectorState &&
           createPortal(
             <ConnectorEdge
-              color="primary"
+              customColor={board?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               hideStartNode
@@ -278,7 +339,16 @@ export const BoardPropertiesDialogNodeComponent =
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            board?.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-primary">
@@ -287,8 +357,26 @@ export const BoardPropertiesDialogNodeComponent =
             <span className="font-semibold text-xs">Column Settings</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10px] text-primary">
-              <Layout className="h-3 w-3" />
+            <span
+              className={cn(
+                "flex h-5 items-center gap-1 rounded px-1.5 text-[10px]",
+                !board?.accentColor && "bg-primary/10 text-primary"
+              )}
+              style={
+                board?.accentColor
+                  ? {
+                      backgroundColor: `${board.accentColor}25`,
+                      color: board.accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const iconName = board?.icon;
+                const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
+                const Icon = MappedIcon || Layout;
+                return <Icon className="h-3 w-3" />;
+              })()}
               <span className="max-w-16 truncate">{dialog.boardName}</span>
             </span>
             <button
@@ -383,6 +471,47 @@ export const BoardPropertiesDialogNodeComponent =
         </div>
 
         <div className="nodrag p-2">
+          {activeTab === "style" && (
+            <div className="mb-3 space-y-3 rounded-md border border-border/30 bg-muted/30 p-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Board Style
+                </span>
+                <button
+                  className="text-[10px] text-primary hover:text-primary/80 hover:underline"
+                  onClick={handleOpenExtendedBoardPicker}
+                  type="button"
+                >
+                  More...
+                </button>
+              </div>
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="mb-1 block text-[10px] text-muted-foreground opacity-70">
+                    Accent
+                  </span>
+                  <QuickColorPicker
+                    colorUsage={workspace?.colorUsage}
+                    onChange={handleBoardColorChange}
+                    onMoreClick={handleOpenExtendedBoardPicker}
+                    value={board?.accentColor ?? ""}
+                  />
+                </div>
+                <div>
+                  <span className="mb-1 block text-[10px] text-muted-foreground opacity-70">
+                    Icon
+                  </span>
+                  <QuickIconPicker
+                    accentColor={board?.accentColor}
+                    iconUsage={workspace?.iconUsage}
+                    onChange={handleBoardIconChange}
+                    onMoreClick={handleOpenExtendedBoardPicker}
+                    value={board?.icon ?? ""}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           {boardColumns.map((col, index) => {
             const value = columnProgressValues[col.id] ?? 0;
             const styles = getProgressStyles(value);

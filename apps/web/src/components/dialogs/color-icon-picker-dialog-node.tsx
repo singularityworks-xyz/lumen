@@ -23,8 +23,9 @@ import {
 
 type ColorIconPickerDialogNodeData = {
   dialogId: string;
-  columnId: string;
+  columnId?: string;
   sourceDialogId: string;
+  targetType?: "board" | "column";
 };
 
 type ColorIconPickerDialogNodeProps = NodeProps<
@@ -47,9 +48,12 @@ export const ColorIconPickerDialogNodeComponent =
     const sourceDialog = useKanbanStore(
       (state) => state.boardDialogs[sourceDialogId]
     );
-    const column = useKanbanStore((state) => state.columns.byId[columnId]);
+    const column = useKanbanStore((state) =>
+      columnId ? state.columns.byId[columnId] : null
+    );
     const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
     const updateColumn = useKanbanStore((state) => state.updateColumn);
+    const updateBoard = useKanbanStore((state) => state.updateBoard);
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
     );
@@ -95,7 +99,15 @@ export const ColorIconPickerDialogNodeComponent =
 
     const handleColorChange = useCallback(
       (color: string) => {
-        updateColumn(columnId, { accentColor: color || undefined });
+        const targetType = data.targetType ?? "column";
+        if (targetType === "board") {
+          if (dialog?.boardId) {
+            updateBoard(dialog.boardId, { accentColor: color || undefined });
+          }
+        } else if (columnId) {
+          updateColumn(columnId, { accentColor: color || undefined });
+        }
+
         // Track usage
         if (currentWorkspaceId && color) {
           updateWorkspace(currentWorkspaceId, {
@@ -109,12 +121,23 @@ export const ColorIconPickerDialogNodeComponent =
         currentWorkspaceId,
         workspace?.colorUsage,
         updateWorkspace,
+        data.targetType,
+        dialog?.boardId,
+        updateBoard,
       ]
     );
 
     const handleIconChange = useCallback(
       (icon: string) => {
-        updateColumn(columnId, { icon: icon || undefined });
+        const targetType = data.targetType ?? "column";
+        if (targetType === "board") {
+          if (dialog?.boardId) {
+            updateBoard(dialog.boardId, { icon: icon || undefined });
+          }
+        } else if (columnId) {
+          updateColumn(columnId, { icon: icon || undefined });
+        }
+
         // Track usage
         if (currentWorkspaceId && icon) {
           updateWorkspace(currentWorkspaceId, {
@@ -128,6 +151,9 @@ export const ColorIconPickerDialogNodeComponent =
         currentWorkspaceId,
         workspace?.iconUsage,
         updateWorkspace,
+        data.targetType,
+        dialog?.boardId,
+        updateBoard,
       ]
     );
 

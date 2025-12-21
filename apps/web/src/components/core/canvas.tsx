@@ -489,10 +489,11 @@ export function KanbanCanvas() {
           position: { x: dialog.position.x, y: dialog.position.y },
           data: {
             dialogId: dialog.id,
-            ...(dialog.type === "color-icon-picker" && dialog.columnId
+            ...(dialog.type === "color-icon-picker"
               ? {
                   columnId: dialog.columnId,
                   sourceDialogId: dialog.sourceDialogId,
+                  targetType: dialog.targetType,
                 }
               : {}),
           },

@@ -171,7 +171,9 @@ export type KanbanActions = {
   ) => string;
   updateBoard: (
     boardId: string,
-    updates: Partial<Pick<Board, "name" | "description">>
+    updates: Partial<
+      Pick<Board, "name" | "description" | "accentColor" | "icon">
+    >
   ) => void;
   removeBoard: (boardId: string) => void;
   updateBoardPosition: (
@@ -216,6 +218,7 @@ export type KanbanActions = {
     connectionCount?: number;
     columnProgressValues?: Record<string, number>;
     columnId?: string;
+    targetType?: "board" | "column";
     sourceDialogId?: string;
   }) => string;
   closeBoardDialog: (id: string) => void;

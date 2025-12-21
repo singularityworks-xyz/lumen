@@ -54,6 +54,8 @@ export type Board = {
   created_by: string;
   created_at: string;
   column_ids: string[];
+  accentColor?: string;
+  icon?: string;
 };
 
 export type BoardConnection = {
@@ -190,6 +192,7 @@ export type BoardDialogState = {
   connectionCount?: number;
   columnProgressValues?: Record<string, number>;
   columnId?: string;
+  targetType?: "board" | "column";
   sourceDialogId?: string;
 };
 
@@ -240,6 +243,8 @@ export type DenormalizedBoard = {
   created_by: string;
   created_at: string;
   columns: DenormalizedColumn[];
+  accentColor?: string;
+  icon?: string;
 };
 
 export type DenormalizedColumn = {

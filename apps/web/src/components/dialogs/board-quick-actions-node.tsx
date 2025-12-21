@@ -21,6 +21,11 @@ import { memo, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/src/components/ui/hover-card";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -28,6 +33,7 @@ import {
 } from "@/src/components/ui/tooltip";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type BoardQuickActionsNodeData = {
   boardId: string;
@@ -73,6 +79,13 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const openConnectionDialog = useKanbanStore(
       (state) => state.openConnectionDialog
     );
+    const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
+    const closeCreateTaskModal = useKanbanStore(
+      (state) => state.closeCreateTaskModal
+    );
+    const closeConnectionDialog = useKanbanStore(
+      (state) => state.closeConnectionDialog
+    );
 
     const columnCount = board?.column_ids.length ?? 0;
     const taskCount = useMemo(() => {
@@ -97,16 +110,101 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       [boardConnections, boardId]
     );
 
-    const hasOpenDialogs = useMemo(() => {
-      const hasBoardDialog = Object.values(boardDialogs).some(
-        (d) => d.boardId === boardId
-      );
-      const hasTaskModal = Object.values(createTaskModals).some(
-        (m) => m.boardId === boardId
-      );
-      const hasConnectionDialog = connectionDialog?.boardId === boardId;
-      return hasBoardDialog || hasTaskModal || hasConnectionDialog;
-    }, [boardDialogs, createTaskModals, connectionDialog, boardId]);
+    const blockingDialogs = useMemo(() => {
+      const dialogs: {
+        id: string;
+        name: string;
+        icon?: string;
+        accentColor?: string;
+        type: "board-dialog" | "task" | "connection";
+      }[] = [];
+
+      for (const [dialogId, d] of Object.entries(boardDialogs)) {
+        if (d.boardId !== boardId) {
+          continue;
+        }
+        let name = "Dialog";
+        switch (d.type) {
+          case "properties":
+            name = "Properties";
+            break;
+          case "rename":
+            name = "Rename Board";
+            break;
+          case "duplicate":
+            name = "Duplicate Board";
+            break;
+          case "delete":
+            name = "Delete Board";
+            break;
+          default:
+            name = "Dialog";
+            break;
+        }
+        const b = boards.byId[d.boardId];
+        dialogs.push({
+          id: dialogId,
+          name,
+          type: "board-dialog",
+          icon: b?.icon,
+          accentColor: b?.accentColor,
+        });
+      }
+
+      for (const [taskModalId, m] of Object.entries(createTaskModals)) {
+        if (m.boardId !== boardId) {
+          continue;
+        }
+        const c = m.columnId ? columns.byId[m.columnId] : null;
+        const b = boards.byId[m.boardId];
+        dialogs.push({
+          id: taskModalId,
+          name: "New Task",
+          type: "task",
+          icon: c?.icon ?? b?.icon,
+          accentColor: c?.accentColor ?? b?.accentColor,
+        });
+      }
+
+      if (connectionDialog?.boardId === boardId) {
+        const b = boards.byId[boardId];
+        dialogs.push({
+          id: "connection",
+          name: "Connection",
+          type: "connection",
+          icon: b?.icon,
+          accentColor: b?.accentColor,
+        });
+      }
+
+      return dialogs;
+    }, [
+      boardDialogs,
+      createTaskModals,
+      connectionDialog,
+      boardId,
+      boards.byId,
+      columns.byId,
+    ]);
+
+    const hasOpenDialogs = blockingDialogs.length > 0;
+
+    const handleCloseBlocking = useCallback(() => {
+      for (const d of blockingDialogs) {
+        if (d.type === "board-dialog") {
+          closeBoardDialog(d.id);
+        } else if (d.type === "task") {
+          closeCreateTaskModal(d.id);
+        } else if (d.type === "connection") {
+          closeConnectionDialog();
+        }
+      }
+    }, [
+      blockingDialogs,
+      closeBoardDialog,
+      closeCreateTaskModal,
+      closeConnectionDialog,
+    ]);
 
     const hasOtherBoards = useMemo(() => {
       const currentWorkspace = currentWorkspaceId
@@ -530,6 +628,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         {connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={board.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -538,40 +637,126 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            board.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-1.5">
             <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
-              <LayoutGrid className="h-3 w-3" />
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-primary text-xs",
+                !board.accentColor && "bg-primary/10"
+              )}
+              style={
+                board.accentColor
+                  ? {
+                      backgroundColor: `${board.accentColor}25`,
+                      color: board.accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const IconComponent = board.icon ? ICON_MAP[board.icon] : null;
+                if (IconComponent) {
+                  return <IconComponent className="h-3 w-3" />;
+                }
+                return <LayoutGrid className="h-3 w-3" />;
+              })()}
               <span className="max-w-24 truncate">{board.name}</span>
             </span>
           </div>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          {hasOpenDialogs ? (
+            <HoverCard closeDelay={300} openDelay={0}>
+              <HoverCardTrigger asChild>
                 <button
-                  className={cn(
-                    "nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]",
-                    hasOpenDialogs
-                      ? "cursor-not-allowed opacity-50"
-                      : "hover:bg-destructive/20 hover:text-destructive"
-                  )}
-                  disabled={hasOpenDialogs}
-                  onClick={hasOpenDialogs ? undefined : handleClose}
+                  className="flex h-6 w-6 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-card/80 text-muted-foreground opacity-50 shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                  disabled
                   type="button"
                 >
                   <X className="h-3 w-3" />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">
-                  {hasOpenDialogs
-                    ? "Close associated dialogs first"
-                    : "Close menu"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+              </HoverCardTrigger>
+              <HoverCardContent
+                className="w-auto overflow-hidden rounded-lg border-2 border-border/50 bg-card p-0 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+                side="top"
+                sideOffset={8}
+              >
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  <div className="flex items-center gap-1.5">
+                    {blockingDialogs.map((dialog) => {
+                      const IconComponent = dialog.icon
+                        ? ICON_MAP[dialog.icon]
+                        : null;
+                      return (
+                        <span
+                          className={cn(
+                            "flex h-6 items-center gap-1.5 rounded-md px-2 font-medium text-[11px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
+                            !dialog.accentColor && "bg-primary/15 text-primary"
+                          )}
+                          key={dialog.id}
+                          style={
+                            dialog.accentColor
+                              ? {
+                                  backgroundColor: `${dialog.accentColor}20`,
+                                  color: dialog.accentColor,
+                                }
+                              : {}
+                          }
+                          title={dialog.name}
+                        >
+                          {IconComponent ? (
+                            <IconComponent className="h-3.5 w-3.5" />
+                          ) : dialog.type === "task" ? (
+                            <Plus className="h-3.5 w-3.5" />
+                          ) : dialog.type === "connection" ? (
+                            <Link2 className="h-3.5 w-3.5" />
+                          ) : (
+                            <Settings className="h-3.5 w-3.5" />
+                          )}
+                          <span className="max-w-20 truncate">
+                            {dialog.name}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <button
+                    className="flex h-6 shrink-0 items-center gap-1.5 rounded-md bg-destructive/15 px-2 font-medium text-[11px] text-destructive shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/25 dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.08)]"
+                    onClick={handleCloseBlocking}
+                    type="button"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    <span>Close</span>
+                  </button>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          ) : (
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                    onClick={handleClose}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Close menu</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">

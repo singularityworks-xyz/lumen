@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
 
@@ -45,6 +46,9 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
     const boardConnections = useKanbanStore((state) => state.boardConnections);
     const boardQuickActions = useKanbanStore((state) =>
       dialog?.boardId ? state.boardQuickActions[dialog.boardId] : null
+    );
+    const board = useKanbanStore((state) =>
+      dialog?.boardId ? state.boards.byId[dialog.boardId] : null
     );
 
     const connectorState = useMemo(() => {
@@ -141,6 +145,7 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
         {connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={board?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -149,7 +154,16 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-destructive/10 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-destructive/20 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            board?.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="flex h-5 w-5 items-center justify-center rounded bg-destructive/20 font-bold text-[10px] text-destructive">
@@ -160,10 +174,31 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="flex h-5 items-center gap-1 rounded bg-destructive/10 px-1.5 text-[10px] text-destructive">
-              <span className="flex h-4 w-4 items-center justify-center rounded bg-destructive/20 font-bold text-[9px]">
-                {getInitials(dialog.boardName)}
-              </span>
+            <span
+              className={cn(
+                "flex h-5 items-center gap-1 rounded px-1.5 text-[10px]",
+                !board?.accentColor && "bg-destructive/10 text-destructive"
+              )}
+              style={
+                board?.accentColor
+                  ? {
+                      backgroundColor: `${board.accentColor}25`,
+                      color: board.accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const iconName = board?.icon;
+                const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
+                return MappedIcon ? (
+                  <MappedIcon className="h-3 w-3" />
+                ) : (
+                  <span className="flex h-4 w-4 items-center justify-center rounded bg-destructive/20 font-bold text-[9px]">
+                    {getInitials(dialog.boardName)}
+                  </span>
+                );
+              })()}
               <span className="max-w-20 truncate">{dialog.boardName}</span>
             </span>
             <button
@@ -178,7 +213,6 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
         </div>
 
         <div className="nodrag space-y-3 p-3">
-          {/* Warning */}
           <div className="flex gap-2 rounded bg-destructive/10 p-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
             <div className="text-xs">
@@ -192,7 +226,6 @@ export const DeleteBoardDialogNodeComponent = memo<DeleteBoardDialogNodeProps>(
             </div>
           </div>
 
-          {/* What will be deleted */}
           <div className="space-y-1 text-xs">
             <p className="font-medium text-muted-foreground">
               This will permanently delete:

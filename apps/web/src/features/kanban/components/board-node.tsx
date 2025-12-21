@@ -8,10 +8,11 @@ import {
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
-import { GripVertical, Plus, SquarePen, X } from "lucide-react";
+import { CheckCircle2, GripVertical, Plus, SquarePen, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
+import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
   BoardNode,
@@ -25,6 +26,7 @@ import {
   calculateMinDimensions,
   shouldApplyResize,
 } from "../utils/board-resize-rules";
+import { ICON_MAP } from "../utils/color-icon-utils";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -95,8 +97,29 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         created_by: boardData.created_by,
         created_at: boardData.created_at,
         columns: denormalizedColumns,
+        accentColor: boardData.accentColor,
+        icon: boardData.icon,
       };
     }, [boardData, columnsMap, tasksMap]);
+
+    const taskCounts = useMemo(() => {
+      if (!board) {
+        return { done: 0, total: 0 };
+      }
+      let done = 0;
+      let total = 0;
+      for (const col of board.columns) {
+        for (const task of col.tasks) {
+          if (task.status === "todo") {
+            total += 1;
+          } else if (task.status === "done") {
+            done += 1;
+            total += 1;
+          }
+        }
+      }
+      return { done, total };
+    }, [board]);
 
     const {
       getNode,
@@ -472,9 +495,23 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         {(selected || isSelected || isMultiSelected) && (
           <div className="pointer-events-none absolute right-0 bottom-0 z-10">
             <div className="relative h-8 w-8">
-              <div className="absolute right-0 bottom-0 h-3 w-3 animate-pulse rounded-full bg-primary/30" />
+              <div
+                className="absolute right-0 bottom-0 h-3 w-3 animate-pulse rounded-full bg-primary/30"
+                style={
+                  board.accentColor
+                    ? { backgroundColor: `${board.accentColor}4D` }
+                    : {}
+                }
+              />
 
-              <div className="absolute right-0 bottom-0 flex h-6 w-6 items-center justify-center rounded-tl-lg bg-primary/90 shadow-lg transition-all hover:scale-110">
+              <div
+                className="absolute right-0 bottom-0 flex h-6 w-6 items-center justify-center rounded-tl-lg bg-primary/90 shadow-lg transition-all hover:scale-110"
+                style={
+                  board.accentColor
+                    ? { backgroundColor: board.accentColor }
+                    : {}
+                }
+              >
                 <svg
                   className="h-3 w-3 text-primary-foreground"
                   fill="none"
@@ -515,6 +552,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             }
           }}
           role="button"
+          style={{
+            borderColor:
+              (isSelected || selected) && board?.accentColor
+                ? board.accentColor
+                : undefined,
+          }}
           tabIndex={0}
         >
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
@@ -535,13 +578,106 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               );
             }}
             ref={headerRef}
+            style={
+              board.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                  }
+                : {}
+            }
           >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 items-center gap-1">
+                {board.icon && (
+                  <span
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground"
+                    style={
+                      board.accentColor
+                        ? {
+                            backgroundColor: `${board.accentColor}25`,
+                            color: board.accentColor,
+                          }
+                        : { backgroundColor: "rgba(128,128,128,0.2)" }
+                    }
+                  >
+                    {(() => {
+                      const Icon = ICON_MAP[board.icon];
+                      return Icon ? <Icon className="h-3 w-3" /> : null;
+                    })()}
+                  </span>
+                )}
                 <h3 className="truncate font-semibold text-foreground text-xs">
                   {board.name}
                 </h3>
+                {taskCounts.total > 0 && (
+                  <span
+                    className={cn(
+                      "relative flex h-5 items-center gap-1 overflow-hidden rounded-full pr-2 pl-1.5 font-medium text-[10px] tabular-nums shadow-[inset_0_1px_3px_rgba(0,0,0,0.15),inset_0_-1px_2px_rgba(255,255,255,0.1)] transition-all dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
+                      taskCounts.done === taskCounts.total
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : board.accentColor
+                          ? ""
+                          : "bg-muted/80 text-muted-foreground"
+                    )}
+                    style={
+                      taskCounts.done !== taskCounts.total && board.accentColor
+                        ? {
+                            backgroundColor: `${board.accentColor}15`,
+                            color: board.accentColor,
+                          }
+                        : {}
+                    }
+                    title={`${taskCounts.done} done / ${taskCounts.total} total tasks`}
+                  >
+                    <span
+                      className={cn(
+                        "absolute inset-y-0 left-0 transition-all",
+                        taskCounts.done === taskCounts.total
+                          ? "bg-emerald-500/20"
+                          : board.accentColor
+                            ? ""
+                            : "bg-primary/10"
+                      )}
+                      style={{
+                        width: `${(taskCounts.done / taskCounts.total) * 100}%`,
+                        ...(taskCounts.done !== taskCounts.total &&
+                        board.accentColor
+                          ? { backgroundColor: `${board.accentColor}20` }
+                          : {}),
+                      }}
+                    />
+                    <span className="relative flex items-center gap-1">
+                      {taskCounts.done === taskCounts.total ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <span
+                          className={cn(
+                            "flex h-3 w-3 items-center justify-center rounded-full text-[8px]",
+                            taskCounts.done === taskCounts.total
+                              ? "bg-emerald-500/30"
+                              : board.accentColor
+                                ? ""
+                                : "bg-primary/20"
+                          )}
+                          style={
+                            taskCounts.done !== taskCounts.total &&
+                            board.accentColor
+                              ? { backgroundColor: `${board.accentColor}30` }
+                              : {}
+                          }
+                        >
+                          ✓
+                        </span>
+                      )}
+                      <span className="font-semibold">{taskCounts.done}</span>
+                      <span className="opacity-50">/</span>
+                      <span>{taskCounts.total}</span>
+                    </span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
                 <button
                   className="nodrag flex h-4 w-4 shrink-0 items-center justify-center rounded opacity-0 transition-all hover:bg-accent group-hover:opacity-100"
                   onClick={handleOpenEdit}
