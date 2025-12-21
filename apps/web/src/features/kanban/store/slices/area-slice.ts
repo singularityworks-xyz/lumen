@@ -27,13 +27,13 @@ const DEFAULT_AREA_COLOR = "#9ca3af";
 
 export const createAreaSlice: SliceCreator = (set, get) => ({
   addArea: (name, position, dimensions, workspaceId) => {
-    const id = generateAreaId();
     const wsId = workspaceId ?? get().currentWorkspaceId;
 
     if (!wsId) {
-      return id;
+      return "";
     }
 
+    const id = generateAreaId();
     const area: Area = {
       id,
       name,
@@ -53,7 +53,7 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
         y: position.y,
         width: dimensions.width,
         height: dimensions.height,
-        zIndex: 10, // Low z-index to stay behind boards
+        zIndex: 10,
       };
       state.areaPositions.allIds.push(id);
     });
@@ -88,15 +88,11 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
         return;
       }
 
-      // Calculate delta for moving attached boards
       const deltaX = position.x - areaPos.x;
       const deltaY = position.y - areaPos.y;
-
-      // Update area position
       areaPos.x = position.x;
       areaPos.y = position.y;
 
-      // Move all attached boards by the same delta
       for (const boardId of area.board_ids ?? []) {
         const boardPos = state.boardPositions.byId[boardId];
         if (boardPos) {
