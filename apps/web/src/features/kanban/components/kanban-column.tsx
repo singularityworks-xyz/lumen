@@ -9,13 +9,16 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Circle,
   SquarePen,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
+import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
+import { ICON_MAP } from "../utils/color-icon-utils";
 
 type KanbanColumnProps = {
   column: DenormalizedColumn;
@@ -356,6 +359,50 @@ export const KanbanColumn = memo(
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
+              {(column.accentColor || column.icon) && (
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded",
+                    !column.accentColor && "bg-muted"
+                  )}
+                  style={
+                    column.accentColor
+                      ? { backgroundColor: `${column.accentColor}25` }
+                      : {}
+                  }
+                >
+                  {(() => {
+                    const IconComponent = column.icon
+                      ? ICON_MAP[column.icon]
+                      : null;
+                    if (IconComponent) {
+                      return (
+                        <IconComponent
+                          className="h-3 w-3"
+                          style={
+                            column.accentColor
+                              ? { color: column.accentColor }
+                              : {}
+                          }
+                        />
+                      );
+                    }
+                    return (
+                      <Circle
+                        className="h-2.5 w-2.5"
+                        style={
+                          column.accentColor
+                            ? {
+                                fill: column.accentColor,
+                                color: column.accentColor,
+                              }
+                            : {}
+                        }
+                      />
+                    );
+                  })()}
+                </span>
+              )}
               <div className="flex flex-col gap-0.5">
                 <h3 className="font-semibold text-card-foreground text-xs">
                   {column.name}
@@ -383,6 +430,23 @@ export const KanbanColumn = memo(
               <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {taskCount}
               </span>
+              {column.progressValue !== undefined && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 font-medium text-[10px] ${
+                    column.progressValue <= 20
+                      ? "bg-red-500/20 text-red-600 dark:text-red-400"
+                      : column.progressValue <= 40
+                        ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
+                        : column.progressValue <= 60
+                          ? "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                          : column.progressValue <= 80
+                            ? "bg-lime-500/20 text-lime-600 dark:text-lime-400"
+                            : "bg-green-500/20 text-green-600 dark:text-green-400"
+                  }`}
+                >
+                  {column.progressValue}%
+                </span>
+              )}
               <button
                 aria-label="Move column to another board"
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"

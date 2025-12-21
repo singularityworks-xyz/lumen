@@ -6,16 +6,18 @@ import {
   useReactFlow,
   useViewport,
 } from "@xyflow/react";
-import { AlertTriangle, GripHorizontal } from "lucide-react";
+import { Columns, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type DeleteColumnDialogNodeData = {
   columnId: string;
+  dialogId: string;
 };
 
 type DeleteColumnDialogNodeProps = NodeProps<Node<DeleteColumnDialogNodeData>>;
@@ -28,7 +30,10 @@ export const DeleteColumnDialogNodeComponent =
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
-    const columnDialog = useKanbanStore((state) => state.columnDialog);
+    const columnDialog = useKanbanStore(
+      (state) => state.columnDialogs[data.dialogId]
+    );
+    const columns = useKanbanStore((state) => state.columns);
     const deleteColumn = useKanbanStore((state) => state.deleteColumn);
     const closeColumnDialog = useKanbanStore(
       (state) => state.closeColumnDialog
@@ -40,6 +45,8 @@ export const DeleteColumnDialogNodeComponent =
       (state) => state.columnQuickActions
     );
     const boardPositions = useKanbanStore((state) => state.boardPositions);
+
+    const column = columnDialog ? columns.byId[columnDialog.columnId] : null;
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
@@ -53,11 +60,10 @@ export const DeleteColumnDialogNodeComponent =
         y: columnDialog.position.y,
       });
 
-      // Try to connect to column quick actions first
       const quickActions = columnQuickActions?.[data.columnId];
       if (quickActions) {
         const sourceScreenPos = flowToScreenPosition({
-          x: quickActions.position.x + 200, // Connect to right side of quick actions (width 200)
+          x: quickActions.position.x + 200,
           y: quickActions.position.y + 20,
         });
         return {
@@ -66,7 +72,6 @@ export const DeleteColumnDialogNodeComponent =
         };
       }
 
-      // Fallback to board connection
       const boardPos = boardPositions.byId[columnDialog.boardId];
       if (!boardPos) {
         return null;
@@ -95,7 +100,7 @@ export const DeleteColumnDialogNodeComponent =
     const handleConfirm = useCallback(() => {
       if (columnDialog && columnDialog.type === "delete") {
         deleteColumn(columnDialog.boardId, columnDialog.columnId);
-        closeColumnDialog();
+        closeColumnDialog(data.dialogId);
         closeColumnQuickActions(columnDialog.columnId);
       }
     }, [
@@ -103,11 +108,12 @@ export const DeleteColumnDialogNodeComponent =
       deleteColumn,
       closeColumnDialog,
       closeColumnQuickActions,
+      data.dialogId,
     ]);
 
     const handleClose = useCallback(() => {
-      closeColumnDialog();
-    }, [closeColumnDialog]);
+      closeColumnDialog(data.dialogId);
+    }, [closeColumnDialog, data.dialogId]);
 
     if (
       !columnDialog ||
@@ -141,6 +147,7 @@ export const DeleteColumnDialogNodeComponent =
           createPortal(
             <ConnectorEdge
               color="destructive"
+              customColor={column?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               hideStartNode
@@ -150,16 +157,73 @@ export const DeleteColumnDialogNodeComponent =
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-destructive/10 via-destructive/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
-            <span className="shrink-0 font-semibold text-xs">Remove</span>
-            <div className="h-3 w-px bg-border/60" />
-            <span className="truncate font-medium text-destructive text-xs">
-              {columnDialog.columnName}
+        <div
+          className="flex cursor-move select-none items-center justify-between border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            column?.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
+          <div className="flex items-center gap-2">
+            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded",
+                !column?.accentColor &&
+                  "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+              )}
+              style={
+                column?.accentColor
+                  ? {
+                      backgroundColor: `${column.accentColor}25`,
+                      color: column.accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const IconComponent = column?.icon
+                  ? ICON_MAP[column.icon]
+                  : null;
+                if (IconComponent) {
+                  return <IconComponent className="h-3 w-3" />;
+                }
+                return <Columns className="h-3 w-3" />;
+              })()}
             </span>
+            <span className="font-semibold text-xs">Remove Column</span>
           </div>
-          <GripHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]",
+                !column?.accentColor && "bg-destructive/10 text-destructive"
+              )}
+              style={
+                column?.accentColor
+                  ? {
+                      backgroundColor: `${column.accentColor}15`,
+                      color: column.accentColor,
+                    }
+                  : {}
+              }
+            >
+              <span className="max-w-20 truncate font-medium">
+                {columnDialog.columnName}
+              </span>
+            </span>
+            <button
+              aria-label="Close delete column dialog"
+              className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+              onClick={handleClose}
+              type="button"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         </div>
 
         <div className="nodrag p-4">

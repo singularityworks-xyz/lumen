@@ -55,17 +55,21 @@ export type KanbanState = {
       position: { x: number; y: number };
     }
   >;
-  columnDialog: {
-    type: "rename" | "delete" | "move";
-    columnId: string;
-    columnName: string;
-    columnDescription?: string;
-    boardId: string;
-    boardName: string;
-    inputValue?: string;
-    descriptionValue?: string;
-    position: { x: number; y: number };
-  } | null;
+  columnDialogs: Record<
+    string,
+    {
+      id: string;
+      type: "rename" | "delete" | "move";
+      columnId: string;
+      columnName: string;
+      columnDescription?: string;
+      boardId: string;
+      boardName: string;
+      inputValue?: string;
+      descriptionValue?: string;
+      position: { x: number; y: number };
+    }
+  >;
   boardQuickActions: Record<
     string,
     {
@@ -95,7 +99,12 @@ export type KanbanActions = {
   addWorkspace: (name: string, description?: string) => string;
   updateWorkspace: (
     workspaceId: string,
-    updates: Partial<Pick<Workspace, "name" | "description">>
+    updates: Partial<
+      Pick<
+        Workspace,
+        "name" | "description" | "customColors" | "colorUsage" | "iconUsage"
+      >
+    >
   ) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (
@@ -145,11 +154,14 @@ export type KanbanActions = {
     inputValue?: string;
     descriptionValue?: string;
     position: { x: number; y: number };
-  }) => void;
-  closeColumnDialog: () => void;
-  updateColumnDialogPosition: (position: { x: number; y: number }) => void;
-  updateColumnDialogInputValue: (value: string) => void;
-  updateColumnDialogDescriptionValue: (value: string) => void;
+  }) => string;
+  closeColumnDialog: (id: string) => void;
+  updateColumnDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateColumnDialogInputValue: (id: string, value: string) => void;
+  updateColumnDialogDescriptionValue: (id: string, value: string) => void;
 
   // Board actions
   addBoard: (
@@ -159,7 +171,9 @@ export type KanbanActions = {
   ) => string;
   updateBoard: (
     boardId: string,
-    updates: Partial<Pick<Board, "name" | "description">>
+    updates: Partial<
+      Pick<Board, "name" | "description" | "accentColor" | "icon">
+    >
   ) => void;
   removeBoard: (boardId: string) => void;
   updateBoardPosition: (
@@ -168,7 +182,8 @@ export type KanbanActions = {
   ) => void;
   updateBoardDimensions: (
     boardId: string,
-    dimensions: { width: number; height: number }
+    dimensions: { width: number; height: number },
+    isUserResize?: boolean
   ) => void;
   bringBoardToFront: (boardId: string) => void;
   getDenormalizedBoard: (
@@ -201,6 +216,10 @@ export type KanbanActions = {
     columnCount?: number;
     taskCount?: number;
     connectionCount?: number;
+    columnProgressValues?: Record<string, number>;
+    columnId?: string;
+    targetType?: "board" | "column";
+    sourceDialogId?: string;
   }) => string;
   closeBoardDialog: (id: string) => void;
   updateBoardDialogPosition: (
@@ -211,6 +230,11 @@ export type KanbanActions = {
   updateBoardDialogDescriptionValue: (id: string, value: string) => void;
   updateBoardDialogNewName: (id: string, value: string) => void;
   updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
+  updateBoardDialogColumnProgress: (
+    id: string,
+    columnId: string,
+    value: number
+  ) => void;
   openConnectionDialog: (
     boardId: string,
     position: { x: number; y: number }
@@ -235,7 +259,17 @@ export type KanbanActions = {
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
     columnId: string,
-    updates: Partial<Pick<Column, "name" | "position" | "description">>
+    updates: Partial<
+      Pick<
+        Column,
+        | "name"
+        | "position"
+        | "description"
+        | "progressValue"
+        | "accentColor"
+        | "icon"
+      >
+    >
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   moveColumn: (boardId: string, columnId: string, newPosition: number) => void;

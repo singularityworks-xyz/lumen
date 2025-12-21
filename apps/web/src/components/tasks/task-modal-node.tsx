@@ -20,6 +20,7 @@ import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
 
@@ -63,6 +64,12 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const boardQuickActions = useKanbanStore((state) =>
       modalBoardId ? state.boardQuickActions[modalBoardId] : null
     );
+    const modalColumnId = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.columnId
+    );
+    const columnQuickActions = useKanbanStore(
+      (state) => state.columnQuickActions
+    );
 
     useEffect(() => {
       setMounted(true);
@@ -102,6 +109,21 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         };
       }
 
+      if (sourceType === "column-menu" && modalColumnId) {
+        const quickActions = columnQuickActions[modalColumnId];
+        if (quickActions) {
+          const quickActionsWidth = 200;
+          const quickActionsScreenPos = flowToScreenPosition({
+            x: quickActions.position.x + quickActionsWidth,
+            y: quickActions.position.y + 40,
+          });
+          return {
+            start: quickActionsScreenPos,
+            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+          };
+        }
+      }
+
       if (boardPosition) {
         const boardWidth = boardPosition.width ?? 300;
         const boardScreenPos = flowToScreenPosition({
@@ -125,13 +147,12 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       vpY,
       vpZoom,
       boardPosition,
+      modalColumnId,
+      columnQuickActions,
     ]);
 
     const modalFormData = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.formData
-    );
-    const modalColumnId = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.columnId
     );
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
@@ -222,6 +243,12 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       selectedColumnId,
     ]);
 
+    const selectedColumn = columns.byId[selectedColumnId];
+    const selectedBoard = boards.byId[selectedBoardId];
+    const accentColor =
+      selectedColumn?.accentColor ?? selectedBoard?.accentColor;
+    const iconName = selectedColumn?.icon ?? selectedBoard?.icon;
+
     if (!updatedModalState) {
       return null;
     }
@@ -252,6 +279,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -259,11 +287,40 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
             />,
             document.body
           )}
-        <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            accentColor
+              ? {
+                  background: `linear-gradient(to right, ${accentColor}15, ${accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary">
-              {getInitials(boards.byId[selectedBoardId]?.name ?? "")}
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary",
+                !accentColor && "bg-primary/20 text-primary"
+              )}
+              style={
+                accentColor
+                  ? {
+                      backgroundColor: `${accentColor}25`,
+                      color: accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
+                return MappedIcon ? (
+                  <MappedIcon className="h-3 w-3" />
+                ) : (
+                  getInitials(boards.byId[selectedBoardId]?.name ?? "")
+                );
+              })()}
             </span>
             <span className="font-semibold text-xs">New Task</span>
           </div>

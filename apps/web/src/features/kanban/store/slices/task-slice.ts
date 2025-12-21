@@ -122,6 +122,9 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
       task.board_id = targetBoardId;
       task.position = toColumn.task_ids.length;
       task.updated_at = new Date().toISOString();
+      if (toColumn.progressValue !== undefined) {
+        task.progress = toColumn.progressValue;
+      }
       toColumn.task_ids.push(taskId);
     }),
 

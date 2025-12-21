@@ -8,10 +8,11 @@ import {
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
-import { GripVertical, Plus, SquarePen, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { CheckCircle2, GripVertical, Plus, SquarePen, X } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
+import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
   BoardNode,
@@ -19,6 +20,13 @@ import type {
   DenormalizedColumn,
   Task,
 } from "../types";
+import {
+  calculateContentDimensions,
+  calculateMaxDimensions,
+  calculateMinDimensions,
+  shouldApplyResize,
+} from "../utils/board-resize-rules";
+import { ICON_MAP } from "../utils/color-icon-utils";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -73,6 +81,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             description: column.description,
             position: column.position,
             tasks: columnTasks,
+            progressValue: column.progressValue,
+            accentColor: column.accentColor,
+            icon: column.icon,
           } as DenormalizedColumn;
         })
         .filter((col): col is DenormalizedColumn => col !== null)
@@ -86,8 +97,29 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         created_by: boardData.created_by,
         created_at: boardData.created_at,
         columns: denormalizedColumns,
+        accentColor: boardData.accentColor,
+        icon: boardData.icon,
       };
     }, [boardData, columnsMap, tasksMap]);
+
+    const taskCounts = useMemo(() => {
+      if (!board) {
+        return { done: 0, total: 0 };
+      }
+      let done = 0;
+      let total = 0;
+      for (const col of board.columns) {
+        for (const task of col.tasks) {
+          if (task.status === "todo") {
+            total += 1;
+          } else if (task.status === "done") {
+            done += 1;
+            total += 1;
+          }
+        }
+      }
+      return { done, total };
+    }, [board]);
 
     const {
       getNode,
@@ -196,79 +228,28 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
+    const [isResizing, setIsResizing] = useState(false);
+    const boardPosition = useKanbanStore(
+      (state) => state.boardPositions.byId[boardId]
+    );
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
-      const numColumns = boardColumns.length;
-
-      const COLUMN_WIDTH = 300;
-      const COLUMN_GAP = 12;
-      const BOARD_PADDING = 24;
-      const HEADER_HEIGHT = 42;
-      const TASK_HEIGHT = 120;
-      const TASK_GAP = 8;
-      const COLUMN_PADDING = 24;
-      const COLUMN_HEADER = 56;
-      const SKELETON_COLUMN_WIDTH = 225;
-      const minWidth = COLUMN_WIDTH + BOARD_PADDING + 20;
-      const minHeight = HEADER_HEIGHT + COLUMN_HEADER + 220 + BOARD_PADDING;
-      const maxTaskCount = Math.max(
-        ...boardColumns.map((c) => c.tasks?.length ?? 0),
-        0
-      );
-
-      const maxWidth =
-        numColumns * COLUMN_WIDTH +
-        (numColumns > 0 ? numColumns * COLUMN_GAP : 0) +
-        (numColumns > 0 ? COLUMN_GAP : 0) +
-        SKELETON_COLUMN_WIDTH +
-        BOARD_PADDING * 2;
-
-      const maxHeight =
-        HEADER_HEIGHT +
-        COLUMN_HEADER +
-        (maxTaskCount + 2) * TASK_HEIGHT +
-        (maxTaskCount + 2 - 1) * TASK_GAP +
-        COLUMN_PADDING +
-        BOARD_PADDING;
-
-      const contentWidth =
-        numColumns * COLUMN_WIDTH +
-        (numColumns - 1) * COLUMN_GAP +
-        BOARD_PADDING;
-
-      let maxColumnHeight = 0;
-      for (const col of boardColumns) {
-        const numTasks = col.tasks?.length ?? 0;
-        const columnHeight =
-          COLUMN_HEADER +
-          (numTasks > 0
-            ? numTasks * TASK_HEIGHT + (numTasks - 1) * TASK_GAP
-            : 160) +
-          COLUMN_PADDING;
-
-        maxColumnHeight = Math.max(maxColumnHeight, columnHeight);
-      }
-
-      const contentHeight = maxColumnHeight + HEADER_HEIGHT + BOARD_PADDING;
-
       return {
-        minDimensions: {
-          width: minWidth,
-          height: minHeight,
-        },
-        maxDimensions: {
-          width: maxWidth,
-          height: maxHeight,
-        },
-        contentDimensions: {
-          width: Math.max(contentWidth, minWidth),
-          height: Math.max(contentHeight, minHeight),
-        },
+        minDimensions: calculateMinDimensions(),
+        maxDimensions: calculateMaxDimensions(boardColumns),
+        contentDimensions: calculateContentDimensions(boardColumns),
       };
     }, [board?.columns]);
 
+    // Smart resize effect that respects user preferences
+    // SKIP when user is actively resizing to prevent flickering
     useEffect(() => {
+      // Don't auto-resize while user is dragging the resize handle
+      if (isResizing) {
+        return;
+      }
+
       const node = getNode(String(id));
       if (!node) {
         return;
@@ -276,82 +257,53 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
       const currentWidth = node.width || minDimensions.width;
       const currentHeight = node.height || minDimensions.height;
+      const userResized = boardPosition?.userResized ?? false;
 
-      const shouldGrow =
-        contentDimensions.width > currentWidth ||
-        contentDimensions.height > currentHeight;
+      // Determine if resize should be applied
+      const { shouldResize, newDimensions } = shouldApplyResize(
+        { width: currentWidth, height: currentHeight },
+        contentDimensions,
+        userResized,
+        {
+          width: boardPosition?.lastUserWidth,
+          height: boardPosition?.lastUserHeight,
+        }
+      );
 
-      if (shouldGrow) {
+      if (shouldResize) {
+        const finalWidth = Math.min(newDimensions.width, maxDimensions.width);
+        const finalHeight = Math.min(
+          newDimensions.height,
+          maxDimensions.height
+        );
+
         setNodes((nodes) =>
           nodes.map((n) => {
             if (n.id === String(id)) {
-              const newWidth = Math.min(
-                Math.max(currentWidth, contentDimensions.width),
-                maxDimensions.width
-              );
-              const newHeight = Math.min(
-                Math.max(currentHeight, contentDimensions.height),
-                maxDimensions.height
-              );
-
               return {
                 ...n,
-                width: newWidth,
-                height: newHeight,
+                width: finalWidth,
+                height: finalHeight,
                 style: {
                   ...n.style,
-                  width: newWidth,
-                  height: newHeight,
+                  width: finalWidth,
+                  height: finalHeight,
                 },
               };
             }
             return n;
           })
         );
-        return;
-      }
-
-      const shouldShrink =
-        contentDimensions.width < currentWidth ||
-        contentDimensions.height < currentHeight;
-
-      if (shouldShrink) {
-        const shrinkTimeout = setTimeout(() => {
-          setNodes((nodes) =>
-            nodes.map((n) => {
-              if (n.id === String(id)) {
-                const newWidth = Math.max(
-                  contentDimensions.width,
-                  minDimensions.width
-                );
-                const newHeight = Math.max(
-                  contentDimensions.height,
-                  minDimensions.height
-                );
-
-                return {
-                  ...n,
-                  width: newWidth,
-                  height: newHeight,
-                  style: {
-                    ...n.style,
-                    width: newWidth,
-                    height: newHeight,
-                  },
-                };
-              }
-              return n;
-            })
-          );
-        }, 250);
-
-        return () => clearTimeout(shrinkTimeout);
       }
     }, [
       id,
+      isResizing,
       contentDimensions,
       minDimensions,
       maxDimensions,
+      boardPosition?.userResized,
+      boardPosition?.lastUserWidth,
+      boardPosition?.lastUserHeight,
       getNode,
       setNodes,
     ]);
@@ -516,14 +468,50 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           maxWidth={maxDimensions.width}
           minHeight={minDimensions.height}
           minWidth={minDimensions.width}
+          onResizeEnd={() => setIsResizing(false)}
+          onResizeStart={() => setIsResizing(true)}
         />
+
+        {isResizing && (
+          <div
+            className="pointer-events-none absolute top-0 left-0 z-0 flex items-center justify-center rounded border-2 border-primary/50 border-dashed bg-primary/10 transition-all"
+            style={{
+              width: contentDimensions.width,
+              height: contentDimensions.height,
+            }}
+          >
+            <div className="flex flex-col items-center gap-1 rounded-lg bg-primary/90 px-4 py-2 text-primary-foreground shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.1)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+              <span className="font-medium text-xs">
+                Drag here to auto-snap
+              </span>
+              <span className="text-[10px] opacity-80">
+                {Math.round(contentDimensions.width)} ×{" "}
+                {Math.round(contentDimensions.height)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {(selected || isSelected || isMultiSelected) && (
           <div className="pointer-events-none absolute right-0 bottom-0 z-10">
             <div className="relative h-8 w-8">
-              <div className="absolute right-0 bottom-0 h-3 w-3 animate-pulse rounded-full bg-primary/30" />
+              <div
+                className="absolute right-0 bottom-0 h-3 w-3 animate-pulse rounded-full bg-primary/30"
+                style={
+                  board.accentColor
+                    ? { backgroundColor: `${board.accentColor}4D` }
+                    : {}
+                }
+              />
 
-              <div className="absolute right-0 bottom-0 flex h-6 w-6 items-center justify-center rounded-tl-lg bg-primary/90 shadow-lg transition-all hover:scale-110">
+              <div
+                className="absolute right-0 bottom-0 flex h-6 w-6 items-center justify-center rounded-tl-lg bg-primary/90 shadow-lg transition-all hover:scale-110"
+                style={
+                  board.accentColor
+                    ? { backgroundColor: board.accentColor }
+                    : {}
+                }
+              >
                 <svg
                   className="h-3 w-3 text-primary-foreground"
                   fill="none"
@@ -564,6 +552,12 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             }
           }}
           role="button"
+          style={{
+            borderColor:
+              (isSelected || selected) && board?.accentColor
+                ? board.accentColor
+                : undefined,
+          }}
           tabIndex={0}
         >
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
@@ -584,13 +578,106 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               );
             }}
             ref={headerRef}
+            style={
+              board.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                  }
+                : {}
+            }
           >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 items-center gap-1">
+                {board.icon && (
+                  <span
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground"
+                    style={
+                      board.accentColor
+                        ? {
+                            backgroundColor: `${board.accentColor}25`,
+                            color: board.accentColor,
+                          }
+                        : { backgroundColor: "rgba(128,128,128,0.2)" }
+                    }
+                  >
+                    {(() => {
+                      const Icon = ICON_MAP[board.icon];
+                      return Icon ? <Icon className="h-3 w-3" /> : null;
+                    })()}
+                  </span>
+                )}
                 <h3 className="truncate font-semibold text-foreground text-xs">
                   {board.name}
                 </h3>
+                {taskCounts.total > 0 && (
+                  <span
+                    className={cn(
+                      "relative flex h-5 items-center gap-1 overflow-hidden rounded-full pr-2 pl-1.5 font-medium text-[10px] tabular-nums shadow-[inset_0_1px_3px_rgba(0,0,0,0.15),inset_0_-1px_2px_rgba(255,255,255,0.1)] transition-all dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
+                      taskCounts.done === taskCounts.total
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : board.accentColor
+                          ? ""
+                          : "bg-muted/80 text-muted-foreground"
+                    )}
+                    style={
+                      taskCounts.done !== taskCounts.total && board.accentColor
+                        ? {
+                            backgroundColor: `${board.accentColor}15`,
+                            color: board.accentColor,
+                          }
+                        : {}
+                    }
+                    title={`${taskCounts.done} done / ${taskCounts.total} total tasks`}
+                  >
+                    <span
+                      className={cn(
+                        "absolute inset-y-0 left-0 transition-all",
+                        taskCounts.done === taskCounts.total
+                          ? "bg-emerald-500/20"
+                          : board.accentColor
+                            ? ""
+                            : "bg-primary/10"
+                      )}
+                      style={{
+                        width: `${(taskCounts.done / taskCounts.total) * 100}%`,
+                        ...(taskCounts.done !== taskCounts.total &&
+                        board.accentColor
+                          ? { backgroundColor: `${board.accentColor}20` }
+                          : {}),
+                      }}
+                    />
+                    <span className="relative flex items-center gap-1">
+                      {taskCounts.done === taskCounts.total ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <span
+                          className={cn(
+                            "flex h-3 w-3 items-center justify-center rounded-full text-[8px]",
+                            taskCounts.done === taskCounts.total
+                              ? "bg-emerald-500/30"
+                              : board.accentColor
+                                ? ""
+                                : "bg-primary/20"
+                          )}
+                          style={
+                            taskCounts.done !== taskCounts.total &&
+                            board.accentColor
+                              ? { backgroundColor: `${board.accentColor}30` }
+                              : {}
+                          }
+                        >
+                          ✓
+                        </span>
+                      )}
+                      <span className="font-semibold">{taskCounts.done}</span>
+                      <span className="opacity-50">/</span>
+                      <span>{taskCounts.total}</span>
+                    </span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
                 <button
                   className="nodrag flex h-4 w-4 shrink-0 items-center justify-center rounded opacity-0 transition-all hover:bg-accent group-hover:opacity-100"
                   onClick={handleOpenEdit}
@@ -711,7 +798,10 @@ BoardNodeComponent.displayName = "BoardNode";
 
 // Dialog components are rendered as React Flow nodes; they still use portals internally
 // for certain elements like connector edges.
+
+import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ColorIconPickerDialogNodeComponent } from "../../../components/dialogs/color-icon-picker-dialog-node";
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
@@ -738,4 +828,6 @@ export const nodeTypes = {
   columnRenameDialog: RenameColumnDialogNodeComponent,
   columnDeleteDialog: DeleteColumnDialogNodeComponent,
   columnMoveDialog: MoveColumnDialogNodeComponent,
+  boardPropertiesDialog: BoardPropertiesDialogNodeComponent,
+  colorIconPickerDialog: ColorIconPickerDialogNodeComponent,
 };

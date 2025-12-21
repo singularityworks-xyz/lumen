@@ -1,6 +1,6 @@
 import { createLogger } from "@lumen/logger";
 import type { Column } from "../../types";
-import { generateColumnId } from "../ids";
+import { generateColumnId, generateId } from "../ids";
 import type { KanbanStore } from "../types";
 
 const logger = createLogger({ name: "[client] kanban/column" });
@@ -211,7 +211,17 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openColumnDialog: (options) =>
+  openColumnDialog: (options) => {
+    const currentState = get();
+    const existing = Object.values(currentState.columnDialogs).find(
+      (d) => d.columnId === options.columnId && d.type === options.type
+    );
+
+    if (existing) {
+      return existing.id;
+    }
+
+    const id = generateId();
     set((state) => {
       const {
         type,
@@ -224,7 +234,8 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
         descriptionValue,
         position,
       } = options;
-      state.columnDialog = {
+      state.columnDialogs[id] = {
+        id,
         type,
         columnId,
         columnName,
@@ -235,31 +246,33 @@ export const createColumnSlice: SliceCreator = (set, get) => ({
         descriptionValue,
         position,
       };
+    });
+    return id;
+  },
+
+  closeColumnDialog: (id) =>
+    set((state) => {
+      delete state.columnDialogs[id];
     }),
 
-  closeColumnDialog: () =>
+  updateColumnDialogPosition: (id, position) =>
     set((state) => {
-      state.columnDialog = null;
-    }),
-
-  updateColumnDialogPosition: (position) =>
-    set((state) => {
-      if (state.columnDialog) {
-        state.columnDialog.position = position;
+      if (state.columnDialogs[id]) {
+        state.columnDialogs[id].position = position;
       }
     }),
 
-  updateColumnDialogInputValue: (value) =>
+  updateColumnDialogInputValue: (id, value) =>
     set((state) => {
-      if (state.columnDialog) {
-        state.columnDialog.inputValue = value;
+      if (state.columnDialogs[id]) {
+        state.columnDialogs[id].inputValue = value;
       }
     }),
 
-  updateColumnDialogDescriptionValue: (value) =>
+  updateColumnDialogDescriptionValue: (id, value) =>
     set((state) => {
-      if (state.columnDialog) {
-        state.columnDialog.descriptionValue = value;
+      if (state.columnDialogs[id]) {
+        state.columnDialogs[id].descriptionValue = value;
       }
     }),
 });

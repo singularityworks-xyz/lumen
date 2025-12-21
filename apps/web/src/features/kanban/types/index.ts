@@ -41,6 +41,9 @@ export type Column = {
   description?: string;
   position: number;
   task_ids: string[];
+  progressValue?: number;
+  accentColor?: string;
+  icon?: string;
 };
 
 export type Board = {
@@ -51,6 +54,8 @@ export type Board = {
   created_by: string;
   created_at: string;
   column_ids: string[];
+  accentColor?: string;
+  icon?: string;
 };
 
 export type BoardConnection = {
@@ -74,6 +79,9 @@ export type Workspace = {
   lastFocusedBoardId?: string | null;
   lastViewport?: ViewportState | null;
   showMiniMap?: boolean;
+  customColors?: string[];
+  colorUsage?: Record<string, number>;
+  iconUsage?: Record<string, number>;
 };
 
 export type EntityMap<T> = {
@@ -100,6 +108,9 @@ export type BoardPosition = {
   width?: number;
   height?: number;
   zIndex: number;
+  userResized?: boolean;
+  lastUserWidth?: number;
+  lastUserHeight?: number;
 };
 
 export type InteractionMode = "drag" | "select";
@@ -157,7 +168,12 @@ export type TaskDetailModalState = {
   openedFromQuickActions?: boolean;
 };
 
-export type BoardDialogType = "rename" | "duplicate" | "delete";
+export type BoardDialogType =
+  | "rename"
+  | "duplicate"
+  | "delete"
+  | "properties"
+  | "color-icon-picker";
 
 export type BoardDialogState = {
   id: string;
@@ -174,6 +190,10 @@ export type BoardDialogState = {
   columnCount?: number;
   taskCount?: number;
   connectionCount?: number;
+  columnProgressValues?: Record<string, number>;
+  columnId?: string;
+  targetType?: "board" | "column";
+  sourceDialogId?: string;
 };
 
 export type ConnectionDialogState = {
@@ -223,6 +243,8 @@ export type DenormalizedBoard = {
   created_by: string;
   created_at: string;
   columns: DenormalizedColumn[];
+  accentColor?: string;
+  icon?: string;
 };
 
 export type DenormalizedColumn = {
@@ -232,4 +254,7 @@ export type DenormalizedColumn = {
   description?: string;
   position: number;
   tasks: Task[];
+  progressValue?: number;
+  accentColor?: string;
+  icon?: string;
 };

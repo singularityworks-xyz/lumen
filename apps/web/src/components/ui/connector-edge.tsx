@@ -6,6 +6,7 @@ type ConnectorEdgeProps = {
   endX: number;
   endY: number;
   color?: "primary" | "destructive" | "amber" | "emerald";
+  customColor?: string;
   hideStartNode?: boolean;
   lineStyle?: "dotted" | "solid";
   showArrow?: boolean;
@@ -30,13 +31,13 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
     endX,
     endY,
     color = "primary",
+    customColor,
     hideStartNode = false,
     lineStyle = "dotted",
     showArrow = false,
     zIndex = 9996,
   } = props;
 
-  // Compute start coordinates based on props
   let startX: number;
   let startY: number;
 
@@ -45,8 +46,7 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
       startX = props.buttonRect.right;
       startY = props.buttonRect.top + props.buttonRect.height / 2;
     } else if (props.fallbackPosition) {
-      // Use fallback position when rect is null (e.g., after page refresh)
-      startX = props.fallbackPosition.x + 200; // approximate button position
+      startX = props.fallbackPosition.x + 200;
       startY = props.fallbackPosition.y + 20;
     } else {
       // No valid start point
@@ -61,22 +61,26 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
   const controlOffset = Math.min(dx * 0.4, 60);
   const controlX1 = startX + controlOffset;
   const controlX2 = endX - controlOffset;
+  const useCustom = Boolean(customColor);
+  const colorClass = useCustom
+    ? ""
+    : {
+        primary: "stroke-primary fill-primary",
+        destructive: "stroke-red-500 fill-red-500",
+        amber: "stroke-amber-500 fill-amber-500",
+        emerald: "stroke-emerald-500 fill-emerald-500",
+      }[color];
 
-  const colorClass = {
-    primary: "stroke-primary fill-primary",
-    destructive: "stroke-red-500 fill-red-500",
-    amber: "stroke-amber-500 fill-amber-500",
-    emerald: "stroke-emerald-500 fill-emerald-500",
-  }[color];
+  const strokeColor = useCustom
+    ? customColor
+    : {
+        primary: "var(--primary)",
+        destructive: "#ef4444",
+        amber: "#f59e0b",
+        emerald: "#10b981",
+      }[color];
 
-  const strokeColor = {
-    primary: "var(--primary)",
-    destructive: "#ef4444",
-    amber: "#f59e0b",
-    emerald: "#10b981",
-  }[color];
-
-  const markerId = `arrow-${color}`;
+  const markerId = useCustom ? `arrow-custom-${customColor?.replace("#", "")}` : `arrow-${color}`;
 
   return (
     <svg
@@ -85,7 +89,6 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
       style={{ zIndex }}
       width="100vw"
     >
-      {/* Arrow marker definition */}
       {showArrow && (
         <defs>
           <marker
@@ -100,11 +103,11 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
           </marker>
         </defs>
       )}
-      {/* Main path - solid or dotted */}
       <path
-        className={colorClass.split(" ")[0]}
+        className={useCustom ? undefined : colorClass?.split(" ")[0]}
         d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
         fill="none"
+        stroke={useCustom ? strokeColor : undefined}
         strokeDasharray={lineStyle === "dotted" ? "6 6" : undefined}
         strokeLinecap="round"
         strokeOpacity={lineStyle === "solid" ? "0.8" : "0.6"}
@@ -121,21 +124,21 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
           />
         )}
       </path>
-      {/* Start node - conditionally hidden */}
       {!hideStartNode && (
         <circle
-          className={colorClass.split(" ")[1]}
+          className={useCustom ? undefined : colorClass?.split(" ")[1]}
           cx={startX}
           cy={startY}
+          fill={useCustom ? strokeColor : undefined}
           r="5"
         />
       )}
-      {/* End node - hide when arrow is shown */}
       {!showArrow && (
         <circle
-          className={colorClass.split(" ")[1]}
+          className={useCustom ? undefined : colorClass?.split(" ")[1]}
           cx={endX}
           cy={endY}
+          fill={useCustom ? strokeColor : undefined}
           r="5"
         />
       )}
