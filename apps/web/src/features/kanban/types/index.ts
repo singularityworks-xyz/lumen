@@ -113,6 +113,25 @@ export type BoardPosition = {
   lastUserHeight?: number;
 };
 
+export type Area = {
+  id: string;
+  name: string;
+  workspace_id: string;
+  color: string;
+  icon?: string;
+  board_ids: string[];
+  created_at: string;
+};
+
+export type AreaPosition = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+};
+
 export type InteractionMode = "drag" | "select";
 
 export type CreateTaskModalFormData = {

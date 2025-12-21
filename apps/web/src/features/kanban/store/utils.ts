@@ -40,6 +40,9 @@ export function createInitialState(): KanbanState {
     tasks: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
     boardConnections: { byId: {}, allIds: [] },
+    areas: { byId: {}, allIds: [] },
+    areaPositions: { byId: {}, allIds: [] },
+    selectionBox: null,
     currentWorkspaceId: id,
     canvas: {
       viewport: { x: 0, y: 0, zoom: 1 },
@@ -66,5 +69,6 @@ export function createInitialState(): KanbanState {
     taskQuickActions: {},
     dialogFocusStack: [],
     columnUi: {},
+    areaDialog: null,
   };
 }
