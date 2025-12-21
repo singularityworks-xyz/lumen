@@ -7,7 +7,7 @@ import {
   useViewport,
 } from "@xyflow/react";
 import { Columns, GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
@@ -63,6 +63,35 @@ export const RenameColumnDialogNodeComponent =
     const boardPositions = useKanbanStore((state) => state.boardPositions);
 
     const column = columnDialog ? columns.byId[columnDialog.columnId] : null;
+
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `rename-column-dialog-${data.dialogId}`;
+
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
+
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
@@ -169,9 +198,9 @@ export const RenameColumnDialogNodeComponent =
       <div
         aria-labelledby={`dialog-title-column-${columnDialog.columnId}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-lg ring-1 ring-border/50",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
@@ -181,10 +210,12 @@ export const RenameColumnDialogNodeComponent =
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(zIndexDialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               color="primary"
@@ -194,8 +225,9 @@ export const RenameColumnDialogNodeComponent =
               hideStartNode
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div

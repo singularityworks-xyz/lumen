@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  type BlockingDialog,
+  BlockingDialogsManager,
+} from "@/src/components/dialogs/blocking-dialogs-manager";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
@@ -24,6 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
@@ -82,15 +87,103 @@ export const ColumnQuickActionsNodeComponent =
         });
     }, [boards, boardId]);
 
-    const hasOpenDialogs = useMemo(() => {
-      const hasColumnDialog = Object.values(columnDialogs).some(
-        (d) => d.columnId === columnId
-      );
-      const hasTaskModal = Object.values(createTaskModals).some(
-        (m) => m.columnId === columnId
-      );
-      return hasColumnDialog || hasTaskModal;
-    }, [columnDialogs, createTaskModals, columnId]);
+    const closeColumnDialog = useKanbanStore(
+      (state) => state.closeColumnDialog
+    );
+    const closeCreateTaskModal = useKanbanStore(
+      (state) => state.closeCreateTaskModal
+    );
+
+    const blockingDialogs = useMemo(() => {
+      const dialogs: BlockingDialog[] = [];
+
+      for (const [cDialogId, d] of Object.entries(columnDialogs)) {
+        if (d.columnId !== columnId) {
+          continue;
+        }
+
+        let name = "Dialog";
+        let icon: import("lucide-react").LucideIcon | string = Columns;
+        switch (d.type) {
+          case "rename":
+            name = "Rename Column";
+            icon = Edit2;
+            break;
+          case "delete":
+            name = "Delete Column";
+            icon = Trash2;
+            break;
+          case "move":
+            name = "Move Column";
+            icon = ArrowUpRight;
+            break;
+          default:
+            break;
+        }
+
+        dialogs.push({
+          id: cDialogId,
+          name,
+          type: "column-dialog",
+          icon,
+          accentColor: column?.accentColor,
+        });
+      }
+
+      for (const [taskModalId, m] of Object.entries(createTaskModals)) {
+        if (m.columnId !== columnId) {
+          continue;
+        }
+        dialogs.push({
+          id: taskModalId,
+          name: "New Task",
+          type: "task",
+          icon: column?.icon,
+          accentColor: column?.accentColor,
+        });
+      }
+
+      return dialogs;
+    }, [columnDialogs, createTaskModals, columnId, column]);
+
+    const handleCloseBlocking = useCallback(() => {
+      for (const d of blockingDialogs) {
+        if (d.type === "column-dialog") {
+          closeColumnDialog(d.id);
+        } else if (d.type === "task") {
+          closeCreateTaskModal(d.id);
+        }
+      }
+    }, [blockingDialogs, closeColumnDialog, closeCreateTaskModal]);
+
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+
+    const dialogId = `column-quick-actions-${columnId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
+
+    useEffect(() => {
+      registerDialog(dialogId);
+      return () => unregisterDialog(dialogId);
+    }, [dialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === dialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(dialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, dialogId]);
 
     const [sourceElement, setSourceElement] = useState<Element | null>(null);
 
@@ -241,7 +334,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        const dialogId = openColumnDialog({
+        const newDialogId = openColumnDialog({
           type: "rename",
           columnId: column.id,
           columnName: column.name,
@@ -254,7 +347,7 @@ export const ColumnQuickActionsNodeComponent =
         });
 
         setTimeout(() => {
-          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const dialog = useKanbanStore.getState().columnDialogs[newDialogId];
           const targetX = dialog?.position.x ?? dialogX;
           const targetY = dialog?.position.y ?? dialogY;
           ensureDialogVisible(targetX, targetY, 320, 280);
@@ -280,7 +373,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        const dialogId = openColumnDialog({
+        const newDialogId = openColumnDialog({
           type: "move",
           columnId: column.id,
           columnName: column.name,
@@ -290,7 +383,7 @@ export const ColumnQuickActionsNodeComponent =
         });
 
         setTimeout(() => {
-          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const dialog = useKanbanStore.getState().columnDialogs[newDialogId];
           const targetX = dialog?.position.x ?? dialogX;
           const targetY = dialog?.position.y ?? dialogY;
           ensureDialogVisible(targetX, targetY, 320, 300);
@@ -317,7 +410,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        const dialogId = openColumnDialog({
+        const newDialogId = openColumnDialog({
           type: "delete",
           columnId: column.id,
           columnName: column.name,
@@ -327,7 +420,7 @@ export const ColumnQuickActionsNodeComponent =
         });
 
         setTimeout(() => {
-          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const dialog = useKanbanStore.getState().columnDialogs[newDialogId];
           const targetX = dialog?.position.x ?? dialogX;
           const targetY = dialog?.position.y ?? dialogY;
           ensureDialogVisible(targetX, targetY, 320, 180);
@@ -355,9 +448,9 @@ export const ColumnQuickActionsNodeComponent =
       <div
         aria-labelledby={`column-quick-actions-${id}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -367,10 +460,12 @@ export const ColumnQuickActionsNodeComponent =
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(dialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={column.accentColor}
@@ -378,8 +473,9 @@ export const ColumnQuickActionsNodeComponent =
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div
@@ -421,32 +517,13 @@ export const ColumnQuickActionsNodeComponent =
               <span className="max-w-20 truncate">{column.name}</span>
             </span>
           </div>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn(
-                    "nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]",
-                    hasOpenDialogs
-                      ? "cursor-not-allowed opacity-50"
-                      : "hover:bg-destructive/20 hover:text-destructive"
-                  )}
-                  disabled={hasOpenDialogs}
-                  onClick={hasOpenDialogs ? undefined : handleClose}
-                  type="button"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">
-                  {hasOpenDialogs
-                    ? "Close associated dialogs first"
-                    : "Close menu"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <BlockingDialogsManager
+            dialogs={blockingDialogs}
+            onCloseAll={handleCloseBlocking}
+            onCloseMenu={handleClose}
+          >
+            <X className="h-3 w-3" />
+          </BlockingDialogsManager>
         </div>
 
         <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">

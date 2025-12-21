@@ -550,7 +550,9 @@ export function KanbanCanvas() {
               y: dialog.position.y,
             },
             data: { columnId: dialog.columnId, dialogId: dialog.id },
-            style: { zIndex: 2100 },
+            style: {
+              zIndex: computeZIndex(`rename-column-dialog-${dialog.id}`),
+            },
             draggable: true,
           });
         } else if (dialog.type === "delete") {
@@ -562,7 +564,9 @@ export function KanbanCanvas() {
               y: dialog.position.y,
             },
             data: { columnId: dialog.columnId, dialogId: dialog.id },
-            style: { zIndex: 2100 },
+            style: {
+              zIndex: computeZIndex(`delete-column-dialog-${dialog.id}`),
+            },
             draggable: true,
           });
         } else if (dialog.type === "move") {
@@ -574,7 +578,9 @@ export function KanbanCanvas() {
               y: dialog.position.y,
             },
             data: { columnId: dialog.columnId, dialogId: dialog.id },
-            style: { zIndex: 2100 },
+            style: {
+              zIndex: computeZIndex(`move-column-dialog-${dialog.id}`),
+            },
             draggable: true,
           });
         }
@@ -613,7 +619,9 @@ export function KanbanCanvas() {
           y: qa.position.y,
         },
         data: { columnId: qa.columnId },
-        style: { zIndex: 2000 },
+        style: {
+          zIndex: computeZIndex(`column-quick-actions-${qa.columnId}`),
+        },
         draggable: true,
       }));
 
