@@ -252,6 +252,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={columns.byId[selectedColumnId]?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}

@@ -12,6 +12,7 @@ import {
   Kanban,
   MoveRight,
   Trash2,
+  X,
 } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -27,9 +28,11 @@ import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type MoveColumnDialogNodeData = {
   columnId: string;
+  dialogId: string;
 };
 
 type MoveColumnDialogNodeProps = NodeProps<Node<MoveColumnDialogNodeData>>;
@@ -50,7 +53,9 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
       null
     );
 
-    const columnDialog = useKanbanStore((state) => state.columnDialog);
+    const columnDialog = useKanbanStore(
+      (state) => state.columnDialogs[data.dialogId]
+    );
     const boards = useKanbanStore((state) => state.boards);
     const columnsStore = useKanbanStore((state) => state.columns);
     const columnQuickActions = useKanbanStore(
@@ -69,6 +74,10 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
     const closeColumnQuickActions = useKanbanStore(
       (state) => state.closeColumnQuickActions
     );
+
+    const column = columnDialog
+      ? columnsStore.byId[columnDialog.columnId]
+      : null;
 
     const availableTargetBoards = useMemo(() => {
       if (!columnDialog) {
@@ -160,7 +169,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
           columnDialog.columnId,
           targetBoardId
         );
-        closeColumnDialog();
+        closeColumnDialog(data.dialogId);
         closeColumnQuickActions(columnDialog.columnId);
       }
     }, [
@@ -171,6 +180,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
       moveColumnToBoard,
       closeColumnDialog,
       closeColumnQuickActions,
+      data.dialogId,
     ]);
 
     const handleRenameAndMove = useCallback(() => {
@@ -182,7 +192,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
           columnDialog.columnId,
           targetBoardId
         );
-        closeColumnDialog();
+        closeColumnDialog(data.dialogId);
         closeColumnQuickActions(columnDialog.columnId);
       }
     }, [
@@ -192,6 +202,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
       moveColumnToBoard,
       closeColumnDialog,
       closeColumnQuickActions,
+      data.dialogId,
     ]);
 
     const handleReplace = useCallback(() => {
@@ -207,7 +218,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
           columnDialog.columnId,
           targetBoardId
         );
-        closeColumnDialog();
+        closeColumnDialog(data.dialogId);
         closeColumnQuickActions(columnDialog.columnId);
       }
     }, [
@@ -218,11 +229,12 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
       moveColumnToBoard,
       closeColumnDialog,
       closeColumnQuickActions,
+      data.dialogId,
     ]);
 
     const handleClose = useCallback(() => {
-      closeColumnDialog();
-    }, [closeColumnDialog]);
+      closeColumnDialog(data.dialogId);
+    }, [closeColumnDialog, data.dialogId]);
 
     if (
       !columnDialog ||
@@ -257,6 +269,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
             createPortal(
               <ConnectorEdge
                 color="primary"
+                customColor={column?.accentColor}
                 endX={connectorState.end.x}
                 endY={connectorState.end.y}
                 hideStartNode
@@ -268,16 +281,72 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
 
           {conflictMode === "none" ? (
             <>
-              <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <MoveRight className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="shrink-0 font-semibold text-xs">Move</span>
-                  <div className="h-3 w-px bg-border/60" />
-                  <span className="truncate font-medium text-primary text-xs">
-                    {columnDialog.columnName}
+              <div
+                className="flex cursor-move select-none items-center justify-between border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+                style={
+                  column?.accentColor
+                    ? {
+                        background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                      }
+                    : {}
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 items-center justify-center rounded",
+                      !column?.accentColor && "bg-primary/20 text-primary"
+                    )}
+                    style={
+                      column?.accentColor
+                        ? {
+                            backgroundColor: `${column.accentColor}25`,
+                            color: column.accentColor,
+                          }
+                        : {}
+                    }
+                  >
+                    {(() => {
+                      const IconComponent = column?.icon
+                        ? ICON_MAP[column.icon]
+                        : null;
+                      if (IconComponent) {
+                        return <IconComponent className="h-3 w-3" />;
+                      }
+                      return <MoveRight className="h-3 w-3" />;
+                    })()}
                   </span>
+                  <span className="font-semibold text-xs">Move Column</span>
                 </div>
-                <GripHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]",
+                      !column?.accentColor && "bg-primary/10 text-primary"
+                    )}
+                    style={
+                      column?.accentColor
+                        ? {
+                            backgroundColor: `${column.accentColor}15`,
+                            color: column.accentColor,
+                          }
+                        : {}
+                    }
+                  >
+                    <span className="max-w-20 truncate font-medium">
+                      {columnDialog.columnName}
+                    </span>
+                  </span>
+                  <button
+                    aria-label="Close move column dialog"
+                    className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                    onClick={handleClose}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
 
               <div className="nodrag p-4">

@@ -176,6 +176,7 @@ export const ColorIconPickerDialogNodeComponent =
           createPortal(
             <ConnectorEdge
               color="primary"
+              customColor={column.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               hideStartNode

@@ -26,6 +26,7 @@ import {
 } from "@/src/components/ui/tooltip";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type ColumnQuickActionsNodeData = {
   columnId: string;
@@ -53,7 +54,7 @@ export const ColumnQuickActionsNodeComponent =
       (state) => state.openCreateTaskModal
     );
     const createTaskModals = useKanbanStore((state) => state.createTaskModals);
-    const columnDialog = useKanbanStore((state) => state.columnDialog);
+    const columnDialogs = useKanbanStore((state) => state.columnDialogs);
 
     const columnQuickActionsState = useKanbanStore(
       (state) => state.columnQuickActions?.[columnId]
@@ -82,12 +83,14 @@ export const ColumnQuickActionsNodeComponent =
     }, [boards, boardId]);
 
     const hasOpenDialogs = useMemo(() => {
-      const hasColumnDialog = columnDialog?.columnId === columnId;
+      const hasColumnDialog = Object.values(columnDialogs).some(
+        (d) => d.columnId === columnId
+      );
       const hasTaskModal = Object.values(createTaskModals).some(
         (m) => m.columnId === columnId
       );
       return hasColumnDialog || hasTaskModal;
-    }, [columnDialog, createTaskModals, columnId]);
+    }, [columnDialogs, createTaskModals, columnId]);
 
     const [sourceElement, setSourceElement] = useState<Element | null>(null);
 
@@ -238,7 +241,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        openColumnDialog({
+        const dialogId = openColumnDialog({
           type: "rename",
           columnId: column.id,
           columnName: column.name,
@@ -250,7 +253,12 @@ export const ColumnQuickActionsNodeComponent =
           position: { x: dialogX, y: dialogY },
         });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 280), 50);
+        setTimeout(() => {
+          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const targetX = dialog?.position.x ?? dialogX;
+          const targetY = dialog?.position.y ?? dialogY;
+          ensureDialogVisible(targetX, targetY, 320, 280);
+        }, 50);
       }
     }, [
       column,
@@ -272,7 +280,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        openColumnDialog({
+        const dialogId = openColumnDialog({
           type: "move",
           columnId: column.id,
           columnName: column.name,
@@ -281,7 +289,12 @@ export const ColumnQuickActionsNodeComponent =
           position: { x: dialogX, y: dialogY },
         });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 300), 50);
+        setTimeout(() => {
+          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const targetX = dialog?.position.x ?? dialogX;
+          const targetY = dialog?.position.y ?? dialogY;
+          ensureDialogVisible(targetX, targetY, 320, 300);
+        }, 50);
       }
     }, [
       column,
@@ -304,7 +317,7 @@ export const ColumnQuickActionsNodeComponent =
         const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
         const dialogY = myNode.position.y;
 
-        openColumnDialog({
+        const dialogId = openColumnDialog({
           type: "delete",
           columnId: column.id,
           columnName: column.name,
@@ -313,7 +326,12 @@ export const ColumnQuickActionsNodeComponent =
           position: { x: dialogX, y: dialogY },
         });
 
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 180), 50);
+        setTimeout(() => {
+          const dialog = useKanbanStore.getState().columnDialogs[dialogId];
+          const targetX = dialog?.position.x ?? dialogX;
+          const targetY = dialog?.position.y ?? dialogY;
+          ensureDialogVisible(targetX, targetY, 320, 180);
+        }, 50);
       }
     }, [
       column,
@@ -355,6 +373,7 @@ export const ColumnQuickActionsNodeComponent =
         {connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={column.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -363,11 +382,42 @@ export const ColumnQuickActionsNodeComponent =
             document.body
           )}
 
-        <div className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+        <div
+          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+          style={
+            column.accentColor
+              ? {
+                  background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                }
+              : {}
+          }
+        >
           <div className="flex items-center gap-1.5">
             <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 font-medium text-violet-600 text-xs dark:text-violet-400">
-              <Columns className="h-3 w-3" />
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-xs",
+                !column.accentColor &&
+                  "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+              )}
+              style={
+                column.accentColor
+                  ? {
+                      backgroundColor: `${column.accentColor}25`,
+                      color: column.accentColor,
+                    }
+                  : {}
+              }
+            >
+              {(() => {
+                const IconComponent = column.icon
+                  ? ICON_MAP[column.icon]
+                  : null;
+                if (IconComponent) {
+                  return <IconComponent className="h-3 w-3" />;
+                }
+                return <Columns className="h-3 w-3" />;
+              })()}
               <span className="max-w-20 truncate">{column.name}</span>
             </span>
           </div>

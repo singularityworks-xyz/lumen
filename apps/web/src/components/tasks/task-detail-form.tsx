@@ -26,6 +26,7 @@ import {
   type Task,
   useKanbanStore,
 } from "@/src/features/kanban";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
 import {
   ScaledPopover,
@@ -262,7 +263,29 @@ export const TaskDetailForm = memo(
               <ScaledSelectContent position="popper" sideOffset={4}>
                 {boardColumns.map((col) => (
                   <ScaledSelectItem key={col.id} value={col.id}>
-                    {col.name}
+                    <span
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium text-xs",
+                        !col.accentColor &&
+                          "bg-muted text-muted-foreground dark:bg-muted/50"
+                      )}
+                      style={
+                        col.accentColor
+                          ? {
+                              backgroundColor: `${col.accentColor}25`,
+                              color: col.accentColor,
+                            }
+                          : {}
+                      }
+                    >
+                      {(() => {
+                        const IconComponent =
+                          (col.icon ? ICON_MAP[col.icon] : undefined) ??
+                          Columns;
+                        return <IconComponent className="h-3 w-3" />;
+                      })()}
+                      {col.name}
+                    </span>
                   </ScaledSelectItem>
                 ))}
               </ScaledSelectContent>

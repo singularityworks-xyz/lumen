@@ -6,22 +6,13 @@ import {
   useReactFlow,
   useViewport,
 } from "@xyflow/react";
-import { ArrowLeft, GripHorizontal, X } from "lucide-react";
+import { ArrowLeft, Columns, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 import { TaskDetailForm } from "./task-detail-form";
 import { TaskViewForm } from "./task-view-form";
-
-const WORD_SPLIT_REGEX = /\s+/;
-
-const getInitials = (name: string): string =>
-  name
-    .split(WORD_SPLIT_REGEX)
-    .slice(0, 2)
-    .map((w) => w[0] ?? "")
-    .join("")
-    .toUpperCase();
 
 type TaskDetailModalNodeData = {
   modalId: string;
@@ -46,6 +37,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     const board = useKanbanStore((state) =>
       modalState ? state.boards.byId[modalState.boardId] : null
     );
+    const columns = useKanbanStore((state) => state.columns);
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
@@ -59,6 +51,8 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
     const boardPosition = useKanbanStore((state) =>
       modalState?.boardId ? state.boardPositions.byId[modalState.boardId] : null
     );
+
+    const column = task ? columns.byId[task.column_id] : null;
 
     useEffect(() => {
       setMounted(true);
@@ -190,9 +184,10 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
         >
           <title>Connector line</title>
           <path
-            className="stroke-primary"
+            className={column?.accentColor ? undefined : "stroke-primary"}
             d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
             fill="none"
+            stroke={column?.accentColor}
             strokeLinecap="round"
             strokeOpacity="0.7"
             strokeWidth={2 / vpZoom}
@@ -226,7 +221,16 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
             width: MODAL_WIDTH,
           }}
         >
-          <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+          <div
+            className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            style={
+              column?.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                  }
+                : {}
+            }
+          >
             <div className="flex items-center gap-2">
               {isEditing ? (
                 <button
@@ -239,8 +243,30 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
               ) : (
                 <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
               )}
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary">
-                {getInitials(board.name)}
+              <span
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded font-medium text-[10px]",
+                  !column?.accentColor &&
+                    "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+                )}
+                style={
+                  column?.accentColor
+                    ? {
+                        backgroundColor: `${column.accentColor}25`,
+                        color: column.accentColor,
+                      }
+                    : {}
+                }
+              >
+                {(() => {
+                  const IconComponent = column?.icon
+                    ? ICON_MAP[column.icon]
+                    : null;
+                  if (IconComponent) {
+                    return <IconComponent className="h-3 w-3" />;
+                  }
+                  return <Columns className="h-3 w-3" />;
+                })()}
               </span>
               <span
                 className="max-w-32 truncate font-semibold text-xs"

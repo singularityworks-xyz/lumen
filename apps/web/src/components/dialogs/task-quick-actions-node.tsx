@@ -50,6 +50,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
 
     const taskId = data.taskId;
     const task = useKanbanStore((state) => state.tasks.byId[taskId]);
+    const columns = useKanbanStore((state) => state.columns);
     const closeTaskQuickActions = useKanbanStore(
       (state) => state.closeTaskQuickActions
     );
@@ -64,6 +65,8 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     const taskQuickActionsState = useKanbanStore(
       (state) => state.taskQuickActions[taskId]
     );
+
+    const column = task ? columns.byId[task.column_id] : null;
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: TODO: check tis
     const connectorState = useMemo(() => {
@@ -305,6 +308,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
         {connectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={column?.accentColor}
               endX={connectorState.end.x}
               endY={connectorState.end.y}
               startX={connectorState.start.x}
@@ -316,6 +320,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
         {taskDetailConnectorState &&
           createPortal(
             <ConnectorEdge
+              customColor={column?.accentColor}
               endX={taskDetailConnectorState.end.x}
               endY={taskDetailConnectorState.end.y}
               startX={taskDetailConnectorState.start.x}

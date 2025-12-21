@@ -55,17 +55,21 @@ export type KanbanState = {
       position: { x: number; y: number };
     }
   >;
-  columnDialog: {
-    type: "rename" | "delete" | "move";
-    columnId: string;
-    columnName: string;
-    columnDescription?: string;
-    boardId: string;
-    boardName: string;
-    inputValue?: string;
-    descriptionValue?: string;
-    position: { x: number; y: number };
-  } | null;
+  columnDialogs: Record<
+    string,
+    {
+      id: string;
+      type: "rename" | "delete" | "move";
+      columnId: string;
+      columnName: string;
+      columnDescription?: string;
+      boardId: string;
+      boardName: string;
+      inputValue?: string;
+      descriptionValue?: string;
+      position: { x: number; y: number };
+    }
+  >;
   boardQuickActions: Record<
     string,
     {
@@ -150,11 +154,14 @@ export type KanbanActions = {
     inputValue?: string;
     descriptionValue?: string;
     position: { x: number; y: number };
-  }) => void;
-  closeColumnDialog: () => void;
-  updateColumnDialogPosition: (position: { x: number; y: number }) => void;
-  updateColumnDialogInputValue: (value: string) => void;
-  updateColumnDialogDescriptionValue: (value: string) => void;
+  }) => string;
+  closeColumnDialog: (id: string) => void;
+  updateColumnDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateColumnDialogInputValue: (id: string, value: string) => void;
+  updateColumnDialogDescriptionValue: (id: string, value: string) => void;
 
   // Board actions
   addBoard: (

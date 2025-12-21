@@ -119,7 +119,7 @@ type TaskQuickActionsNode = Node<{ taskId: string }>;
 type ColumnQuickActionsNode = Node<{ columnId: string }>;
 type BoardDialogNode = Node<{ dialogId: string }>;
 type ConnectionDialogNode = Node<{ boardId: string }>;
-type ColumnDialogNode = Node<{ columnId: string }>;
+type ColumnDialogNode = Node<{ columnId: string; dialogId: string }>;
 type CanvasNode =
   | KanbanNode
   | TaskModalNode
@@ -186,7 +186,7 @@ export function KanbanCanvas() {
     useShallow((state) => Object.keys(state.boardDialogs))
   );
   const connectionDialog = useKanbanStore((state) => state.connectionDialog);
-  const columnDialog = useKanbanStore((state) => state.columnDialog);
+  const columnDialogs = useKanbanStore((state) => state.columnDialogs);
   const updateBoardQuickActionsPosition = useKanbanStore(
     (state) => state.updateBoardQuickActionsPosition
   );
@@ -519,44 +519,47 @@ export function KanbanCanvas() {
     }
 
     const columnDialogNodes: ColumnDialogNode[] = [];
-    if (columnDialog) {
-      if (columnDialog.type === "rename") {
-        columnDialogNodes.push({
-          id: `column-dialog-${columnDialog.columnId}`,
-          type: "columnRenameDialog",
-          position: {
-            x: columnDialog.position.x,
-            y: columnDialog.position.y,
-          },
-          data: { columnId: columnDialog.columnId },
-          style: { zIndex: 2100 },
-          draggable: true,
-        });
-      } else if (columnDialog.type === "delete") {
-        columnDialogNodes.push({
-          id: `column-dialog-${columnDialog.columnId}`,
-          type: "columnDeleteDialog",
-          position: {
-            x: columnDialog.position.x,
-            y: columnDialog.position.y,
-          },
-          data: { columnId: columnDialog.columnId },
-          style: { zIndex: 2100 },
-          draggable: true,
-        });
-      } else if (columnDialog.type === "move") {
-        columnDialogNodes.push({
-          id: `column-dialog-${columnDialog.columnId}`,
-          type: "columnMoveDialog",
-          position: {
-            x: columnDialog.position.x,
-            y: columnDialog.position.y,
-          },
-          data: { columnId: columnDialog.columnId },
-          style: { zIndex: 2100 },
-          draggable: true,
-        });
-      }
+    if (columnDialogs) {
+      // biome-ignore lint/complexity/noForEach: skip
+      Object.values(columnDialogs).forEach((dialog) => {
+        if (dialog.type === "rename") {
+          columnDialogNodes.push({
+            id: `column-dialog-${dialog.id}`,
+            type: "columnRenameDialog",
+            position: {
+              x: dialog.position.x,
+              y: dialog.position.y,
+            },
+            data: { columnId: dialog.columnId, dialogId: dialog.id },
+            style: { zIndex: 2100 },
+            draggable: true,
+          });
+        } else if (dialog.type === "delete") {
+          columnDialogNodes.push({
+            id: `column-dialog-${dialog.id}`,
+            type: "columnDeleteDialog",
+            position: {
+              x: dialog.position.x,
+              y: dialog.position.y,
+            },
+            data: { columnId: dialog.columnId, dialogId: dialog.id },
+            style: { zIndex: 2100 },
+            draggable: true,
+          });
+        } else if (dialog.type === "move") {
+          columnDialogNodes.push({
+            id: `column-dialog-${dialog.id}`,
+            type: "columnMoveDialog",
+            position: {
+              x: dialog.position.x,
+              y: dialog.position.y,
+            },
+            data: { columnId: dialog.columnId, dialogId: dialog.id },
+            style: { zIndex: 2100 },
+            draggable: true,
+          });
+        }
+      });
     }
 
     const taskQuickActionsNodes: TaskQuickActionsNode[] = Object.values(
@@ -620,7 +623,7 @@ export function KanbanCanvas() {
     boardDialogIds,
     boardDialogs,
     connectionDialog,
-    columnDialog,
+    columnDialogs,
     taskQuickActions,
     columnQuickActions,
   ]);
@@ -826,7 +829,8 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("connection-dialog-")) {
             updateConnectionDialogPosition(change.position);
           } else if (change.id.startsWith("column-dialog-")) {
-            updateColumnDialogPosition(change.position);
+            const dialogId = change.id.replace("column-dialog-", "");
+            updateColumnDialogPosition(dialogId, change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }

@@ -81,7 +81,7 @@ export const useKanbanStore = create<KanbanStore>()(
           workspaceQuickActions: state.workspaceQuickActions,
           workspaceDialog: state.workspaceDialog,
           columnQuickActions: state.columnQuickActions,
-          columnDialog: state.columnDialog,
+          columnDialogs: state.columnDialogs,
           boardQuickActions: state.boardQuickActions,
           boardDialogs: state.boardDialogs,
           connectionDialog: state.connectionDialog,
@@ -91,7 +91,6 @@ export const useKanbanStore = create<KanbanStore>()(
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Migrate boardQuickActions from old null format to new Record format
           if (
             state.boardQuickActions === null ||
             typeof state.boardQuickActions !== "object"
