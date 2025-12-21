@@ -52,10 +52,11 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
       if (e.key === "Enter") {
         handleNameSubmit();
       } else if (e.key === "Escape") {
+        setEditName(area?.name ?? "");
         setIsEditing(false);
       }
     },
-    [handleNameSubmit]
+    [area?.name, handleNameSubmit]
   );
 
   const handleRemove = useCallback(
