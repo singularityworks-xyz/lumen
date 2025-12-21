@@ -382,7 +382,7 @@ export const BoardPropertiesDialogNodeComponent =
           })}
         </div>
 
-        <div className="nodrag max-h-72 overflow-y-auto p-2">
+        <div className="nodrag p-2">
           {boardColumns.map((col, index) => {
             const value = columnProgressValues[col.id] ?? 0;
             const styles = getProgressStyles(value);
