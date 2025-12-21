@@ -60,6 +60,11 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `rename-board-dialog-${dialogId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -67,6 +72,14 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
     }, [zIndexDialogId, registerDialog, unregisterDialog]);
 
     const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
@@ -175,6 +188,7 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               color="primary"
@@ -184,8 +198,9 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
               hideStartNode
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div

@@ -78,11 +78,24 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `connection-dialog-${boardId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
     useEffect(() => {
       registerDialog(zIndexDialogId);
       return () => unregisterDialog(zIndexDialogId);
     }, [zIndexDialogId, registerDialog, unregisterDialog]);
     const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
     const sourceBoard = boards.byId[boardId];
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
@@ -236,6 +249,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={sourceBoard?.accentColor}
@@ -243,8 +257,9 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div

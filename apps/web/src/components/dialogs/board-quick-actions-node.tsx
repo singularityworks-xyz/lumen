@@ -93,6 +93,11 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const dialogId = `board-quick-actions-${boardId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -649,6 +654,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={board.accentColor}
@@ -658,7 +664,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
               startY={connectorState.start.y}
               zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
 
         <div

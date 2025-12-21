@@ -968,8 +968,12 @@ export function KanbanCanvas() {
     >
       <ColumnDragContext.Provider value={columnDragContextValue}>
         <div className="h-full w-full">
+          {/* Layer 1: Fixed Background */}
+          <div className="fixed inset-0 -z-10 bg-background" />
+
+          {/* Layer 3: React Flow (Top Layer, Transparent) */}
           <ReactFlow
-            className="bg-background"
+            className="relative bg-transparent"
             defaultViewport={canvas.viewport}
             edges={localEdges}
             edgeTypes={edgeTypes}
@@ -999,9 +1003,15 @@ export function KanbanCanvas() {
               interactionMode === "select" ? SelectionMode.Partial : undefined
             }
             selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
+            style={{ zIndex: 2000 }}
             zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
             zoomOnScroll={!showWelcomeScreen}
           >
+            <div
+              className="pointer-events-none fixed inset-0"
+              id="board-connector-layer"
+              style={{ zIndex: 0 }}
+            />
             <Background
               className="opacity-30"
               color="currentColor"

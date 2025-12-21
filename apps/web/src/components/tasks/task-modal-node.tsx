@@ -77,6 +77,11 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `task-modal-${data.modalId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -84,6 +89,14 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     }, [zIndexDialogId, registerDialog, unregisterDialog]);
 
     const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
 
     useEffect(() => {
       setMounted(true);
@@ -292,6 +305,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       >
         {mounted &&
           connectorState &&
+          portalTarget &&
           createPortal(
             <ConnectorEdge
               customColor={accentColor}
@@ -299,8 +313,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
-            document.body
+            portalTarget
           )}
         <div
           className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
