@@ -63,6 +63,12 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const boardQuickActions = useKanbanStore((state) =>
       modalBoardId ? state.boardQuickActions[modalBoardId] : null
     );
+    const modalColumnId = useKanbanStore(
+      (state) => state.createTaskModals[data.modalId]?.columnId
+    );
+    const columnQuickActions = useKanbanStore(
+      (state) => state.columnQuickActions
+    );
 
     useEffect(() => {
       setMounted(true);
@@ -102,6 +108,21 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         };
       }
 
+      if (sourceType === "column-menu" && modalColumnId) {
+        const quickActions = columnQuickActions[modalColumnId];
+        if (quickActions) {
+          const quickActionsWidth = 200;
+          const quickActionsScreenPos = flowToScreenPosition({
+            x: quickActions.position.x + quickActionsWidth,
+            y: quickActions.position.y + 40,
+          });
+          return {
+            start: quickActionsScreenPos,
+            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+          };
+        }
+      }
+
       if (boardPosition) {
         const boardWidth = boardPosition.width ?? 300;
         const boardScreenPos = flowToScreenPosition({
@@ -125,13 +146,12 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       vpY,
       vpZoom,
       boardPosition,
+      modalColumnId,
+      columnQuickActions,
     ]);
 
     const modalFormData = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.formData
-    );
-    const modalColumnId = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.columnId
     );
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
