@@ -93,7 +93,7 @@ export function TagInput({
           className={cn(
             "flex min-h-10 w-full flex-wrap gap-1.5 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-muted/50 dark:hover:bg-secondary/50 cursor-text",
             className
-          )}
+)}
           onClick={() => setOpen(true)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -201,7 +201,7 @@ export function TagInput({
                <div className="py-6 text-center text-sm text-muted-foreground">
                  No suggestions found.
                </div>
-             )}
+   )}
           </CommandList>
         </Command>
       </PopoverContent>

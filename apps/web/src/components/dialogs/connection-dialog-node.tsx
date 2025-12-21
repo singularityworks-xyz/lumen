@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
@@ -71,7 +71,18 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const boardQuickActions = useKanbanStore(
       (state) => state.boardQuickActions[boardId]
     );
-
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `connection-dialog-${boardId}`;
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+    const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
     const sourceBoard = boards.byId[boardId];
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
@@ -208,9 +219,9 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
       <div
         aria-labelledby={`dialog-title-connection-${boardId}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -220,6 +231,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(zIndexDialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >

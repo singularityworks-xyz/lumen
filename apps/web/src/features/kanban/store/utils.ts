@@ -64,5 +64,6 @@ export function createInitialState(): KanbanState {
     boardDialogs: {},
     connectionDialog: null,
     taskQuickActions: {},
+    dialogFocusStack: [],
   };
 }

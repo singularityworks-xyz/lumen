@@ -91,6 +91,8 @@ export type KanbanState = {
       position: { x: number; y: number };
     }
   >;
+  // Z-index management
+  dialogFocusStack: string[];
 };
 
 export type KanbanActions = {
@@ -381,6 +383,12 @@ export type KanbanActions = {
   clearBoardSelection: () => void;
   toggleTaskSelection: (taskId: string) => void;
   clearTaskSelection: () => void;
+
+  // Z-index management
+  bringDialogToFront: (dialogId: string) => void;
+  registerDialog: (dialogId: string) => void;
+  unregisterDialog: (dialogId: string) => void;
+  getDialogZIndex: (dialogId: string) => number;
 };
 
 export type KanbanStore = KanbanState & KanbanActions;

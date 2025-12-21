@@ -209,6 +209,8 @@ export function KanbanCanvas() {
   const updateTaskQuickActionsPosition = useKanbanStore(
     (state) => state.updateTaskQuickActionsPosition
   );
+  // Subscribe to dialogFocusStack for reactive z-index computation
+  const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
       default: BoardEdgeComponent,
@@ -375,6 +377,14 @@ export function KanbanCanvas() {
   ]);
 
   const nodes: CanvasNode[] = useMemo(() => {
+    const computeZIndex = (dialogId: string) => {
+      const index = dialogFocusStack.indexOf(dialogId);
+      if (index === -1) {
+        return 3000;
+      }
+      return 3000 + (index + 1) * 10;
+    };
+
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
@@ -424,7 +434,7 @@ export function KanbanCanvas() {
           type: "taskModal",
           position: { x: modal.position.x, y: modal.position.y },
           data: { modalId: modal.id },
-          style: { zIndex: 1000 + modal.zIndex },
+          style: { zIndex: computeZIndex(`task-modal-${modal.id}`) },
           draggable: true,
         };
         return node;
@@ -463,7 +473,7 @@ export function KanbanCanvas() {
           y: qa.position.y,
         },
         data: { boardId: qa.boardId },
-        style: { zIndex: 2000 },
+        style: { zIndex: computeZIndex(`board-quick-actions-${qa.boardId}`) },
         draggable: true,
       }));
 
@@ -483,6 +493,10 @@ export function KanbanCanvas() {
                 : dialog.type === "color-icon-picker"
                   ? "colorIconPickerDialog"
                   : "boardDeleteDialog";
+
+        const dialogZIndexId = `${dialog.type}-board-dialog-${dialog.id}`;
+        const computedZIndex = computeZIndex(dialogZIndexId);
+
         const node: BoardDialogNode = {
           id: `board-dialog-${dialog.id}`,
           type: nodeType,
@@ -497,7 +511,7 @@ export function KanbanCanvas() {
                 }
               : {}),
           },
-          style: { zIndex: 2000 + dialog.zIndex },
+          style: { zIndex: computedZIndex },
           draggable: true,
         };
         return node;
@@ -514,7 +528,11 @@ export function KanbanCanvas() {
           y: connectionDialog.position.y,
         },
         data: { boardId: connectionDialog.boardId },
-        style: { zIndex: 2100 },
+        style: {
+          zIndex: computeZIndex(
+            `connection-dialog-${connectionDialog.boardId}`
+          ),
+        },
         draggable: true,
       });
     }
@@ -627,6 +645,7 @@ export function KanbanCanvas() {
     columnDialogs,
     taskQuickActions,
     columnQuickActions,
+    dialogFocusStack,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);

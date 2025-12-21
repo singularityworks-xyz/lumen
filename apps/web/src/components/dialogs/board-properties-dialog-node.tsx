@@ -102,6 +102,20 @@ export const BoardPropertiesDialogNodeComponent =
 
     const updateBoard = useKanbanStore((state) => state.updateBoard);
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `properties-board-dialog-${dialogId}`;
+
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
 
     const boardColumns = useMemo(() => {
       if (!board) {
@@ -311,9 +325,9 @@ export const BoardPropertiesDialogNodeComponent =
       <div
         aria-labelledby={`dialog-title-${dialogId}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-lg ring-1 ring-border/50",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
@@ -323,6 +337,7 @@ export const BoardPropertiesDialogNodeComponent =
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(zIndexDialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >

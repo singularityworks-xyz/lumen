@@ -11,6 +11,7 @@ import { createModalSlice } from "./slices/modal-slice";
 import { createTaskSlice } from "./slices/task-slice";
 import { createUiSlice } from "./slices/ui-slice";
 import { createWorkspaceSlice } from "./slices/workspace-slice";
+import { createZIndexSlice } from "./slices/z-index-slice";
 import { indexedDBStorage, STORAGE_KEY } from "./storage";
 import type { KanbanState, KanbanStore } from "./types";
 import { createInitialState } from "./utils";
@@ -31,6 +32,7 @@ const storeCreator: StateCreator<
   ...createConnectionSlice(set, get),
   ...createModalSlice(set, get),
   ...createUiSlice(set, get),
+  ...createZIndexSlice(set, get),
 });
 
 const uiStateFields: (keyof KanbanState)[] = [

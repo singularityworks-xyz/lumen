@@ -7,7 +7,7 @@ import {
   useViewport,
 } from "@xyflow/react";
 import { Copy, GripHorizontal, Link2, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
@@ -56,6 +56,20 @@ export const DuplicateBoardDialogNodeComponent =
     const board = useKanbanStore((state) =>
       dialog?.boardId ? state.boards.byId[dialog.boardId] : null
     );
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `duplicate-board-dialog-${dialogId}`;
+
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+
+    const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
 
     const connectorState = useMemo(() => {
       const _vp = { vpX, vpY, vpZoom };
@@ -125,9 +139,9 @@ export const DuplicateBoardDialogNodeComponent =
       <div
         aria-labelledby={`dialog-title-${dialogId}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-lg ring-1 ring-border/50",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
@@ -137,6 +151,7 @@ export const DuplicateBoardDialogNodeComponent =
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(zIndexDialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >

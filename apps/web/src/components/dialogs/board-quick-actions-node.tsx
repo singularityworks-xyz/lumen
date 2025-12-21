@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
@@ -86,6 +86,28 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const closeConnectionDialog = useKanbanStore(
       (state) => state.closeConnectionDialog
     );
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const dialogId = `board-quick-actions-${boardId}`;
+
+    useEffect(() => {
+      registerDialog(dialogId);
+      return () => unregisterDialog(dialogId);
+    }, [dialogId, registerDialog, unregisterDialog]);
+
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(dialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, dialogId]);
+
+    const isTopmost = dialogFocusStack.at(-1) === dialogId;
 
     const columnCount = board?.column_ids.length ?? 0;
     const taskCount = useMemo(() => {
@@ -119,7 +141,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         type: "board-dialog" | "task" | "connection";
       }[] = [];
 
-      for (const [dialogId, d] of Object.entries(boardDialogs)) {
+      for (const [bDialogId, d] of Object.entries(boardDialogs)) {
         if (d.boardId !== boardId) {
           continue;
         }
@@ -143,7 +165,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         }
         const b = boards.byId[d.boardId];
         dialogs.push({
-          id: dialogId,
+          id: bDialogId,
           name,
           type: "board-dialog",
           icon: b?.icon,
@@ -610,9 +632,9 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       <div
         aria-labelledby={`quick-actions-${id}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all",
-          selected || isFocused
-            ? "shadow-xl ring-2 ring-primary/50"
+          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          selected || isFocused || isTopmost
+            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -622,6 +644,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
+        onPointerDown={() => bringDialogToFront(dialogId)}
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
@@ -633,6 +656,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
               endY={connectorState.end.y}
               startX={connectorState.start.x}
               startY={connectorState.start.y}
+              zIndex={connectorZIndex}
             />,
             document.body
           )}
