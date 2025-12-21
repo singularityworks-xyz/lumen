@@ -383,6 +383,23 @@ export const KanbanColumn = memo(
               <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {taskCount}
               </span>
+              {column.progressValue !== undefined && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 font-medium text-[10px] ${
+                    column.progressValue <= 20
+                      ? "bg-red-500/20 text-red-600 dark:text-red-400"
+                      : column.progressValue <= 40
+                        ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
+                        : column.progressValue <= 60
+                          ? "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                          : column.progressValue <= 80
+                            ? "bg-lime-500/20 text-lime-600 dark:text-lime-400"
+                            : "bg-green-500/20 text-green-600 dark:text-green-400"
+                  }`}
+                >
+                  {column.progressValue}%
+                </span>
+              )}
               <button
                 aria-label="Move column to another board"
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"

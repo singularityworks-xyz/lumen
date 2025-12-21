@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   Link2,
   Plus,
+  Settings,
   Trash2,
   X,
 } from "lucide-react";
@@ -146,6 +147,14 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
 
     const existingConnectionDialog =
       connectionDialog?.boardId === boardId ? connectionDialog : null;
+
+    const existingPropertiesDialog = useMemo(
+      () =>
+        Object.values(boardDialogs).find(
+          (d) => d.boardId === boardId && d.type === "properties"
+        ),
+      [boardDialogs, boardId]
+    );
 
     const boardPosition = useKanbanStore(
       (state) => state.boardPositions.byId[boardId]
@@ -446,6 +455,54 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       ensureDialogVisible,
     ]);
 
+    const handleProperties = useCallback(() => {
+      if (!board) {
+        return;
+      }
+
+      if (existingPropertiesDialog) {
+        setCenter(
+          existingPropertiesDialog.position.x + DIALOG_CENTER_OFFSET,
+          existingPropertiesDialog.position.y + DIALOG_CENTER_OFFSET,
+          { duration: 500, zoom: 1 }
+        );
+        return;
+      }
+
+      const myNode = getNode(id);
+      if (myNode) {
+        const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
+        const dialogY = myNode.position.y;
+        const columnProgressValues: Record<string, number> = {};
+        for (const colId of board.column_ids) {
+          const col = columns.byId[colId];
+          if (col) {
+            columnProgressValues[colId] = col.progressValue ?? 0;
+          }
+        }
+
+        openBoardDialog({
+          type: "properties",
+          boardId,
+          boardName: board.name,
+          position: { x: dialogX, y: dialogY },
+          columnProgressValues,
+        });
+
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 380, 400), 50);
+      }
+    }, [
+      board,
+      boardId,
+      columns.byId,
+      getNode,
+      id,
+      openBoardDialog,
+      existingPropertiesDialog,
+      setCenter,
+      ensureDialogVisible,
+    ]);
+
     if (!board) {
       return null;
     }
@@ -613,6 +670,24 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
                   {hasOtherBoards
                     ? "Manage links to other boards"
                     : "No boards available"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                  onClick={handleProperties}
+                  type="button"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  <span>Properties</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="text-xs">
+                  Configure board settings and column progress
                 </p>
               </TooltipContent>
             </Tooltip>

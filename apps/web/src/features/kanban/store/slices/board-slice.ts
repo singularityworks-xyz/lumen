@@ -35,6 +35,7 @@ type SliceCreator = (
   | "updateBoardDialogDescriptionValue"
   | "updateBoardDialogNewName"
   | "updateBoardDialogCopyConnections"
+  | "updateBoardDialogColumnProgress"
   | "openConnectionDialog"
   | "closeConnectionDialog"
   | "updateConnectionDialogPosition"
@@ -248,12 +249,18 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  updateBoardDimensions: (boardId, dimensions) =>
+  updateBoardDimensions: (boardId, dimensions, isUserResize = false) =>
     set((state) => {
       const boardPos = state.boardPositions.byId[boardId];
       if (boardPos) {
         boardPos.width = dimensions.width;
         boardPos.height = dimensions.height;
+
+        if (isUserResize) {
+          boardPos.userResized = true;
+          boardPos.lastUserWidth = dimensions.width;
+          boardPos.lastUserHeight = dimensions.height;
+        }
       }
     }),
 
@@ -284,13 +291,16 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
           .filter((task): task is Task => task !== undefined)
           .sort((a, b) => a.position - b.position);
 
-        return {
+        const denormalizedCol: DenormalizedColumn = {
           id: column.id,
           board_id: column.board_id,
           name: column.name,
+          description: column.description,
           position: column.position,
           tasks,
+          progressValue: column.progressValue,
         };
+        return denormalizedCol;
       })
       .filter((col): col is DenormalizedColumn => col !== null)
       .sort((a, b) => a.position - b.position);
@@ -378,8 +388,10 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
           id: newColumnId,
           board_id: newBoardId,
           name: oldColumn.name,
+          description: oldColumn.description,
           position: oldColumn.position,
           task_ids: newTaskIds,
+          progressValue: oldColumn.progressValue,
         };
         draft.columns.byId[newColumnId] = newColumn;
         draft.columns.allIds.push(newColumnId);
@@ -529,6 +541,17 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.boardDialogs[id]) {
         state.boardDialogs[id].copyConnections = value;
+      }
+    }),
+
+  updateBoardDialogColumnProgress: (id, columnId, value) =>
+    set((state) => {
+      const dialog = state.boardDialogs[id];
+      if (dialog) {
+        if (!dialog.columnProgressValues) {
+          dialog.columnProgressValues = {};
+        }
+        dialog.columnProgressValues[columnId] = value;
       }
     }),
 

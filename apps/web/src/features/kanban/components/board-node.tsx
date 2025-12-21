@@ -9,7 +9,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { GripVertical, Plus, SquarePen, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../store/kanban-store";
@@ -19,6 +19,12 @@ import type {
   DenormalizedColumn,
   Task,
 } from "../types";
+import {
+  calculateContentDimensions,
+  calculateMaxDimensions,
+  calculateMinDimensions,
+  shouldApplyResize,
+} from "../utils/board-resize-rules";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -73,6 +79,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             description: column.description,
             position: column.position,
             tasks: columnTasks,
+            progressValue: column.progressValue,
           } as DenormalizedColumn;
         })
         .filter((col): col is DenormalizedColumn => col !== null)
@@ -196,79 +203,28 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
 
     const isMultiSelected = selectedBoardIds.includes(id);
+    const [isResizing, setIsResizing] = useState(false);
+    const boardPosition = useKanbanStore(
+      (state) => state.boardPositions.byId[boardId]
+    );
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
-      const numColumns = boardColumns.length;
-
-      const COLUMN_WIDTH = 300;
-      const COLUMN_GAP = 12;
-      const BOARD_PADDING = 24;
-      const HEADER_HEIGHT = 42;
-      const TASK_HEIGHT = 120;
-      const TASK_GAP = 8;
-      const COLUMN_PADDING = 24;
-      const COLUMN_HEADER = 56;
-      const SKELETON_COLUMN_WIDTH = 225;
-      const minWidth = COLUMN_WIDTH + BOARD_PADDING + 20;
-      const minHeight = HEADER_HEIGHT + COLUMN_HEADER + 220 + BOARD_PADDING;
-      const maxTaskCount = Math.max(
-        ...boardColumns.map((c) => c.tasks?.length ?? 0),
-        0
-      );
-
-      const maxWidth =
-        numColumns * COLUMN_WIDTH +
-        (numColumns > 0 ? numColumns * COLUMN_GAP : 0) +
-        (numColumns > 0 ? COLUMN_GAP : 0) +
-        SKELETON_COLUMN_WIDTH +
-        BOARD_PADDING * 2;
-
-      const maxHeight =
-        HEADER_HEIGHT +
-        COLUMN_HEADER +
-        (maxTaskCount + 2) * TASK_HEIGHT +
-        (maxTaskCount + 2 - 1) * TASK_GAP +
-        COLUMN_PADDING +
-        BOARD_PADDING;
-
-      const contentWidth =
-        numColumns * COLUMN_WIDTH +
-        (numColumns - 1) * COLUMN_GAP +
-        BOARD_PADDING;
-
-      let maxColumnHeight = 0;
-      for (const col of boardColumns) {
-        const numTasks = col.tasks?.length ?? 0;
-        const columnHeight =
-          COLUMN_HEADER +
-          (numTasks > 0
-            ? numTasks * TASK_HEIGHT + (numTasks - 1) * TASK_GAP
-            : 160) +
-          COLUMN_PADDING;
-
-        maxColumnHeight = Math.max(maxColumnHeight, columnHeight);
-      }
-
-      const contentHeight = maxColumnHeight + HEADER_HEIGHT + BOARD_PADDING;
-
       return {
-        minDimensions: {
-          width: minWidth,
-          height: minHeight,
-        },
-        maxDimensions: {
-          width: maxWidth,
-          height: maxHeight,
-        },
-        contentDimensions: {
-          width: Math.max(contentWidth, minWidth),
-          height: Math.max(contentHeight, minHeight),
-        },
+        minDimensions: calculateMinDimensions(),
+        maxDimensions: calculateMaxDimensions(boardColumns),
+        contentDimensions: calculateContentDimensions(boardColumns),
       };
     }, [board?.columns]);
 
+    // Smart resize effect that respects user preferences
+    // SKIP when user is actively resizing to prevent flickering
     useEffect(() => {
+      // Don't auto-resize while user is dragging the resize handle
+      if (isResizing) {
+        return;
+      }
+
       const node = getNode(String(id));
       if (!node) {
         return;
@@ -276,82 +232,53 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
       const currentWidth = node.width || minDimensions.width;
       const currentHeight = node.height || minDimensions.height;
+      const userResized = boardPosition?.userResized ?? false;
 
-      const shouldGrow =
-        contentDimensions.width > currentWidth ||
-        contentDimensions.height > currentHeight;
+      // Determine if resize should be applied
+      const { shouldResize, newDimensions } = shouldApplyResize(
+        { width: currentWidth, height: currentHeight },
+        contentDimensions,
+        userResized,
+        {
+          width: boardPosition?.lastUserWidth,
+          height: boardPosition?.lastUserHeight,
+        }
+      );
 
-      if (shouldGrow) {
+      if (shouldResize) {
+        const finalWidth = Math.min(newDimensions.width, maxDimensions.width);
+        const finalHeight = Math.min(
+          newDimensions.height,
+          maxDimensions.height
+        );
+
         setNodes((nodes) =>
           nodes.map((n) => {
             if (n.id === String(id)) {
-              const newWidth = Math.min(
-                Math.max(currentWidth, contentDimensions.width),
-                maxDimensions.width
-              );
-              const newHeight = Math.min(
-                Math.max(currentHeight, contentDimensions.height),
-                maxDimensions.height
-              );
-
               return {
                 ...n,
-                width: newWidth,
-                height: newHeight,
+                width: finalWidth,
+                height: finalHeight,
                 style: {
                   ...n.style,
-                  width: newWidth,
-                  height: newHeight,
+                  width: finalWidth,
+                  height: finalHeight,
                 },
               };
             }
             return n;
           })
         );
-        return;
-      }
-
-      const shouldShrink =
-        contentDimensions.width < currentWidth ||
-        contentDimensions.height < currentHeight;
-
-      if (shouldShrink) {
-        const shrinkTimeout = setTimeout(() => {
-          setNodes((nodes) =>
-            nodes.map((n) => {
-              if (n.id === String(id)) {
-                const newWidth = Math.max(
-                  contentDimensions.width,
-                  minDimensions.width
-                );
-                const newHeight = Math.max(
-                  contentDimensions.height,
-                  minDimensions.height
-                );
-
-                return {
-                  ...n,
-                  width: newWidth,
-                  height: newHeight,
-                  style: {
-                    ...n.style,
-                    width: newWidth,
-                    height: newHeight,
-                  },
-                };
-              }
-              return n;
-            })
-          );
-        }, 250);
-
-        return () => clearTimeout(shrinkTimeout);
       }
     }, [
       id,
+      isResizing,
       contentDimensions,
       minDimensions,
       maxDimensions,
+      boardPosition?.userResized,
+      boardPosition?.lastUserWidth,
+      boardPosition?.lastUserHeight,
       getNode,
       setNodes,
     ]);
@@ -516,7 +443,29 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           maxWidth={maxDimensions.width}
           minHeight={minDimensions.height}
           minWidth={minDimensions.width}
+          onResizeEnd={() => setIsResizing(false)}
+          onResizeStart={() => setIsResizing(true)}
         />
+
+        {isResizing && (
+          <div
+            className="pointer-events-none absolute top-0 left-0 z-0 flex items-center justify-center rounded border-2 border-primary/50 border-dashed bg-primary/10 transition-all"
+            style={{
+              width: contentDimensions.width,
+              height: contentDimensions.height,
+            }}
+          >
+            <div className="flex flex-col items-center gap-1 rounded-lg bg-primary/90 px-4 py-2 text-primary-foreground shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.1)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
+              <span className="font-medium text-xs">
+                Drag here to auto-snap
+              </span>
+              <span className="text-[10px] opacity-80">
+                {Math.round(contentDimensions.width)} ×{" "}
+                {Math.round(contentDimensions.height)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {(selected || isSelected || isMultiSelected) && (
           <div className="pointer-events-none absolute right-0 bottom-0 z-10">
@@ -711,6 +660,8 @@ BoardNodeComponent.displayName = "BoardNode";
 
 // Dialog components are rendered as React Flow nodes; they still use portals internally
 // for certain elements like connector edges.
+
+import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
@@ -738,4 +689,5 @@ export const nodeTypes = {
   columnRenameDialog: RenameColumnDialogNodeComponent,
   columnDeleteDialog: DeleteColumnDialogNodeComponent,
   columnMoveDialog: MoveColumnDialogNodeComponent,
+  boardPropertiesDialog: BoardPropertiesDialogNodeComponent,
 };

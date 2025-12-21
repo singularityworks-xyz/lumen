@@ -41,6 +41,7 @@ export type Column = {
   description?: string;
   position: number;
   task_ids: string[];
+  progressValue?: number; // 0-100, progress value assigned when tasks enter this column
 };
 
 export type Board = {
@@ -100,6 +101,9 @@ export type BoardPosition = {
   width?: number;
   height?: number;
   zIndex: number;
+  userResized?: boolean;
+  lastUserWidth?: number;
+  lastUserHeight?: number;
 };
 
 export type InteractionMode = "drag" | "select";
@@ -157,7 +161,7 @@ export type TaskDetailModalState = {
   openedFromQuickActions?: boolean;
 };
 
-export type BoardDialogType = "rename" | "duplicate" | "delete";
+export type BoardDialogType = "rename" | "duplicate" | "delete" | "properties";
 
 export type BoardDialogState = {
   id: string;
@@ -174,6 +178,7 @@ export type BoardDialogState = {
   columnCount?: number;
   taskCount?: number;
   connectionCount?: number;
+  columnProgressValues?: Record<string, number>;
 };
 
 export type ConnectionDialogState = {
@@ -232,4 +237,5 @@ export type DenormalizedColumn = {
   description?: string;
   position: number;
   tasks: Task[];
+  progressValue?: number;
 };

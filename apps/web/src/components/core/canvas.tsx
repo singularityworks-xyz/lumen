@@ -39,6 +39,8 @@ import {
   useState,
 } from "react";
 import { useShallow } from "zustand/shallow";
+// biome-ignore lint/suspicious/noTsIgnore: added because of CSS import & VSCode false positive
+// @ts-ignore: False positive due to CSS import
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "../../features/kanban/components/board-node";
 import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
@@ -471,14 +473,17 @@ export function KanbanCanvas() {
         if (!dialog) {
           return null;
         }
+        const nodeType =
+          dialog.type === "rename"
+            ? "boardRenameDialog"
+            : dialog.type === "duplicate"
+              ? "boardDuplicateDialog"
+              : dialog.type === "properties"
+                ? "boardPropertiesDialog"
+                : "boardDeleteDialog";
         const node: BoardDialogNode = {
           id: `board-dialog-${dialog.id}`,
-          type:
-            dialog.type === "rename"
-              ? "boardRenameDialog"
-              : dialog.type === "duplicate"
-                ? "boardDuplicateDialog"
-                : "boardDeleteDialog",
+          type: nodeType,
           position: { x: dialog.position.x, y: dialog.position.y },
           data: { dialogId: dialog.id },
           style: { zIndex: 2000 + dialog.zIndex },
@@ -817,7 +822,7 @@ export function KanbanCanvas() {
           }
         }
         if (change.type === "dimensions" && change.dimensions) {
-          updateBoardDimensions(change.id, change.dimensions);
+          updateBoardDimensions(change.id, change.dimensions, true);
         }
       }
     },

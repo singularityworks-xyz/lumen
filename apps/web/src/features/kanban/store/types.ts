@@ -168,7 +168,8 @@ export type KanbanActions = {
   ) => void;
   updateBoardDimensions: (
     boardId: string,
-    dimensions: { width: number; height: number }
+    dimensions: { width: number; height: number },
+    isUserResize?: boolean
   ) => void;
   bringBoardToFront: (boardId: string) => void;
   getDenormalizedBoard: (
@@ -201,6 +202,7 @@ export type KanbanActions = {
     columnCount?: number;
     taskCount?: number;
     connectionCount?: number;
+    columnProgressValues?: Record<string, number>;
   }) => string;
   closeBoardDialog: (id: string) => void;
   updateBoardDialogPosition: (
@@ -211,6 +213,11 @@ export type KanbanActions = {
   updateBoardDialogDescriptionValue: (id: string, value: string) => void;
   updateBoardDialogNewName: (id: string, value: string) => void;
   updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
+  updateBoardDialogColumnProgress: (
+    id: string,
+    columnId: string,
+    value: number
+  ) => void;
   openConnectionDialog: (
     boardId: string,
     position: { x: number; y: number }
@@ -235,7 +242,9 @@ export type KanbanActions = {
   addColumn: (boardId: string, name: string, position?: number) => string;
   updateColumn: (
     columnId: string,
-    updates: Partial<Pick<Column, "name" | "position" | "description">>
+    updates: Partial<
+      Pick<Column, "name" | "position" | "description" | "progressValue">
+    >
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
