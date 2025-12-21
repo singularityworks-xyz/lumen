@@ -43,6 +43,7 @@ const uiStateFields: (keyof KanbanState)[] = [
   "selectedBoardIds",
   "selectedTaskIds",
   "draggedTaskId",
+  "columnUi",
 ];
 
 const temporalExcludeFields: (keyof KanbanState)[] = [
@@ -88,6 +89,7 @@ export const useKanbanStore = create<KanbanStore>()(
           boardDialogs: state.boardDialogs,
           connectionDialog: state.connectionDialog,
           taskQuickActions: state.taskQuickActions,
+          columnUi: state.columnUi,
         };
         return persisted;
       },

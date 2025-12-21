@@ -15,6 +15,7 @@ type SliceCreator = (
   | "clearBoardSelection"
   | "toggleTaskSelection"
   | "clearTaskSelection"
+  | "updateColumnUi"
 >;
 
 export const createUiSlice: SliceCreator = (set, _get) => ({
@@ -90,5 +91,16 @@ export const createUiSlice: SliceCreator = (set, _get) => ({
   clearTaskSelection: () =>
     set((state) => {
       state.selectedTaskIds = [];
+    }),
+
+  updateColumnUi: (columnId, updates) =>
+    set((state) => {
+      if (!state.columnUi[columnId]) {
+        state.columnUi[columnId] = {
+          isBottomExpanded: false,
+          bottomView: "finished",
+        };
+      }
+      Object.assign(state.columnUi[columnId], updates);
     }),
 });

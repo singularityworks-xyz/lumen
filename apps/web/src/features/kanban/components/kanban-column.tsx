@@ -13,7 +13,7 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
@@ -30,10 +30,17 @@ export const KanbanColumn = memo(
   ({ column, boardId, onOpenTaskDetail }: KanbanColumnProps) => {
     const [_isHovered, setIsHovered] = useState(false);
     const [_isDragOver, setIsDragOver] = useState(false);
-    const [isFinishedExpanded, setIsFinishedExpanded] = useState(false);
-    const [bottomView, setBottomView] = useState<"finished" | "trash">(
-      "finished"
-    );
+    const columnUi = useKanbanStore((state) => state.columnUi[column.id]);
+    const updateColumnUi = useKanbanStore((state) => state.updateColumnUi);
+
+    const bottomView = columnUi?.bottomView ?? "finished";
+    const activeBottomTasks =
+      bottomView === "finished"
+        ? column.tasks.filter((t) => t.status === "done")
+        : column.tasks.filter((t) => t.status === "trash");
+
+    const isFinishedExpanded =
+      columnUi?.isBottomExpanded ?? activeBottomTasks.length <= 2;
 
     const openColumnQuickActions = useKanbanStore(
       (state) => state.openColumnQuickActions
@@ -108,18 +115,9 @@ export const KanbanColumn = memo(
       [columnTasks]
     );
 
-    const activeBottomTasks =
-      bottomView === "finished" ? doneTasks : trashTasks;
     const taskCount = columnTasks.length;
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: it's complicated >~<
-    useEffect(() => {
-      if (activeBottomTasks.length > 2) {
-        setIsFinishedExpanded(false);
-      } else if (activeBottomTasks.length > 0) {
-        setIsFinishedExpanded(true);
-      }
-    }, [activeBottomTasks.length, bottomView]);
+    // Auto-collapse logic removed to respect user state and persistence
 
     const handleDragStart = useCallback(
       (task: Task) => {
@@ -508,10 +506,34 @@ export const KanbanColumn = memo(
 
           {(doneTasks.length > 0 || trashTasks.length > 0) && (
             <div className="mt-4 space-y-1.5 pt-2">
-              <div className="flex items-center gap-1">
+              {/** biome-ignore lint/a11y/useSemanticElements: skip */}
+              <div
+                className="flex cursor-pointer items-center gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateColumnUi(column.id, {
+                    isBottomExpanded: !isFinishedExpanded,
+                  });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    updateColumnUi(column.id, {
+                      isBottomExpanded: !isFinishedExpanded,
+                    });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <button
                   className="flex items-center justify-center rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                  onClick={() => setIsFinishedExpanded(!isFinishedExpanded)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateColumnUi(column.id, {
+                      isBottomExpanded: !isFinishedExpanded,
+                    });
+                  }}
                   type="button"
                 >
                   {isFinishedExpanded ? (
@@ -528,9 +550,12 @@ export const KanbanColumn = memo(
                         ? "text-foreground"
                         : "text-muted-foreground/60"
                     }`}
-                    onClick={() => {
-                      setBottomView("finished");
-                      setIsFinishedExpanded(true);
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateColumnUi(column.id, {
+                        bottomView: "finished",
+                        isBottomExpanded: true,
+                      });
                     }}
                     type="button"
                   >
@@ -547,9 +572,12 @@ export const KanbanColumn = memo(
                         ? "text-red-500"
                         : "text-muted-foreground/60"
                     }`}
-                    onClick={() => {
-                      setBottomView("trash");
-                      setIsFinishedExpanded(true);
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateColumnUi(column.id, {
+                        bottomView: "trash",
+                        isBottomExpanded: true,
+                      });
                     }}
                     type="button"
                   >
