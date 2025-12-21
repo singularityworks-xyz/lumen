@@ -480,12 +480,22 @@ export function KanbanCanvas() {
               ? "boardDuplicateDialog"
               : dialog.type === "properties"
                 ? "boardPropertiesDialog"
-                : "boardDeleteDialog";
+                : dialog.type === "color-icon-picker"
+                  ? "colorIconPickerDialog"
+                  : "boardDeleteDialog";
         const node: BoardDialogNode = {
           id: `board-dialog-${dialog.id}`,
           type: nodeType,
           position: { x: dialog.position.x, y: dialog.position.y },
-          data: { dialogId: dialog.id },
+          data: {
+            dialogId: dialog.id,
+            ...(dialog.type === "color-icon-picker" && dialog.columnId
+              ? {
+                  columnId: dialog.columnId,
+                  sourceDialogId: dialog.sourceDialogId,
+                }
+              : {}),
+          },
           style: { zIndex: 2000 + dialog.zIndex },
           draggable: true,
         };

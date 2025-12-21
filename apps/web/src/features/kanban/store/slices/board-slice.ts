@@ -299,6 +299,8 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
           position: column.position,
           tasks,
           progressValue: column.progressValue,
+          accentColor: column.accentColor,
+          icon: column.icon,
         };
         return denormalizedCol;
       })

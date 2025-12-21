@@ -9,19 +9,28 @@ import {
 import {
   ChevronDown,
   ChevronUp,
+  Circle,
   Equal,
   GripHorizontal,
   Layout,
+  Palette,
   Settings,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Slider } from "@/src/components/ui/slider";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import {
+  ICON_MAP,
+  incrementColorUsage,
+  incrementIconUsage,
+  QuickColorPicker,
+  QuickIconPicker,
+} from "../../features/kanban/utils/color-icon-utils";
 
 type BoardPropertiesDialogNodeData = {
   dialogId: string;
@@ -31,7 +40,7 @@ type BoardPropertiesDialogNodeProps = NodeProps<
   Node<BoardPropertiesDialogNodeData>
 >;
 
-const DIALOG_WIDTH = 320;
+const DIALOG_WIDTH = 340;
 
 function getProgressStyles(progress: number) {
   if (progress === 0) {
@@ -65,6 +74,9 @@ export const BoardPropertiesDialogNodeComponent =
     const [expandedColumnId, setExpandedColumnId] = useState<string | null>(
       null
     );
+    const [activeTab, setActiveTab] = useState<"progress" | "style">(
+      "progress"
+    );
 
     const dialogId = data.dialogId;
     const dialog = useKanbanStore((state) => state.boardDialogs[dialogId]);
@@ -80,6 +92,14 @@ export const BoardPropertiesDialogNodeComponent =
     const updateBoardDialogColumnProgress = useKanbanStore(
       (state) => state.updateBoardDialogColumnProgress
     );
+    const currentWorkspaceId = useKanbanStore(
+      (state) => state.currentWorkspaceId
+    );
+    const workspace = useKanbanStore((state) =>
+      currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
+    );
+    const updateWorkspace = useKanbanStore((state) => state.updateWorkspace);
+    const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
 
     const boardColumns = useMemo(() => {
       if (!board) {
@@ -90,6 +110,12 @@ export const BoardPropertiesDialogNodeComponent =
         .filter((col): col is NonNullable<typeof col> => col !== undefined)
         .sort((a, b) => a.position - b.position);
     }, [board, columns]);
+
+    useEffect(() => {
+      if (expandedColumnId === null && boardColumns.length > 0) {
+        setExpandedColumnId(boardColumns[0]?.id ?? null);
+      }
+    }, [boardColumns, expandedColumnId]);
 
     const columnProgressValues = useMemo(() => {
       const values: Record<string, number> = {};
@@ -138,6 +164,50 @@ export const BoardPropertiesDialogNodeComponent =
         updateBoardDialogColumnProgress(dialogId, columnId, clamped);
       },
       [dialogId, updateBoardDialogColumnProgress]
+    );
+
+    const handleColorChange = useCallback(
+      (colId: string, color: string) => {
+        updateColumn(colId, { accentColor: color || undefined });
+        if (currentWorkspaceId && color) {
+          updateWorkspace(currentWorkspaceId, {
+            colorUsage: incrementColorUsage(workspace?.colorUsage, color),
+          });
+        }
+      },
+      [updateColumn, currentWorkspaceId, workspace?.colorUsage, updateWorkspace]
+    );
+
+    const handleIconChange = useCallback(
+      (colId: string, icon: string) => {
+        updateColumn(colId, { icon: icon || undefined });
+        if (currentWorkspaceId && icon) {
+          updateWorkspace(currentWorkspaceId, {
+            iconUsage: incrementIconUsage(workspace?.iconUsage, icon),
+          });
+        }
+      },
+      [updateColumn, currentWorkspaceId, workspace?.iconUsage, updateWorkspace]
+    );
+
+    const handleOpenExtendedPicker = useCallback(
+      (colId: string) => {
+        if (!(dialog && board)) {
+          return;
+        }
+        openBoardDialog({
+          type: "color-icon-picker",
+          boardId: board.id,
+          boardName: board.name,
+          position: {
+            x: dialog.position.x + DIALOG_WIDTH + 20,
+            y: dialog.position.y,
+          },
+          columnId: colId,
+          sourceDialogId: dialogId,
+        });
+      },
+      [dialog, board, openBoardDialog, dialogId]
     );
 
     const handleAutoDistribute = useCallback(() => {
@@ -214,7 +284,7 @@ export const BoardPropertiesDialogNodeComponent =
             <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-primary">
               <Settings className="h-3 w-3" />
             </span>
-            <span className="font-semibold text-xs">Column Progress</span>
+            <span className="font-semibold text-xs">Column Settings</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10px] text-primary">
@@ -232,33 +302,78 @@ export const BoardPropertiesDialogNodeComponent =
           </div>
         </div>
 
+        <div className="nodrag flex border-border/30 border-b bg-muted/30">
+          <button
+            className={cn(
+              "flex-1 py-1.5 font-medium text-[11px] transition-colors",
+              activeTab === "progress"
+                ? "border-primary border-b-2 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveTab("progress")}
+            type="button"
+          >
+            Progress
+          </button>
+          <button
+            className={cn(
+              "flex-1 py-1.5 font-medium text-[11px] transition-colors",
+              activeTab === "style"
+                ? "border-primary border-b-2 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveTab("style")}
+            type="button"
+          >
+            <span className="flex items-center justify-center gap-1">
+              <Palette className="h-3 w-3" />
+              Style
+            </span>
+          </button>
+        </div>
+
         <div className="nodrag flex gap-1 border-border/30 border-b bg-muted/50 px-3 py-2 dark:bg-secondary/50">
           {boardColumns.map((col) => {
             const value = columnProgressValues[col.id] ?? 0;
             const styles = getProgressStyles(value);
             const isSelected = expandedColumnId === col.id;
+            const accentColor = col.accentColor;
             return (
               <button
                 className={cn(
                   "nodrag group relative flex-1 rounded px-0.5 py-1 transition-all hover:scale-105",
-                  styles.bg,
+                  accentColor ? "" : styles.bg,
                   isSelected &&
                     "ring-1 ring-foreground/30 ring-offset-1 ring-offset-background"
                 )}
                 key={col.id}
                 onClick={() => setExpandedColumnId(isSelected ? null : col.id)}
+                style={
+                  accentColor ? { backgroundColor: `${accentColor}25` } : {}
+                }
                 title={`${col.name}: ${value}%`}
                 type="button"
               >
                 <div
-                  className={cn("h-1.5 rounded-sm", styles.fill)}
-                  style={{ width: `${Math.max(value, 15)}%` }}
+                  className={cn(
+                    "h-1.5 rounded-sm",
+                    !accentColor && styles.fill
+                  )}
+                  style={
+                    accentColor
+                      ? {
+                          backgroundColor: accentColor,
+                          width: `${Math.max(value, 15)}%`,
+                        }
+                      : { width: `${Math.max(value, 15)}%` }
+                  }
                 />
                 <span
                   className={cn(
                     "absolute inset-x-0 -bottom-3.5 text-center font-semibold text-[7px] opacity-0 transition-opacity group-hover:opacity-100",
-                    styles.text
+                    !accentColor && styles.text
                   )}
+                  style={accentColor ? { color: accentColor } : {}}
                 >
                   {value}%
                 </span>
@@ -267,11 +382,13 @@ export const BoardPropertiesDialogNodeComponent =
           })}
         </div>
 
-        <div className="nodrag max-h-64 overflow-y-auto p-2">
+        <div className="nodrag max-h-72 overflow-y-auto p-2">
           {boardColumns.map((col, index) => {
             const value = columnProgressValues[col.id] ?? 0;
             const styles = getProgressStyles(value);
             const isExpanded = expandedColumnId === col.id;
+            const accentColor = col.accentColor;
+            const IconComponent = col.icon ? ICON_MAP[col.icon] : null;
 
             return (
               <div className="mb-1 last:mb-0" key={col.id}>
@@ -279,7 +396,6 @@ export const BoardPropertiesDialogNodeComponent =
                   className={cn(
                     "nodrag flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-all",
                     "border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]",
-                    "dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]",
                     "hover:bg-muted dark:hover:bg-muted",
                     isExpanded && "border-primary/40 ring-1 ring-primary/20"
                   )}
@@ -288,25 +404,70 @@ export const BoardPropertiesDialogNodeComponent =
                   }
                   type="button"
                 >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-muted-foreground/10 font-medium text-[9px] text-muted-foreground">
-                    {index + 1}
-                  </span>
+                  {accentColor || col.icon ? (
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                      style={
+                        accentColor
+                          ? {
+                              backgroundColor: `${accentColor}25`,
+                              color: accentColor,
+                            }
+                          : {}
+                      }
+                    >
+                      {IconComponent ? (
+                        <IconComponent
+                          className="h-3 w-3"
+                          style={accentColor ? { color: accentColor } : {}}
+                        />
+                      ) : (
+                        <Circle
+                          className="h-2.5 w-2.5"
+                          style={
+                            accentColor
+                              ? { fill: accentColor, color: accentColor }
+                              : {}
+                          }
+                        />
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-muted-foreground/10 font-medium text-[9px] text-muted-foreground">
+                      {index + 1}
+                    </span>
+                  )}
                   <span className="flex-1 truncate font-medium text-xs">
                     {col.name}
                   </span>
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 font-semibold text-[10px] tabular-nums",
-                      styles.bg,
-                      styles.text
+                      !accentColor && styles.bg,
+                      !accentColor && styles.text
                     )}
+                    style={
+                      accentColor
+                        ? {
+                            backgroundColor: `${accentColor}25`,
+                            color: accentColor,
+                          }
+                        : {}
+                    }
                   >
                     {value}%
                   </span>
                   <div className="flex h-1 w-8 shrink-0 overflow-hidden rounded-full bg-muted-foreground/20">
                     <div
-                      className={cn("transition-all", styles.fill)}
-                      style={{ width: `${value}%` }}
+                      className={cn(
+                        "transition-all",
+                        !accentColor && styles.fill
+                      )}
+                      style={
+                        accentColor
+                          ? { backgroundColor: accentColor, width: `${value}%` }
+                          : { width: `${value}%` }
+                      }
                     />
                   </div>
                   {isExpanded ? (
@@ -318,36 +479,78 @@ export const BoardPropertiesDialogNodeComponent =
 
                 {isExpanded && (
                   <div className="mt-1 rounded-md border border-border/30 bg-muted/80 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                    <Slider
-                      className="nodrag **:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
-                      max={100}
-                      min={0}
-                      onValueChange={(vals) =>
-                        handleProgressChange(col.id, vals[0] ?? 0)
-                      }
-                      step={5}
-                      value={[value]}
-                    />
-                    <div className="mt-2 flex gap-1">
-                      {[0, 25, 50, 75, 100].map((preset) => (
+                    {activeTab === "progress" ? (
+                      <>
+                        <Slider
+                          className="nodrag **:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
+                          max={100}
+                          min={0}
+                          onValueChange={(vals) =>
+                            handleProgressChange(col.id, vals[0] ?? 0)
+                          }
+                          step={5}
+                          value={[value]}
+                        />
+                        <div className="mt-2 flex gap-1">
+                          {[0, 25, 50, 75, 100].map((preset) => (
+                            <button
+                              className={cn(
+                                "nodrag flex-1 rounded py-1 font-medium text-[10px] transition-all",
+                                value === preset
+                                  ? cn(
+                                      getProgressStyles(preset).bg,
+                                      getProgressStyles(preset).text
+                                    )
+                                  : "bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20"
+                              )}
+                              key={preset}
+                              onClick={() =>
+                                handleProgressChange(col.id, preset)
+                              }
+                              type="button"
+                            >
+                              {preset}%
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
                         <button
-                          className={cn(
-                            "nodrag flex-1 rounded py-1 font-medium text-[10px] transition-all",
-                            value === preset
-                              ? cn(
-                                  getProgressStyles(preset).bg,
-                                  getProgressStyles(preset).text
-                                )
-                              : "bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20"
-                          )}
-                          key={preset}
-                          onClick={() => handleProgressChange(col.id, preset)}
+                          className="nodrag mb-1 w-full rounded-md border border-border/50 border-dashed bg-muted/30 py-1 text-center text-[10px] text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+                          onClick={() => handleOpenExtendedPicker(col.id)}
                           type="button"
                         >
-                          {preset}%
+                          For more colors & icons, click{" "}
+                          <span className="font-medium underline">here</span>
                         </button>
-                      ))}
-                    </div>
+                        <div>
+                          <span className="mb-1.5 block font-medium text-[10px] text-muted-foreground">
+                            Accent Color
+                          </span>
+                          <QuickColorPicker
+                            colorUsage={workspace?.colorUsage}
+                            onChange={(color) =>
+                              handleColorChange(col.id, color)
+                            }
+                            onMoreClick={() => handleOpenExtendedPicker(col.id)}
+                            value={col.accentColor ?? ""}
+                          />
+                        </div>
+                        <div>
+                          <span className="mb-1.5 block font-medium text-[10px] text-muted-foreground">
+                            Icon
+                          </span>
+                          <QuickIconPicker
+                            accentColor={col.accentColor}
+                            iconUsage={workspace?.iconUsage}
+                            onChange={(icon) => handleIconChange(col.id, icon)}
+                            onMoreClick={() => handleOpenExtendedPicker(col.id)}
+                            value={col.icon ?? ""}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

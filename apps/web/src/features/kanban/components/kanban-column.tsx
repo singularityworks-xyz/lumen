@@ -9,13 +9,16 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Circle,
   SquarePen,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
+import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
+import { ICON_MAP } from "../utils/color-icon-utils";
 
 type KanbanColumnProps = {
   column: DenormalizedColumn;
@@ -356,6 +359,50 @@ export const KanbanColumn = memo(
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
+              {(column.accentColor || column.icon) && (
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded",
+                    !column.accentColor && "bg-muted"
+                  )}
+                  style={
+                    column.accentColor
+                      ? { backgroundColor: `${column.accentColor}25` }
+                      : {}
+                  }
+                >
+                  {(() => {
+                    const IconComponent = column.icon
+                      ? ICON_MAP[column.icon]
+                      : null;
+                    if (IconComponent) {
+                      return (
+                        <IconComponent
+                          className="h-3 w-3"
+                          style={
+                            column.accentColor
+                              ? { color: column.accentColor }
+                              : {}
+                          }
+                        />
+                      );
+                    }
+                    return (
+                      <Circle
+                        className="h-2.5 w-2.5"
+                        style={
+                          column.accentColor
+                            ? {
+                                fill: column.accentColor,
+                                color: column.accentColor,
+                              }
+                            : {}
+                        }
+                      />
+                    );
+                  })()}
+                </span>
+              )}
               <div className="flex flex-col gap-0.5">
                 <h3 className="font-semibold text-card-foreground text-xs">
                   {column.name}

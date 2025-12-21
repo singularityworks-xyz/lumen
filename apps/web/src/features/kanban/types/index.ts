@@ -41,7 +41,9 @@ export type Column = {
   description?: string;
   position: number;
   task_ids: string[];
-  progressValue?: number; // 0-100, progress value assigned when tasks enter this column
+  progressValue?: number;
+  accentColor?: string;
+  icon?: string;
 };
 
 export type Board = {
@@ -75,6 +77,9 @@ export type Workspace = {
   lastFocusedBoardId?: string | null;
   lastViewport?: ViewportState | null;
   showMiniMap?: boolean;
+  customColors?: string[];
+  colorUsage?: Record<string, number>;
+  iconUsage?: Record<string, number>;
 };
 
 export type EntityMap<T> = {
@@ -161,7 +166,12 @@ export type TaskDetailModalState = {
   openedFromQuickActions?: boolean;
 };
 
-export type BoardDialogType = "rename" | "duplicate" | "delete" | "properties";
+export type BoardDialogType =
+  | "rename"
+  | "duplicate"
+  | "delete"
+  | "properties"
+  | "color-icon-picker";
 
 export type BoardDialogState = {
   id: string;
@@ -179,6 +189,8 @@ export type BoardDialogState = {
   taskCount?: number;
   connectionCount?: number;
   columnProgressValues?: Record<string, number>;
+  columnId?: string;
+  sourceDialogId?: string;
 };
 
 export type ConnectionDialogState = {
@@ -238,4 +250,6 @@ export type DenormalizedColumn = {
   position: number;
   tasks: Task[];
   progressValue?: number;
+  accentColor?: string;
+  icon?: string;
 };

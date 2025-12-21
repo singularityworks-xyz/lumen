@@ -95,7 +95,12 @@ export type KanbanActions = {
   addWorkspace: (name: string, description?: string) => string;
   updateWorkspace: (
     workspaceId: string,
-    updates: Partial<Pick<Workspace, "name" | "description">>
+    updates: Partial<
+      Pick<
+        Workspace,
+        "name" | "description" | "customColors" | "colorUsage" | "iconUsage"
+      >
+    >
   ) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (
@@ -203,6 +208,8 @@ export type KanbanActions = {
     taskCount?: number;
     connectionCount?: number;
     columnProgressValues?: Record<string, number>;
+    columnId?: string;
+    sourceDialogId?: string;
   }) => string;
   closeBoardDialog: (id: string) => void;
   updateBoardDialogPosition: (
@@ -243,7 +250,15 @@ export type KanbanActions = {
   updateColumn: (
     columnId: string,
     updates: Partial<
-      Pick<Column, "name" | "position" | "description" | "progressValue">
+      Pick<
+        Column,
+        | "name"
+        | "position"
+        | "description"
+        | "progressValue"
+        | "accentColor"
+        | "icon"
+      >
     >
   ) => void;
   deleteColumn: (boardId: string, columnId: string) => void;

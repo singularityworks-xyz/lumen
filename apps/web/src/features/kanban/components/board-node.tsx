@@ -80,6 +80,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             position: column.position,
             tasks: columnTasks,
             progressValue: column.progressValue,
+            accentColor: column.accentColor,
+            icon: column.icon,
           } as DenormalizedColumn;
         })
         .filter((col): col is DenormalizedColumn => col !== null)
@@ -663,6 +665,7 @@ BoardNodeComponent.displayName = "BoardNode";
 
 import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
 import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
+import { ColorIconPickerDialogNodeComponent } from "../../../components/dialogs/color-icon-picker-dialog-node";
 import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
 import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
 import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
@@ -690,4 +693,5 @@ export const nodeTypes = {
   columnDeleteDialog: DeleteColumnDialogNodeComponent,
   columnMoveDialog: MoveColumnDialogNodeComponent,
   boardPropertiesDialog: BoardPropertiesDialogNodeComponent,
+  colorIconPickerDialog: ColorIconPickerDialogNodeComponent,
 };
