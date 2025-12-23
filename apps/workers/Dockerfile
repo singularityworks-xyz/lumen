@@ -1,4 +1,5 @@
 FROM oven/bun:alpine AS builder
+WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY packages/db/package.json ./packages/db/
 COPY packages/logger/package.json ./packages/logger/
@@ -10,8 +11,6 @@ COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
 COPY packages/configs ./packages/configs
 COPY apps/workers ./apps/workers
-WORKDIR /app/packages/db
-RUN bunx prisma generate
 WORKDIR /app/apps/workers
 RUN bun build src/index.ts --outdir=dist --target=bun --minify
 
