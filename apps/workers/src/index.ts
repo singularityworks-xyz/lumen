@@ -45,8 +45,26 @@ const app = new Elysia()
       ],
     });
   })
-  .onError(({ error, set }) => {
+  .onError(({ error, code, set, path }) => {
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return {
+        error: "Not Found",
+        message: `Route ${path} not found`,
+      };
+    }
+
+    if (code === "VALIDATION") {
+      set.status = 400;
+      return {
+        error: "Validation Error",
+        message: error instanceof Error ? error.message : "Invalid request",
+      };
+    }
+
     logger.error("Unhandled error", {
+      code,
+      path,
       error: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
     });
