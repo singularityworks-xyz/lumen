@@ -6,8 +6,14 @@ import { createLogger } from "@lumen/logger";
 import type { AuthSession } from "./types";
 
 const logger = createLogger({ name: "auth:session" });
-const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
+const SESSION_COOKIE_NAME = "better-auth.session_token";
 
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const SESSION_TOKEN_REGEX = new RegExp(
+  `${escapeRegex(SESSION_COOKIE_NAME)}=([^;]+)`
+);
 export function isSessionValid(session: SessionModel): boolean {
   const now = new Date();
   const isValid = session.expiresAt > now;
