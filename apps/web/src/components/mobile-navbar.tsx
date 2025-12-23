@@ -2,7 +2,8 @@
 
 import { useReactFlow } from "@xyflow/react";
 import {
-  Command,
+  // Disabled: Search functionality temporarily disabled
+  // Command,
   HelpCircle,
   LayoutGrid,
   MapIcon,
@@ -10,6 +11,7 @@ import {
   Moon,
   Plus,
   Sun,
+  User,
   WifiOff,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -48,9 +50,10 @@ export const MobileNavbar = memo(
     const { zoomIn, zoomOut } = useReactFlow();
     const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-    const setShowCommandPalette = useKanbanStore(
-      (state) => state.setShowCommandPalette
-    );
+    // Disabled: Search functionality temporarily disabled
+    // const setShowCommandPalette = useKanbanStore(
+    //   (state) => state.setShowCommandPalette
+    // );
     const addBoard = useKanbanStore((state) => state.addBoard);
     const currentWorkspace = useCurrentWorkspace();
     const showWelcomeScreen = useShowWelcomeScreen();
@@ -121,6 +124,7 @@ export const MobileNavbar = memo(
             <LayoutGrid className="h-4 w-4" />
           </MotionButton>
 
+          {/* Disabled: Search functionality temporarily disabled
           <MotionButton
             className="h-8 w-8 rounded-full bg-card/50 p-0 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
             onClick={() => setShowCommandPalette(true)}
@@ -132,6 +136,20 @@ export const MobileNavbar = memo(
           >
             <Command className="h-4 w-4" />
           </MotionButton>
+          */}
+
+          {/* User Avatar Section */}
+          <div
+            className="flex h-8 items-center gap-1.5 rounded-full bg-card/50 px-2 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
+            title="Guest User"
+          >
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <User className="h-4 w-4" />
+            </div>
+            <span className="font-medium text-foreground/80 text-xs">
+              Guest
+            </span>
+          </div>
 
           <div className="h-4 w-px bg-border/60" />
 

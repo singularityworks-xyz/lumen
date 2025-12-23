@@ -1,12 +1,13 @@
 "use client";
 
 import {
-  Command,
+  // Command, // Disabled: Search functionality temporarily disabled
   Hand,
   Moon,
   MousePointer2,
   Plus,
   Sun,
+  User,
   WifiOff,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -36,9 +37,10 @@ const buttonSpring = {
 export const FloatingNavbar = memo(() => {
   const { theme, toggleTheme } = useTheme();
   const { isOffline } = useConnectionStatus();
-  const setShowCommandPalette = useKanbanStore(
-    (state) => state.setShowCommandPalette
-  );
+  // Disabled: Search functionality temporarily disabled
+  // const setShowCommandPalette = useKanbanStore(
+  //   (state) => state.setShowCommandPalette
+  // );
   const interactionMode = useKanbanStore((state) => state.interactionMode);
   const setInteractionMode = useKanbanStore(
     (state) => state.setInteractionMode
@@ -72,6 +74,7 @@ export const FloatingNavbar = memo(() => {
         <span className="hidden text-[11px] sm:inline">New</span>
       </Button>
 
+      {/* Disabled: Search functionality temporarily disabled
       <Button
         className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
         onClick={() => setShowCommandPalette(true)}
@@ -82,8 +85,7 @@ export const FloatingNavbar = memo(() => {
         <Command className="h-3.5 w-3.5" />
         <span className="hidden text-[11px] sm:inline">Search</span>
       </Button>
-
-      <div className="h-3.5 w-px bg-border/60" />
+      */}
 
       <Button
         className={`gap-1.5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] ${
@@ -113,6 +115,19 @@ export const FloatingNavbar = memo(() => {
       </Button>
 
       <div className="h-3.5 w-px bg-border/60" />
+
+      {/* User Avatar Section */}
+      <div
+        className="flex items-center gap-1.5 rounded-full bg-card/50 px-2 py-1 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
+        title="Guest User"
+      >
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+          <User className="h-3.5 w-3.5" />
+        </div>
+        <span className="font-medium text-[11px] text-foreground/80">
+          Guest
+        </span>
+      </div>
 
       {isOffline && (
         <Tooltip>
