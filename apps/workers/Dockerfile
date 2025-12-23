@@ -5,7 +5,7 @@ COPY packages/logger/package.json ./packages/logger/
 COPY packages/configs/package.json ./packages/configs/
 COPY apps/workers/package.json ./apps/workers/
 COPY packages/db/prisma ./packages/db/prisma
-RUN bun install --frozen-lockfile
+RUN bun install --production
 COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
 COPY packages/configs ./packages/configs
