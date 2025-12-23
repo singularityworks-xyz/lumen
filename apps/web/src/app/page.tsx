@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { KanbanCanvas } from "@/src/components/core/canvas";
 import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
+import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightControls } from "@/src/components/right-controls";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
@@ -37,6 +38,7 @@ export default function KanbanPage() {
         <>
           <ReactFlowProvider>
             <KanbanCanvas />
+            <MobileNavbar position="bottom" />
           </ReactFlowProvider>
           <FloatingNavbar />
           <RightControls />
