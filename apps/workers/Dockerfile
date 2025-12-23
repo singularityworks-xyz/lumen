@@ -38,4 +38,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 EXPOSE 8080
 USER appuser
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "nginx && exec bun run dist/index.js"]
+CMD ["sh", "-c", "nginx & exec bun run dist/index.js"]
