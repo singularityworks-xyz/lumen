@@ -6,12 +6,19 @@ import { authRoutes } from "./auth/routes";
 
 const logger = createLogger({ name: "workers:main" });
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0)
+  : [];
+
+const origins =
+  allowedOrigins.length > 0 ? allowedOrigins : ["http://localhost:3000"];
+
 const app = new Elysia()
   .use(
     cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(",") || [
-        "http://localhost:3000",
-      ],
+      origin: origins,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
@@ -40,9 +47,7 @@ const app = new Elysia()
     logger.info("Server starting", {
       port: 3002,
       env: process.env.NODE_ENV || "development",
-      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",") || [
-        "http://localhost:3000",
-      ],
+      allowedOrigins: origins,
     });
   })
   .onError(({ error, code, set, path }) => {

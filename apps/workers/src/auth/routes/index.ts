@@ -10,7 +10,6 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     logger.info("Auth request received", {
       method: request.method,
       path: url.pathname,
-      query: Object.fromEntries(url.searchParams),
     });
   })
   .onAfterHandle(({ request }) => {
@@ -20,7 +19,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       path: url.pathname,
     });
   })
-  .onError(({ error, request }) => {
+  .onError(({ error, request, set }) => {
     const url = new URL(request.url);
     logger.error("Auth route error", {
       method: request.method,
@@ -28,7 +27,22 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       error: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return error;
+
+    const statusCode = (error as { status?: number }).status || 500;
+    set.status = statusCode;
+
+    return {
+      error: statusCode === 401 ? "Unauthorized" : "Internal Server Error",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Something went wrong"
+          : error instanceof Error
+            ? error.message
+            : "Unknown error",
+      ...(process.env.NODE_ENV === "development" && error instanceof Error
+        ? { stack: error.stack }
+        : {}),
+    };
   })
   .all("/api/auth/*", ({ request }) => {
     logger.debug("Delegating to Better Auth handler", {

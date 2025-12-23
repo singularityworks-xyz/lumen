@@ -57,7 +57,6 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                 String?
   idToken               String?
-  password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
