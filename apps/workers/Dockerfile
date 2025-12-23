@@ -11,7 +11,7 @@ COPY packages/logger ./packages/logger
 COPY packages/configs ./packages/configs
 COPY apps/workers ./apps/workers
 WORKDIR /app/packages/db
-RUN bun prisma generate
+RUN bunx prisma generate
 WORKDIR /app/apps/workers
 RUN bun build src/index.ts --outdir=dist --target=bun --minify
 
