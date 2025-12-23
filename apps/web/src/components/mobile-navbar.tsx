@@ -11,7 +11,6 @@ import {
   Moon,
   Plus,
   Sun,
-  User,
   WifiOff,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -22,6 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { UserButton } from "../features/auth/components";
 import { useConnectionStatus } from "../features/kanban/hooks/use-connection-status";
 import { useTheme } from "../features/kanban/hooks/use-theme";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
@@ -138,18 +138,7 @@ export const MobileNavbar = memo(
           </MotionButton>
           */}
 
-          {/* User Avatar Section */}
-          <div
-            className="flex h-8 items-center gap-1.5 rounded-full bg-card/50 px-2 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
-            title="Guest User"
-          >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-              <User className="h-4 w-4" />
-            </div>
-            <span className="font-medium text-foreground/80 text-xs">
-              Guest
-            </span>
-          </div>
+          <UserButton size="md" />
 
           <div className="h-4 w-px bg-border/60" />
 

@@ -7,7 +7,6 @@ import {
   MousePointer2,
   Plus,
   Sun,
-  User,
   WifiOff,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -18,6 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { UserButton } from "../features/auth/components";
 import { useConnectionStatus } from "../features/kanban/hooks/use-connection-status";
 import { useTheme } from "../features/kanban/hooks/use-theme";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
@@ -116,18 +116,7 @@ export const FloatingNavbar = memo(() => {
 
       <div className="h-3.5 w-px bg-border/60" />
 
-      {/* User Avatar Section */}
-      <div
-        className="flex items-center gap-1.5 rounded-full bg-card/50 px-2 py-1 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
-        title="Guest User"
-      >
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-          <User className="h-3.5 w-3.5" />
-        </div>
-        <span className="font-medium text-[11px] text-foreground/80">
-          Guest
-        </span>
-      </div>
+      <UserButton size="sm" />
 
       {isOffline && (
         <Tooltip>
