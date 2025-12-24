@@ -3,22 +3,25 @@
 import { createLogger } from "@lumen/logger";
 import { useCallback, useEffect, useRef } from "react";
 import type * as Y from "yjs";
-import { useKanbanStore } from "../store";
-import type { Board, BoardPosition, Column, Task, Workspace } from "../types";
+import { useKanbanStore } from "@/src/features/kanban/store";
+import type {
+  Board,
+  BoardPosition,
+  Column,
+  Task,
+  Workspace,
+} from "@/src/features/kanban/types";
 
 const logger = createLogger({ name: "collab:yjs-zustand" });
 
 type EntityType = "workspace" | "board" | "column" | "task" | "boardPosition";
 
-/**
- * Creates a bidirectional binding between Yjs Y.Maps and Zustand store.
- *
- * Design principles:
- * - Yjs is source of truth when connected
- * - Zustand actions are intercepted and applied to Y.Doc
- * - Y.Doc changes are batched and applied to Zustand
- * - Local changes work offline via IndexedDB persistence
- */
+// Creates a bidirectional binding between Yjs Y.Maps and Zustand store.
+// Design principles:
+//  Yjs is source of truth when connected
+//  - Zustand actions are intercepted and applied to Y.Doc
+//  - Y.Doc changes are batched and applied to Zustand
+//  - Local changes work offline via IndexedDB persistence
 export function useYjsZustandBinding(doc: Y.Doc | null, isConnected: boolean) {
   const isUpdatingFromYjsRef = useRef(false);
   const _store = useKanbanStore();

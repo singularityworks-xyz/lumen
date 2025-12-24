@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@lumen/yjs-shared": "workspace:^",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "better-auth": "^1.4.9",

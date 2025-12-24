@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/performance/noNamespaceImport: usecase */
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
+import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
@@ -58,14 +59,14 @@ class RoomManager {
       const doc = new Y.Doc();
       const awareness = new awarenessProtocol.Awareness(doc);
 
-      doc.getMap("boards");
-      doc.getMap("columns");
-      doc.getMap("tasks");
-      doc.getMap("boardPositions");
-      doc.getMap("boardConnections");
-      doc.getMap("areas");
-      doc.getMap("areaPositions");
-      doc.getMap("workspace");
+      doc.getMap(YJS_MAP_NAMES.BOARDS);
+      doc.getMap(YJS_MAP_NAMES.COLUMNS);
+      doc.getMap(YJS_MAP_NAMES.TASKS);
+      doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS);
+      doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS);
+      doc.getMap(YJS_MAP_NAMES.AREAS);
+      doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS);
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE);
 
       room = {
         workspaceId,
@@ -392,10 +393,21 @@ class RoomManager {
       const state = Y.encodeStateAsUpdate(room.doc);
       const stateVector = Y.encodeStateVector(room.doc);
 
+      const entityCounts = {
+        boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
+        columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
+        tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
+        boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
+        boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS).size,
+        areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
+        areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+      };
+
       logger.info("Persisting room state", {
         workspaceId,
         stateSize: state.length,
         stateVectorSize: stateVector.length,
+        entityCounts,
       });
 
       await prisma.workspaceState.upsert({
@@ -410,6 +422,8 @@ class RoomManager {
           stateVector: Buffer.from(stateVector),
         },
       });
+
+      logger.debug("Room state persisted successfully", { workspaceId });
     } catch (error) {
       logger.error("Failed to persist room state", {
         workspaceId,
@@ -426,9 +440,27 @@ class RoomManager {
       if (stored?.yjsState) {
         const room = this.getOrCreateRoom(workspaceId);
         Y.applyUpdate(room.doc, new Uint8Array(stored.yjsState));
-        logger.info("Loaded room state from database", { workspaceId });
+
+        const entityCounts = {
+          boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
+          columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
+          tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
+          boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
+          boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
+            .size,
+          areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
+          areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+        };
+
+        logger.info("Loaded room state from database", {
+          workspaceId,
+          stateSize: stored.yjsState.length,
+          entityCounts,
+        });
         return true;
       }
+
+      logger.debug("No stored state found for workspace", { workspaceId });
       return false;
     } catch (error) {
       logger.error("Failed to load room state", {
@@ -443,15 +475,10 @@ class RoomManager {
     setTimeout(async () => {
       const room = this.rooms.get(workspaceId);
       if (room && room.connections.size === 0) {
-        // Persist before cleanup
         await this.persistRoom(workspaceId);
-
-        // Clear timeout
         if (room.persistenceTimeout) {
           clearTimeout(room.persistenceTimeout);
         }
-
-        // Cleanup
         room.doc.destroy();
         this.rooms.delete(workspaceId);
 
