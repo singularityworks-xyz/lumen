@@ -311,10 +311,10 @@ export function WorkspaceSelector() {
                           {workspace.name}
                         </span>
                         {workspace.isShared && (
-                          <div className="flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
-                            <Users className="h-3 w-3" />
+                          <div className="flex items-center gap-1 rounded bg-zinc-500/10 px-1.5 py-0.5 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-400">
+                            <Users size={2} />
                             <span className="font-medium text-[10px]">
-                              Shared
+                              SHARED
                             </span>
                           </div>
                         )}

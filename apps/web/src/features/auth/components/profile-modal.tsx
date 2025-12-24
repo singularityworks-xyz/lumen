@@ -19,6 +19,14 @@ import {
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
+import { Skeleton } from "@/src/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/src/components/ui/tooltip";
+import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 
@@ -178,7 +186,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="fixed top-4 left-1/2 z-50 w-72 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            className="fixed top-4 left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
             exit={{ opacity: 0, y: -8 }}
             initial={{ opacity: 0, y: -12 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -345,23 +353,26 @@ const CollaboratorsList = memo(
     apiUrl: string;
     open: boolean;
   }) => {
-    const [collaborators, setCollaborators] = useState<
+    const [allMembers, setAllMembers] = useState<
       Array<{
         id: string;
         name: string | null;
         image: string | null;
         role: string;
-        isOnline: boolean;
       }>
     >([]);
     const [loading, setLoading] = useState(false);
+
+    const { user: localUser } = useAuth();
+    const { collaborators: onlineCollaborators, isCollaborating } =
+      useCollaboration();
 
     useEffect(() => {
       if (!(workspaceId && open)) {
         return;
       }
 
-      const fetchCollaborators = async () => {
+      const fetchMembers = async () => {
         setLoading(true);
         try {
           const response = await fetch(
@@ -370,7 +381,7 @@ const CollaboratorsList = memo(
           );
           if (response.ok) {
             const data = await response.json();
-            setCollaborators(data.collaborators || []);
+            setAllMembers(data.collaborators || []);
           }
         } catch (error) {
           console.error("Failed to fetch collaborators", error);
@@ -379,63 +390,135 @@ const CollaboratorsList = memo(
         }
       };
 
-      fetchCollaborators();
-      // Poll for online status every 10s
-      const interval = setInterval(fetchCollaborators, 10_000);
-      return () => clearInterval(interval);
+      fetchMembers();
     }, [workspaceId, apiUrl, open]);
 
-    if (!workspaceId || (!loading && collaborators.length === 0)) {
+    if (!workspaceId) {
       return null;
     }
 
+    if (loading && allMembers.length === 0) {
+      return (
+        <div className="space-y-3 pt-2">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!loading && allMembers.length === 0) {
+      return null;
+    }
+
+    // Build unique active users list including local user if connected
+    const activeMap = new Map<
+      string,
+      { id: string; name: string; image: string | null }
+    >();
+
+    // Add remote online collaborators
+    for (const c of onlineCollaborators) {
+      const dbInfo = allMembers.find((m) => m.id === c.id);
+      activeMap.set(c.id, {
+        id: c.id,
+        name: c.name || dbInfo?.name || "Anonymous",
+        image: dbInfo?.image || null,
+      });
+    }
+
+    // Add local user if connected and part of workspace
+    if (isCollaborating && localUser) {
+      const dbInfo = allMembers.find((m) => m.id === localUser.id);
+      // Only add if we have DB info (means they are a member)
+      if (dbInfo) {
+        activeMap.set(localUser.id, {
+          id: localUser.id,
+          name: localUser.name || "Me",
+          image: localUser.image || null,
+        });
+      }
+    }
+
+    const activeUsers = Array.from(activeMap.values());
+    const onlineIds = new Set(activeUsers.map((u) => u.id));
+
+    // Offline users: in DB but not online
+    const offlineUsers = allMembers.filter((m) => !onlineIds.has(m.id));
+
     return (
       <div className="pt-2">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-medium text-muted-foreground text-xs">
-            Collaborators
-          </h3>
-          <span className="text-[10px] text-muted-foreground">
-            {collaborators.length} member{collaborators.length !== 1 && "s"}
-          </span>
-        </div>
-
-        {loading && collaborators.length === 0 ? (
-          <div className="flex justify-center py-2">
-            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+        {activeUsers.length > 0 && (
+          <div className="mb-3">
+            <h3 className="mb-2 font-medium text-muted-foreground text-xs">
+              Active Now
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <TooltipProvider delayDuration={0}>
+                {activeUsers.map((user) => (
+                  <Tooltip key={user.id}>
+                    <TooltipTrigger asChild>
+                      <div className="relative">
+                        <Avatar className="h-8 w-8 cursor-help rounded-lg border border-border/50 ring-2 ring-background transition-all hover:scale-110 hover:ring-primary/20">
+                          <AvatarImage src={user.image || ""} />
+                          <AvatarFallback className="rounded-lg text-[10px]">
+                            {user.name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">{user.name}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {collaborators.map((collab) => (
-              <div
-                className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/50 p-1.5"
-                key={collab.id}
-              >
-                <div className="relative">
-                  <Avatar className="h-6 w-6 rounded-md">
-                    <AvatarImage src={collab.image || ""} />
-                    <AvatarFallback className="rounded-md text-[10px]">
-                      {collab.name?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  {collab.isOnline && (
-                    <span className="absolute -right-0.5 -bottom-0.5 block h-2 w-2 rounded-full border border-background bg-green-500" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-medium text-xs leading-none">
-                      {collab.name || "Unknown User"}
-                    </span>
-                    {collab.role === "owner" && (
-                      <span className="rounded bg-primary/10 px-1 py-0.5 font-medium text-[9px] text-primary leading-none">
-                        Owner
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+        )}
+
+        {offlineUsers.length > 0 && (
+          <div>
+            <h3 className="mb-2 font-medium text-muted-foreground text-xs">
+              Past Members
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <TooltipProvider delayDuration={0}>
+                {offlineUsers.map((user) => (
+                  <Tooltip key={user.id}>
+                    <TooltipTrigger asChild>
+                      <div className="relative grayscale transition-all hover:grayscale-0">
+                        <Avatar className="h-8 w-8 cursor-help rounded-lg border border-border/50 bg-muted ring-2 ring-background">
+                          <AvatarImage src={user.image || ""} />
+                          <AvatarFallback className="rounded-lg text-[10px]">
+                            {user.name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">
+                        {user.name}
+                        {user.role === "owner" && " (Owner)"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+            </div>
           </div>
         )}
       </div>
