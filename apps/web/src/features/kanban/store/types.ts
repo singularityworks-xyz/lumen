@@ -42,6 +42,7 @@ export type KanbanState = {
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
+  workspaceShareUrls: Record<string, string>; // workspaceId -> shareUrl
   selectedTaskIds: string[];
   draggedTaskId: string | null;
   shakingTaskDetailModalId: string | null;
@@ -149,6 +150,8 @@ export type KanbanActions = {
   closeWorkspaceDialog: () => void;
   updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
   updateWorkspaceDialogInputValue: (value: string) => void;
+  setWorkspaceShareUrl: (workspaceId: string, url: string) => void;
+  clearWorkspaceShareUrl: (workspaceId: string) => void;
 
   // Column actions
   openColumnQuickActions: (

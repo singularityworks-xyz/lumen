@@ -318,6 +318,55 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
   })
 
+  // Get existing share link for workspace
+  .get(
+    "/api/workspaces/:workspaceId/share",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const collab = await getCollaborator(workspaceId, session.user.id);
+      if (!collab) {
+        set.status = 403;
+        return { error: "Not a collaborator on this workspace" };
+      }
+
+      // Find existing share link
+      try {
+        const share = await prisma.workspaceShare.findFirst({
+          where: { workspaceId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (share) {
+          return {
+            token: share.token,
+            url: `${process.env.WEB_URL || "http://localhost:3000"}?share=${share.token}`,
+            expiresAt: share.expiresAt,
+          };
+        }
+      } catch (error) {
+        logger.error("Failed to fetch share link", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+
+      return { url: null };
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  // Create new share link
   .post(
     "/api/workspaces/:workspaceId/share",
     async ({ params, headers, set }) => {

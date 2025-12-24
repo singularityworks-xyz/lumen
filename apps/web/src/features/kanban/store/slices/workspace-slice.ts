@@ -29,6 +29,8 @@ type SliceCreator = (
   | "closeWorkspaceDialog"
   | "updateWorkspaceDialogPosition"
   | "updateWorkspaceDialogInputValue"
+  | "setWorkspaceShareUrl"
+  | "clearWorkspaceShareUrl"
 >;
 
 export const createWorkspaceSlice: SliceCreator = (set, get) => ({
@@ -383,5 +385,15 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       if (state.workspaceDialog) {
         state.workspaceDialog.inputValue = value;
       }
+    }),
+
+  setWorkspaceShareUrl: (workspaceId, url) =>
+    set((state) => {
+      state.workspaceShareUrls[workspaceId] = url;
+    }),
+
+  clearWorkspaceShareUrl: (workspaceId) =>
+    set((state) => {
+      delete state.workspaceShareUrls[workspaceId];
     }),
 });

@@ -57,6 +57,7 @@ export function createInitialState(): KanbanState {
     shakingTaskDetailModalId: null,
     selectedBoardId: null,
     selectedBoardIds: [],
+    workspaceShareUrls: {},
     selectedTaskIds: [],
     draggedTaskId: null,
     workspaceQuickActions: null,

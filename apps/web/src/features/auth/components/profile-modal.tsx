@@ -1,7 +1,16 @@
 import { createLogger } from "@lumen/logger";
-import { Check, Copy, Github, Link, Loader2, User, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Github,
+  Link,
+  Loader2,
+  LogOut,
+  User,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -9,6 +18,7 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 
@@ -23,15 +33,99 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShareInput, setShowShareInput] = useState(false);
+  const [isLoadingShare, setIsLoadingShare] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
+  const shareUrl = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
+  );
+  const setWorkspaceShareUrl = useKanbanStore(
+    (state) => state.setWorkspaceShareUrl
+  );
+  const clearWorkspaceShareUrl = useKanbanStore(
+    (state) => state.clearWorkspaceShareUrl
+  );
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+
+  useEffect(() => {
+    if (!(open && currentWorkspaceId && user)) {
+      return;
+    }
+
+    if (shareUrl) {
+      setShowShareInput(true);
+      return;
+    }
+
+    // Fetch from backend and cache in store
+    const fetchExistingShare = async () => {
+      try {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
+          { credentials: "include" }
+        );
+        const data = await response.json();
+        if (data.url) {
+          setWorkspaceShareUrl(currentWorkspaceId, data.url);
+          setShowShareInput(true);
+        }
+      } catch {
+        // No existing share link - that's fine
+      }
+    };
+
+    fetchExistingShare();
+  }, [open, currentWorkspaceId, user, apiUrl, shareUrl, setWorkspaceShareUrl]);
+
+  useEffect(() => {
+    if (!(showShareInput && currentWorkspaceId) || shareUrl) {
+      return;
+    }
+
+    const createShare = async () => {
+      setIsLoadingShare(true);
+      try {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
+          { method: "POST", credentials: "include" }
+        );
+        const data = await response.json();
+        if (data.url) {
+          setWorkspaceShareUrl(currentWorkspaceId, data.url);
+        }
+      } catch {
+        setError("Failed to create share link");
+      } finally {
+        setIsLoadingShare(false);
+      }
+    };
+
+    createShare();
+  }, [
+    showShareInput,
+    currentWorkspaceId,
+    shareUrl,
+    apiUrl,
+    setWorkspaceShareUrl,
+  ]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!shareUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Failed to copy link");
+    }
+  }, [shareUrl]);
 
   const handleGithubLogin = async () => {
     setIsSigningIn(true);
@@ -65,58 +159,6 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       setIsSigningOut(false);
     }
   };
-
-  const handleShareWorkspace = useCallback(async () => {
-    if (!currentWorkspaceId) {
-      setError("No workspace selected");
-      return;
-    }
-
-    setIsGeneratingLink(true);
-    setError(null);
-
-    try {
-      const response = await fetch(
-        `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate share link");
-      }
-
-      setShareUrl(data.url);
-      logger.info("Share link generated", { url: data.url });
-    } catch (err) {
-      logger.error("Share link generation failed", {
-        error: err instanceof Error ? err.message : "Unknown error",
-      });
-      setError(
-        err instanceof Error ? err.message : "Failed to generate share link"
-      );
-    } finally {
-      setIsGeneratingLink(false);
-    }
-  }, [currentWorkspaceId, apiUrl]);
-
-  const handleCopyLink = useCallback(async () => {
-    if (!shareUrl) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError("Failed to copy link");
-    }
-  }, [shareUrl]);
 
   if (typeof document === "undefined") {
     return null;
@@ -154,7 +196,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : user ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-12 w-12 rounded-xl">
                     <AvatarImage
@@ -173,95 +215,82 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                     <p className="truncate text-muted-foreground text-xs">
                       {user.email || "No email"}
                     </p>
-                  </div>
-                </div>
-
-                {/* Share Workspace Section */}
-                {currentWorkspaceId && (
-                  <div className="border-border/50 border-t pt-3">
-                    <h3 className="mb-2 flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
-                      <Link className="h-3 w-3" />
-                      Collaborate
-                    </h3>
-
-                    {shareUrl ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
-                          <input
-                            className="flex-1 truncate bg-transparent text-xs outline-none"
-                            readOnly
-                            type="text"
-                            value={shareUrl}
-                          />
-                          <Button
-                            className="h-6 w-6 p-0"
-                            onClick={handleCopyLink}
-                            size="sm"
-                            variant="ghost"
-                          >
-                            {copied ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                        <p className="text-muted-foreground text-xs">
-                          Share this link to collaborate in real-time
-                        </p>
-                      </div>
-                    ) : (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       <Button
-                        className="h-8 w-full gap-1.5 text-xs"
-                        disabled={isGeneratingLink}
-                        onClick={handleShareWorkspace}
+                        className="h-7 rounded-lg px-3 text-xs"
+                        disabled={isSigningOut}
+                        onClick={handleSignOut}
+                        size="sm"
                         variant="outline"
                       >
-                        {isGeneratingLink ? (
+                        {isSigningOut ? (
                           <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Generating...
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Signing out...
                           </>
                         ) : (
                           <>
-                            <Link className="h-3 w-3" />
-                            Share Workspace
+                            <LogOut className="mr-1 h-3 w-3" />
+                            Sign out
                           </>
                         )}
                       </Button>
+                      {currentWorkspaceId && (
+                        <Button
+                          className="h-7 gap-1 rounded-lg px-2.5 text-xs"
+                          onClick={() => {
+                            if (showShareInput && shareUrl) {
+                              clearWorkspaceShareUrl(currentWorkspaceId);
+                            }
+                            setShowShareInput(!showShareInput);
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Link className="h-3 w-3" />
+                          Share
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {showShareInput && (
+                  <div className="flex items-center gap-1.5">
+                    {isLoadingShare ? (
+                      <div className="flex h-7 flex-1 items-center justify-center rounded-md border bg-muted/30">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <Input
+                        className="h-7 flex-1 text-xs"
+                        placeholder="Share link"
+                        readOnly
+                        value={shareUrl || ""}
+                      />
                     )}
+                    <Button
+                      className="h-7 w-7 shrink-0 p-0"
+                      disabled={!shareUrl || isLoadingShare}
+                      onClick={handleCopyLink}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {copied ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </Button>
                   </div>
                 )}
-
-                {error && (
-                  <div className="rounded-lg bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  className="h-7 w-full rounded-lg px-3 text-xs"
-                  disabled={isSigningOut}
-                  onClick={handleSignOut}
-                  size="sm"
-                  variant="outline"
-                >
-                  {isSigningOut ? (
-                    <>
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Signing out...
-                    </>
-                  ) : (
-                    "Sign out"
-                  )}
-                </Button>
               </div>
             ) : (
               <div>
                 <div className="mb-3 pr-6">
                   <h2 className="font-semibold text-sm">Welcome</h2>
                   <p className="mt-0.5 text-muted-foreground text-xs">
-                    Sign in to sync and collaborate
+                    Sign in to sync your boards
                   </p>
                 </div>
 
