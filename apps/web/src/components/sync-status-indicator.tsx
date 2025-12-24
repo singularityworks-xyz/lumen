@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
 import { useCollaboration } from "@/src/features/collab";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
 type SyncState = "disconnected" | "connecting" | "syncing" | "synced" | "error";
 
@@ -45,6 +46,21 @@ const stateConfig: Record<
 
 export const SyncStatusIndicator = memo(() => {
   const { connectionState, isCollaborating } = useCollaboration();
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
+  );
+  const currentWorkspace = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
+  );
+  const shareUrl = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
+  );
+
+  const isSharedWorkspace = currentWorkspace?.isShared === true || !!shareUrl;
+
+  if (!isSharedWorkspace) {
+    return null;
+  }
 
   let syncState: SyncState = "disconnected";
   if (connectionState === "connecting") {

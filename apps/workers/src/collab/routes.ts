@@ -741,31 +741,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         return { error: "Unauthorized" };
       }
 
-      // Check if there's an active room with data
-      // This prevents sharing before the owner's state is synced
+      // Get room reference for later use (may not exist yet for first share)
       const room = roomManager.getRoom(workspaceId);
-
-      if (!room) {
-        // No active room - check if we have persisted state
-        const hasPersistedState = await prisma.workspaceState.findUnique({
-          where: { workspaceId },
-          select: { id: true },
-        });
-
-        if (!hasPersistedState) {
-          logger.warn("Share attempted before sync complete", {
-            workspaceId,
-            userId: session.user.id,
-            hasRoom: false,
-          });
-          set.status = 409;
-          return {
-            error:
-              "Please wait for sync to complete before sharing. Your data hasn't been synced yet.",
-            code: "SYNC_NOT_COMPLETE",
-          };
-        }
-      }
 
       let collab = await getCollaborator(workspaceId, session.user.id);
 

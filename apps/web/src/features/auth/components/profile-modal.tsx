@@ -39,7 +39,7 @@ type ProfileModalProps = {
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
-  const { isCollaborating, connectionState } = useCollaboration();
+  const { isCollaborating, connectionState, connect } = useCollaboration();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +94,8 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     fetchExistingShare();
   }, [open, currentWorkspaceId, user, apiUrl, shareUrl, setWorkspaceShareUrl]);
 
+  // When showShareInput is true and we don't have a shareUrl yet, create the share
+  // Flow: 1) Create share in DB first, 2) Then connect via WebSocket
   useEffect(() => {
     if (!(showShareInput && currentWorkspaceId) || shareUrl) {
       return;
@@ -103,6 +105,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       setIsLoadingShare(true);
       setError(null);
       try {
+        // Step 1: Create the share link (this creates workspace in DB if needed)
         const response = await fetch(
           `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
           {
@@ -119,17 +122,17 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
         const data = await response.json();
 
         if (!response.ok) {
-          if (data.code === "SYNC_NOT_COMPLETE") {
-            setError("Please wait for sync to complete before sharing");
-            setShowShareInput(false);
-          } else {
-            setError(data.error || "Failed to create share link");
-          }
+          setError(data.error || "Failed to create share link");
           return;
         }
 
         if (data.url) {
           setWorkspaceShareUrl(currentWorkspaceId, data.url);
+
+          // Step 2: Now that workspace exists in DB, connect via WebSocket for sync
+          if (connectionState !== "connected" && !isCollaborating) {
+            connect(currentWorkspaceId);
+          }
         }
       } catch {
         setError("Failed to create share link");
@@ -146,6 +149,9 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     shareUrl,
     apiUrl,
     setWorkspaceShareUrl,
+    connectionState,
+    isCollaborating,
+    connect,
   ]);
 
   const handleCopyLink = useCallback(async () => {
@@ -270,47 +276,24 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                         )}
                       </Button>
                       {currentWorkspaceId && (
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span>
-                                <Button
-                                  className="h-7 gap-1 rounded-lg px-2.5 text-xs"
-                                  disabled={
-                                    !isCollaborating &&
-                                    connectionState !== "connected"
-                                  }
-                                  onClick={() => {
-                                    if (showShareInput && shareUrl) {
-                                      clearWorkspaceShareUrl(
-                                        currentWorkspaceId
-                                      );
-                                    }
-                                    setShowShareInput(!showShareInput);
-                                  }}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  {connectionState === "connecting" ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Link className="h-3 w-3" />
-                                  )}
-                                  Share
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            {!isCollaborating &&
-                              connectionState !== "connected" && (
-                                <TooltipContent
-                                  className="text-xs"
-                                  side="bottom"
-                                >
-                                  <p>Waiting for sync to complete...</p>
-                                </TooltipContent>
-                              )}
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Button
+                          className="h-7 gap-1 rounded-lg px-2.5 text-xs"
+                          onClick={() => {
+                            if (showShareInput && shareUrl) {
+                              clearWorkspaceShareUrl(currentWorkspaceId);
+                            }
+                            setShowShareInput(!showShareInput);
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {isLoadingShare ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Link className="h-3 w-3" />
+                          )}
+                          Share
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -346,12 +329,13 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                   </div>
                 )}
 
-                {/* Collaborators List */}
-                <CollaboratorsList
-                  apiUrl={apiUrl}
-                  open={open}
-                  workspaceId={currentWorkspaceId}
-                />
+                {(currentWorkspace?.isShared || shareUrl) && (
+                  <CollaboratorsList
+                    apiUrl={apiUrl}
+                    open={open}
+                    workspaceId={currentWorkspaceId}
+                  />
+                )}
               </div>
             ) : (
               <div>
