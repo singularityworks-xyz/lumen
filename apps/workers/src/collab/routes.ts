@@ -602,7 +602,19 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       roomManager.join({
         connectionId,
         ws: {
-          send: (msgData: Uint8Array) => ws.send(msgData),
+          // Use ws.raw.send() for direct Bun WebSocket access - ws.send() may have issues with async sends
+          // Elysia WebSocket typings do not currently expose raw, so we cast to any
+          // It really was pain to figure this out...
+          send: (msgData: Uint8Array) => {
+            try {
+              ws.raw.send(msgData);
+            } catch (error) {
+              logger.error("Failed to send via raw WebSocket", {
+                connectionId,
+                error: error instanceof Error ? error.message : "Unknown error",
+              });
+            }
+          },
           close: () => ws.close(),
         },
         user: collabInfo,

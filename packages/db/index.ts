@@ -19,7 +19,8 @@ function createPrismaClient(): PrismaClient {
     adapter,
     log:
       process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
+        ? // commented query logging to reduce noise during development for checking other logs
+          [/*"query",*/ "error", "warn"]
         : ["error"],
   });
 }

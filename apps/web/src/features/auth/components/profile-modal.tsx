@@ -423,104 +423,54 @@ const CollaboratorsList = memo(
       return null;
     }
 
-    // Build unique active users list including local user if connected
-    const activeMap = new Map<
-      string,
-      { id: string; name: string; image: string | null }
-    >();
-
-    // Add remote online collaborators
+    const onlineIds = new Set<string>();
     for (const c of onlineCollaborators) {
-      const dbInfo = allMembers.find((m) => m.id === c.id);
-      activeMap.set(c.id, {
-        id: c.id,
-        name: c.name || dbInfo?.name || "Anonymous",
-        image: dbInfo?.image || null,
-      });
+      onlineIds.add(c.id);
     }
-
-    // Add local user if connected and part of workspace
     if (isCollaborating && localUser) {
-      const dbInfo = allMembers.find((m) => m.id === localUser.id);
-      // Only add if we have DB info (means they are a member)
-      if (dbInfo) {
-        activeMap.set(localUser.id, {
-          id: localUser.id,
-          name: localUser.name || "Me",
-          image: localUser.image || null,
-        });
-      }
+      onlineIds.add(localUser.id);
     }
-
-    const activeUsers = Array.from(activeMap.values());
-    const onlineIds = new Set(activeUsers.map((u) => u.id));
-
-    // Offline users: in DB but not online
-    const offlineUsers = allMembers.filter((m) => !onlineIds.has(m.id));
 
     return (
       <div className="pt-2">
-        {activeUsers.length > 0 && (
-          <div className="mb-3">
-            <h3 className="mb-2 font-medium text-muted-foreground text-xs">
-              Active Now
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <TooltipProvider delayDuration={0}>
-                {activeUsers.map((user) => (
-                  <Tooltip key={user.id}>
-                    <TooltipTrigger asChild>
-                      <div className="relative">
-                        <Avatar className="h-8 w-8 cursor-help rounded-lg border border-border/50 ring-2 ring-background transition-all hover:scale-110 hover:ring-primary/20">
-                          <AvatarImage src={user.image || ""} />
-                          <AvatarFallback className="rounded-lg text-[10px]">
-                            {user.name?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
+        <h3 className="mb-2 font-medium text-muted-foreground text-xs">
+          Members
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <TooltipProvider delayDuration={0}>
+            {allMembers.map((user) => {
+              const isOnline = onlineIds.has(user.id);
+              return (
+                <Tooltip key={user.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`relative transition-all ${isOnline ? "" : "grayscale hover:grayscale-0"}`}
+                    >
+                      <Avatar
+                        className={`h-8 w-8 cursor-help rounded-lg border border-border/50 ring-2 ring-background ${isOnline ? "hover:scale-110 hover:ring-primary/20" : "bg-muted"}`}
+                      >
+                        <AvatarImage src={user.image || ""} />
+                        <AvatarFallback className="rounded-lg text-[10px]">
+                          {user.name?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isOnline && (
                         <span className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">{user.name}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </TooltipProvider>
-            </div>
-          </div>
-        )}
-
-        {offlineUsers.length > 0 && (
-          <div>
-            <h3 className="mb-2 font-medium text-muted-foreground text-xs">
-              Past Members
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <TooltipProvider delayDuration={0}>
-                {offlineUsers.map((user) => (
-                  <Tooltip key={user.id}>
-                    <TooltipTrigger asChild>
-                      <div className="relative grayscale transition-all hover:grayscale-0">
-                        <Avatar className="h-8 w-8 cursor-help rounded-lg border border-border/50 bg-muted ring-2 ring-background">
-                          <AvatarImage src={user.image || ""} />
-                          <AvatarFallback className="rounded-lg text-[10px]">
-                            {user.name?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">
-                        {user.name}
-                        {user.role === "owner" && " (Owner)"}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </TooltipProvider>
-            </div>
-          </div>
-        )}
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">
+                      {user.name}
+                      {user.role === "owner" && " (Owner)"}
+                      {isOnline && " • Online"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
+        </div>
       </div>
     );
   }

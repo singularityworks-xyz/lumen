@@ -6,8 +6,10 @@ import type { Collaborator } from "./collab-provider";
 
 type CursorOverlayProps = {
   collaborators: Collaborator[];
-  viewportOffset?: { x: number; y: number };
-  zoom?: number;
+  flowToScreenPosition: (pos: { x: number; y: number }) => {
+    x: number;
+    y: number;
+  };
 };
 
 const CursorIcon = memo(({ color }: { color: string }) => (
@@ -32,19 +34,23 @@ CursorIcon.displayName = "CursorIcon";
 
 type CollaboratorCursorProps = {
   collaborator: Collaborator;
-  viewportOffset: { x: number; y: number };
-  zoom: number;
+  flowToScreenPosition: (pos: { x: number; y: number }) => {
+    x: number;
+    y: number;
+  };
 };
 
 const CollaboratorCursor = memo(
-  ({ collaborator, viewportOffset, zoom }: CollaboratorCursorProps) => {
+  ({ collaborator, flowToScreenPosition }: CollaboratorCursorProps) => {
     const { cursor, name, color } = collaborator;
 
     if (!cursor) {
       return null;
     }
-    const x = cursor.x * zoom + viewportOffset.x;
-    const y = cursor.y * zoom + viewportOffset.y;
+
+    const screenPos = flowToScreenPosition({ x: cursor.x, y: cursor.y });
+    const x = screenPos.x;
+    const y = screenPos.y;
 
     return (
       <motion.div
@@ -79,11 +85,7 @@ const CollaboratorCursor = memo(
 CollaboratorCursor.displayName = "CollaboratorCursor";
 
 export const CursorOverlay = memo(
-  ({
-    collaborators,
-    viewportOffset = { x: 0, y: 0 },
-    zoom = 1,
-  }: CursorOverlayProps) => {
+  ({ collaborators, flowToScreenPosition }: CursorOverlayProps) => {
     const visibleCollaborators = useMemo(
       () => collaborators.filter((c) => c.cursor !== undefined),
       [collaborators]
@@ -94,14 +96,16 @@ export const CursorOverlay = memo(
     }
 
     return (
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ zIndex: 9999 }}
+      >
         <AnimatePresence>
           {visibleCollaborators.map((collaborator) => (
             <CollaboratorCursor
               collaborator={collaborator}
+              flowToScreenPosition={flowToScreenPosition}
               key={collaborator.id}
-              viewportOffset={viewportOffset}
-              zoom={zoom}
             />
           ))}
         </AnimatePresence>

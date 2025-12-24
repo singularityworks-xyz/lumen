@@ -87,6 +87,27 @@ export function useYjsSync(
       const newState = applyYjsToStateWithRepair(doc, currentState);
       useKanbanStore.setState(newState);
 
+      // Update workspace.board_ids to match synced boards
+      // This ensures shared workspace users see boards instead of welcome screen
+      const workspaceId = currentState.currentWorkspaceId;
+      if (workspaceId && newState.boards) {
+        useKanbanStore.setState((state) => {
+          const workspace = state.workspaces.byId[workspaceId];
+          if (workspace) {
+            const syncedBoardIds = newState.boards?.allIds ?? [];
+            for (const boardId of syncedBoardIds) {
+              if (!workspace.board_ids.includes(boardId)) {
+                workspace.board_ids.push(boardId);
+              }
+            }
+          }
+        });
+        logger.debug("Synced workspace.board_ids with Yjs boards", {
+          workspaceId,
+          boardCount: newState.boards.allIds.length,
+        });
+      }
+
       logger.debug("Applied Yjs changes to Zustand");
     } finally {
       isUpdatingFromYjsRef.current = false;

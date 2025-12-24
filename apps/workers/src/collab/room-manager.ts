@@ -247,17 +247,20 @@ class RoomManager {
     decoder: decoding.Decoder,
     originalMessage: Uint8Array
   ): boolean {
-    // Role check for write operations
-    const messageType = decoding.readVarUint(decoder);
+    // Peek at the sync message type WITHOUT consuming it
+    // The first byte after MESSAGE_SYNC is the sync protocol message type
+    const syncMsgType = decoding.peekVarUint(decoder);
 
-    // SyncStep2 contains updates - check write permission
+    // SyncStep2 and Update contain changes - check write permission for viewers
     if (
-      messageType === syncProtocol.messageYjsSyncStep2 &&
+      (syncMsgType === syncProtocol.messageYjsSyncStep2 ||
+        syncMsgType === syncProtocol.messageYjsUpdate) &&
       connection.user.role === "viewer"
     ) {
       logger.warn("Viewer attempted write operation", {
         connectionId: connection.id,
         userId: connection.user.id,
+        syncMsgType,
       });
       return false;
     }
@@ -265,6 +268,7 @@ class RoomManager {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
+    // readSyncMessage will read the message type and handle the sync protocol
     const syncMessageType = syncProtocol.readSyncMessage(
       decoder,
       encoder,
@@ -326,7 +330,8 @@ class RoomManager {
         Array.from(room.awareness.getStates().keys())
       )
     );
-    connection.ws.send(encoding.toUint8Array(awarenessEncoder));
+    const awarenessMessage = encoding.toUint8Array(awarenessEncoder);
+    connection.ws.send(awarenessMessage);
   }
 
   // Broadcast document update to all clients except sender

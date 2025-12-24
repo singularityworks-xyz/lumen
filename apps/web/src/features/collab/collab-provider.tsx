@@ -15,6 +15,7 @@ import {
 } from "react";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as awarenessProtocol from "y-protocols/awareness";
+import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
 
 const logger = createLogger({ name: "collab:provider" });
@@ -63,6 +64,31 @@ const CollaborationContext = createContext<CollaborationContextType | null>(
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16_000, 30_000];
 const CURSOR_THROTTLE_MS = 50;
 
+const CURSOR_COLORS = [
+  "#ef4444", // red
+  "#f97316", // orange
+  "#eab308", // yellow
+  "#22c55e", // green
+  "#14b8a6", // teal
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#f43f5e", // rose
+  "#06b6d4", // cyan
+];
+
+function getColorForUser(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    const char = userId.charCodeAt(i);
+    // biome-ignore lint/suspicious/noBitwiseOperators: Hash function requires bitwise operations
+    hash = (hash << 5) - hash + char;
+    // biome-ignore lint/suspicious/noBitwiseOperators: Hash function requires bitwise operations
+    hash &= hash;
+  }
+  return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length] ?? "#3b82f6";
+}
+
 type CollaborationProviderProps = {
   children: ReactNode;
   apiUrl?: string;
@@ -90,6 +116,12 @@ export function CollaborationProvider({
     null
   );
   const lastCursorUpdateRef = useRef(0);
+  const localUserInfoRef = useRef<{
+    id: string;
+    name: string;
+    color: string;
+    role: "owner" | "editor" | "viewer";
+  } | null>(null);
 
   const cleanup = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -126,11 +158,13 @@ export function CollaborationProvider({
     }
 
     const states = awareness.getStates();
-    const newCollaborators: Collaborator[] = [];
+    // Use Map to deduplicate by user.id - keep only the latest state for each user
+    const collaboratorMap = new Map<string, Collaborator>();
 
     states.forEach((state, clientId) => {
       if (state.user && clientId !== awareness.clientID) {
-        newCollaborators.push({
+        // Overwrite previous entry for same user - this ensures only 1 cursor per user
+        collaboratorMap.set(state.user.id, {
           id: state.user.id,
           name: state.user.name || "Anonymous",
           color: state.user.color || "#888",
@@ -140,6 +174,8 @@ export function CollaborationProvider({
         });
       }
     });
+
+    const newCollaborators = Array.from(collaboratorMap.values());
 
     setCollaborators(newCollaborators);
   }, []);
@@ -156,12 +192,24 @@ export function CollaborationProvider({
       logger.info("Connecting to workspace", { workspaceId });
       setConnectionState("connecting");
 
-      const { getJwtToken } = await import("@/src/lib/auth-client");
+      const { getJwtToken, authClient } = await import("@/src/lib/auth-client");
       const token = await getJwtToken();
       if (!token) {
         logger.error("Failed to get JWT token for WebSocket");
         setConnectionState("error");
         return;
+      }
+
+      const sessionResult = await authClient.getSession();
+      const sessionUser = sessionResult.data?.user;
+      if (sessionUser) {
+        const userColor = getColorForUser(sessionUser.id);
+        localUserInfoRef.current = {
+          id: sessionUser.id,
+          name: sessionUser.name || sessionUser.email || "Anonymous",
+          color: userColor,
+          role: "editor",
+        };
       }
 
       const doc = new Y.Doc();
@@ -203,6 +251,11 @@ export function CollaborationProvider({
         setConnectionState("connected");
         setIsCollaborating(true);
         reconnectAttemptRef.current = 0;
+
+        if (localUserInfoRef.current) {
+          awareness.setLocalStateField("user", localUserInfoRef.current);
+          setLocalUser(localUserInfoRef.current);
+        }
       };
 
       ws.onmessage = (event) => {
@@ -217,15 +270,22 @@ export function CollaborationProvider({
 
           switch (messageType) {
             case MESSAGE_SYNC: {
-              const update = decoding.readVarUint8Array(decoder);
-              Y.applyUpdate(doc, update, "server");
-              logger.debug("Applied sync update from server", {
-                updateSize: update.length,
-              });
+              // Use proper sync protocol to handle SyncStep1/SyncStep2/Update messages
+              const responseEncoder = encoding.createEncoder();
+              encoding.writeVarUint(responseEncoder, MESSAGE_SYNC);
+              // Send response if needed (e.g., SyncStep2 in response to SyncStep1)
+              if (
+                encoding.length(responseEncoder) > 1 &&
+                ws.readyState === WebSocket.OPEN
+              ) {
+                ws.send(encoding.toUint8Array(responseEncoder));
+              }
+
               break;
             }
             case MESSAGE_AWARENESS: {
               const awarenessUpdate = decoding.readVarUint8Array(decoder);
+
               awarenessProtocol.applyAwarenessUpdate(
                 awareness,
                 awarenessUpdate,
@@ -238,7 +298,7 @@ export function CollaborationProvider({
               break;
           }
         } catch (error) {
-          logger.error("Failed to handle WebSocket message", {
+          logger.error("Caught error while handling a Yjs update", {
             error: error instanceof Error ? error.message : "Unknown error",
           });
         }
@@ -274,17 +334,49 @@ export function CollaborationProvider({
         setConnectionState("error");
       };
 
-      // Listen for local doc updates and send to server
       doc.on("update", (update: Uint8Array, origin: unknown) => {
         if (origin === "server" || !ws || ws.readyState !== WebSocket.OPEN) {
           return;
         }
 
+        // Use proper sync protocol format for sending updates
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
-        encoding.writeVarUint8Array(encoder, update);
+        syncProtocol.writeUpdate(encoder, update);
         ws.send(encoding.toUint8Array(encoder));
       });
+
+      // Listen for local awareness updates and broadcast to server
+      awareness.on(
+        "update",
+        ({
+          added,
+          updated,
+          removed,
+        }: {
+          added: number[];
+          updated: number[];
+          removed: number[];
+        }) => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) {
+            return;
+          }
+
+          const changedClients = [...added, ...updated, ...removed];
+          if (changedClients.length === 0) {
+            return;
+          }
+
+          const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
+            awareness,
+            changedClients
+          );
+          const encoder = encoding.createEncoder();
+          encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+          encoding.writeVarUint8Array(encoder, awarenessUpdate);
+          ws.send(encoding.toUint8Array(encoder));
+        }
+      );
     },
     [enabled, apiUrl, cleanup, handleAwarenessUpdate]
   );
@@ -297,6 +389,7 @@ export function CollaborationProvider({
   const updateCursor = useCallback((position: CursorPosition | null) => {
     const awareness = awarenessRef.current;
     if (!awareness) {
+      logger.debug("updateCursor: no awareness");
       return;
     }
 
