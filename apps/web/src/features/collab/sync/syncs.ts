@@ -6,6 +6,7 @@ import {
   BoardSchema,
   ColumnSchema,
   TaskSchema,
+  WorkspaceSchema,
 } from "@/src/features/collab/validation/schema";
 import type {
   Area,
@@ -15,6 +16,7 @@ import type {
   BoardPosition,
   Column,
   Task,
+  Workspace,
 } from "@/src/features/kanban/types";
 import { createEntitySync, YJS_MAP_NAMES } from "./entity-sync";
 
@@ -23,6 +25,12 @@ export const boardSync = createEntitySync<Board>({
   mapName: YJS_MAP_NAMES.BOARDS,
   schema: BoardSchema,
   entityName: "board",
+});
+
+export const workspaceSync = createEntitySync<Workspace>({
+  mapName: YJS_MAP_NAMES.WORKSPACE,
+  schema: WorkspaceSchema,
+  entityName: "workspace",
 });
 
 export const columnSync = createEntitySync<Column>({
@@ -69,4 +77,5 @@ export const allSyncs = {
   boardConnections: boardConnectionSync,
   areas: areaSync,
   areaPositions: areaPositionSync,
+  workspace: workspaceSync,
 } as const;

@@ -1,8 +1,11 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
+import { useKanbanStore } from "../kanban/store";
 
 const logger = createLogger({ name: "collab:join-handler" });
 
@@ -186,6 +189,12 @@ export function JoinWorkspaceHandler({
     },
   });
 
+  const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+
+  const handleLogin = () => {
+    openProfileModal();
+  };
+
   if (!shareToken) {
     return null;
   }
@@ -228,6 +237,13 @@ export function JoinWorkspaceHandler({
           <p className="text-muted-foreground text-xs">
             After logging in, you'll automatically join the workspace.
           </p>
+          <Button
+            className="mt-6 w-full gap-2 rounded-xl bg-[#1a1a1a] font-medium text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_4px_8px_rgba(0,0,0,0.15)] transition-all hover:bg-[#000000] hover:shadow-[inset_0_1px_3px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.2)] active:scale-[0.98] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] dark:bg-[#e0e0e0] dark:text-black dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(255,255,255,0.1)] dark:active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] dark:hover:bg-[#ffffff] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.2)]"
+            onClick={handleLogin}
+          >
+            <User className="h-4 w-4" />
+            Continue to Lumen
+          </Button>
         </div>
       </div>
     );

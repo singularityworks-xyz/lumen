@@ -83,6 +83,7 @@ export type Workspace = {
   colorUsage?: Record<string, number>;
   iconUsage?: Record<string, number>;
   isShared?: boolean;
+  isDeleted?: boolean;
   ownerId?: string;
   ownerName?: string;
   ownerImage?: string;

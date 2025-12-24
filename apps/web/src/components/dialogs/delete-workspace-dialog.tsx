@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertTriangle, Building2, GripHorizontal, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  GripHorizontal,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
@@ -10,7 +16,7 @@ import { cn } from "@/src/lib/utils";
 type DeleteWorkspaceDialogProps = {
   workspaceName: string;
 
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
 
@@ -30,6 +36,7 @@ export const DeleteWorkspaceDialog = memo(
     onPositionChange,
   }: DeleteWorkspaceDialogProps) => {
     const [mounted, setMounted] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
     const dragRef = useRef<{
       startX: number;
@@ -190,13 +197,26 @@ export const DeleteWorkspaceDialog = memo(
             </Button>
             <Button
               className="h-8 rounded-md bg-red-500 text-white text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-red-600 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-              onClick={() => {
-                onConfirm();
-                onClose();
+              disabled={isLoading}
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  await onConfirm();
+                  onClose();
+                } finally {
+                  setIsLoading(false);
+                }
               }}
               type="button"
             >
-              Delete Workspace
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Workspace"
+              )}
             </Button>
           </div>
         </div>

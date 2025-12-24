@@ -22,9 +22,7 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
     };
   }, [currentWorkspaceId, connect, disconnect]);
 
-  // Enable Yjs-Zustand sync
-  useYjsSync(doc, isConnected);
-
+  useYjsSync(doc, isConnected, currentWorkspaceId);
   return <>{children}</>;
 }
 

@@ -312,9 +312,14 @@ export function WorkspaceSelector() {
                         </span>
                         {workspace.isShared && (
                           <div className="flex items-center gap-1 rounded bg-zinc-500/10 px-1.5 py-0.5 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-400">
+                            {workspace.isDeleted ? (
+                              <span className="flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                            ) : (
+                              <span className="flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                            )}
                             <Users size={2} />
                             <span className="font-medium text-[10px]">
-                              SHARED
+                              {workspace.isDeleted ? "DELETED" : "SHARED"}
                             </span>
                           </div>
                         )}
@@ -404,7 +409,8 @@ export function WorkspaceSelector() {
 
       {workspaceQuickActions &&
         quickActionsWorkspace &&
-        (quickActionsWorkspace.isShared ? (
+        (quickActionsWorkspace.isShared &&
+        quickActionsWorkspace.ownerId !== user?.id ? (
           <SharedWorkspaceQuickActions
             getButtonRect={getButtonRect}
             onClose={closeWorkspaceQuickActions}

@@ -21,6 +21,7 @@ type SliceCreator = (
   | "syncWorkspace"
   | "updateWorkspace"
   | "deleteWorkspace"
+  | "setDeletedSharedWorkspace"
   | "resetWorkspace"
   | "duplicateWorkspace"
   | "openWorkspaceQuickActions"
@@ -32,6 +33,7 @@ type SliceCreator = (
   | "updateWorkspaceDialogInputValue"
   | "setWorkspaceShareUrl"
   | "clearWorkspaceShareUrl"
+  | "markWorkspaceDeleted"
 >;
 
 export const createWorkspaceSlice: SliceCreator = (set, get) => ({
@@ -128,63 +130,134 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  deleteWorkspace: (workspaceId) =>
-    set((state) => {
-      if (state.workspaces.allIds[0] === workspaceId) {
-        logger.warn({ id: workspaceId }, "Cannot delete default workspace");
-        return;
-      }
+  deleteWorkspace: async (workspaceId) => {
+    const state = get();
+    if (state.workspaces.allIds[0] === workspaceId) {
+      logger.warn({ id: workspaceId }, "Cannot delete default workspace");
+      return;
+    }
 
-      const workspace = state.workspaces.byId[workspaceId];
-      if (!workspace) {
-        logger.warn({ id: workspaceId }, "Workspace not found");
+    const workspace = state.workspaces.byId[workspaceId];
+    if (!workspace) {
+      logger.warn({ id: workspaceId }, "Workspace not found");
+      return;
+    }
+
+    // Determine if user is the owner of this workspace
+    // If isShared is true, the user joined via share link (not owner)
+    // If isShared is false/undefined, the user created this workspace (is owner)
+    const isOwner = !workspace.isShared;
+
+    logger.info(
+      { workspaceId, isOwner, isShared: workspace.isShared },
+      "Deleting workspace"
+    );
+
+    if (isOwner) {
+      // Owner deletes: Call server API which will notify all editors
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+      try {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${workspaceId}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          logger.error(
+            { workspaceId, status: response.status, error: errorData },
+            "Server rejected workspace delete"
+          );
+          // Don't continue with local delete if server rejected
+          if (response.status === 403 || response.status === 404) {
+            return;
+          }
+          throw new Error(errorData.error || "Failed to delete workspace");
+        }
+        logger.info({ workspaceId }, "Server confirmed workspace deletion");
+      } catch (err) {
+        logger.error(
+          { workspaceId, err },
+          "Failed to delete workspace on server"
+        );
+        // For network errors, we could retry or alert user
+        // For now, continue with local cleanup but log the error
+      }
+    }
+    // For non-owners (shared workspace): just clean up locally, server handles via owner
+
+    set((currentState) => {
+      // Re-fetch state inside set to be safe
+      const currentWorkspace = currentState.workspaces.byId[workspaceId];
+      if (!currentWorkspace) {
         return;
       }
 
       logger.info(
         {
           id: workspaceId,
-          name: workspace.name,
-          boardCount: workspace.board_ids.length,
+          name: currentWorkspace.name,
+          boardCount: currentWorkspace.board_ids.length,
         },
-        "Workspace deleted"
+        "Workspace deleted locally"
       );
 
-      for (const boardId of workspace.board_ids) {
-        const board = state.boards.byId[boardId];
+      // Clean up local state
+      for (const boardId of currentWorkspace.board_ids) {
+        const board = currentState.boards.byId[boardId];
         if (board) {
           for (const columnId of board.column_ids) {
-            const column = state.columns.byId[columnId];
+            const column = currentState.columns.byId[columnId];
             if (column) {
               for (const taskId of column.task_ids) {
-                delete state.tasks.byId[taskId];
-                state.tasks.allIds = state.tasks.allIds.filter(
+                delete currentState.tasks.byId[taskId];
+                currentState.tasks.allIds = currentState.tasks.allIds.filter(
                   (id) => id !== taskId
                 );
               }
             }
-            delete state.columns.byId[columnId];
-            state.columns.allIds = state.columns.allIds.filter(
+            delete currentState.columns.byId[columnId];
+            currentState.columns.allIds = currentState.columns.allIds.filter(
               (id) => id !== columnId
             );
           }
         }
-        delete state.boards.byId[boardId];
-        state.boards.allIds = state.boards.allIds.filter(
+        delete currentState.boards.byId[boardId];
+        currentState.boards.allIds = currentState.boards.allIds.filter(
           (id) => id !== boardId
         );
-        delete state.boardPositions.byId[boardId];
-        state.boardPositions.allIds = state.boardPositions.allIds.filter(
-          (id) => id !== boardId
-        );
+        delete currentState.boardPositions.byId[boardId];
+        currentState.boardPositions.allIds =
+          currentState.boardPositions.allIds.filter((id) => id !== boardId);
       }
-      delete state.workspaces.byId[workspaceId];
-      state.workspaces.allIds = state.workspaces.allIds.filter(
+      delete currentState.workspaces.byId[workspaceId];
+      currentState.workspaces.allIds = currentState.workspaces.allIds.filter(
         (id) => id !== workspaceId
       );
 
-      if (state.currentWorkspaceId === workspaceId) {
-        state.currentWorkspaceId = state.workspaces.allIds[0] ?? null;
+      if (currentState.currentWorkspaceId === workspaceId) {
+        currentState.currentWorkspaceId =
+          currentState.workspaces.allIds[0] ?? null;
+      }
+    });
+  },
+
+  setDeletedSharedWorkspace: (workspaceId) =>
+    set((state) => {
+      state.deletedSharedWorkspaceId = workspaceId;
+    }),
+
+  markWorkspaceDeleted: (workspaceId: string) =>
+    set((state) => {
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.isDeleted = true;
+        logger.info(
+          { workspaceId },
+          "Workspace marked as deleted (offline copy)"
+        );
       }
     }),
 

@@ -11,6 +11,7 @@ import * as Y from "yjs";
 const logger = createLogger({ name: "collab:room-manager" });
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+export const MESSAGE_WORKSPACE_DELETED = 3;
 
 export type CollaboratorInfo = {
   id: string;
@@ -438,6 +439,27 @@ class RoomManager {
         },
       });
 
+      // Also update the Workspace metadata table if the name is available in Yjs
+      const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      const workspaceData = workspaceMap.get(workspaceId) as
+        | { name: string }
+        | undefined;
+
+      if (workspaceData?.name) {
+        try {
+          await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: { name: workspaceData.name },
+          });
+        } catch (err) {
+          // Ignore error if workspace doesn't exist yet (handled elsewhere) or other race conditions
+          logger.debug("Could not update workspace name metadata", {
+            workspaceId,
+            error: err instanceof Error ? err.message : "unknown",
+          });
+        }
+      }
+
       logger.debug("Room state persisted successfully", { workspaceId });
     } catch (error) {
       logger.error("Failed to persist room state", {
@@ -540,6 +562,38 @@ class RoomManager {
     }
 
     return Array.from(room.connections.values()).map((conn) => conn.user);
+  }
+
+  deleteRoom(workspaceId: string): void {
+    const room = this.rooms.get(workspaceId);
+    if (!room) {
+      return;
+    }
+
+    // Broadcast deleted message
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_WORKSPACE_DELETED);
+    const message = encoding.toUint8Array(encoder);
+
+    for (const conn of room.connections.values()) {
+      try {
+        conn.ws.send(message);
+        conn.ws.close();
+      } catch (error) {
+        logger.error("Failed to notify connection of deletion", {
+          connectionId: conn.id,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    if (room.persistenceTimeout) {
+      clearTimeout(room.persistenceTimeout);
+    }
+    room.doc.destroy();
+    this.rooms.delete(workspaceId);
+
+    logger.info("Room deleted", { workspaceId });
   }
 }
 

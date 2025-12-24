@@ -39,6 +39,7 @@ type ProfileModalProps = {
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
+  const { isCollaborating, connectionState } = useCollaboration();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,9 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
+  );
+  const currentWorkspace = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
   );
   const shareUrl = useKanbanStore((state) =>
     currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
@@ -97,12 +101,33 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
     const createShare = async () => {
       setIsLoadingShare(true);
+      setError(null);
       try {
         const response = await fetch(
           `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
-          { method: "POST", credentials: "include" }
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: currentWorkspace?.name,
+            }),
+          }
         );
         const data = await response.json();
+
+        if (!response.ok) {
+          if (data.code === "SYNC_NOT_COMPLETE") {
+            setError("Please wait for sync to complete before sharing");
+            setShowShareInput(false);
+          } else {
+            setError(data.error || "Failed to create share link");
+          }
+          return;
+        }
+
         if (data.url) {
           setWorkspaceShareUrl(currentWorkspaceId, data.url);
         }
@@ -117,6 +142,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   }, [
     showShareInput,
     currentWorkspaceId,
+    currentWorkspace?.name,
     shareUrl,
     apiUrl,
     setWorkspaceShareUrl,
@@ -244,20 +270,47 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                         )}
                       </Button>
                       {currentWorkspaceId && (
-                        <Button
-                          className="h-7 gap-1 rounded-lg px-2.5 text-xs"
-                          onClick={() => {
-                            if (showShareInput && shareUrl) {
-                              clearWorkspaceShareUrl(currentWorkspaceId);
-                            }
-                            setShowShareInput(!showShareInput);
-                          }}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Link className="h-3 w-3" />
-                          Share
-                        </Button>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>
+                                <Button
+                                  className="h-7 gap-1 rounded-lg px-2.5 text-xs"
+                                  disabled={
+                                    !isCollaborating &&
+                                    connectionState !== "connected"
+                                  }
+                                  onClick={() => {
+                                    if (showShareInput && shareUrl) {
+                                      clearWorkspaceShareUrl(
+                                        currentWorkspaceId
+                                      );
+                                    }
+                                    setShowShareInput(!showShareInput);
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  {connectionState === "connecting" ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Link className="h-3 w-3" />
+                                  )}
+                                  Share
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {!isCollaborating &&
+                              connectionState !== "connected" && (
+                                <TooltipContent
+                                  className="text-xs"
+                                  side="bottom"
+                                >
+                                  <p>Waiting for sync to complete...</p>
+                                </TooltipContent>
+                              )}
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                     </div>
                   </div>

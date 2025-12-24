@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type * as Y from "yjs";
 import {
   applyYjsToStateWithRepair,
-  initializeYjsFromState,
+  initializeYjsForWorkspace,
   observeYjsChanges,
 } from "@/src/features/collab/sync/state-sync";
 import {
@@ -16,6 +16,7 @@ import {
   boardSync,
   columnSync,
   taskSync,
+  workspaceSync,
 } from "@/src/features/collab/sync/syncs";
 import { diffEntityMaps } from "@/src/features/collab/utils/deep-equals";
 import type {
@@ -26,6 +27,7 @@ import type {
   BoardPosition,
   Column,
   Task,
+  Workspace,
 } from "@/src/features/kanban";
 import { useKanbanStore } from "@/src/features/kanban";
 
@@ -60,6 +62,10 @@ export type YjsSyncActions = {
   syncAreaPosition: (position: AreaPosition) => void;
   // Delete an area position from Yjs
   deleteAreaPosition: (id: string) => void;
+  // Sync a workspace to Yjs
+  syncWorkspace: (workspace: Workspace) => void;
+  // Delete a workspace from Yjs
+  deleteWorkspace: (id: string) => void;
 };
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
@@ -68,7 +74,8 @@ export type YjsSyncActions = {
 // @returns Sync actions to call when Zustand state changes
 export function useYjsSync(
   doc: Y.Doc | null,
-  isConnected: boolean
+  isConnected: boolean,
+  currentWorkspaceId: string | null
 ): YjsSyncActions {
   const isUpdatingFromYjsRef = useRef(false);
   const prevStateRef = useRef<ReturnType<
@@ -84,11 +91,16 @@ export function useYjsSync(
 
     try {
       const currentState = useKanbanStore.getState();
-      const newState = applyYjsToStateWithRepair(doc, currentState);
+      const newState = applyYjsToStateWithRepair(
+        doc,
+        currentState,
+        currentWorkspaceId
+      );
       useKanbanStore.setState(newState);
 
       // Update workspace.board_ids to match synced boards
       // This ensures shared workspace users see boards instead of welcome screen
+      // IMPORTANT: Only add boards that actually belong to this workspace (by checking workspace_id)
       const workspaceId = currentState.currentWorkspaceId;
       if (workspaceId && newState.boards) {
         useKanbanStore.setState((state) => {
@@ -96,7 +108,12 @@ export function useYjsSync(
           if (workspace) {
             const syncedBoardIds = newState.boards?.allIds ?? [];
             for (const boardId of syncedBoardIds) {
-              if (!workspace.board_ids.includes(boardId)) {
+              const board = newState.boards?.byId[boardId];
+              if (
+                board &&
+                board.workspace_id === workspaceId &&
+                !workspace.board_ids.includes(boardId)
+              ) {
                 workspace.board_ids.push(boardId);
               }
             }
@@ -112,8 +129,9 @@ export function useYjsSync(
     } finally {
       isUpdatingFromYjsRef.current = false;
     }
-  }, [doc]);
+  }, [doc, currentWorkspaceId]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: na
   useEffect(() => {
     if (!(doc && isConnected)) {
       return;
@@ -123,9 +141,18 @@ export function useYjsSync(
     const boardsMap = doc.getMap("boards");
 
     // Server is source of truth - only push local state if server is empty
-    if (boardsMap.size === 0 && state.boards.allIds.length > 0) {
-      logger.info("Server empty, pushing local state to Yjs");
-      initializeYjsFromState(doc, state);
+    // IMPORTANT: Only push data for the CURRENT workspace, not all workspaces
+    if (boardsMap.size === 0 && currentWorkspaceId) {
+      const workspaceBoards = state.boards.allIds.filter(
+        (id) => state.boards.byId[id]?.workspace_id === currentWorkspaceId
+      );
+      if (workspaceBoards.length > 0) {
+        logger.info("Server empty, pushing current workspace state to Yjs", {
+          workspaceId: currentWorkspaceId,
+          boardCount: workspaceBoards.length,
+        });
+        initializeYjsForWorkspace(doc, state, currentWorkspaceId);
+      }
     } else if (boardsMap.size > 0) {
       logger.info("Server has data, pulling from Yjs", {
         serverBoards: boardsMap.size,
@@ -138,15 +165,36 @@ export function useYjsSync(
     return unobserve;
   }, [doc, isConnected, applyYjsChanges]);
 
-  // Subscribe to Zustand changes and sync to Yjs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: na
   useEffect(() => {
     if (!(doc && isConnected)) {
       return;
     }
     const unsubscribe = useKanbanStore.subscribe((state, prevState) => {
-      // Don't sync if we're updating from Yjs
       if (isUpdatingFromYjsRef.current) {
         return;
+      }
+
+      // Diff and sync workspaces (Only for current workspace)
+      // We only sync the current workspace to avoid polluting the room with other workspaces
+      if (currentWorkspaceId) {
+        const workspaceDiff = diffEntityMaps(
+          prevState.workspaces.byId,
+          state.workspaces.byId
+        );
+        for (const workspace of [
+          ...workspaceDiff.added,
+          ...workspaceDiff.changed,
+        ]) {
+          if (workspace.id === currentWorkspaceId) {
+            workspaceSync.setInYjs(doc, workspace);
+          }
+        }
+        // We don't delete workspaces from Yjs here usually as it might affect other users
+        // But if needed:
+        // for (const id of workspaceDiff.removed) {
+        //   if (id === currentWorkspaceId) workspaceSync.deleteFromYjs(doc, id);
+        // }
       }
 
       // Diff and sync boards
@@ -358,6 +406,24 @@ export function useYjsSync(
     [doc, isConnected]
   );
 
+  const syncWorkspace = useCallback(
+    (workspace: Workspace) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        workspaceSync.setInYjs(doc, workspace);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const deleteWorkspace = useCallback(
+    (id: string) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        workspaceSync.deleteFromYjs(doc, id);
+      }
+    },
+    [doc, isConnected]
+  );
+
   return {
     syncBoard,
     deleteBoard,
@@ -373,5 +439,7 @@ export function useYjsSync(
     deleteArea,
     syncAreaPosition,
     deleteAreaPosition,
+    syncWorkspace,
+    deleteWorkspace,
   };
 }

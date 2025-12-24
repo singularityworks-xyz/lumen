@@ -21,6 +21,7 @@ import * as Y from "yjs";
 const logger = createLogger({ name: "collab:provider" });
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+const MESSAGE_WORKSPACE_DELETED = 3;
 
 export type CursorPosition = {
   x: number;
@@ -122,6 +123,7 @@ export function CollaborationProvider({
     color: string;
     role: "owner" | "editor" | "viewer";
   } | null>(null);
+  const workspaceDeletedRef = useRef(false);
 
   const cleanup = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -145,6 +147,7 @@ export function CollaborationProvider({
       docRef.current = null;
     }
     workspaceIdRef.current = null;
+    workspaceDeletedRef.current = false;
     setConnectionState("disconnected");
     setCollaborators([]);
     setLocalUser(null);
@@ -303,7 +306,43 @@ export function CollaborationProvider({
               break;
             }
             default:
-              logger.warn("Unknown message type", { messageType });
+              if (messageType === MESSAGE_WORKSPACE_DELETED) {
+                logger.warn("Workspace deleted notification received", {
+                  workspaceId,
+                });
+                import("../kanban/store/kanban-store").then(
+                  ({ useKanbanStore }) => {
+                    const state = useKanbanStore.getState();
+                    const workspace = state.workspaces.byId[workspaceId];
+
+                    // Only show "deleted" banner for editors (non-owners)
+                    // The owner initiated the delete, so they don't need the banner
+                    const isSharedWorkspace = workspace?.isShared === true;
+
+                    if (isSharedWorkspace) {
+                      logger.info(
+                        "Editor received workspace deleted notification",
+                        { workspaceId }
+                      );
+                      state.markWorkspaceDeleted(workspaceId);
+                      state.setDeletedSharedWorkspace(workspaceId);
+                    } else {
+                      // Owner is deleting their own workspace - no banner needed
+                      logger.info(
+                        "Owner workspace deletion confirmed by server",
+                        { workspaceId }
+                      );
+                    }
+                  }
+                );
+                // Mark workspace as deleted to prevent reconnect attempts
+                workspaceDeletedRef.current = true;
+                ws.close();
+                setConnectionState("disconnected");
+                setIsCollaborating(false);
+              } else {
+                logger.warn("Unknown message type", { messageType });
+              }
               break;
           }
         } catch (error) {
@@ -317,6 +356,15 @@ export function CollaborationProvider({
         logger.info("WebSocket closed", { workspaceId, code: event.code });
         setConnectionState("disconnected");
         setIsCollaborating(false);
+
+        // Don't reconnect if workspace was deleted
+        if (workspaceDeletedRef.current) {
+          logger.info("Skipping reconnect - workspace was deleted", {
+            workspaceId,
+          });
+          workspaceDeletedRef.current = false;
+          return;
+        }
 
         if (workspaceIdRef.current === workspaceId) {
           const delay =

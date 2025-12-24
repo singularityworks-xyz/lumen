@@ -71,5 +71,7 @@ export function createInitialState(): KanbanState {
     dialogFocusStack: [],
     columnUi: {},
     areaDialog: null,
+    deletedSharedWorkspaceId: null,
+    isProfileModalOpen: false,
   };
 }

@@ -17,6 +17,8 @@ type SliceCreator = (
   | "updateTaskDetailModalPosition"
   | "bringTaskDetailModalToFront"
   | "triggerTaskDetailModalShake"
+  | "openProfileModal"
+  | "closeProfileModal"
 >;
 
 export const createModalSlice: SliceCreator = (set, get) => ({
@@ -242,4 +244,14 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       });
     }, 300);
   },
+
+  openProfileModal: () =>
+    set((state) => {
+      state.isProfileModalOpen = true;
+    }),
+
+  closeProfileModal: () =>
+    set((state) => {
+      state.isProfileModalOpen = false;
+    }),
 });

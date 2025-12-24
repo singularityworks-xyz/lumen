@@ -1,5 +1,6 @@
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
+import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import { Elysia, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { type CollaboratorInfo, roomManager } from "./room-manager";
@@ -93,10 +94,23 @@ async function addCollaborator(
           { workspaceId, userId },
           "Lazily creating workspace record for new owner"
         );
+        // Try to get name from active room first
+        const room = roomManager.getRoom(workspaceId);
+        let initialName = "Untitled Workspace";
+        if (room) {
+          const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+          const workspaceData = workspaceMap.get(workspaceId) as
+            | { name: string }
+            | undefined;
+          if (workspaceData?.name) {
+            initialName = workspaceData.name;
+          }
+        }
+
         await prisma.workspace.create({
           data: {
             id: workspaceId,
-            name: "Untitled Workspace", // Will be updated by the actual creation logic or subsequent edits
+            name: initialName, // Will be updated by the actual creation logic or subsequent edits
             ownerId: userId,
           },
         });
@@ -715,8 +729,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
   // Create new share link
   .post(
     "/api/workspaces/:workspaceId/share",
-    async ({ params, headers, set }) => {
+    async ({ params, headers, set, body }) => {
       const { workspaceId } = params;
+      const workspaceName = body?.name;
 
       const session = await auth.api.getSession({
         headers: toHeaders(headers),
@@ -726,12 +741,62 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         return { error: "Unauthorized" };
       }
 
+      // Check if there's an active room with data
+      // This prevents sharing before the owner's state is synced
+      const room = roomManager.getRoom(workspaceId);
+
+      if (!room) {
+        // No active room - check if we have persisted state
+        const hasPersistedState = await prisma.workspaceState.findUnique({
+          where: { workspaceId },
+          select: { id: true },
+        });
+
+        if (!hasPersistedState) {
+          logger.warn("Share attempted before sync complete", {
+            workspaceId,
+            userId: session.user.id,
+            hasRoom: false,
+          });
+          set.status = 409;
+          return {
+            error:
+              "Please wait for sync to complete before sharing. Your data hasn't been synced yet.",
+            code: "SYNC_NOT_COMPLETE",
+          };
+        }
+      }
+
       let collab = await getCollaborator(workspaceId, session.user.id);
 
       // Auto-assign owner if no collaborators exist yet (first share)
       if (!collab) {
         const count = await getWorkspaceCollaboratorCount(workspaceId);
         if (count === 0) {
+          // Create workspace with name from request if provided
+          const nameToUse = workspaceName || "Untitled Workspace";
+
+          // Check if workspace exists
+          const existingWorkspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { id: true },
+          });
+
+          if (!existingWorkspace) {
+            logger.info("Creating workspace record on first share", {
+              workspaceId,
+              name: nameToUse,
+              userId: session.user.id,
+            });
+            await prisma.workspace.create({
+              data: {
+                id: workspaceId,
+                name: nameToUse,
+                ownerId: session.user.id,
+              },
+            });
+          }
+
           await addCollaborator(workspaceId, session.user.id, "owner");
           collab = { role: "owner" };
           logger.info("Auto-assigned owner role on share", {
@@ -746,10 +811,67 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         return { error: "Only workspace owner can create share links" };
       }
 
+      // Update workspace name if provided in request and different from current
+      if (workspaceName) {
+        try {
+          await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: { name: workspaceName },
+          });
+          logger.debug("Updated workspace name from share request", {
+            workspaceId,
+            name: workspaceName,
+          });
+        } catch {
+          // Workspace might not exist yet - try to create
+          const existingWorkspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { id: true },
+          });
+          if (!existingWorkspace) {
+            await prisma.workspace.create({
+              data: {
+                id: workspaceId,
+                name: workspaceName,
+                ownerId: session.user.id,
+              },
+            });
+          }
+        }
+      } else {
+        // Fallback: Try to get name from active room
+        const currentName = await getWorkspaceName(workspaceId);
+        if (!currentName || currentName === "Untitled Workspace") {
+          const currentRoom = roomManager.getRoom(workspaceId);
+          if (currentRoom) {
+            const workspaceMap = currentRoom.doc.getMap("workspace");
+            const workspaceData = workspaceMap.get(workspaceId) as
+              | { name: string }
+              | undefined;
+            if (workspaceData?.name) {
+              await prisma.workspace.update({
+                where: { id: workspaceId },
+                data: { name: workspaceData.name },
+              });
+            }
+          }
+        }
+      }
+
       const token = await createShareToken(workspaceId, session.user.id);
+
+      // Immediately persist room state so editors who join right away can get the state
+      // This bypasses the normal debounce to ensure a smooth experience
+      if (room) {
+        logger.info("Persisting room state immediately on share", {
+          workspaceId,
+        });
+        await roomManager.persistRoom(workspaceId);
+      }
 
       logger.info("Share link created", {
         workspaceId,
+        workspaceName,
         createdBy: session.user.id,
       });
 
@@ -760,6 +882,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
     {
       params: t.Object({ workspaceId: t.String() }),
+      body: t.Optional(
+        t.Object({
+          name: t.Optional(t.String()),
+        })
+      ),
     }
   )
 
@@ -1212,5 +1339,65 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         name: t.Optional(t.String()),
         description: t.Optional(t.String()),
       }),
+    }
+  )
+
+  .delete(
+    "/api/workspaces/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Check if user is owner
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspace) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      if (workspace.ownerId !== session.user.id) {
+        set.status = 403;
+        return { error: "Only the owner can delete the workspace" };
+      }
+
+      try {
+        // 1. Notify all connected clients and close connections
+        // This will trigger the "Workspace Deleted" banner on their end
+        roomManager.deleteRoom(workspaceId);
+
+        // 2. Delete from database
+        await prisma.workspace.delete({
+          where: { id: workspaceId },
+        });
+
+        logger.info(
+          { workspaceId, userId: session.user.id },
+          "Workspace deleted via API"
+        );
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to delete workspace", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to delete workspace" };
+      }
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
     }
   );

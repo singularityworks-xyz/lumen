@@ -8,6 +8,7 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightControls } from "@/src/components/right-controls";
+import { WorkspaceDeletedBanner } from "@/src/components/workspace-deleted-banner";
 import {
   type JoinSuccessData,
   JoinWorkspaceHandler,
@@ -152,7 +153,8 @@ function KanbanPageContent() {
   }, []);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
+    <div className="relative h-screen w-screen overflow-hidden bg-background">
+      <WorkspaceDeletedBanner />
       <JoinWorkspaceHandler
         onComplete={handleJoinComplete}
         shareToken={shareToken}

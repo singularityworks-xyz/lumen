@@ -110,6 +110,8 @@ export type KanbanState = {
     areaName: string;
     position: { x: number; y: number };
   } | null;
+  deletedSharedWorkspaceId: string | null;
+  isProfileModalOpen: boolean;
 };
 
 export type KanbanActions = {
@@ -145,6 +147,12 @@ export type KanbanActions = {
   updateWorkspaceDialogInputValue: (value: string) => void;
   setWorkspaceShareUrl: (workspaceId: string, url: string) => void;
   clearWorkspaceShareUrl: (workspaceId: string) => void;
+  markWorkspaceDeleted: (workspaceId: string) => void;
+  setDeletedSharedWorkspace: (workspaceId: string | null) => void;
+
+  // Profile modal actions
+  openProfileModal: () => void;
+  closeProfileModal: () => void;
 
   // Column actions
   openColumnQuickActions: (
