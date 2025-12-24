@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
   experimental: {
     cssChunking: true,
   },
-  transpilePackages: ["@lumen/logger"],
+  transpilePackages: [
+    "@lumen/logger",
+    "lib0",
+    "y-protocols",
+    "yjs",
+    "y-indexeddb",
+  ],
 };
 
 export default withBotId(nextConfig);

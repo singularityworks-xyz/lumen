@@ -175,6 +175,32 @@ type WsData = {
   connectionId?: string;
 };
 
+// Store pending auth data between beforeHandle and open handler
+const pendingAuth = new Map<
+  string,
+  {
+    user: {
+      id: string;
+      name?: string | null;
+      email: string;
+      image?: string | null;
+    };
+    collaborator: { role: "owner" | "editor" | "viewer" };
+    initialStateVector?: Uint8Array;
+    timestamp: number;
+  }
+>();
+
+// Clean up old pending auth entries every 30 seconds
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of pendingAuth.entries()) {
+    if (now - value.timestamp > 30_000) {
+      pendingAuth.delete(key);
+    }
+  }
+}, 30_000);
+
 export const collabRoutes = new Elysia({ name: "collab-routes" })
   .ws("/ws/collab/:workspaceId", {
     body: t.Any(),
@@ -182,11 +208,104 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       workspaceId: t.String(),
     }),
     query: t.Object({
+      token: t.Optional(t.String()),
       stateVector: t.Optional(t.String()),
     }),
 
     async beforeHandle({ params, headers, set, query }) {
       const { workspaceId } = params;
+      const { token } = query;
+
+      logger.debug("WebSocket beforeHandle starting", {
+        workspaceId,
+        hasToken: !!token,
+      });
+
+      if (token) {
+        try {
+          const { createRemoteJWKSet, jwtVerify } = await import("jose");
+          const baseUrl =
+            process.env.BETTER_AUTH_URL || "http://localhost:3002";
+          const JWKS = createRemoteJWKSet(new URL(`${baseUrl}/api/auth/jwks`));
+
+          const { payload } = await jwtVerify(token, JWKS, {
+            issuer: baseUrl,
+            audience: baseUrl,
+          });
+
+          if (!payload.sub) {
+            logger.warn("JWT missing sub claim", { workspaceId });
+            set.status = 401;
+            return { error: "Unauthorized", message: "Invalid JWT token" };
+          }
+
+          const userId = payload.sub;
+          let collab = await getCollaborator(workspaceId, userId);
+
+          if (!collab) {
+            const count = await getWorkspaceCollaboratorCount(workspaceId);
+            if (count === 0) {
+              await addCollaborator(workspaceId, userId, "owner");
+              collab = { role: "owner" };
+              logger.info("Auto-assigned owner role", { workspaceId, userId });
+            } else {
+              logger.warn("Non-collaborator WebSocket connection attempt", {
+                workspaceId,
+                userId,
+              });
+              set.status = 403;
+              return {
+                error: "Forbidden",
+                message: "Not a collaborator on this workspace",
+              };
+            }
+          }
+
+          let initialStateVector: Uint8Array | undefined;
+          if (query.stateVector) {
+            try {
+              initialStateVector = new Uint8Array(
+                Buffer.from(query.stateVector, "base64")
+              );
+            } catch {
+              logger.warn("Invalid state vector in query", { workspaceId });
+            }
+          }
+
+          // Store auth data in pending map for open handler to retrieve
+          const authKey = `${workspaceId}:${userId}`;
+          pendingAuth.set(authKey, {
+            user: {
+              id: userId,
+              name: (payload as Record<string, unknown>).name as
+                | string
+                | undefined,
+              email: (payload as Record<string, unknown>).email as string,
+              image: (payload as Record<string, unknown>).image as
+                | string
+                | undefined,
+            },
+            collaborator: collab,
+            initialStateVector,
+            timestamp: Date.now(),
+          });
+
+          logger.debug("JWT auth successful, stored in pendingAuth", {
+            userId,
+            authKey,
+          });
+
+          // Return undefined to allow WebSocket upgrade to proceed
+          return;
+        } catch (error) {
+          logger.error("JWT verification failed", {
+            workspaceId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          set.status = 401;
+          return { error: "Unauthorized", message: "Invalid JWT token" };
+        }
+      }
 
       const session = await auth.api.getSession({
         headers: toHeaders(headers),
@@ -234,26 +353,57 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         }
       }
 
-      return {
+      // Store auth data in pending map for open handler to retrieve
+      const authKey = `${workspaceId}:${session.user.id}`;
+      pendingAuth.set(authKey, {
         user: session.user,
         collaborator: collab,
         initialStateVector,
-      };
+        timestamp: Date.now(),
+      });
+
+      logger.debug("Session auth successful, stored in pendingAuth", {
+        userId: session.user.id,
+        authKey,
+      });
+
+      // Return undefined to allow WebSocket upgrade to proceed
+      return;
     },
 
     open(ws) {
+      logger.debug("WebSocket open handler called");
       const { workspaceId } = ws.data.params;
-      const data = ws.data as unknown as WsData;
+      const wsData = ws.data as unknown as WsData;
 
-      if (!(data.user && data.collaborator)) {
-        logger.error("Missing user or collaborator in ws.data", {
+      // Find auth data from pendingAuth Map - look for any entry with matching workspaceId
+      let authData:
+        | (typeof pendingAuth extends Map<string, infer V> ? V : never)
+        | undefined;
+      let authKey: string | undefined;
+
+      for (const [key, value] of pendingAuth.entries()) {
+        if (key.startsWith(`${workspaceId}:`)) {
+          authData = value;
+          authKey = key;
+          break;
+        }
+      }
+
+      if (!authData) {
+        logger.error("No pending auth data found for workspace", {
           workspaceId,
         });
         ws.close();
         return;
       }
 
-      const { user, collaborator, initialStateVector } = data;
+      // Remove from pending auth
+      if (authKey) {
+        pendingAuth.delete(authKey);
+      }
+
+      const { user, collaborator, initialStateVector } = authData;
 
       const connectionId = generateId(12);
       const color = getColorForUser(user.id);
@@ -278,7 +428,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         initialStateVector,
       });
 
-      data.connectionId = connectionId;
+      wsData.connectionId = connectionId;
+      wsData.user = user;
+      wsData.collaborator = collaborator;
 
       logger.info("WebSocket opened", {
         connectionId,

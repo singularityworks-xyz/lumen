@@ -93,15 +93,26 @@ export function useYjsSync(
     }
   }, [doc]);
 
-  // Initialize Yjs from Zustand on first connection
   useEffect(() => {
     if (!(doc && isConnected)) {
       return;
     }
+
     const state = useKanbanStore.getState();
-    initializeYjsFromState(doc, state);
+    const boardsMap = doc.getMap("boards");
+
+    // Server is source of truth - only push local state if server is empty
+    if (boardsMap.size === 0 && state.boards.allIds.length > 0) {
+      logger.info("Server empty, pushing local state to Yjs");
+      initializeYjsFromState(doc, state);
+    } else if (boardsMap.size > 0) {
+      logger.info("Server has data, pulling from Yjs", {
+        serverBoards: boardsMap.size,
+      });
+      applyYjsChanges();
+    }
+
     prevStateRef.current = state;
-    applyYjsChanges();
     const unobserve = observeYjsChanges(doc, applyYjsChanges);
     return unobserve;
   }, [doc, isConnected, applyYjsChanges]);

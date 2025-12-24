@@ -147,6 +147,7 @@
         "@prisma/client": "^7.2.0",
         "better-auth": "^1.4.9",
         "elysia": "^1.4.19",
+        "jose": "^6.1.3",
         "lib0": "^0.2.116",
         "prismabox": "^1.1.26",
         "tsdown": "^0.18.2",

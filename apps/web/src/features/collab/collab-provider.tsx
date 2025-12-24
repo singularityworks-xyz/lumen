@@ -145,7 +145,7 @@ export function CollaborationProvider({
   }, []);
 
   const connect = useCallback(
-    (workspaceId: string) => {
+    async (workspaceId: string) => {
       if (!enabled) {
         return;
       }
@@ -155,6 +155,14 @@ export function CollaborationProvider({
 
       logger.info("Connecting to workspace", { workspaceId });
       setConnectionState("connecting");
+
+      const { getJwtToken } = await import("@/src/lib/auth-client");
+      const token = await getJwtToken();
+      if (!token) {
+        logger.error("Failed to get JWT token for WebSocket");
+        setConnectionState("error");
+        return;
+      }
 
       const doc = new Y.Doc();
       docRef.current = doc;
@@ -180,11 +188,15 @@ export function CollaborationProvider({
       const stateVectorBase64 = Buffer.from(stateVector).toString("base64");
 
       const ws = new WebSocket(
-        `${wsUrl}/ws/collab/${workspaceId}?stateVector=${encodeURIComponent(stateVectorBase64)}`
+        `${wsUrl}/ws/collab/${workspaceId}?token=${encodeURIComponent(token)}&stateVector=${encodeURIComponent(stateVectorBase64)}`
       );
       wsRef.current = ws;
 
       ws.binaryType = "arraybuffer";
+
+      logger.info("Attempting WebSocket connection", {
+        url: `${wsUrl}/ws/collab/${workspaceId}`,
+      });
 
       ws.onopen = () => {
         logger.info("WebSocket connected", { workspaceId });
@@ -199,12 +211,15 @@ export function CollaborationProvider({
         const messageType = decoding.readVarUint(decoder);
 
         switch (messageType) {
-          case MESSAGE_SYNC:
-            // Handle sync messages
-            // The y-protocols sync module handles this
+          case MESSAGE_SYNC: {
+            const update = decoding.readVarUint8Array(decoder);
+            Y.applyUpdate(doc, update, "server");
+            logger.debug("Applied sync update from server", {
+              updateSize: update.length,
+            });
             break;
+          }
           case MESSAGE_AWARENESS: {
-            // Apply awareness update
             const awarenessUpdate = decoding.readVarUint8Array(decoder);
             awarenessProtocol.applyAwarenessUpdate(
               awareness,
@@ -222,6 +237,7 @@ export function CollaborationProvider({
       ws.onclose = (event) => {
         logger.info("WebSocket closed", { workspaceId, code: event.code });
         setConnectionState("disconnected");
+        setIsCollaborating(false);
 
         if (workspaceIdRef.current === workspaceId) {
           const delay =
