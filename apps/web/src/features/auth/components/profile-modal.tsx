@@ -384,7 +384,7 @@ const CollaboratorsList = memo(
             setAllMembers(data.collaborators || []);
           }
         } catch (error) {
-          console.error("Failed to fetch collaborators", error);
+          logger.error("Failed to fetch collaborators", `${error}`);
         } finally {
           setLoading(false);
         }

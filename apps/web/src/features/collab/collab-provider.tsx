@@ -273,6 +273,15 @@ export function CollaborationProvider({
               // Use proper sync protocol to handle SyncStep1/SyncStep2/Update messages
               const responseEncoder = encoding.createEncoder();
               encoding.writeVarUint(responseEncoder, MESSAGE_SYNC);
+              // This function side-effects by applying updates to the doc.
+              // We must call it even if we don't use the return value.
+              syncProtocol.readSyncMessage(
+                decoder,
+                responseEncoder,
+                doc,
+                "server"
+              );
+
               // Send response if needed (e.g., SyncStep2 in response to SyncStep1)
               if (
                 encoding.length(responseEncoder) > 1 &&

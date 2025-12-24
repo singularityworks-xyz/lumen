@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@lumen/logger";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -123,14 +124,9 @@ function KanbanPageContent() {
                 }
               }
             });
-
-            console.log("Synced shared workspace data:", {
-              boards: Object.keys(stateData.boards || {}).length,
-              tasks: Object.keys(stateData.tasks || {}).length,
-            });
           }
         } catch (error) {
-          console.error("Failed to fetch workspace state:", error);
+          logger.error(`Failed to fetch workspace state:${error}`);
         }
       }
     },
