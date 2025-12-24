@@ -3,6 +3,7 @@ import { createLogger } from "@lumen/logger";
 import { Elysia } from "elysia";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
+import { collabRoutes } from "./collab";
 
 const logger = createLogger({ name: "workers:main" });
 
@@ -27,6 +28,7 @@ const app = new Elysia()
   )
   .use(authMacro)
   .use(authRoutes)
+  .use(collabRoutes)
   .get("/", () => {
     logger.debug("Root endpoint accessed");
     return {

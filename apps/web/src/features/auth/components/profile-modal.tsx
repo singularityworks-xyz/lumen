@@ -1,7 +1,7 @@
 import { createLogger } from "@lumen/logger";
-import { Github, Loader2, User, X } from "lucide-react";
+import { Check, Copy, Github, Link, Loader2, User, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -9,6 +9,7 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
+import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 
 const logger = createLogger({ name: "profile-modal" });
@@ -22,7 +23,15 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
+  );
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
   const handleGithubLogin = async () => {
     setIsSigningIn(true);
@@ -57,6 +66,58 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     }
   };
 
+  const handleShareWorkspace = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      setError("No workspace selected");
+      return;
+    }
+
+    setIsGeneratingLink(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate share link");
+      }
+
+      setShareUrl(data.url);
+      logger.info("Share link generated", { url: data.url });
+    } catch (err) {
+      logger.error("Share link generation failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+      setError(
+        err instanceof Error ? err.message : "Failed to generate share link"
+      );
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  }, [currentWorkspaceId, apiUrl]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!shareUrl) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Failed to copy link");
+    }
+  }, [shareUrl]);
+
   if (typeof document === "undefined") {
     return null;
   }
@@ -75,7 +136,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="fixed top-4 left-1/2 z-50 w-64 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            className="fixed top-4 left-1/2 z-50 w-72 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
             exit={{ opacity: 0, y: -8 }}
             initial={{ opacity: 0, y: -12 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -93,48 +154,114 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : user ? (
-              <div className="flex items-start gap-3">
-                <Avatar className="h-12 w-12 rounded-xl">
-                  <AvatarImage
-                    alt={user.name || "User"}
-                    src={user.image || ""}
-                  />
-                  <AvatarFallback className="rounded-xl bg-primary/10 text-primary">
-                    <User className="h-6 w-6" />
-                  </AvatarFallback>
-                </Avatar>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-12 w-12 rounded-xl">
+                    <AvatarImage
+                      alt={user.name || "User"}
+                      src={user.image || ""}
+                    />
+                    <AvatarFallback className="rounded-xl bg-primary/10 text-primary">
+                      <User className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
 
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate font-medium text-sm">
-                    {user.name || "User"}
-                  </h2>
-                  <p className="truncate text-muted-foreground text-xs">
-                    {user.email || "No email"}
-                  </p>
-                  <Button
-                    className="mt-2 h-7 rounded-lg px-3 text-xs"
-                    disabled={isSigningOut}
-                    onClick={handleSignOut}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isSigningOut ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Signing out...
-                      </>
-                    ) : (
-                      "Sign out"
-                    )}
-                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate font-medium text-sm">
+                      {user.name || "User"}
+                    </h2>
+                    <p className="truncate text-muted-foreground text-xs">
+                      {user.email || "No email"}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Share Workspace Section */}
+                {currentWorkspaceId && (
+                  <div className="border-border/50 border-t pt-3">
+                    <h3 className="mb-2 flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
+                      <Link className="h-3 w-3" />
+                      Collaborate
+                    </h3>
+
+                    {shareUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
+                          <input
+                            className="flex-1 truncate bg-transparent text-xs outline-none"
+                            readOnly
+                            type="text"
+                            value={shareUrl}
+                          />
+                          <Button
+                            className="h-6 w-6 p-0"
+                            onClick={handleCopyLink}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            {copied ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Share this link to collaborate in real-time
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        className="h-8 w-full gap-1.5 text-xs"
+                        disabled={isGeneratingLink}
+                        onClick={handleShareWorkspace}
+                        variant="outline"
+                      >
+                        {isGeneratingLink ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Link className="h-3 w-3" />
+                            Share Workspace
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-lg bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  className="h-7 w-full rounded-lg px-3 text-xs"
+                  disabled={isSigningOut}
+                  onClick={handleSignOut}
+                  size="sm"
+                  variant="outline"
+                >
+                  {isSigningOut ? (
+                    <>
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Signing out...
+                    </>
+                  ) : (
+                    "Sign out"
+                  )}
+                </Button>
               </div>
             ) : (
               <div>
                 <div className="mb-3 pr-6">
                   <h2 className="font-semibold text-sm">Welcome</h2>
                   <p className="mt-0.5 text-muted-foreground text-xs">
-                    Sign in to sync your boards
+                    Sign in to sync and collaborate
                   </p>
                 </div>
 

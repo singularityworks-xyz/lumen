@@ -1,14 +1,9 @@
-import { PrismaClient } from "@lumen/db/prisma/generated/prisma/client";
+import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 
 const logger = createLogger({ name: "auth:config" });
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
-const prisma = new PrismaClient({ adapter });
 
 logger.info("Initializing Better Auth with Prisma adapter");
 

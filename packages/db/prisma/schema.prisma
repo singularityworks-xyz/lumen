@@ -24,8 +24,9 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
+  sessions      Session[]
+  accounts      Account[]
+  collaborators WorkspaceCollaborator[]
 
   @@map("user")
 }
@@ -77,4 +78,40 @@ model Verification {
 
   @@unique([identifier, value])
   @@map("verification")
+}
+
+model WorkspaceShare {
+  id          String    @id @default(cuid())
+  workspaceId String
+  token       String    @unique
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  @@index([token])
+  @@map("workspace_share")
+}
+
+model WorkspaceCollaborator {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("editor")
+  joinedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_collaborator")
+}
+
+model WorkspaceState {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  yjsState    Bytes
+  stateVector Bytes?
+  updatedAt   DateTime @updatedAt
+
+  @@map("workspace_state")
 }

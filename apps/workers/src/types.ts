@@ -1,7 +1,4 @@
-import type {
-  SessionModel,
-  UserModel,
-} from "@lumen/db/prisma/generated/prisma/models";
+import type { SessionModel, UserModel } from "@lumen/db";
 
 export type AuthSession = {
   user: UserModel;
