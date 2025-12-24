@@ -389,6 +389,18 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         hasToken: !!token,
       });
 
+      // Immediately reject if workspace was recently deleted
+      if (roomManager.isWorkspaceDeleted(workspaceId)) {
+        logger.warn("WebSocket connection rejected - workspace deleted", {
+          workspaceId,
+        });
+        set.status = 410;
+        return {
+          error: "Gone",
+          message: "Workspace has been deleted",
+        };
+      }
+
       if (token) {
         try {
           const { createRemoteJWKSet, jwtVerify } = await import("jose");

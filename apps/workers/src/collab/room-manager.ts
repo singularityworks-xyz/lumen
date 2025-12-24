@@ -46,12 +46,26 @@ class RoomManager {
   private readonly rooms = new Map<string, Room>();
   private readonly connectionToRoom = new Map<string, string>();
   private readonly persistenceDebounceMs = 5000;
+  // Track recently deleted workspaces to prevent recreation during delete
+  private readonly deletedWorkspaces = new Set<string>();
 
   getRoom(workspaceId: string): Room | undefined {
     return this.rooms.get(workspaceId);
   }
 
+  isWorkspaceDeleted(workspaceId: string): boolean {
+    return this.deletedWorkspaces.has(workspaceId);
+  }
+
   getOrCreateRoom(workspaceId: string): Room {
+    // Don't recreate rooms for recently deleted workspaces
+    if (this.deletedWorkspaces.has(workspaceId)) {
+      logger.warn("Attempt to create room for deleted workspace", {
+        workspaceId,
+      });
+      throw new Error("Workspace has been deleted");
+    }
+
     let room = this.rooms.get(workspaceId);
 
     if (!room) {
@@ -406,6 +420,19 @@ class RoomManager {
     }
 
     try {
+      // First check if workspace exists in DB - don't persist if it doesn't
+      const workspaceExists = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { id: true },
+      });
+
+      if (!workspaceExists) {
+        logger.debug("Skipping persistence - workspace not in DB", {
+          workspaceId,
+        });
+        return;
+      }
+
       const state = Y.encodeStateAsUpdate(room.doc);
       const stateVector = Y.encodeStateVector(room.doc);
 
@@ -566,7 +593,16 @@ class RoomManager {
 
   deleteRoom(workspaceId: string): void {
     const room = this.rooms.get(workspaceId);
+
+    // Mark as deleted before doing anything else to prevent race conditions
+    this.deletedWorkspaces.add(workspaceId);
+    // Clean up the tracking after 30 seconds to prevent memory leaks
+    setTimeout(() => {
+      this.deletedWorkspaces.delete(workspaceId);
+    }, 30_000);
+
     if (!room) {
+      logger.info("Room already deleted or never existed", { workspaceId });
       return;
     }
 

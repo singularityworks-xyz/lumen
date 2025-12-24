@@ -16,7 +16,7 @@ import { cn } from "@/src/lib/utils";
 type DeleteWorkspaceDialogProps = {
   workspaceName: string;
 
-  onConfirm: () => Promise<void> | void;
+  onConfirm: () => Promise<boolean>;
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
 
@@ -201,8 +201,10 @@ export const DeleteWorkspaceDialog = memo(
               onClick={async () => {
                 setIsLoading(true);
                 try {
-                  await onConfirm();
-                  onClose();
+                  const success = await onConfirm();
+                  if (success) {
+                    onClose();
+                  }
                 } finally {
                   setIsLoading(false);
                 }

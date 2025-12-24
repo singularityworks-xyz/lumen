@@ -134,13 +134,13 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     const state = get();
     if (state.workspaces.allIds[0] === workspaceId) {
       logger.warn({ id: workspaceId }, "Cannot delete default workspace");
-      return;
+      return false;
     }
 
     const workspace = state.workspaces.byId[workspaceId];
     if (!workspace) {
       logger.warn({ id: workspaceId }, "Workspace not found");
-      return;
+      return false;
     }
 
     // Determine if user is the owner of this workspace
@@ -164,32 +164,30 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
             credentials: "include",
           }
         );
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           logger.error(
             { workspaceId, status: response.status, error: errorData },
             "Server rejected workspace delete"
           );
-          // Don't continue with local delete if server rejected
-          if (response.status === 403 || response.status === 404) {
-            return;
-          }
-          throw new Error(errorData.error || "Failed to delete workspace");
+          // Don't clean up local state if server rejected
+          return false;
         }
+
         logger.info({ workspaceId }, "Server confirmed workspace deletion");
       } catch (err) {
         logger.error(
           { workspaceId, err },
           "Failed to delete workspace on server"
         );
-        // For network errors, we could retry or alert user
-        // For now, continue with local cleanup but log the error
+        // Don't clean up local state on network error
+        return false;
       }
     }
-    // For non-owners (shared workspace): just clean up locally, server handles via owner
 
+    // Now clean up local state (only reached if server call succeeded or user is not owner)
     set((currentState) => {
-      // Re-fetch state inside set to be safe
       const currentWorkspace = currentState.workspaces.byId[workspaceId];
       if (!currentWorkspace) {
         return;
@@ -237,11 +235,14 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
         (id) => id !== workspaceId
       );
 
+      // Switch to default workspace if currently viewing deleted workspace
       if (currentState.currentWorkspaceId === workspaceId) {
         currentState.currentWorkspaceId =
           currentState.workspaces.allIds[0] ?? null;
       }
     });
+
+    return true;
   },
 
   setDeletedSharedWorkspace: (workspaceId) =>

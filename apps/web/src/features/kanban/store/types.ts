@@ -120,7 +120,7 @@ export type KanbanActions = {
   addWorkspace: (name: string, description?: string) => string;
   syncWorkspace: (workspace: Partial<Workspace> & { id: string }) => void;
   updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
-  deleteWorkspace: (workspaceId: string) => void;
+  deleteWorkspace: (workspaceId: string) => Promise<boolean>;
   resetWorkspace: (
     workspaceId: string,
     options?: { clearBoardsAndColumns?: boolean }

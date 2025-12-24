@@ -181,11 +181,16 @@ export function WorkspaceSelector() {
     columns.byId,
   ]);
 
-  const handleDeleteWorkspace = useCallback(() => {
+  const handleDeleteWorkspace = useCallback(async (): Promise<boolean> => {
     if (workspaceDialog?.workspaceId) {
-      deleteWorkspace(workspaceDialog.workspaceId);
+      const success = await deleteWorkspace(workspaceDialog.workspaceId);
+      if (success) {
+        closeWorkspaceQuickActions();
+      }
+      return success;
     }
-  }, [workspaceDialog, deleteWorkspace]);
+    return false;
+  }, [workspaceDialog, deleteWorkspace, closeWorkspaceQuickActions]);
 
   const handleDuplicateWorkspace = useCallback(
     (newName: string) => {

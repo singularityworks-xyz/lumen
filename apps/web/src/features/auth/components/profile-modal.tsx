@@ -39,19 +39,24 @@ type ProfileModalProps = {
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
-  const { isCollaborating, connectionState, connect } = useCollaboration();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShareInput, setShowShareInput] = useState(false);
   const [isLoadingShare, setIsLoadingShare] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pendingShareWorkspaceId, setPendingShareWorkspaceId] = useState<
+    string | null
+  >(null);
 
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
   const currentWorkspace = useKanbanStore((state) =>
     currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
+  );
+  const defaultWorkspaceId = useKanbanStore(
+    (state) => state.workspaces.allIds[0] ?? null
   );
   const shareUrl = useKanbanStore((state) =>
     currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
@@ -64,6 +69,8 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   );
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
+  const isDefaultWorkspace = currentWorkspaceId === defaultWorkspaceId;
+
   useEffect(() => {
     if (!(open && currentWorkspaceId && user)) {
       return;
@@ -74,17 +81,27 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       return;
     }
 
+    // Don't auto-fetch share for default workspace
+    if (isDefaultWorkspace) {
+      return;
+    }
+
     // Fetch from backend and cache in store
     const fetchExistingShare = async () => {
       try {
         const response = await fetch(
           `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
-          { credentials: "include" }
+          {
+            method: "GET",
+            credentials: "include",
+          }
         );
-        const data = await response.json();
-        if (data.url) {
-          setWorkspaceShareUrl(currentWorkspaceId, data.url);
-          setShowShareInput(true);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            setWorkspaceShareUrl(currentWorkspaceId, data.url);
+            setShowShareInput(true);
+          }
         }
       } catch {
         // No existing share link - that's fine
@@ -92,12 +109,36 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     };
 
     fetchExistingShare();
-  }, [open, currentWorkspaceId, user, apiUrl, shareUrl, setWorkspaceShareUrl]);
+  }, [
+    open,
+    currentWorkspaceId,
+    user,
+    apiUrl,
+    shareUrl,
+    setWorkspaceShareUrl,
+    isDefaultWorkspace,
+  ]);
+
+  // Reset share input state when workspace changes to prevent auto-sharing new workspace
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally trigger on workspace change
+  useEffect(() => {
+    setShowShareInput(false);
+    setIsLoadingShare(false);
+    setError(null);
+    setPendingShareWorkspaceId(null); // Clear pending share on workspace change
+  }, [currentWorkspaceId]);
 
   // When showShareInput is true and we don't have a shareUrl yet, create the share
   // Flow: 1) Create share in DB first, 2) Then connect via WebSocket
   useEffect(() => {
-    if (!(showShareInput && currentWorkspaceId) || shareUrl) {
+    // Only create share if this is the workspace we intentionally want to share
+    const shouldCreateShare =
+      showShareInput &&
+      currentWorkspaceId &&
+      !shareUrl &&
+      pendingShareWorkspaceId === currentWorkspaceId;
+
+    if (!shouldCreateShare) {
       return;
     }
 
@@ -128,11 +169,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
         if (data.url) {
           setWorkspaceShareUrl(currentWorkspaceId, data.url);
-
-          // Step 2: Now that workspace exists in DB, connect via WebSocket for sync
-          if (connectionState !== "connected" && !isCollaborating) {
-            connect(currentWorkspaceId);
-          }
+          // Note: collab-wrapper will auto-connect when workspaceShareUrls changes
         }
       } catch {
         setError("Failed to create share link");
@@ -149,9 +186,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     shareUrl,
     apiUrl,
     setWorkspaceShareUrl,
-    connectionState,
-    isCollaborating,
-    connect,
+    pendingShareWorkspaceId,
   ]);
 
   const handleCopyLink = useCallback(async () => {
@@ -281,6 +316,13 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                           onClick={() => {
                             if (showShareInput && shareUrl) {
                               clearWorkspaceShareUrl(currentWorkspaceId);
+                            }
+                            if (showShareInput) {
+                              // User is closing share panel - clear pending
+                              setPendingShareWorkspaceId(null);
+                            } else {
+                              // User is opening share panel - record which workspace they want to share
+                              setPendingShareWorkspaceId(currentWorkspaceId);
                             }
                             setShowShareInput(!showShareInput);
                           }}

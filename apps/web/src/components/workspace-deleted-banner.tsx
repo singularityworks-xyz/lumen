@@ -25,7 +25,7 @@ export function WorkspaceDeletedBanner() {
     ? workspaces.byId[deletedSharedWorkspaceId]
     : null;
 
-  const handleSaveToLocal = useCallback(() => {
+  const handleSaveToLocal = useCallback(async () => {
     if (!(deletedSharedWorkspaceId && workspace)) {
       return;
     }
@@ -34,7 +34,7 @@ export function WorkspaceDeletedBanner() {
 
     if (newId) {
       setCurrentWorkspace(newId);
-      deleteWorkspace(deletedSharedWorkspaceId);
+      await deleteWorkspace(deletedSharedWorkspaceId);
       setDeletedSharedWorkspace(null);
     }
   }, [
