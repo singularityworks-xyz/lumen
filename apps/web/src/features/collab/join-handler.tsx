@@ -6,9 +6,21 @@ import { useAuth } from "@/src/hooks/use-auth";
 
 const logger = createLogger({ name: "collab:join-handler" });
 
+export type JoinSuccessData = {
+  workspaceId: string;
+  role: string;
+  workspaceName?: string;
+  owner?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+    email: string;
+  };
+};
+
 type JoinHandlerProps = {
   shareToken: string | null;
-  onJoinSuccess?: (workspaceId: string, role: string) => void;
+  onJoinSuccess?: (data: JoinSuccessData) => void;
   onJoinError?: (error: string) => void;
 };
 
@@ -24,6 +36,13 @@ export function useJoinWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [workspaceInfo, setWorkspaceInfo] = useState<{
     workspaceId: string;
+    workspaceName?: string;
+    owner?: {
+      id: string;
+      name: string | null;
+      image: string | null;
+      email: string;
+    };
   } | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
@@ -47,7 +66,11 @@ export function useJoinWorkspace({
         return;
       }
 
-      setWorkspaceInfo({ workspaceId: data.workspaceId });
+      setWorkspaceInfo({
+        workspaceId: data.workspaceId,
+        workspaceName: data.workspaceName,
+        owner: data.owner,
+      });
       logger.info("Share token validated", { workspaceId: data.workspaceId });
       // Stay in "validating" state - the useEffect will trigger join if authenticated
     } catch (err) {
@@ -91,7 +114,12 @@ export function useJoinWorkspace({
         role: data.role,
       });
 
-      onJoinSuccess?.(data.workspaceId, data.role);
+      onJoinSuccess?.({
+        workspaceId: data.workspaceId,
+        role: data.role,
+        workspaceName: data.workspaceName,
+        owner: data.owner,
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to join workspace";
@@ -146,12 +174,12 @@ export function JoinWorkspaceHandler({
   onComplete,
 }: {
   shareToken: string | null;
-  onComplete?: (workspaceId: string | null) => void;
+  onComplete?: (data: JoinSuccessData | null) => void;
 }) {
-  const { joinState, error, needsLogin } = useJoinWorkspace({
+  const { joinState, error, needsLogin, workspaceInfo } = useJoinWorkspace({
     shareToken,
-    onJoinSuccess: (workspaceId) => {
-      onComplete?.(workspaceId);
+    onJoinSuccess: (data) => {
+      onComplete?.(data);
     },
     onJoinError: () => {
       onComplete?.(null);
@@ -166,7 +194,34 @@ export function JoinWorkspaceHandler({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="mx-4 w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
-          <h2 className="mb-2 font-semibold text-lg">Join Workspace</h2>
+          <h2 className="mb-2 font-semibold text-lg">
+            Join{" "}
+            {workspaceInfo?.workspaceName
+              ? `"${workspaceInfo.workspaceName}"`
+              : "Workspace"}
+          </h2>
+          {workspaceInfo?.owner && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-muted/50 p-2">
+              {workspaceInfo.owner.image ? (
+                // biome-ignore lint/performance/noImgElement: External user avatars
+                <img
+                  alt=""
+                  className="h-6 w-6 rounded-full"
+                  height={24}
+                  src={workspaceInfo.owner.image}
+                  width={24}
+                />
+              ) : (
+                <div className="h-6 w-6 rounded-full bg-primary/10" />
+              )}
+              <div className="flex flex-col">
+                <span className="font-medium text-xs">Invited by</span>
+                <span className="text-sm">
+                  {workspaceInfo.owner.name || workspaceInfo.owner.email}
+                </span>
+              </div>
+            </div>
+          )}
           <p className="mb-4 text-muted-foreground text-sm">
             Please login to join this workspace collaboration.
           </p>

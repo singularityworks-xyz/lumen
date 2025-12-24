@@ -1,5 +1,4 @@
 "use client";
-
 import { ReactFlowProvider } from "@xyflow/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -8,15 +7,22 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightControls } from "@/src/components/right-controls";
-import { JoinWorkspaceHandler } from "@/src/features/collab";
+import {
+  type JoinSuccessData,
+  JoinWorkspaceHandler,
+  useCollaboration,
+} from "@/src/features/collab";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { useWorkspaceSync } from "@/src/hooks/use-workspace-sync";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 
 function KanbanPageContent() {
   const [isReady, setIsReady] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
+  useCollaboration();
+  useWorkspaceSync();
   const shareToken = searchParams.get("share");
 
   const setCurrentWorkspace = useKanbanStore(
@@ -26,22 +32,30 @@ function KanbanPageContent() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
   const handleJoinComplete = useCallback(
-    async (workspaceId: string | null) => {
+    async (data: JoinSuccessData | null) => {
       if (shareToken) {
         router.replace("/");
       }
 
-      if (workspaceId) {
+      if (data?.workspaceId) {
+        const { workspaceId, workspaceName, owner } = data;
         const existingWorkspace = workspaces.byId[workspaceId];
 
         if (!existingWorkspace) {
           useKanbanStore.setState((state) => {
             state.workspaces.byId[workspaceId] = {
               id: workspaceId,
-              name: "Shared Workspace",
-              description: "Joined via share link",
+              name: workspaceName || "Shared Workspace",
+              description: owner
+                ? `Shared by ${owner.name || owner.email}`
+                : "Joined via share link",
               created_at: new Date().toISOString(),
               board_ids: [],
+              isShared: true,
+              ownerId: owner?.id,
+              ownerName: owner?.name || owner?.email || "Unknown",
+              ownerImage: owner?.image || undefined,
+              shareToken: shareToken || undefined,
             };
             if (!state.workspaces.allIds.includes(workspaceId)) {
               state.workspaces.allIds.push(workspaceId);
@@ -60,11 +74,12 @@ function KanbanPageContent() {
           );
 
           if (response.ok) {
-            const data = await response.json();
+            const stateData = await response.json();
 
             useKanbanStore.setState((state) => {
-              // Merge boards
-              for (const [id, board] of Object.entries(data.boards || {})) {
+              for (const [id, board] of Object.entries(
+                stateData.boards || {}
+              )) {
                 // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
                 state.boards.byId[id] = board as any;
                 if (!state.boards.allIds.includes(id)) {
@@ -78,7 +93,9 @@ function KanbanPageContent() {
               }
 
               // Merge columns
-              for (const [id, column] of Object.entries(data.columns || {})) {
+              for (const [id, column] of Object.entries(
+                stateData.columns || {}
+              )) {
                 // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
                 state.columns.byId[id] = column as any;
                 if (!state.columns.allIds.includes(id)) {
@@ -87,7 +104,7 @@ function KanbanPageContent() {
               }
 
               // Merge tasks
-              for (const [id, task] of Object.entries(data.tasks || {})) {
+              for (const [id, task] of Object.entries(stateData.tasks || {})) {
                 // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
                 state.tasks.byId[id] = task as any;
                 if (!state.tasks.allIds.includes(id)) {
@@ -97,7 +114,7 @@ function KanbanPageContent() {
 
               // Merge board positions
               for (const [id, pos] of Object.entries(
-                data.boardPositions || {}
+                stateData.boardPositions || {}
               )) {
                 // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
                 state.boardPositions.byId[id] = pos as any;
@@ -108,8 +125,8 @@ function KanbanPageContent() {
             });
 
             console.log("Synced shared workspace data:", {
-              boards: Object.keys(data.boards || {}).length,
-              tasks: Object.keys(data.tasks || {}).length,
+              boards: Object.keys(stateData.boards || {}).length,
+              tasks: Object.keys(stateData.tasks || {}).length,
             });
           }
         } catch (error) {

@@ -18,6 +18,7 @@ type SliceCreator = (
   KanbanStore,
   | "setCurrentWorkspace"
   | "addWorkspace"
+  | "syncWorkspace"
   | "updateWorkspace"
   | "deleteWorkspace"
   | "resetWorkspace"
@@ -70,6 +71,17 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     });
 
     logger.info({ id, name }, "Workspace created");
+
+    // Persist to backend metadata table (fire and forget)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+    fetch(`${apiUrl}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name, description }),
+    }).catch((error) => {
+      logger.error({ id, error }, "Failed to create workspace metadata");
+    });
+
     return id;
   },
 
@@ -78,6 +90,41 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       const workspace = state.workspaces.byId[workspaceId];
       if (workspace) {
         Object.assign(workspace, updates);
+
+        // Persist to backend metadata table (fire and forget)
+        if (updates.name || updates.description) {
+          const apiUrl =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+          fetch(`${apiUrl}/api/workspaces/${workspaceId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: updates.name,
+              description: updates.description,
+            }),
+          }).catch((error) => {
+            logger.error(
+              { id: workspaceId, error },
+              "Failed to update workspace metadata"
+            );
+          });
+        }
+      }
+    }),
+
+  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) =>
+    set((state) => {
+      const existing = state.workspaces.byId[workspace.id];
+      if (existing) {
+        Object.assign(existing, workspace);
+      } else {
+        state.workspaces.byId[workspace.id] = {
+          name: "Shared Workspace",
+          created_at: new Date().toISOString(),
+          board_ids: [],
+          ...workspace,
+        } as Workspace;
+        state.workspaces.allIds.push(workspace.id);
       }
     }),
 

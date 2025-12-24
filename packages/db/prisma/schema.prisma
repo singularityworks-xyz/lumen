@@ -29,6 +29,7 @@ model User {
   collaborators WorkspaceCollaborator[]
 
   @@map("user")
+  workspaces Workspace[]
 }
 
 model Session {
@@ -80,6 +81,23 @@ model Verification {
   @@map("verification")
 }
 
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner         User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators WorkspaceCollaborator[]
+  shares        WorkspaceShare[]
+  state         WorkspaceState?
+
+  @@index([ownerId])
+  @@map("workspace")
+}
+
 model WorkspaceShare {
   id          String    @id @default(cuid())
   workspaceId String
@@ -88,7 +106,10 @@ model WorkspaceShare {
   createdAt   DateTime  @default(now())
   expiresAt   DateTime?
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([token])
+  @@index([workspaceId])
   @@map("workspace_share")
 }
 
@@ -99,10 +120,12 @@ model WorkspaceCollaborator {
   role        String   @default("editor")
   joinedAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
   @@index([userId])
+  @@index([workspaceId])
   @@map("workspace_collaborator")
 }
 
@@ -112,6 +135,8 @@ model WorkspaceState {
   yjsState    Bytes
   stateVector Bytes?
   updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("workspace_state")
 }

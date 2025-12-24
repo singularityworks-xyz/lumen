@@ -217,17 +217,27 @@ class RoomManager {
       return false;
     }
 
-    const decoder = decoding.createDecoder(message);
-    const messageType = decoding.readVarUint(decoder);
+    try {
+      const decoder = decoding.createDecoder(message);
+      const messageType = decoding.readVarUint(decoder);
 
-    switch (messageType) {
-      case MESSAGE_SYNC:
-        return this.handleSyncMessage(connection, room, decoder, message);
-      case MESSAGE_AWARENESS:
-        return this.handleAwarenessMessage(connection, room, decoder);
-      default:
-        logger.warn("Unknown message type", { messageType, connectionId });
-        return false;
+      switch (messageType) {
+        case MESSAGE_SYNC:
+          return this.handleSyncMessage(connection, room, decoder, message);
+        case MESSAGE_AWARENESS:
+          return this.handleAwarenessMessage(connection, room, decoder);
+        default:
+          logger.warn("Unknown message type", { messageType, connectionId });
+          return false;
+      }
+    } catch (error) {
+      logger.error("Failed to handle message", {
+        connectionId,
+        workspaceId,
+        error: error instanceof Error ? error.message : "Unknown error",
+        messageLength: message.byteLength,
+      });
+      return false;
     }
   }
 
@@ -438,26 +448,42 @@ class RoomManager {
         where: { workspaceId },
       });
       if (stored?.yjsState) {
-        const room = this.getOrCreateRoom(workspaceId);
-        Y.applyUpdate(room.doc, new Uint8Array(stored.yjsState));
+        if (stored.yjsState.length === 0) {
+          logger.warn("Stored Yjs state is empty", { workspaceId });
+          return false;
+        }
 
-        const entityCounts = {
-          boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
-          columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
-          tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
-          boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
-          boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
-            .size,
-          areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
-          areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
-        };
+        try {
+          const room = this.getOrCreateRoom(workspaceId);
+          Y.applyUpdate(room.doc, new Uint8Array(stored.yjsState));
 
-        logger.info("Loaded room state from database", {
-          workspaceId,
-          stateSize: stored.yjsState.length,
-          entityCounts,
-        });
-        return true;
+          const entityCounts = {
+            boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
+            columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
+            tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
+            boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
+            boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
+              .size,
+            areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
+            areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+          };
+
+          logger.info("Loaded room state from database", {
+            workspaceId,
+            stateSize: stored.yjsState.length,
+            entityCounts,
+          });
+          return true;
+        } catch (error) {
+          logger.error("Failed to apply stored Yjs state", {
+            workspaceId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          // We return false here so the caller knows state loading failed.
+          // Maybe we should start with a fresh room instead?
+          // For now, let's treat it as if no state existed, so a fresh doc is used.
+          return false;
+        }
       }
 
       logger.debug("No stored state found for workspace", { workspaceId });

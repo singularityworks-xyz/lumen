@@ -1,12 +1,13 @@
 "use client";
 
-import { Building2, Check, Plus } from "lucide-react";
+import { Building2, Check, Plus, User, Users } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "@/src/components/dialogs/create-workspace-dialog";
 import { DeleteWorkspaceDialog } from "@/src/components/dialogs/delete-workspace-dialog";
 import { DuplicateWorkspaceDialog } from "@/src/components/dialogs/duplicate-workspace-dialog";
 import { RenameWorkspaceDialog } from "@/src/components/dialogs/rename-workspace-dialog";
 import { ResetWorkspaceDialog } from "@/src/components/dialogs/reset-workspace-dialog";
+import { SharedWorkspaceQuickActions } from "@/src/components/shared-workspace-quick-actions";
 import { Button } from "@/src/components/ui/button";
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
 import { WorkspaceQuickActions } from "@/src/components/workspace-quick-actions";
+import { useAuth } from "@/src/hooks/use-auth";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
 
 export function WorkspaceSelector() {
@@ -80,7 +82,21 @@ export function WorkspaceSelector() {
     ? workspaces.byId[currentWorkspaceId]
     : null;
 
-  const defaultWorkspaceId = workspaces.allIds[0];
+  const { user } = useAuth();
+
+  const myWorkspaces = workspaces.allIds.filter((id) => {
+    const ws = workspaces.byId[id];
+    // Include if owner (or no owner info yet)
+    return ws && (!ws.ownerId || (user && ws.ownerId === user.id));
+  });
+
+  const sharedWithMeWorkspaces = workspaces.allIds.filter((id) => {
+    const ws = workspaces.byId[id];
+    // Include if valid user and owner exists but is NOT current user
+    return ws && user && ws.ownerId && ws.ownerId !== user.id;
+  });
+
+  const defaultWorkspaceId = myWorkspaces[0];
 
   const quickActionsWorkspace = workspaceQuickActions
     ? workspaces.byId[workspaceQuickActions.workspaceId]
@@ -228,6 +244,15 @@ export function WorkspaceSelector() {
     [closeWorkspaceQuickActions, closeWorkspaceDialog]
   );
 
+  const handleLeaveWorkspaceClick = useCallback(
+    (ref: React.RefObject<HTMLButtonElement | null>) => {
+      if (quickActionsWorkspace) {
+        handleOpenDialog("delete", quickActionsWorkspace.id, ref);
+      }
+    },
+    [quickActionsWorkspace, handleOpenDialog]
+  );
+
   return (
     <>
       <div className="pointer-events-auto fixed top-4 left-4 z-50">
@@ -262,9 +287,63 @@ export function WorkspaceSelector() {
             align="start"
             className="w-64 rounded-xl border-2 border-border/50 bg-card/95 p-2 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           >
-            {workspaces.allIds.length > 0 ? (
+            <div className="px-2 py-1.5 font-semibold text-muted-foreground text-xs">
+              My Workspaces
+            </div>
+            {myWorkspaces.length > 0 ? (
+              myWorkspaces.map((wsId) => {
+                const workspace = workspaces.byId[wsId];
+                if (!workspace) {
+                  return null;
+                }
+                return (
+                  <DropdownMenuItem
+                    className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
+                    key={workspace.id}
+                    onClick={() => setCurrentWorkspace(workspace.id)}
+                    onContextMenu={(e) =>
+                      handleWorkspaceContextMenu(e, workspace.id)
+                    }
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium text-sm">
+                          {workspace.name}
+                        </span>
+                        {workspace.isShared && (
+                          <div className="flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
+                            <Users className="h-3 w-3" />
+                            <span className="font-medium text-[10px]">
+                              Shared
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {workspace.description && (
+                        <span className="truncate text-muted-foreground text-xs">
+                          {workspace.description}
+                        </span>
+                      )}
+                    </div>
+                    {currentWorkspaceId === workspace.id && (
+                      <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-center text-muted-foreground text-sm">
+                No workspaces
+              </div>
+            )}
+
+            {sharedWithMeWorkspaces.length > 0 && (
               <>
-                {workspaces.allIds.map((wsId) => {
+                <DropdownMenuSeparator className="my-2 bg-border/50" />
+                <div className="px-2 py-1.5 font-semibold text-muted-foreground text-xs">
+                  Shared with Me
+                </div>
+                {sharedWithMeWorkspaces.map((wsId) => {
                   const workspace = workspaces.byId[wsId];
                   if (!workspace) {
                     return null;
@@ -279,14 +358,29 @@ export function WorkspaceSelector() {
                       }
                     >
                       <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-medium text-sm">
-                          {workspace.name}
-                        </span>
-                        {workspace.description && (
-                          <span className="truncate text-muted-foreground text-xs">
-                            {workspace.description}
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate font-medium text-sm">
+                            {workspace.name}
                           </span>
-                        )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {workspace.ownerImage ? (
+                            // biome-ignore lint/performance/noImgElement: External user avatars
+                            <img
+                              alt=""
+                              className="h-3 w-3 rounded-full"
+                              height={12}
+                              src={workspace.ownerImage}
+                              width={12}
+                            />
+                          ) : (
+                            <User className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span className="truncate text-muted-foreground text-xs">
+                            {workspace.ownerName || "Unknown Owner"}
+                          </span>
+                        </div>
                       </div>
                       {currentWorkspaceId === workspace.id && (
                         <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
@@ -294,13 +388,9 @@ export function WorkspaceSelector() {
                     </DropdownMenuItem>
                   );
                 })}
-                <DropdownMenuSeparator className="my-2 bg-border/50" />
               </>
-            ) : (
-              <div className="px-3 py-2 text-center text-muted-foreground text-sm">
-                No workspaces yet
-              </div>
             )}
+            <DropdownMenuSeparator className="my-2 bg-border/50" />
             <DropdownMenuItem
               className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 font-medium transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
               onClick={() => setShowCreateDialog(true)}
@@ -312,35 +402,49 @@ export function WorkspaceSelector() {
         </DropdownMenu>
       </div>
 
-      {workspaceQuickActions && quickActionsWorkspace && (
-        <WorkspaceQuickActions
-          getButtonRect={getButtonRect}
-          isDefaultWorkspace={
-            workspaceQuickActions.workspaceId === defaultWorkspaceId
-          }
-          onClose={closeWorkspaceQuickActions}
-          onDelete={(ref) =>
-            handleOpenDialog("delete", workspaceQuickActions.workspaceId, ref)
-          }
-          onDuplicate={(ref) =>
-            handleOpenDialog(
-              "duplicate",
-              workspaceQuickActions.workspaceId,
-              ref
-            )
-          }
-          onPositionChange={updateWorkspaceQuickActionsPosition}
-          onRename={(ref) =>
-            handleOpenDialog("rename", workspaceQuickActions.workspaceId, ref)
-          }
-          onReset={(ref) =>
-            handleOpenDialog("reset", workspaceQuickActions.workspaceId, ref)
-          }
-          position={workspaceQuickActions.position}
-          workspaceId={workspaceQuickActions.workspaceId}
-          workspaceName={quickActionsWorkspace.name}
-        />
-      )}
+      {workspaceQuickActions &&
+        quickActionsWorkspace &&
+        (quickActionsWorkspace.isShared ? (
+          <SharedWorkspaceQuickActions
+            getButtonRect={getButtonRect}
+            onClose={closeWorkspaceQuickActions}
+            onLeave={handleLeaveWorkspaceClick}
+            onPositionChange={updateWorkspaceQuickActionsPosition}
+            ownerImage={quickActionsWorkspace.ownerImage}
+            ownerName={quickActionsWorkspace.ownerName || "Unknown"}
+            position={workspaceQuickActions.position}
+            workspaceId={workspaceQuickActions.workspaceId}
+            workspaceName={quickActionsWorkspace.name}
+          />
+        ) : (
+          <WorkspaceQuickActions
+            getButtonRect={getButtonRect}
+            isDefaultWorkspace={
+              workspaceQuickActions.workspaceId === defaultWorkspaceId
+            }
+            onClose={closeWorkspaceQuickActions}
+            onDelete={(ref) =>
+              handleOpenDialog("delete", workspaceQuickActions.workspaceId, ref)
+            }
+            onDuplicate={(ref) =>
+              handleOpenDialog(
+                "duplicate",
+                workspaceQuickActions.workspaceId,
+                ref
+              )
+            }
+            onPositionChange={updateWorkspaceQuickActionsPosition}
+            onRename={(ref) =>
+              handleOpenDialog("rename", workspaceQuickActions.workspaceId, ref)
+            }
+            onReset={(ref) =>
+              handleOpenDialog("reset", workspaceQuickActions.workspaceId, ref)
+            }
+            position={workspaceQuickActions.position}
+            workspaceId={workspaceQuickActions.workspaceId}
+            workspaceName={quickActionsWorkspace.name}
+          />
+        ))}
 
       {showCreateDialog && (
         <CreateWorkspaceDialog

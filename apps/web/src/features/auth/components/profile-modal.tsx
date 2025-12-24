@@ -284,6 +284,13 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                     </Button>
                   </div>
                 )}
+
+                {/* Collaborators List */}
+                <CollaboratorsList
+                  apiUrl={apiUrl}
+                  open={open}
+                  workspaceId={currentWorkspaceId}
+                />
               </div>
             ) : (
               <div>
@@ -327,5 +334,113 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     document.body
   );
 });
+
+const CollaboratorsList = memo(
+  ({
+    workspaceId,
+    apiUrl,
+    open,
+  }: {
+    workspaceId: string | null;
+    apiUrl: string;
+    open: boolean;
+  }) => {
+    const [collaborators, setCollaborators] = useState<
+      Array<{
+        id: string;
+        name: string | null;
+        image: string | null;
+        role: string;
+        isOnline: boolean;
+      }>
+    >([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+      if (!(workspaceId && open)) {
+        return;
+      }
+
+      const fetchCollaborators = async () => {
+        setLoading(true);
+        try {
+          const response = await fetch(
+            `${apiUrl}/api/workspaces/${workspaceId}/collaborators`,
+            { credentials: "include" }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setCollaborators(data.collaborators || []);
+          }
+        } catch (error) {
+          console.error("Failed to fetch collaborators", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchCollaborators();
+      // Poll for online status every 10s
+      const interval = setInterval(fetchCollaborators, 10_000);
+      return () => clearInterval(interval);
+    }, [workspaceId, apiUrl, open]);
+
+    if (!workspaceId || (!loading && collaborators.length === 0)) {
+      return null;
+    }
+
+    return (
+      <div className="pt-2">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="font-medium text-muted-foreground text-xs">
+            Collaborators
+          </h3>
+          <span className="text-[10px] text-muted-foreground">
+            {collaborators.length} member{collaborators.length !== 1 && "s"}
+          </span>
+        </div>
+
+        {loading && collaborators.length === 0 ? (
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {collaborators.map((collab) => (
+              <div
+                className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/50 p-1.5"
+                key={collab.id}
+              >
+                <div className="relative">
+                  <Avatar className="h-6 w-6 rounded-md">
+                    <AvatarImage src={collab.image || ""} />
+                    <AvatarFallback className="rounded-md text-[10px]">
+                      {collab.name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  {collab.isOnline && (
+                    <span className="absolute -right-0.5 -bottom-0.5 block h-2 w-2 rounded-full border border-background bg-green-500" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-medium text-xs leading-none">
+                      {collab.name || "Unknown User"}
+                    </span>
+                    {collab.role === "owner" && (
+                      <span className="rounded bg-primary/10 px-1 py-0.5 font-medium text-[9px] text-primary leading-none">
+                        Owner
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
 
 ProfileModal.displayName = "ProfileModal";

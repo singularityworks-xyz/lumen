@@ -81,6 +81,28 @@ async function addCollaborator(
   role: "owner" | "editor" | "viewer"
 ): Promise<void> {
   try {
+    // Ensure workspace exists before adding collaborator (handles race conditions)
+    if (role === "owner") {
+      const workspaceExists = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { id: true },
+      });
+
+      if (!workspaceExists) {
+        logger.info(
+          { workspaceId, userId },
+          "Lazily creating workspace record for new owner"
+        );
+        await prisma.workspace.create({
+          data: {
+            id: workspaceId,
+            name: "Untitled Workspace", // Will be updated by the actual creation logic or subsequent edits
+            ownerId: userId,
+          },
+        });
+      }
+    }
+
     await prisma.workspaceCollaborator.upsert({
       where: { workspaceId_userId: { workspaceId, userId } },
       update: { role },
@@ -94,6 +116,55 @@ async function addCollaborator(
       error: error instanceof Error ? error.message : "Unknown error",
     });
     throw error;
+  }
+}
+
+/**
+ * Check if a workspace exists (has state or was explicitly created).
+ * A workspace is considered to exist if it has:
+ * 1. A WorkspaceState entry (persisted state), OR
+ * 2. At least one collaborator (was shared with someone), OR
+ * 3. A share link (was explicitly shared)
+ */
+async function checkWorkspaceExistence(idToCheck: string): Promise<boolean> {
+  try {
+    const workspaceRecord = await prisma.workspace.findUnique({
+      where: { id: idToCheck },
+      select: { id: true },
+    });
+    if (workspaceRecord) {
+      return true;
+    }
+
+    const state = await prisma.workspaceState.findUnique({
+      where: { workspaceId: idToCheck },
+      select: { id: true },
+    });
+    if (state) {
+      return true;
+    }
+
+    const collabCount = await prisma.workspaceCollaborator.count({
+      where: { workspaceId: idToCheck },
+    });
+    if (collabCount > 0) {
+      return true;
+    }
+
+    const shareCount = await prisma.workspaceShare.count({
+      where: { workspaceId: idToCheck },
+    });
+    if (shareCount > 0) {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error("Failed to check workspace existence", {
+      workspaceId: idToCheck,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return false;
   }
 }
 
@@ -123,10 +194,88 @@ async function createShareToken(
   }
 }
 
+async function getUserInfo(userId: string): Promise<{
+  id: string;
+  name: string | null;
+  image: string | null;
+  email: string;
+} | null> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, image: true, email: true },
+    });
+    return user;
+  } catch (error) {
+    logger.error("Failed to get user info", {
+      userId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return null;
+  }
+}
+
+async function getWorkspaceName(workspaceId: string): Promise<string | null> {
+  try {
+    // Try to get from Workspace table first (authoritative source)
+    const record = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true },
+    });
+    if (record) {
+      return record.name;
+    }
+
+    // Fallback: Try to get from active room
+    const room = roomManager.getRoom(workspaceId);
+    if (room) {
+      const workspaceMap = room.doc.getMap("workspace");
+      // Assuming workspace map keys are workspace IDs
+      const workspace = workspaceMap.get(workspaceId) as
+        | { name: string }
+        | undefined;
+      return workspace?.name || null;
+    }
+
+    // Fallback to database
+    const stored = await prisma.workspaceState.findUnique({
+      where: { workspaceId },
+    });
+
+    if (stored?.yjsState) {
+      // Create temp room to parse name
+      // Note: This parses the whole doc which is heavy, but we need the name
+      const tempRoom = roomManager.getOrCreateRoom(workspaceId);
+      const workspaceMap = tempRoom.doc.getMap("workspace");
+      const workspace = workspaceMap.get(workspaceId) as
+        | { name: string }
+        | undefined;
+      // We don't explicit destroy here as roomManager manages cache,
+      // but if we created it just for this, it stays in memory which is fine for now
+      return workspace?.name || null;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error("Failed to get workspace name", {
+      workspaceId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return null;
+  }
+}
+
 async function getShareInfo(token: string): Promise<{
   workspaceId: string;
   createdBy: string;
   expiresAt: Date | null;
+  workspaceName?: string | null;
+  owner?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+    email: string;
+  };
 } | null> {
   try {
     const share = await prisma.workspaceShare.findUnique({
@@ -135,10 +284,15 @@ async function getShareInfo(token: string): Promise<{
     if (!share) {
       return null;
     }
+    const owner = await getUserInfo(share.createdBy);
+    const workspaceName = await getWorkspaceName(share.workspaceId);
+
     return {
       workspaceId: share.workspaceId,
       createdBy: share.createdBy,
       expiresAt: share.expiresAt,
+      workspaceName,
+      owner: owner || undefined,
     };
   } catch (error) {
     logger.error("Failed to get share info", {
@@ -245,6 +399,20 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           if (!collab) {
             const count = await getWorkspaceCollaboratorCount(workspaceId);
             if (count === 0) {
+              // Only auto-assign if workspace actually exists (has state, shares, etc.)
+              // This prevents creating entries for orphaned workspace IDs stored in client localStorage
+              const exists = await checkWorkspaceExistence(workspaceId);
+              if (!exists) {
+                logger.warn("WebSocket connection to non-existent workspace", {
+                  workspaceId,
+                  userId,
+                });
+                set.status = 404;
+                return {
+                  error: "Not Found",
+                  message: "Workspace does not exist",
+                };
+              }
               await addCollaborator(workspaceId, userId, "owner");
               collab = { role: "owner" };
               logger.info("Auto-assigned owner role", { workspaceId, userId });
@@ -323,6 +491,20 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       if (!collab) {
         const count = await getWorkspaceCollaboratorCount(workspaceId);
         if (count === 0) {
+          // Only auto-assign if workspace actually exists (has state, shares, etc.)
+          // This prevents creating entries for orphaned workspace IDs stored in client localStorage
+          const exists = await checkWorkspaceExistence(workspaceId);
+          if (!exists) {
+            logger.warn("WebSocket connection to non-existent workspace", {
+              workspaceId,
+              userId: session.user.id,
+            });
+            set.status = 404;
+            return {
+              error: "Not Found",
+              message: "Workspace does not exist",
+            };
+          }
           await addCollaborator(workspaceId, session.user.id, "owner");
           collab = { role: "owner" };
           logger.info("Auto-assigned owner role", {
@@ -587,6 +769,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
 
       return {
         workspaceId: shareInfo.workspaceId,
+        workspaceName: shareInfo.workspaceName,
+        owner: shareInfo.owner,
       };
     },
     {
@@ -644,6 +828,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         workspaceId: shareInfo.workspaceId,
         role: "editor",
         message: "Successfully joined workspace",
+        workspaceName: shareInfo.workspaceName,
+        owner: shareInfo.owner,
       };
     },
     {
@@ -664,17 +850,74 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         return { error: "Unauthorized" };
       }
 
-      const collab = await getCollaborator(workspaceId, session.user.id);
-      if (!collab) {
+      const isMember =
+        (await getCollaborator(workspaceId, session.user.id)) ||
+        (await prisma.workspace.findFirst({
+          where: { id: workspaceId, ownerId: session.user.id },
+        }));
+
+      if (!isMember) {
         set.status = 403;
         return { error: "Not a collaborator on this workspace" };
       }
 
-      const online = roomManager.getCollaborators(workspaceId);
+      // Fetch all collaborators from DB (including owner)
+      const collaborators = await prisma.workspaceCollaborator.findMany({
+        where: { workspaceId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      // Also fetch owner info if not in collaborators table (though should be there)
+      await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      const result = collaborators.map((c) => ({
+        id: c.userId,
+        name: c.user.name,
+        email: c.user.email,
+        image: c.user.image,
+        role: c.role,
+        joinedAt: c.joinedAt,
+      }));
+
+      // Ensure owner is in list (if for some reason not in collaborators)
+      // but typically we add owner to collaborators on creation.
+      // Filter out duplicates just in case
+      const uniqueCollaborators = new Map();
+      for (const c of result) {
+        uniqueCollaborators.set(c.id, c);
+      }
+
+      // Get online status
+      const onlineUsers = roomManager.getCollaborators(workspaceId);
+      const onlineIds = new Set(onlineUsers.map((u) => u.id));
 
       return {
-        online,
-        count: online.length,
+        collaborators: Array.from(uniqueCollaborators.values()).map((c) => ({
+          ...c,
+          isOnline: onlineIds.has(c.id),
+        })),
+        onlineCount: onlineIds.size,
       };
     },
     {
@@ -754,5 +997,208 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
     {
       params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  .get("/api/workspaces", async ({ headers, set }) => {
+    const session = await auth.api.getSession({
+      headers: toHeaders(headers),
+    });
+
+    if (!session) {
+      set.status = 401;
+      return { error: "Unauthorized" };
+    }
+
+    try {
+      // Fetch workspaces where user is owner or collaborator
+      const workspaces = await prisma.workspace.findMany({
+        where: {
+          OR: [
+            { ownerId: session.user.id },
+            { collaborators: { some: { userId: session.user.id } } },
+          ],
+        },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          collaborators: {
+            select: { userId: true },
+          },
+          _count: {
+            select: { shares: true, collaborators: true },
+          },
+        },
+      });
+
+      return workspaces.map((ws) => ({
+        id: ws.id,
+        name: ws.name,
+        description: ws.description,
+        ownerId: ws.ownerId,
+        ownerName: ws.owner.name,
+        ownerImage: ws.owner.image,
+        created_at: ws.createdAt,
+        // A workspace is shared if it has more than 1 collaborator (owner + someone else)
+        // OR if it has active share links
+        isShared: ws._count.collaborators > 1 || ws._count.shares > 0,
+      }));
+    } catch (error) {
+      logger.error("Failed to list workspaces", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      set.status = 500;
+      return { error: "Failed to list workspaces" };
+    }
+  })
+
+  .post(
+    "/api/workspaces",
+    async ({ body, headers, set }) => {
+      const { id, name, description } = body;
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      try {
+        const workspaceId = id || generateId(16);
+
+        const workspace = await prisma.workspace.upsert({
+          where: { id: workspaceId },
+          create: {
+            id: workspaceId,
+            name,
+            description,
+            ownerId: session.user.id,
+            collaborators: {
+              create: {
+                userId: session.user.id,
+                role: "owner",
+              },
+            },
+          },
+          update: {
+            name,
+            description,
+            // Don't update owner or collaborators here, they are consistent
+          },
+        });
+
+        logger.info(
+          { workspaceId: workspace.id, userId: session.user.id },
+          "Workspace created via API"
+        );
+
+        return {
+          id: workspace.id,
+          name: workspace.name,
+          description: workspace.description,
+          ownerId: workspace.ownerId,
+        };
+      } catch (error) {
+        logger.error("Failed to create workspace", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to create workspace" };
+      }
+    },
+    {
+      body: t.Object({
+        id: t.Optional(t.String()),
+        name: t.String(),
+        description: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  // Update workspace
+  .patch(
+    "/api/workspaces/:workspaceId",
+    async ({ params, body, headers, set }) => {
+      const { workspaceId } = params;
+      const { name, description } = body;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Check permissions
+      const collab = await getCollaborator(workspaceId, session.user.id);
+      if (!collab || collab.role !== "owner") {
+        set.status = 403;
+        return { error: "Only workspace owner can update workspace details" };
+      }
+
+      try {
+        // Check if record exists
+        const exists = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+        });
+
+        let result: { id: string; name: string; description: string | null };
+        if (exists) {
+          result = await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: {
+              name,
+              description,
+            },
+          });
+        } else {
+          // Migration path: if it doesn't exist but user is owner (checked above via collaborator table), create it
+          result = await prisma.workspace.create({
+            data: {
+              id: workspaceId,
+              name: name || "Untitled Workspace",
+              description,
+              ownerId: session.user.id,
+              // Relations are already there in other tables, but we need to ensure consistency?
+              // Actually, relations rely on IDs, so just creating the parent record should link them if FKs match.
+              // But wait, existing collaborators reference workspaceId. If I create the workspace record now, it works.
+            },
+          });
+        }
+
+        logger.info(
+          { workspaceId, userId: session.user.id },
+          "Workspace updated via API"
+        );
+
+        return {
+          id: result.id,
+          name: result.name,
+          description: result.description,
+        };
+      } catch (error) {
+        logger.error("Failed to update workspace", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to update workspace" };
+      }
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+      body: t.Object({
+        name: t.Optional(t.String()),
+        description: t.Optional(t.String()),
+      }),
     }
   );

@@ -8,7 +8,11 @@ export { CollaborationProvider, useCollaboration } from "./collab-provider";
 export { CollaborationWrapper } from "./collab-wrapper";
 export { CursorOverlay } from "./cursor-overlay";
 export * from "./hooks/use-yjs-sync";
-export { JoinWorkspaceHandler, useJoinWorkspace } from "./join-handler";
+export {
+  type JoinSuccessData,
+  JoinWorkspaceHandler,
+  useJoinWorkspace,
+} from "./join-handler";
 export * from "./sync/entity-sync";
 export * from "./sync/state-sync";
 export * from "./sync/syncs";

@@ -82,6 +82,11 @@ export type Workspace = {
   customColors?: string[];
   colorUsage?: Record<string, number>;
   iconUsage?: Record<string, number>;
+  isShared?: boolean;
+  ownerId?: string;
+  ownerName?: string;
+  ownerImage?: string;
+  shareToken?: string;
 };
 
 export type EntityMap<T> = {

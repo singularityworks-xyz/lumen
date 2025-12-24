@@ -206,31 +206,41 @@ export function CollaborationProvider({
       };
 
       ws.onmessage = (event) => {
-        const data = new Uint8Array(event.data as ArrayBuffer);
-        const decoder = decoding.createDecoder(data);
-        const messageType = decoding.readVarUint(decoder);
+        try {
+          const data = new Uint8Array(event.data as ArrayBuffer);
+          if (data.byteLength === 0) {
+            return;
+          }
 
-        switch (messageType) {
-          case MESSAGE_SYNC: {
-            const update = decoding.readVarUint8Array(decoder);
-            Y.applyUpdate(doc, update, "server");
-            logger.debug("Applied sync update from server", {
-              updateSize: update.length,
-            });
-            break;
+          const decoder = decoding.createDecoder(data);
+          const messageType = decoding.readVarUint(decoder);
+
+          switch (messageType) {
+            case MESSAGE_SYNC: {
+              const update = decoding.readVarUint8Array(decoder);
+              Y.applyUpdate(doc, update, "server");
+              logger.debug("Applied sync update from server", {
+                updateSize: update.length,
+              });
+              break;
+            }
+            case MESSAGE_AWARENESS: {
+              const awarenessUpdate = decoding.readVarUint8Array(decoder);
+              awarenessProtocol.applyAwarenessUpdate(
+                awareness,
+                awarenessUpdate,
+                "server"
+              );
+              break;
+            }
+            default:
+              logger.warn("Unknown message type", { messageType });
+              break;
           }
-          case MESSAGE_AWARENESS: {
-            const awarenessUpdate = decoding.readVarUint8Array(decoder);
-            awarenessProtocol.applyAwarenessUpdate(
-              awareness,
-              awarenessUpdate,
-              "server"
-            );
-            break;
-          }
-          default:
-            logger.warn("Unknown message type", { messageType });
-            break;
+        } catch (error) {
+          logger.error("Failed to handle WebSocket message", {
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
         }
       };
 

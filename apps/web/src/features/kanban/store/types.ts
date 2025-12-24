@@ -116,15 +116,8 @@ export type KanbanActions = {
   // Workspace actions
   setCurrentWorkspace: (workspaceId: string | null) => void;
   addWorkspace: (name: string, description?: string) => string;
-  updateWorkspace: (
-    workspaceId: string,
-    updates: Partial<
-      Pick<
-        Workspace,
-        "name" | "description" | "customColors" | "colorUsage" | "iconUsage"
-      >
-    >
-  ) => void;
+  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) => void;
+  updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
   deleteWorkspace: (workspaceId: string) => void;
   resetWorkspace: (
     workspaceId: string,
