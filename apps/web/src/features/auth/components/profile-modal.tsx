@@ -1,11 +1,13 @@
 import { createLogger } from "@lumen/logger";
 import {
   Check,
+  ChevronDown,
   Copy,
   Github,
   Link,
   Loader2,
   LogOut,
+  Share2,
   User,
   X,
 } from "lucide-react";
@@ -67,9 +69,44 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const clearWorkspaceShareUrl = useKanbanStore(
     (state) => state.clearWorkspaceShareUrl
   );
+  const workspaces = useKanbanStore((state) => state.workspaces);
+  const workspaceShareUrls = useKanbanStore(
+    (state) => state.workspaceShareUrls
+  );
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
   const isDefaultWorkspace = currentWorkspaceId === defaultWorkspaceId;
+
+  const sharedWorkspaces = Object.entries(workspaceShareUrls)
+    .filter(
+      ([wsId, url]) =>
+        url && wsId !== currentWorkspaceId && workspaces.byId[wsId]
+    )
+    .map(([wsId, url]) => ({
+      id: wsId,
+      name: workspaces.byId[wsId]?.name || "Unknown Workspace",
+      url,
+    }));
+
+  const totalSharedCount = Object.entries(workspaceShareUrls).filter(
+    ([wsId, url]) => url && workspaces.byId[wsId]
+  ).length;
+  const [copiedWorkspaceId, setCopiedWorkspaceId] = useState<string | null>(
+    null
+  );
+  const [showOtherShared, setShowOtherShared] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    for (const wsId of Object.keys(workspaceShareUrls)) {
+      if (!workspaces.byId[wsId]) {
+        clearWorkspaceShareUrl(wsId);
+      }
+    }
+  }, [open, workspaces.byId, workspaceShareUrls, clearWorkspaceShareUrl]);
 
   useEffect(() => {
     if (!(open && currentWorkspaceId && user)) {
@@ -81,12 +118,10 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       return;
     }
 
-    // Don't auto-fetch share for default workspace
     if (isDefaultWorkspace) {
       return;
     }
 
-    // Fetch from backend and cache in store
     const fetchExistingShare = async () => {
       try {
         const response = await fetch(
@@ -201,6 +236,19 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       setError("Failed to copy link");
     }
   }, [shareUrl]);
+
+  const handleCopyWorkspaceLink = useCallback(
+    async (workspaceId: string, url: string) => {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedWorkspaceId(workspaceId);
+        setTimeout(() => setCopiedWorkspaceId(null), 2000);
+      } catch {
+        setError("Failed to copy link");
+      }
+    },
+    []
+  );
 
   const handleGithubLogin = async () => {
     setIsSigningIn(true);
@@ -342,32 +390,117 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                 </div>
 
                 {showShareInput && (
-                  <div className="flex items-center gap-1.5">
-                    {isLoadingShare ? (
-                      <div className="flex h-7 flex-1 items-center justify-center rounded-md border bg-muted/30">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <div className="space-y-2">
+                    {/* Current workspace share link */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                          <Share2 className="h-3 w-3" />
+                          {currentWorkspace?.name || "Workspace"}
+                        </span>
+                        {totalSharedCount > 0 && (
+                          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {totalSharedCount} shared
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <Input
-                        className="h-7 flex-1 text-xs"
-                        placeholder="Share link"
-                        readOnly
-                        value={shareUrl || ""}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        {isLoadingShare ? (
+                          <div className="flex h-7 flex-1 items-center justify-center rounded-md border bg-muted/30">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <Input
+                            className="h-7 flex-1 text-xs"
+                            placeholder="Share link"
+                            readOnly
+                            value={shareUrl || ""}
+                          />
+                        )}
+                        <Button
+                          className="h-7 w-7 shrink-0 p-0"
+                          disabled={!shareUrl || isLoadingShare}
+                          onClick={handleCopyLink}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {copied ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Other shared workspaces */}
+                    {sharedWorkspaces.length > 0 && (
+                      <div className="space-y-1.5">
+                        <button
+                          className="flex w-full items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                          onClick={() => setShowOtherShared(!showOtherShared)}
+                          type="button"
+                        >
+                          <ChevronDown
+                            className={`h-3 w-3 transition-transform ${showOtherShared ? "rotate-0" : "-rotate-90"}`}
+                          />
+                          <span>
+                            Other shared workspaces ({sharedWorkspaces.length})
+                          </span>
+                        </button>
+
+                        <AnimatePresence>
+                          {showOtherShared && (
+                            <motion.div
+                              animate={{ height: "auto", opacity: 1 }}
+                              className="space-y-1 overflow-hidden"
+                              exit={{ height: 0, opacity: 0 }}
+                              initial={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              {sharedWorkspaces.map((ws) => (
+                                <div
+                                  className="flex items-center gap-1.5 rounded-md bg-muted/30 px-2 py-1.5"
+                                  key={ws.id}
+                                >
+                                  <span className="flex-1 truncate text-xs">
+                                    {ws.name}
+                                  </span>
+                                  <TooltipProvider delayDuration={300}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          className="h-6 w-6 shrink-0 p-0"
+                                          onClick={() =>
+                                            handleCopyWorkspaceLink(
+                                              ws.id,
+                                              ws.url
+                                            )
+                                          }
+                                          size="sm"
+                                          variant="ghost"
+                                        >
+                                          {copiedWorkspaceId === ws.id ? (
+                                            <Check className="h-3 w-3 text-green-500" />
+                                          ) : (
+                                            <Copy className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left">
+                                        <p className="text-xs">
+                                          Copy share link
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     )}
-                    <Button
-                      className="h-7 w-7 shrink-0 p-0"
-                      disabled={!shareUrl || isLoadingShare}
-                      onClick={handleCopyLink}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {copied ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
                   </div>
                 )}
 

@@ -16,6 +16,12 @@ import {
 } from "@/src/features/collab";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import type {
+  Board,
+  BoardPosition,
+  Column,
+  Task,
+} from "@/src/features/kanban/types";
 import { useWorkspaceSync } from "@/src/hooks/use-workspace-sync";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 
@@ -82,8 +88,7 @@ function KanbanPageContent() {
               for (const [id, board] of Object.entries(
                 stateData.boards || {}
               )) {
-                // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
-                state.boards.byId[id] = board as any;
+                state.boards.byId[id] = board as Board;
                 if (!state.boards.allIds.includes(id)) {
                   state.boards.allIds.push(id);
                 }
@@ -98,8 +103,7 @@ function KanbanPageContent() {
               for (const [id, column] of Object.entries(
                 stateData.columns || {}
               )) {
-                // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
-                state.columns.byId[id] = column as any;
+                state.columns.byId[id] = column as Column;
                 if (!state.columns.allIds.includes(id)) {
                   state.columns.allIds.push(id);
                 }
@@ -107,8 +111,7 @@ function KanbanPageContent() {
 
               // Merge tasks
               for (const [id, task] of Object.entries(stateData.tasks || {})) {
-                // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
-                state.tasks.byId[id] = task as any;
+                state.tasks.byId[id] = task as Task;
                 if (!state.tasks.allIds.includes(id)) {
                   state.tasks.allIds.push(id);
                 }
@@ -118,8 +121,7 @@ function KanbanPageContent() {
               for (const [id, pos] of Object.entries(
                 stateData.boardPositions || {}
               )) {
-                // biome-ignore lint/suspicious/noExplicitAny: TODO: Type properly
-                state.boardPositions.byId[id] = pos as any;
+                state.boardPositions.byId[id] = pos as BoardPosition;
                 if (!state.boardPositions.allIds.includes(id)) {
                   state.boardPositions.allIds.push(id);
                 }
