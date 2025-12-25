@@ -705,9 +705,9 @@ const CollaboratorsList = memo(
                         className={`h-8 w-8 cursor-help rounded-lg ring-2 ring-background ${isOnline ? "hover:scale-110" : "border border-border/50 bg-muted"}`}
                         style={
                           isOnline && cursorColor
-                            ? { border: `3px solid ${cursorColor}` }
+                            ? { border: `2px solid ${cursorColor}` }
                             : isOnline
-                              ? { border: "3px solid hsl(var(--primary))" }
+                              ? { border: "2px solid hsl(var(--primary))" }
                               : undefined
                         }
                       >

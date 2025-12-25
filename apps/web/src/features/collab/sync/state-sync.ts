@@ -89,26 +89,51 @@ export function applyYjsToState(
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS)
   );
 
-  // Helper to merge entity maps, optionally filtering by workspace
+  // Helper to merge entity maps, handling additions, updates, AND deletions
+  // For entities belonging to the current workspace, if they exist locally but not in Yjs,
+  // they should be removed (they were deleted by another collaborator)
   const mergeEntityMaps = <T extends { id: string }>(
     existing: { byId: Record<string, T>; allIds: string[] } | undefined,
     synced: { byId: Record<string, T>; allIds: string[] },
-    filterFn?: (item: T) => boolean
+    filterFn?: (item: T) => boolean,
+    belongsToWorkspaceFn?: (item: T) => boolean
   ): { byId: Record<string, T>; allIds: string[] } => {
     const merged = existing
       ? { byId: { ...existing.byId }, allIds: [...existing.allIds] }
       : { byId: {} as Record<string, T>, allIds: [] as string[] };
 
+    // Track which IDs from Yjs belong to current workspace
+    const syncedWorkspaceIds = new Set<string>();
+
+    // Add/update items from Yjs
     for (const id of synced.allIds) {
       const syncedItem = synced.byId[id];
       if (syncedItem) {
         if (filterFn && !filterFn(syncedItem)) {
           continue;
         }
+        syncedWorkspaceIds.add(id);
         merged.byId[id] = syncedItem;
         if (!merged.allIds.includes(id)) {
           merged.allIds.push(id);
         }
+      }
+    }
+
+    // Remove items that exist locally but not in Yjs (deleted by other collaborator)
+    // Only remove if they belong to the current workspace (to avoid deleting local-only data)
+    if (currentWorkspaceId && belongsToWorkspaceFn) {
+      const idsToRemove: string[] = [];
+      for (const id of merged.allIds) {
+        const item = merged.byId[id];
+        // If this item belongs to the current workspace but is not in Yjs, it was deleted
+        if (item && belongsToWorkspaceFn(item) && !syncedWorkspaceIds.has(id)) {
+          idsToRemove.push(id);
+        }
+      }
+      for (const id of idsToRemove) {
+        delete merged.byId[id];
+        merged.allIds = merged.allIds.filter((i) => i !== id);
       }
     }
 
@@ -136,7 +161,6 @@ export function applyYjsToState(
   const areaBelongsToWorkspace = (area: { workspace_id?: string }): boolean =>
     !currentWorkspaceId || area.workspace_id === currentWorkspaceId;
 
-  // Get the set of area IDs that belong to current workspace
   const workspaceAreaIds = new Set(
     syncedAreas.allIds.filter((id) => {
       const area = syncedAreas.byId[id];
@@ -147,22 +171,35 @@ export function applyYjsToState(
   const boards = mergeEntityMaps(
     currentState?.boards,
     syncedBoards,
+    boardBelongsToWorkspace,
     boardBelongsToWorkspace
   );
+
+  // Update workspaceBoardIds to include both synced AND remaining local boards
+  // (needed for column/task filtering after some boards might have been removed)
+  const activeBoardIds = new Set(boards.allIds);
+
+  const entityBelongsToActiveBoard = (entity: { board_id?: string }): boolean =>
+    !currentWorkspaceId ||
+    Boolean(entity.board_id && activeBoardIds.has(entity.board_id));
+
   const columns = mergeEntityMaps(
     currentState?.columns,
     syncedColumns,
-    entityBelongsToWorkspaceBoard
+    entityBelongsToWorkspaceBoard,
+    entityBelongsToActiveBoard
   );
   const tasks = mergeEntityMaps(
     currentState?.tasks,
     syncedTasks,
-    entityBelongsToWorkspaceBoard
+    entityBelongsToWorkspaceBoard,
+    entityBelongsToActiveBoard
   );
   const boardPositions = mergeEntityMaps(
     currentState?.boardPositions,
     syncedBoardPositions,
-    (pos): boolean => !currentWorkspaceId || workspaceBoardIds.has(pos.id)
+    (pos): boolean => !currentWorkspaceId || workspaceBoardIds.has(pos.id),
+    (pos): boolean => activeBoardIds.has(pos.id)
   );
   const boardConnections = mergeEntityMaps(
     currentState?.boardConnections,
@@ -174,17 +211,31 @@ export function applyYjsToState(
           workspaceBoardIds.has(conn.source_board_id) &&
           conn.target_board_id &&
           workspaceBoardIds.has(conn.target_board_id)
-      )
+      ),
+    (conn): boolean =>
+      activeBoardIds.has(conn.source_board_id) &&
+      activeBoardIds.has(conn.target_board_id)
   );
+
+  // Update workspaceAreaIds similarly
+  const activeAreaIds = new Set(
+    syncedAreas.allIds.filter((id) => {
+      const area = syncedAreas.byId[id];
+      return area && areaBelongsToWorkspace(area);
+    })
+  );
+
   const areas = mergeEntityMaps(
     currentState?.areas,
     syncedAreas,
+    areaBelongsToWorkspace,
     areaBelongsToWorkspace
   );
   const areaPositions = mergeEntityMaps(
     currentState?.areaPositions,
     syncedAreaPositions,
-    (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id)
+    (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
+    (pos) => activeAreaIds.has(pos.id)
   );
 
   logger.debug("Applied Yjs to state (merged)", {

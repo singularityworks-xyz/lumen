@@ -12,6 +12,11 @@ import { CheckCircle2, GripVertical, Plus, SquarePen, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/src/components/ui/popover";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -145,6 +150,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
 
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const headerRef = useRef<HTMLDivElement>(null);
 
     const VIEWPORT_PADDING = 100;
@@ -304,10 +310,22 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       setNodes,
     ]);
 
-    const handleRemove = (e: React.MouseEvent) => {
-      e.stopPropagation();
+    const handleRemove = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (taskCounts.total >= 1) {
+          setShowDeleteConfirm(true);
+        } else {
+          removeBoard(id);
+        }
+      },
+      [id, removeBoard, taskCounts.total]
+    );
+
+    const handleConfirmDelete = useCallback(() => {
+      setShowDeleteConfirm(false);
       removeBoard(id);
-    };
+    }, [id, removeBoard]);
 
     const handleClick = (e: {
       metaKey: boolean;
@@ -699,13 +717,39 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 <Plus className="h-3 w-3" />
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
-              <button
-                className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                onClick={handleRemove}
-                type="button"
+              <Popover
+                onOpenChange={setShowDeleteConfirm}
+                open={showDeleteConfirm}
               >
-                <X className="h-3 w-3" />
-              </button>
+                <PopoverTrigger asChild>
+                  <button
+                    className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                    onClick={handleRemove}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="center"
+                  className="nodrag w-auto border-border/50 bg-card px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  side="top"
+                  sideOffset={8}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs">
+                      Delete board?
+                    </span>
+                    <button
+                      className="flex h-5 w-5 items-center justify-center rounded text-destructive transition-colors hover:bg-destructive/10"
+                      onClick={handleConfirmDelete}
+                      type="button"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
