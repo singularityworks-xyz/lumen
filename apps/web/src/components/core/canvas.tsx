@@ -1161,6 +1161,38 @@ export function KanbanCanvas() {
     }
   }, [isCollaborating, updateCursor]);
 
+  // Track cursor during node dragging (board, dialog, etc.)
+  // This fixes the issue where cursor doesn't update when dragging boards by header
+  const handleNodeDrag = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isCollaborating) {
+        return;
+      }
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor({ x: flowPos.x, y: flowPos.y });
+    },
+    [isCollaborating, screenToFlowPosition, updateCursor]
+  );
+
+  // Navigate to a collaborator's cursor position (when clicking edge indicator)
+  const handleNavigateToUser = useCallback(
+    (position: { x: number; y: number }) => {
+      // Center the viewport on the collaborator's cursor position
+      setReactFlowViewport(
+        {
+          x: -position.x + window.innerWidth / 2,
+          y: -position.y + window.innerHeight / 2,
+          zoom: 1,
+        },
+        { duration: 500 }
+      );
+    },
+    [setReactFlowViewport]
+  );
+
   return (
     <DndContext
       collisionDetection={closestCenter}
@@ -1202,6 +1234,7 @@ export function KanbanCanvas() {
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
+            onNodeDrag={handleNodeDrag}
             onNodesChange={handleNodesChange}
             onSelectionEnd={handleSelectionEnd}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
@@ -1258,6 +1291,7 @@ export function KanbanCanvas() {
             <CursorOverlay
               collaborators={collaborators}
               flowToScreenPosition={flowToScreenPosition}
+              onNavigateToUser={handleNavigateToUser}
             />
           )}
           {edgeContextMenu && (

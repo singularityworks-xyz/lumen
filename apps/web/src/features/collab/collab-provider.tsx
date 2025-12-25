@@ -79,7 +79,7 @@ const CollaborationContext = createContext<CollaborationContextType | null>(
 );
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16_000, 30_000];
-const CURSOR_THROTTLE_MS = 50;
+const CURSOR_THROTTLE_MS = 16; // ~60fps for smooth cursor updates - will turn it down if needed
 
 const CURSOR_COLORS = [
   "#ef4444", // red
