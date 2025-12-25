@@ -180,8 +180,17 @@ export function CollaborationProvider({
     // Use Map to deduplicate by user.id - keep only the latest state for each user
     const collaboratorMap = new Map<string, Collaborator>();
 
+    // Get local user ID to filter out own cursor
+    const localUserId = localUserInfoRef.current?.id;
+
     states.forEach((state, clientId) => {
-      if (state.user && clientId !== awareness.clientID) {
+      // Filter out own cursor by both clientID AND userId
+      // This handles edge cases where same user has multiple connections
+      // or server-side awareness state matches local user
+      const isLocalClient = clientId === awareness.clientID;
+      const isLocalUser = state.user?.id === localUserId;
+
+      if (state.user && !isLocalClient && !isLocalUser) {
         // Overwrite previous entry for same user - this ensures only 1 cursor per user
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
@@ -275,6 +284,20 @@ export function CollaborationProvider({
           awareness.setLocalStateField("user", localUserInfoRef.current);
           setLocalUser(localUserInfoRef.current);
         }
+
+        // Immediately broadcast local awareness state to ensure other clients see us
+        // This fixes the issue where cursors aren't visible until page refresh
+        const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
+          awareness,
+          [awareness.clientID]
+        );
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+        encoding.writeVarUint8Array(encoder, awarenessUpdate);
+        ws.send(encoding.toUint8Array(encoder));
+
+        // Trigger local awareness update handler to sync any existing collaborator state
+        handleAwarenessUpdate();
       };
 
       ws.onmessage = (event) => {

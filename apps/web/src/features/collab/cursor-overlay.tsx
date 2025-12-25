@@ -16,15 +16,19 @@ const CursorIcon = memo(({ color }: { color: string }) => (
   // biome-ignore lint/a11y/noSvgWithoutTitle: skip for decorative icon
   <svg
     fill="none"
-    height="24"
-    style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))" }}
-    viewBox="0 0 24 24"
-    width="24"
+    height="18"
+    style={{
+      filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.2))",
+      transform: "rotate(-19deg)",
+    }}
+    viewBox="0 0 14 18"
+    width="14"
   >
     <path
-      d="M5.5 3.21V20.79C5.5 21.16 5.63 21.35 5.89 21.35C6.04 21.35 6.2 21.28 6.37 21.13L10.22 17.28L12.65 22.88C12.75 23.13 12.92 23.29 13.17 23.37C13.42 23.45 13.67 23.42 13.9 23.28L15.71 22.12C15.93 21.98 16.08 21.78 16.14 21.52C16.2 21.26 16.14 21.01 15.97 20.78L13.22 15.42L18.62 14.5C18.93 14.44 19.15 14.27 19.27 14C19.39 13.73 19.35 13.48 19.16 13.25L6.47 3.67C6.32 3.54 6.15 3.48 5.96 3.5C5.64 3.5 5.5 3.69 5.5 3.21Z"
+      d="M1 1L1 16L5.5 11.5L12 11.5L1 1Z"
       fill={color}
       stroke="white"
+      strokeLinejoin="round"
       strokeWidth="1"
     />
   </svg>
@@ -52,6 +56,8 @@ const CollaboratorCursor = memo(
     const x = screenPos.x;
     const y = screenPos.y;
 
+    const firstName = name.split(" ")[0] || name;
+
     return (
       <motion.div
         animate={{ opacity: 1, scale: 1, x, y }}
@@ -68,14 +74,13 @@ const CollaboratorCursor = memo(
       >
         <CursorIcon color={color} />
         <div
-          className="absolute top-5 left-5 whitespace-nowrap rounded-md px-2 py-1 font-medium text-white text-xs shadow-md"
+          className="absolute top-4 left-2.5 whitespace-nowrap rounded-full px-2 py-0.5 font-medium text-[10px] text-white"
           style={{
             backgroundColor: color,
-            border: `2px solid ${color}`,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
           }}
         >
-          {name}
+          {firstName}
         </div>
       </motion.div>
     );
