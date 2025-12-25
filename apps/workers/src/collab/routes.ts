@@ -1,0 +1,1108 @@
+import { prisma, type Role } from "@lumen/db";
+import { createLogger } from "@lumen/logger";
+import { Elysia, t } from "elysia";
+import { auth } from "../auth/config/auth";
+import {
+  addCollaborator,
+  checkWorkspaceExistence,
+  createShareToken,
+  generateId,
+  getCollaborator,
+  getColorForUser,
+  getShareInfo,
+  getWorkspaceCollaboratorCount,
+  getWorkspaceName,
+  toHeaders,
+} from "./helpers";
+import { type CollaboratorInfo, roomManager } from "./room-manager";
+
+const logger = createLogger({ name: "collab:routes" });
+
+type WsData = {
+  params: { workspaceId: string };
+  query: { stateVector?: string };
+  user?: {
+    id: string;
+    name?: string | null;
+    email: string;
+    image?: string | null;
+  };
+  collaborator?: { role: Role };
+  initialStateVector?: Uint8Array;
+  connectionId?: string;
+};
+
+// Store pending auth data between beforeHandle and open handler
+const pendingAuth = new Map<
+  string,
+  {
+    user: {
+      id: string;
+      name?: string | null;
+      email: string;
+      image?: string | null;
+    };
+    collaborator: { role: Role };
+    initialStateVector?: Uint8Array;
+    connectionId: string;
+    timestamp: number;
+  }
+>();
+
+// Clean up old pending auth entries every 30 seconds
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of pendingAuth.entries()) {
+    if (now - value.timestamp > 30_000) {
+      pendingAuth.delete(key);
+    }
+  }
+}, 30_000);
+
+export const collabRoutes = new Elysia({ name: "collab-routes" })
+  .ws("/ws/collab/:workspaceId", {
+    body: t.Any(),
+    params: t.Object({
+      workspaceId: t.String(),
+    }),
+    query: t.Object({
+      token: t.Optional(t.String()),
+      stateVector: t.Optional(t.String()),
+    }),
+
+    async beforeHandle({ params, headers, set, query }) {
+      const { workspaceId } = params;
+      const { token } = query;
+
+      logger.debug("WebSocket beforeHandle starting", {
+        workspaceId,
+        hasToken: !!token,
+      });
+
+      // Immediately reject if workspace was recently deleted
+      if (roomManager.isWorkspaceDeleted(workspaceId)) {
+        logger.warn("WebSocket connection rejected - workspace deleted", {
+          workspaceId,
+        });
+        set.status = 410;
+        return {
+          error: "Gone",
+          message: "Workspace has been deleted",
+        };
+      }
+
+      if (token) {
+        try {
+          const { createRemoteJWKSet, jwtVerify } = await import("jose");
+          const baseUrl =
+            process.env.BETTER_AUTH_URL || "http://localhost:3002";
+          const JWKS = createRemoteJWKSet(new URL(`${baseUrl}/api/auth/jwks`));
+
+          const { payload } = await jwtVerify(token, JWKS, {
+            issuer: baseUrl,
+            audience: baseUrl,
+          });
+
+          if (!payload.sub) {
+            logger.warn("JWT missing sub claim", { workspaceId });
+            set.status = 401;
+            return { error: "Unauthorized", message: "Invalid JWT token" };
+          }
+
+          const userId = payload.sub;
+          let collab = await getCollaborator(workspaceId, userId);
+
+          if (!collab) {
+            const count = await getWorkspaceCollaboratorCount(workspaceId);
+            if (count === 0) {
+              // Only auto-assign if workspace actually exists (has state, shares, etc.)
+              // This prevents creating entries for orphaned workspace IDs stored in client localStorage
+              const exists = await checkWorkspaceExistence(workspaceId);
+              if (!exists) {
+                logger.warn("WebSocket connection to non-existent workspace", {
+                  workspaceId,
+                  userId,
+                });
+                set.status = 404;
+                return {
+                  error: "Not Found",
+                  message: "Workspace does not exist",
+                };
+              }
+              await addCollaborator(workspaceId, userId, "OWNER");
+              collab = { role: "OWNER" };
+              logger.info("Auto-assigned owner role", { workspaceId, userId });
+            } else {
+              logger.warn("Non-collaborator WebSocket connection attempt", {
+                workspaceId,
+                userId,
+              });
+              set.status = 403;
+              return {
+                error: "Forbidden",
+                message: "Not a collaborator on this workspace",
+              };
+            }
+          }
+
+          let initialStateVector: Uint8Array | undefined;
+          if (query.stateVector) {
+            try {
+              initialStateVector = new Uint8Array(
+                Buffer.from(query.stateVector, "base64")
+              );
+            } catch {
+              logger.warn("Invalid state vector in query", { workspaceId });
+            }
+          }
+
+          // Generate unique connection ID for this WebSocket connection
+          const connectionId = generateId(16);
+
+          // Store auth data in pending map for open handler to retrieve
+          // Use exact key with connectionId to prevent auth data collision
+          const authKey = `${workspaceId}:${connectionId}`;
+          pendingAuth.set(authKey, {
+            user: {
+              id: userId,
+              name: (payload as Record<string, unknown>).name as
+                | string
+                | undefined,
+              email: (payload as Record<string, unknown>).email as string,
+              image: (payload as Record<string, unknown>).image as
+                | string
+                | undefined,
+            },
+            collaborator: collab,
+            initialStateVector,
+            connectionId,
+            timestamp: Date.now(),
+          });
+
+          logger.debug("JWT auth successful, stored in pendingAuth", {
+            userId,
+            connectionId,
+            authKey,
+          });
+
+          // Return undefined to allow WebSocket upgrade to proceed
+          return;
+        } catch (error) {
+          logger.error("JWT verification failed", {
+            workspaceId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          set.status = 401;
+          return { error: "Unauthorized", message: "Invalid JWT token" };
+        }
+      }
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        logger.warn("Unauthorized WebSocket connection attempt", {
+          workspaceId,
+        });
+        set.status = 401;
+        return { error: "Unauthorized", message: "Valid session required" };
+      }
+
+      let collab = await getCollaborator(workspaceId, session.user.id);
+
+      if (!collab) {
+        const count = await getWorkspaceCollaboratorCount(workspaceId);
+        if (count === 0) {
+          // Only auto-assign if workspace actually exists (has state, shares, etc.)
+          // This prevents creating entries for orphaned workspace IDs stored in client localStorage
+          const exists = await checkWorkspaceExistence(workspaceId);
+          if (!exists) {
+            logger.warn("WebSocket connection to non-existent workspace", {
+              workspaceId,
+              userId: session.user.id,
+            });
+            set.status = 404;
+            return {
+              error: "Not Found",
+              message: "Workspace does not exist",
+            };
+          }
+          await addCollaborator(workspaceId, session.user.id, "OWNER");
+          collab = { role: "OWNER" };
+          logger.info("Auto-assigned owner role", {
+            workspaceId,
+            userId: session.user.id,
+          });
+        } else {
+          logger.warn("Non-collaborator WebSocket connection attempt", {
+            workspaceId,
+            userId: session.user.id,
+          });
+          set.status = 403;
+          return {
+            error: "Forbidden",
+            message: "Not a collaborator on this workspace",
+          };
+        }
+      }
+
+      let initialStateVector: Uint8Array | undefined;
+      if (query.stateVector) {
+        try {
+          initialStateVector = new Uint8Array(
+            Buffer.from(query.stateVector, "base64")
+          );
+        } catch {
+          logger.warn("Invalid state vector in query", { workspaceId });
+        }
+      }
+
+      // Generate unique connection ID for this WebSocket connection
+      const connectionId = generateId(16);
+
+      // Store auth data in pending map for open handler to retrieve
+      // Use exact key with connectionId to prevent auth data collision
+      const authKey = `${workspaceId}:${connectionId}`;
+      pendingAuth.set(authKey, {
+        user: session.user,
+        collaborator: collab,
+        initialStateVector,
+        connectionId,
+        timestamp: Date.now(),
+      });
+
+      logger.debug("Session auth successful, stored in pendingAuth", {
+        userId: session.user.id,
+        connectionId,
+        authKey,
+      });
+
+      // Return undefined to allow WebSocket upgrade to proceed
+      return;
+    },
+
+    open(ws) {
+      logger.debug("WebSocket open handler called");
+      const { workspaceId } = ws.data.params;
+      const wsData = ws.data as unknown as WsData;
+
+      // Find the most recent auth entry for this workspace (FIFO approach)
+      // Since connections are processed sequentially, the first match should be correct
+      let authData:
+        | (typeof pendingAuth extends Map<string, infer V> ? V : never)
+        | undefined;
+      let authKey: string | undefined;
+
+      for (const [key, value] of pendingAuth.entries()) {
+        if (key.startsWith(`${workspaceId}:`)) {
+          authData = value;
+          authKey = key;
+          break;
+        }
+      }
+
+      if (!authData) {
+        logger.error("No pending auth data found for workspace", {
+          workspaceId,
+        });
+        ws.close();
+        return;
+      }
+
+      // Remove from pending auth
+      if (authKey) {
+        pendingAuth.delete(authKey);
+      }
+
+      const { user, collaborator, initialStateVector, connectionId } = authData;
+      const color = getColorForUser(user.id);
+
+      const collabInfo: CollaboratorInfo = {
+        id: user.id,
+        name: user.name || user.email,
+        email: user.email,
+        image: user.image,
+        role: collaborator.role,
+        color,
+      };
+
+      roomManager.join({
+        connectionId,
+        ws: {
+          // Use ws.raw.send() for direct Bun WebSocket access - ws.send() may have issues with async sends
+          // Elysia WebSocket typings do not currently expose raw, so we cast to any
+          // It really was pain to figure this out...
+          send: (msgData: Uint8Array) => {
+            try {
+              ws.raw.send(msgData);
+            } catch (error) {
+              logger.error("Failed to send via raw WebSocket", {
+                connectionId,
+                error: error instanceof Error ? error.message : "Unknown error",
+              });
+            }
+          },
+          close: () => ws.close(),
+        },
+        user: collabInfo,
+        workspaceId,
+        initialStateVector,
+      });
+
+      wsData.connectionId = connectionId;
+      wsData.user = user;
+      wsData.collaborator = collaborator;
+
+      logger.info("WebSocket opened", {
+        connectionId,
+        workspaceId,
+        userId: user.id,
+        role: collaborator.role,
+      });
+    },
+
+    message(ws, message) {
+      const data = ws.data as unknown as WsData;
+      const connectionId = data.connectionId;
+      if (!connectionId) {
+        return;
+      }
+
+      if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
+        const msgData =
+          message instanceof ArrayBuffer ? new Uint8Array(message) : message;
+        roomManager.handleMessage(connectionId, msgData);
+      }
+    },
+
+    close(ws) {
+      const data = ws.data as unknown as WsData;
+      const connectionId = data.connectionId;
+      if (!connectionId) {
+        return;
+      }
+
+      roomManager.leave(connectionId);
+
+      logger.info("WebSocket closed", {
+        connectionId,
+        workspaceId: ws.data.params.workspaceId,
+      });
+    },
+  })
+
+  // Get existing share link for workspace
+  .get(
+    "/api/workspaces/:workspaceId/share",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const collab = await getCollaborator(workspaceId, session.user.id);
+      if (!collab) {
+        set.status = 403;
+        return { error: "Not a collaborator on this workspace" };
+      }
+
+      // Find existing share link
+      try {
+        const share = await prisma.workspaceShare.findFirst({
+          where: { workspaceId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (share) {
+          return {
+            token: share.token,
+            url: `${process.env.WEB_URL || "http://localhost:3000"}?share=${share.token}`,
+            expiresAt: share.expiresAt,
+          };
+        }
+      } catch (error) {
+        logger.error("Failed to fetch share link", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+
+      return { url: null };
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  // Create new share link
+  .post(
+    "/api/workspaces/:workspaceId/share",
+    async ({ params, headers, set, body }) => {
+      const { workspaceId } = params;
+      const workspaceName = body?.name;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Get room reference for later use (may not exist yet for first share)
+      const room = roomManager.getRoom(workspaceId);
+
+      let collab = await getCollaborator(workspaceId, session.user.id);
+
+      // Auto-assign owner if no collaborators exist yet (first share)
+      if (!collab) {
+        const count = await getWorkspaceCollaboratorCount(workspaceId);
+        if (count === 0) {
+          // Create workspace with name from request if provided
+          const nameToUse = workspaceName || "Untitled Workspace";
+
+          // Check if workspace exists
+          const existingWorkspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { id: true },
+          });
+
+          if (!existingWorkspace) {
+            logger.info("Creating workspace record on first share", {
+              workspaceId,
+              name: nameToUse,
+              userId: session.user.id,
+            });
+            await prisma.workspace.create({
+              data: {
+                id: workspaceId,
+                name: nameToUse,
+                ownerId: session.user.id,
+              },
+            });
+          }
+
+          await addCollaborator(workspaceId, session.user.id, "OWNER");
+          collab = { role: "OWNER" };
+          logger.info("Auto-assigned owner role on share", {
+            workspaceId,
+            userId: session.user.id,
+          });
+        }
+      }
+
+      if (!collab || collab.role !== "OWNER") {
+        set.status = 403;
+        return { error: "Only workspace owner can create share links" };
+      }
+
+      // Update workspace name if provided in request and different from current
+      if (workspaceName) {
+        try {
+          await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: { name: workspaceName },
+          });
+          logger.debug("Updated workspace name from share request", {
+            workspaceId,
+            name: workspaceName,
+          });
+        } catch {
+          // Workspace might not exist yet - try to create
+          const existingWorkspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { id: true },
+          });
+          if (!existingWorkspace) {
+            await prisma.workspace.create({
+              data: {
+                id: workspaceId,
+                name: workspaceName,
+                ownerId: session.user.id,
+              },
+            });
+          }
+        }
+      } else {
+        // Fallback: Try to get name from active room
+        const currentName = await getWorkspaceName(workspaceId);
+        if (!currentName || currentName === "Untitled Workspace") {
+          const currentRoom = roomManager.getRoom(workspaceId);
+          if (currentRoom) {
+            const workspaceMap = currentRoom.doc.getMap("workspace");
+            const workspaceData = workspaceMap.get(workspaceId) as
+              | { name: string }
+              | undefined;
+            if (workspaceData?.name) {
+              await prisma.workspace.update({
+                where: { id: workspaceId },
+                data: { name: workspaceData.name },
+              });
+            }
+          }
+        }
+      }
+
+      const token = await createShareToken(workspaceId, session.user.id);
+
+      // Immediately persist room state so editors who join right away can get the state
+      // This bypasses the normal debounce to ensure a smooth experience
+      if (room) {
+        logger.info("Persisting room state immediately on share", {
+          workspaceId,
+        });
+        await roomManager.persistRoom(workspaceId);
+      }
+
+      logger.info("Share link created", {
+        workspaceId,
+        workspaceName,
+        createdBy: session.user.id,
+      });
+
+      return {
+        token,
+        url: `${process.env.WEB_URL || "http://localhost:3000"}?share=${token}`,
+      };
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+      body: t.Optional(
+        t.Object({
+          name: t.Optional(t.String()),
+        })
+      ),
+    }
+  )
+
+  .get(
+    "/api/share/:token",
+    async ({ params, set }) => {
+      const { token } = params;
+
+      const shareInfo = await getShareInfo(token);
+      if (!shareInfo) {
+        set.status = 404;
+        return { error: "Share link not found or expired" };
+      }
+
+      if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
+        set.status = 410;
+        return { error: "Share link has expired" };
+      }
+
+      return {
+        workspaceId: shareInfo.workspaceId,
+        workspaceName: shareInfo.workspaceName,
+        owner: shareInfo.owner,
+      };
+    },
+    {
+      params: t.Object({ token: t.String() }),
+    }
+  )
+
+  .post(
+    "/api/share/:token/join",
+    async ({ params, headers, set }) => {
+      const { token } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return {
+          error: "Unauthorized",
+          message: "Please login to join workspace",
+        };
+      }
+
+      const shareInfo = await getShareInfo(token);
+      if (!shareInfo) {
+        set.status = 404;
+        return { error: "Share link not found or expired" };
+      }
+
+      if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
+        set.status = 410;
+        return { error: "Share link has expired" };
+      }
+
+      const existing = await getCollaborator(
+        shareInfo.workspaceId,
+        session.user.id
+      );
+      if (existing) {
+        return {
+          workspaceId: shareInfo.workspaceId,
+          role: existing.role,
+          message: "Already a collaborator",
+        };
+      }
+
+      await addCollaborator(shareInfo.workspaceId, session.user.id, "EDITOR");
+
+      logger.info("User joined workspace via share link", {
+        workspaceId: shareInfo.workspaceId,
+        userId: session.user.id,
+      });
+
+      return {
+        workspaceId: shareInfo.workspaceId,
+        role: "EDITOR",
+        message: "Successfully joined workspace",
+        workspaceName: shareInfo.workspaceName,
+        owner: shareInfo.owner,
+      };
+    },
+    {
+      params: t.Object({ token: t.String() }),
+    }
+  )
+
+  .get(
+    "/api/workspaces/:workspaceId/collaborators",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const isMember =
+        (await getCollaborator(workspaceId, session.user.id)) ||
+        (await prisma.workspace.findFirst({
+          where: { id: workspaceId, ownerId: session.user.id },
+        }));
+
+      if (!isMember) {
+        set.status = 403;
+        return { error: "Not a collaborator on this workspace" };
+      }
+
+      // Fetch all collaborators from DB (including owner)
+      const collaborators = await prisma.workspaceCollaborator.findMany({
+        where: { workspaceId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      // Also fetch owner info to ensure they're included even if not in collaborators table
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      const result = collaborators.map((c) => ({
+        id: c.userId,
+        name: c.user.name,
+        email: c.user.email,
+        image: c.user.image,
+        role: c.role,
+        joinedAt: c.joinedAt,
+      }));
+
+      // Ensure owner is in list (if not already in collaborators table)
+      if (workspace?.owner) {
+        const ownerAlreadyInList = result.some(
+          (c) => c.id === workspace.owner.id
+        );
+        if (!ownerAlreadyInList) {
+          result.push({
+            id: workspace.owner.id,
+            name: workspace.owner.name,
+            email: workspace.owner.email,
+            image: workspace.owner.image,
+            role: "OWNER",
+            joinedAt: workspace.createdAt,
+          });
+        }
+      }
+
+      // Remove duplicates just in case
+      const uniqueCollaborators = new Map();
+      for (const c of result) {
+        uniqueCollaborators.set(c.id, c);
+      }
+
+      // Get online status
+      const onlineUsers = roomManager.getCollaborators(workspaceId);
+      const onlineIds = new Set(onlineUsers.map((u) => u.id));
+
+      return {
+        collaborators: Array.from(uniqueCollaborators.values()).map((c) => ({
+          ...c,
+          isOnline: onlineIds.has(c.id),
+        })),
+        onlineCount: onlineIds.size,
+      };
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  // Get workspace state for initial sync
+  .get(
+    "/api/workspaces/:workspaceId/state",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const collab = await getCollaborator(workspaceId, session.user.id);
+      if (!collab) {
+        set.status = 403;
+        return { error: "Not a collaborator on this workspace" };
+      }
+
+      // Try to get state from active room first
+      const room = roomManager.getRoom(workspaceId);
+      if (room) {
+        const doc = room.doc;
+        return {
+          workspace: Object.fromEntries(doc.getMap("workspace").entries()),
+          boards: Object.fromEntries(doc.getMap("boards").entries()),
+          columns: Object.fromEntries(doc.getMap("columns").entries()),
+          tasks: Object.fromEntries(doc.getMap("tasks").entries()),
+          boardPositions: Object.fromEntries(
+            doc.getMap("boardPositions").entries()
+          ),
+        };
+      }
+
+      // Fall back to database
+      try {
+        const stored = await prisma.workspaceState.findUnique({
+          where: { workspaceId },
+        });
+        if (stored?.yjsState) {
+          // Load from stored Yjs state
+          const tempRoom = roomManager.getOrCreateRoom(workspaceId);
+          const doc = tempRoom.doc;
+          return {
+            workspace: Object.fromEntries(doc.getMap("workspace").entries()),
+            boards: Object.fromEntries(doc.getMap("boards").entries()),
+            columns: Object.fromEntries(doc.getMap("columns").entries()),
+            tasks: Object.fromEntries(doc.getMap("tasks").entries()),
+            boardPositions: Object.fromEntries(
+              doc.getMap("boardPositions").entries()
+            ),
+          };
+        }
+      } catch (error) {
+        logger.error("Failed to fetch workspace state", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+
+      // Return empty state
+      return {
+        workspace: {},
+        boards: {},
+        columns: {},
+        tasks: {},
+        boardPositions: {},
+      };
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  .get("/api/workspaces", async ({ headers, set }) => {
+    const session = await auth.api.getSession({
+      headers: toHeaders(headers),
+    });
+
+    if (!session) {
+      set.status = 401;
+      return { error: "Unauthorized" };
+    }
+
+    try {
+      // Fetch workspaces where user is owner or collaborator
+      const workspaces = await prisma.workspace.findMany({
+        where: {
+          OR: [
+            { ownerId: session.user.id },
+            { collaborators: { some: { userId: session.user.id } } },
+          ],
+        },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          collaborators: {
+            select: { userId: true },
+          },
+          _count: {
+            select: { shares: true, collaborators: true },
+          },
+        },
+      });
+
+      return workspaces.map((ws) => ({
+        id: ws.id,
+        name: ws.name,
+        description: ws.description,
+        ownerId: ws.ownerId,
+        ownerName: ws.owner.name,
+        ownerImage: ws.owner.image,
+        created_at: ws.createdAt,
+        // A workspace is shared if it has more than 1 collaborator (owner + someone else)
+        // OR if it has active share links
+        isShared: ws._count.collaborators > 1 || ws._count.shares > 0,
+      }));
+    } catch (error) {
+      logger.error("Failed to list workspaces", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      set.status = 500;
+      return { error: "Failed to list workspaces" };
+    }
+  })
+
+  .post(
+    "/api/workspaces",
+    async ({ body, headers, set }) => {
+      const { id, name, description } = body;
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      try {
+        const workspaceId = id || generateId(16);
+
+        const workspace = await prisma.workspace.upsert({
+          where: { id: workspaceId },
+          create: {
+            id: workspaceId,
+            name,
+            description,
+            ownerId: session.user.id,
+            collaborators: {
+              create: {
+                userId: session.user.id,
+                role: "OWNER",
+              },
+            },
+          },
+          update: {
+            name,
+            description,
+            // Don't update owner or collaborators here, they are consistent
+          },
+        });
+
+        logger.info(
+          { workspaceId: workspace.id, userId: session.user.id },
+          "Workspace created via API"
+        );
+
+        return {
+          id: workspace.id,
+          name: workspace.name,
+          description: workspace.description,
+          ownerId: workspace.ownerId,
+        };
+      } catch (error) {
+        logger.error("Failed to create workspace", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to create workspace" };
+      }
+    },
+    {
+      body: t.Object({
+        id: t.Optional(t.String()),
+        name: t.String(),
+        description: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  // Update workspace
+  .patch(
+    "/api/workspaces/:workspaceId",
+    async ({ params, body, headers, set }) => {
+      const { workspaceId } = params;
+      const { name, description } = body;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Check permissions
+      const collab = await getCollaborator(workspaceId, session.user.id);
+      if (!collab || collab.role !== "OWNER") {
+        set.status = 403;
+        return { error: "Only workspace owner can update workspace details" };
+      }
+
+      try {
+        // Check if record exists
+        const exists = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+        });
+
+        let result: { id: string; name: string; description: string | null };
+        if (exists) {
+          result = await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: {
+              name,
+              description,
+            },
+          });
+        } else {
+          // Migration path: if it doesn't exist but user is owner (checked above via collaborator table), create it
+          result = await prisma.workspace.create({
+            data: {
+              id: workspaceId,
+              name: name || "Untitled Workspace",
+              description,
+              ownerId: session.user.id,
+              // Relations are already there in other tables, but we need to ensure consistency?
+              // Actually, relations rely on IDs, so just creating the parent record should link them if FKs match.
+              // But wait, existing collaborators reference workspaceId. If I create the workspace record now, it works.
+            },
+          });
+        }
+
+        logger.info(
+          { workspaceId, userId: session.user.id },
+          "Workspace updated via API"
+        );
+
+        return {
+          id: result.id,
+          name: result.name,
+          description: result.description,
+        };
+      } catch (error) {
+        logger.error("Failed to update workspace", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to update workspace" };
+      }
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+      body: t.Object({
+        name: t.Optional(t.String()),
+        description: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  .delete(
+    "/api/workspaces/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Check if user is owner
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspace) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      if (workspace.ownerId !== session.user.id) {
+        set.status = 403;
+        return { error: "Only the owner can delete the workspace" };
+      }
+
+      try {
+        // 1. Notify all connected clients and close connections
+        // This will trigger the "Workspace Deleted" banner on their end
+        roomManager.deleteRoom(workspaceId);
+
+        // 2. Delete from database
+        await prisma.workspace.delete({
+          where: { id: workspaceId },
+        });
+
+        logger.info(
+          { workspaceId, userId: session.user.id },
+          "Workspace deleted via API"
+        );
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to delete workspace", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        set.status = 500;
+        return { error: "Failed to delete workspace" };
+      }
+    },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  );

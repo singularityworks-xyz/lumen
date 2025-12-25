@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertTriangle, Building2, GripHorizontal, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  GripHorizontal,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
@@ -10,7 +16,7 @@ import { cn } from "@/src/lib/utils";
 type DeleteWorkspaceDialogProps = {
   workspaceName: string;
 
-  onConfirm: () => void;
+  onConfirm: () => Promise<boolean>;
   onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
 
@@ -30,7 +36,9 @@ export const DeleteWorkspaceDialog = memo(
     onPositionChange,
   }: DeleteWorkspaceDialogProps) => {
     const [mounted, setMounted] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
+    const isMountedRef = useRef(false);
     const dragRef = useRef<{
       startX: number;
       startY: number;
@@ -61,6 +69,13 @@ export const DeleteWorkspaceDialog = memo(
       }
       setMounted(true);
     }, [getSourceButtonRect, externalPosition]);
+
+    useEffect(() => {
+      isMountedRef.current = true;
+      return () => {
+        isMountedRef.current = false;
+      };
+    }, []);
 
     useEffect(() => {
       const handleEscape = (e: KeyboardEvent) => {
@@ -182,6 +197,7 @@ export const DeleteWorkspaceDialog = memo(
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Button
               className="h-8 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+              disabled={isLoading}
               onClick={onClose}
               type="button"
               variant="ghost"
@@ -190,13 +206,30 @@ export const DeleteWorkspaceDialog = memo(
             </Button>
             <Button
               className="h-8 rounded-md bg-red-500 text-white text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-red-600 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-              onClick={() => {
-                onConfirm();
-                onClose();
+              disabled={isLoading}
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  const success = await onConfirm();
+                  if (success) {
+                    onClose();
+                  }
+                } finally {
+                  if (isMountedRef.current) {
+                    setIsLoading(false);
+                  }
+                }
               }}
               type="button"
             >
-              Delete Workspace
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Workspace"
+              )}
             </Button>
           </div>
         </div>

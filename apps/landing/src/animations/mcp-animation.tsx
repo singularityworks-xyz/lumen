@@ -43,7 +43,7 @@ const Cursor = ({
 }) => (
   <div className={`relative ${className}`}>
     <svg
-      className="relative -top-[3px] -left-[3px] z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
+      className="relative -top-0.75 -left-0.75 z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" }}
       viewBox="0 0 24 24"
     >
@@ -74,7 +74,7 @@ const Board = ({
   isTarget?: boolean;
 }) => {
   return (
-    <div className="flex h-full w-[400px] flex-col overflow-hidden rounded border-2 border-zinc-800 bg-zinc-900 shadow-xl">
+    <div className="flex h-full w-100 flex-col overflow-hidden rounded border-2 border-zinc-800 bg-zinc-900 shadow-xl">
       {/* Header */}
       <div className="group flex items-center justify-between gap-1.5 rounded-t border-zinc-800 border-b bg-zinc-800/50 px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -99,7 +99,7 @@ const Board = ({
         {/* Columns */}
         <div className="grid h-full grid-cols-3 gap-2">
           {/* To Do Column */}
-          <div className="flex min-w-[100px] flex-col gap-2">
+          <div className="flex min-w-25 flex-col gap-2">
             <div className="mb-1 font-medium text-[9px] text-zinc-500 uppercase tracking-wider">
               To Do
             </div>
@@ -154,7 +154,7 @@ const Board = ({
           </div>
 
           {/* In Progress Column (Visual only) */}
-          <div className="flex min-w-[100px] flex-col gap-2 opacity-50">
+          <div className="flex min-w-25 flex-col gap-2 opacity-50">
             <div className="mb-1 font-medium text-[9px] text-zinc-600 uppercase tracking-wider">
               In Progress
             </div>
@@ -162,7 +162,7 @@ const Board = ({
           </div>
 
           {/* Done Column (Visual only) */}
-          <div className="flex min-w-[100px] flex-col gap-2 opacity-50">
+          <div className="flex min-w-25 flex-col gap-2 opacity-50">
             <div className="mb-1 font-medium text-[9px] text-zinc-600 uppercase tracking-wider">
               Done
             </div>
@@ -368,7 +368,7 @@ export const MCPAnimation = () => {
           </div>
 
           {/* Right Sidebar (Agent) */}
-          <div className="flex w-1/3 min-w-[180px] max-w-[250px] flex-col border-zinc-800 border-l bg-zinc-900/30 backdrop-blur-sm">
+          <div className="flex w-1/3 min-w-45 max-w-62.5 flex-col border-zinc-800 border-l bg-zinc-900/30 backdrop-blur-sm">
             {/* Agent Header */}
             <div className="flex items-center justify-between border-zinc-800/50 border-b p-2">
               <span className="font-medium text-[10px] text-zinc-400">

@@ -1,4 +1,5 @@
 import { createLogger } from "@lumen/logger";
+import { authClient } from "@/src/lib/auth-client";
 import type { Workspace } from "../../types";
 import {
   generateBoardId,
@@ -10,6 +11,8 @@ import type { KanbanStore } from "../types";
 import { getNextZIndex } from "../utils";
 
 const logger = createLogger({ name: "[client] kanban/workspace" });
+const NEXT_PUBLIC_API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,
@@ -18,8 +21,10 @@ type SliceCreator = (
   KanbanStore,
   | "setCurrentWorkspace"
   | "addWorkspace"
+  | "syncWorkspace"
   | "updateWorkspace"
   | "deleteWorkspace"
+  | "setDeletedSharedWorkspace"
   | "resetWorkspace"
   | "duplicateWorkspace"
   | "openWorkspaceQuickActions"
@@ -29,6 +34,9 @@ type SliceCreator = (
   | "closeWorkspaceDialog"
   | "updateWorkspaceDialogPosition"
   | "updateWorkspaceDialogInputValue"
+  | "setWorkspaceShareUrl"
+  | "clearWorkspaceShareUrl"
+  | "markWorkspaceDeleted"
 >;
 
 export const createWorkspaceSlice: SliceCreator = (set, get) => ({
@@ -68,6 +76,17 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     });
 
     logger.info({ id, name }, "Workspace created");
+
+    // Persist to backend metadata table (fire and forget)
+    fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ id, name, description }),
+    }).catch((error) => {
+      logger.error({ id, error }, "Failed to create workspace metadata");
+    });
+
     return id;
   },
 
@@ -76,66 +95,181 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       const workspace = state.workspaces.byId[workspaceId];
       if (workspace) {
         Object.assign(workspace, updates);
+
+        // Persist to backend metadata table (fire and forget)
+        if (updates.name || updates.description) {
+          fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              name: updates.name,
+              description: updates.description,
+            }),
+          }).catch((error) => {
+            logger.error(
+              { id: workspaceId, error },
+              "Failed to update workspace metadata"
+            );
+          });
+        }
       }
     }),
 
-  deleteWorkspace: (workspaceId) =>
+  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) =>
     set((state) => {
-      if (state.workspaces.allIds[0] === workspaceId) {
-        logger.warn({ id: workspaceId }, "Cannot delete default workspace");
-        return;
+      const existing = state.workspaces.byId[workspace.id];
+      if (existing) {
+        Object.assign(existing, workspace);
+      } else {
+        state.workspaces.byId[workspace.id] = {
+          name: "Shared Workspace",
+          created_at: new Date().toISOString(),
+          board_ids: [],
+          ...workspace,
+        } as Workspace;
+        state.workspaces.allIds.push(workspace.id);
       }
+    }),
 
-      const workspace = state.workspaces.byId[workspaceId];
-      if (!workspace) {
-        logger.warn({ id: workspaceId }, "Workspace not found");
+  deleteWorkspace: async (workspaceId) => {
+    const state = get();
+    if (state.workspaces.allIds[0] === workspaceId) {
+      logger.warn({ id: workspaceId }, "Cannot delete default workspace");
+      return false;
+    }
+
+    const workspace = state.workspaces.byId[workspaceId];
+    if (!workspace) {
+      logger.warn({ id: workspaceId }, "Workspace not found");
+      return false;
+    }
+
+    // Get current user ID from auth session
+    const sessionResult = await authClient.getSession();
+    const currentUserId = sessionResult.data?.user?.id ?? null;
+
+    // Determine if user is the owner of this workspace by comparing ownerId
+    // For legacy workspaces (missing ownerId), treat current user as owner
+    const isOwner = workspace.ownerId
+      ? workspace.ownerId === currentUserId
+      : true;
+
+    logger.info(
+      {
+        workspaceId,
+        isOwner,
+        workspaceOwnerId: workspace.ownerId,
+        currentUserId,
+      },
+      "Deleting workspace"
+    );
+
+    if (isOwner) {
+      // Owner deletes: Call server API which will notify all editors
+      try {
+        const response = await fetch(
+          `${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          logger.error(
+            { workspaceId, status: response.status, error: errorData },
+            "Server rejected workspace delete"
+          );
+          // Don't clean up local state if server rejected
+          return false;
+        }
+
+        logger.info({ workspaceId }, "Server confirmed workspace deletion");
+      } catch (err) {
+        logger.error(
+          { workspaceId, err },
+          "Failed to delete workspace on server"
+        );
+        // Don't clean up local state on network error
+        return false;
+      }
+    }
+
+    // Now clean up local state (only reached if server call succeeded or user is not owner)
+    set((currentState) => {
+      const currentWorkspace = currentState.workspaces.byId[workspaceId];
+      if (!currentWorkspace) {
         return;
       }
 
       logger.info(
         {
           id: workspaceId,
-          name: workspace.name,
-          boardCount: workspace.board_ids.length,
+          name: currentWorkspace.name,
+          boardCount: currentWorkspace.board_ids.length,
         },
-        "Workspace deleted"
+        "Workspace deleted locally"
       );
 
-      for (const boardId of workspace.board_ids) {
-        const board = state.boards.byId[boardId];
+      // Clean up local state
+      for (const boardId of currentWorkspace.board_ids) {
+        const board = currentState.boards.byId[boardId];
         if (board) {
           for (const columnId of board.column_ids) {
-            const column = state.columns.byId[columnId];
+            const column = currentState.columns.byId[columnId];
             if (column) {
               for (const taskId of column.task_ids) {
-                delete state.tasks.byId[taskId];
-                state.tasks.allIds = state.tasks.allIds.filter(
+                delete currentState.tasks.byId[taskId];
+                currentState.tasks.allIds = currentState.tasks.allIds.filter(
                   (id) => id !== taskId
                 );
               }
             }
-            delete state.columns.byId[columnId];
-            state.columns.allIds = state.columns.allIds.filter(
+            delete currentState.columns.byId[columnId];
+            currentState.columns.allIds = currentState.columns.allIds.filter(
               (id) => id !== columnId
             );
           }
         }
-        delete state.boards.byId[boardId];
-        state.boards.allIds = state.boards.allIds.filter(
+        delete currentState.boards.byId[boardId];
+        currentState.boards.allIds = currentState.boards.allIds.filter(
           (id) => id !== boardId
         );
-        delete state.boardPositions.byId[boardId];
-        state.boardPositions.allIds = state.boardPositions.allIds.filter(
-          (id) => id !== boardId
-        );
+        delete currentState.boardPositions.byId[boardId];
+        currentState.boardPositions.allIds =
+          currentState.boardPositions.allIds.filter((id) => id !== boardId);
       }
-      delete state.workspaces.byId[workspaceId];
-      state.workspaces.allIds = state.workspaces.allIds.filter(
+      delete currentState.workspaces.byId[workspaceId];
+      currentState.workspaces.allIds = currentState.workspaces.allIds.filter(
         (id) => id !== workspaceId
       );
 
-      if (state.currentWorkspaceId === workspaceId) {
-        state.currentWorkspaceId = state.workspaces.allIds[0] ?? null;
+      // Switch to default workspace if currently viewing deleted workspace
+      if (currentState.currentWorkspaceId === workspaceId) {
+        currentState.currentWorkspaceId =
+          currentState.workspaces.allIds[0] ?? null;
+      }
+    });
+
+    return true;
+  },
+
+  setDeletedSharedWorkspace: (workspaceId) =>
+    set((state) => {
+      state.deletedSharedWorkspaceId = workspaceId;
+    }),
+
+  markWorkspaceDeleted: (workspaceId: string) =>
+    set((state) => {
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.isDeleted = true;
+        logger.info(
+          { workspaceId },
+          "Workspace marked as deleted (offline copy)"
+        );
       }
     }),
 
@@ -383,5 +517,15 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       if (state.workspaceDialog) {
         state.workspaceDialog.inputValue = value;
       }
+    }),
+
+  setWorkspaceShareUrl: (workspaceId, url) =>
+    set((state) => {
+      state.workspaceShareUrls[workspaceId] = url;
+    }),
+
+  clearWorkspaceShareUrl: (workspaceId) =>
+    set((state) => {
+      delete state.workspaceShareUrls[workspaceId];
     }),
 });

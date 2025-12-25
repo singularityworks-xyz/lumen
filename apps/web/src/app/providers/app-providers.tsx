@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { ThemeIndicator } from "@/src/components/theme-indicator";
+import { CollaborationWrapper } from "@/src/features/collab";
 import { useTheme } from "@/src/features/kanban/hooks/use-theme";
 import { ThemeProvider } from "./theme-provider";
 
@@ -24,7 +25,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        {children}
+        <CollaborationWrapper>{children}</CollaborationWrapper>
         <ThemeIndicatorWrapper />
       </ThemeProvider>
     </QueryClientProvider>

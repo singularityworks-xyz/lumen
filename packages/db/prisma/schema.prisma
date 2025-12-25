@@ -24,8 +24,11 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
+  sessions      Session[]
+  accounts      Account[]
+  collaborators WorkspaceCollaborator[]
+  workspaces    Workspace[]
+  workspaceShares WorkspaceShare[]
 
   @@map("user")
 }
@@ -77,4 +80,86 @@ model Verification {
 
   @@unique([identifier, value])
   @@map("verification")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner         User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators WorkspaceCollaborator[]
+  shares        WorkspaceShare[]
+  state         WorkspaceState?
+
+  @@index([ownerId])
+  @@map("workspace")
+}
+
+model WorkspaceShare {
+  id          String    @id @default(cuid())
+  workspaceId String
+  token       String    @unique
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([workspaceId])
+  @@index([createdBy])
+  @@map("workspace_share")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model WorkspaceCollaborator {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role     @default(EDITOR)
+  joinedAt    DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("workspace_collaborator")
+}
+
+model WorkspaceState {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  yjsState    Bytes
+  stateVector Bytes?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_state")
+}
+
+model Jwks {
+  id         String    @id @default(cuid())
+  publicKey  String    @unique
+  privateKey String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+
+  @@index([isActive, expiresAt])
+  @@map("jwks")
 }

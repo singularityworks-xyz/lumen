@@ -1,7 +1,18 @@
 import { createLogger } from "@lumen/logger";
-import { Github, Loader2, User, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  Github,
+  Link,
+  Loader2,
+  LogOut,
+  Share2,
+  User,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -9,6 +20,16 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { Skeleton } from "@/src/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/src/components/ui/tooltip";
+import { useCollaboration } from "@/src/features/collab";
+import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 
 const logger = createLogger({ name: "profile-modal" });
@@ -23,6 +44,211 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShareInput, setShowShareInput] = useState(false);
+  const [isLoadingShare, setIsLoadingShare] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [pendingShareWorkspaceId, setPendingShareWorkspaceId] = useState<
+    string | null
+  >(null);
+
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
+  );
+  const currentWorkspace = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
+  );
+  const defaultWorkspaceId = useKanbanStore(
+    (state) => state.workspaces.allIds[0] ?? null
+  );
+  const shareUrl = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
+  );
+  const setWorkspaceShareUrl = useKanbanStore(
+    (state) => state.setWorkspaceShareUrl
+  );
+  const clearWorkspaceShareUrl = useKanbanStore(
+    (state) => state.clearWorkspaceShareUrl
+  );
+  const workspaces = useKanbanStore((state) => state.workspaces);
+  const workspaceShareUrls = useKanbanStore(
+    (state) => state.workspaceShareUrls
+  );
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+
+  const isDefaultWorkspace = currentWorkspaceId === defaultWorkspaceId;
+
+  const sharedWorkspaces = Object.entries(workspaceShareUrls)
+    .filter(
+      ([wsId, url]) =>
+        url && wsId !== currentWorkspaceId && workspaces.byId[wsId]
+    )
+    .map(([wsId, url]) => ({
+      id: wsId,
+      name: workspaces.byId[wsId]?.name || "Unknown Workspace",
+      url,
+    }));
+
+  const totalSharedCount = Object.entries(workspaceShareUrls).filter(
+    ([wsId, url]) => url && workspaces.byId[wsId]
+  ).length;
+  const [copiedWorkspaceId, setCopiedWorkspaceId] = useState<string | null>(
+    null
+  );
+  const [showOtherShared, setShowOtherShared] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    for (const wsId of Object.keys(workspaceShareUrls)) {
+      if (!workspaces.byId[wsId]) {
+        clearWorkspaceShareUrl(wsId);
+      }
+    }
+  }, [open, workspaces.byId, workspaceShareUrls, clearWorkspaceShareUrl]);
+
+  useEffect(() => {
+    if (!(open && currentWorkspaceId && user)) {
+      return;
+    }
+
+    if (shareUrl) {
+      setShowShareInput(true);
+      return;
+    }
+
+    if (isDefaultWorkspace) {
+      return;
+    }
+
+    const fetchExistingShare = async () => {
+      try {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            setWorkspaceShareUrl(currentWorkspaceId, data.url);
+            setShowShareInput(true);
+          }
+        }
+      } catch {
+        // No existing share link - that's fine
+      }
+    };
+
+    fetchExistingShare();
+  }, [
+    open,
+    currentWorkspaceId,
+    user,
+    apiUrl,
+    shareUrl,
+    setWorkspaceShareUrl,
+    isDefaultWorkspace,
+  ]);
+
+  // Reset share input state when workspace changes to prevent auto-sharing new workspace
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally trigger on workspace change
+  useEffect(() => {
+    setShowShareInput(false);
+    setIsLoadingShare(false);
+    setError(null);
+    setPendingShareWorkspaceId(null); // Clear pending share on workspace change
+  }, [currentWorkspaceId]);
+
+  // When showShareInput is true and we don't have a shareUrl yet, create the share
+  // Flow: 1) Create share in DB first, 2) Then connect via WebSocket
+  useEffect(() => {
+    // Only create share if this is the workspace we intentionally want to share
+    const shouldCreateShare =
+      showShareInput &&
+      currentWorkspaceId &&
+      !shareUrl &&
+      pendingShareWorkspaceId === currentWorkspaceId;
+
+    if (!shouldCreateShare) {
+      return;
+    }
+
+    const createShare = async () => {
+      setIsLoadingShare(true);
+      setError(null);
+      try {
+        // Step 1: Create the share link (this creates workspace in DB if needed)
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: currentWorkspace?.name,
+            }),
+          }
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          setError(data.error || "Failed to create share link");
+          return;
+        }
+
+        if (data.url) {
+          setWorkspaceShareUrl(currentWorkspaceId, data.url);
+          // Note: collab-wrapper will auto-connect when workspaceShareUrls changes
+        }
+      } catch {
+        setError("Failed to create share link");
+      } finally {
+        setIsLoadingShare(false);
+      }
+    };
+
+    createShare();
+  }, [
+    showShareInput,
+    currentWorkspaceId,
+    currentWorkspace?.name,
+    shareUrl,
+    apiUrl,
+    setWorkspaceShareUrl,
+    pendingShareWorkspaceId,
+  ]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!shareUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Failed to copy link");
+    }
+  }, [shareUrl]);
+
+  const handleCopyWorkspaceLink = useCallback(
+    async (workspaceId: string, url: string) => {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedWorkspaceId(workspaceId);
+        setTimeout(() => setCopiedWorkspaceId(null), 2000);
+      } catch {
+        setError("Failed to copy link");
+      }
+    },
+    []
+  );
 
   const handleGithubLogin = async () => {
     setIsSigningIn(true);
@@ -75,7 +301,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="fixed top-4 left-1/2 z-50 w-64 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            className="fixed top-4 left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
             exit={{ opacity: 0, y: -8 }}
             initial={{ opacity: 0, y: -12 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -93,41 +319,198 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : user ? (
-              <div className="flex items-start gap-3">
-                <Avatar className="h-12 w-12 rounded-xl">
-                  <AvatarImage
-                    alt={user.name || "User"}
-                    src={user.image || ""}
-                  />
-                  <AvatarFallback className="rounded-xl bg-primary/10 text-primary">
-                    <User className="h-6 w-6" />
-                  </AvatarFallback>
-                </Avatar>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-12 w-12 rounded-xl">
+                    <AvatarImage
+                      alt={user.name || "User"}
+                      src={user.image || ""}
+                    />
+                    <AvatarFallback className="rounded-xl bg-primary/10 text-primary">
+                      <User className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
 
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate font-medium text-sm">
-                    {user.name || "User"}
-                  </h2>
-                  <p className="truncate text-muted-foreground text-xs">
-                    {user.email || "No email"}
-                  </p>
-                  <Button
-                    className="mt-2 h-7 rounded-lg px-3 text-xs"
-                    disabled={isSigningOut}
-                    onClick={handleSignOut}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isSigningOut ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Signing out...
-                      </>
-                    ) : (
-                      "Sign out"
-                    )}
-                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate font-medium text-sm">
+                      {user.name || "User"}
+                    </h2>
+                    <p className="truncate text-muted-foreground text-xs">
+                      {user.email || "No email"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Button
+                        className="h-7 rounded-lg px-3 text-xs"
+                        disabled={isSigningOut}
+                        onClick={handleSignOut}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {isSigningOut ? (
+                          <>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Signing out...
+                          </>
+                        ) : (
+                          <>
+                            <LogOut className="mr-1 h-3 w-3" />
+                            Sign out
+                          </>
+                        )}
+                      </Button>
+                      {currentWorkspaceId && (
+                        <Button
+                          className="h-7 gap-1 rounded-lg px-2.5 text-xs"
+                          onClick={() => {
+                            if (showShareInput && shareUrl) {
+                              clearWorkspaceShareUrl(currentWorkspaceId);
+                            }
+                            if (showShareInput) {
+                              // User is closing share panel - clear pending
+                              setPendingShareWorkspaceId(null);
+                            } else {
+                              // User is opening share panel - record which workspace they want to share
+                              setPendingShareWorkspaceId(currentWorkspaceId);
+                            }
+                            setShowShareInput(!showShareInput);
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {isLoadingShare ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Link className="h-3 w-3" />
+                          )}
+                          Share
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {showShareInput && (
+                  <div className="space-y-2">
+                    {/* Current workspace share link */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                          <Share2 className="h-3 w-3" />
+                          {currentWorkspace?.name || "Workspace"}
+                        </span>
+                        {totalSharedCount > 0 && (
+                          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {totalSharedCount} shared
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {isLoadingShare ? (
+                          <div className="flex h-7 flex-1 items-center justify-center rounded-md border bg-muted/30">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <Input
+                            className="h-7 flex-1 text-xs"
+                            placeholder="Share link"
+                            readOnly
+                            value={shareUrl || ""}
+                          />
+                        )}
+                        <Button
+                          className="h-7 w-7 shrink-0 p-0"
+                          disabled={!shareUrl || isLoadingShare}
+                          onClick={handleCopyLink}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {copied ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Other shared workspaces */}
+                    {sharedWorkspaces.length > 0 && (
+                      <div className="space-y-1.5">
+                        <button
+                          className="flex w-full items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                          onClick={() => setShowOtherShared(!showOtherShared)}
+                          type="button"
+                        >
+                          <ChevronDown
+                            className={`h-3 w-3 transition-transform ${showOtherShared ? "rotate-0" : "-rotate-90"}`}
+                          />
+                          <span>
+                            Other shared workspaces ({sharedWorkspaces.length})
+                          </span>
+                        </button>
+
+                        <AnimatePresence>
+                          {showOtherShared && (
+                            <motion.div
+                              animate={{ height: "auto", opacity: 1 }}
+                              className="space-y-1 overflow-hidden"
+                              exit={{ height: 0, opacity: 0 }}
+                              initial={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              {sharedWorkspaces.map((ws) => (
+                                <div
+                                  className="flex items-center gap-1.5 rounded-md bg-muted/30 px-2 py-1.5"
+                                  key={ws.id}
+                                >
+                                  <span className="flex-1 truncate text-xs">
+                                    {ws.name}
+                                  </span>
+                                  <TooltipProvider delayDuration={300}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          className="h-6 w-6 shrink-0 p-0"
+                                          onClick={() =>
+                                            handleCopyWorkspaceLink(
+                                              ws.id,
+                                              ws.url
+                                            )
+                                          }
+                                          size="sm"
+                                          variant="ghost"
+                                        >
+                                          {copiedWorkspaceId === ws.id ? (
+                                            <Check className="h-3 w-3 text-green-500" />
+                                          ) : (
+                                            <Copy className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left">
+                                        <p className="text-xs">
+                                          Copy share link
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(currentWorkspace?.isShared || shareUrl) && (
+                  <CollaboratorsList
+                    apiUrl={apiUrl}
+                    open={open}
+                    workspaceId={currentWorkspaceId}
+                  />
+                )}
               </div>
             ) : (
               <div>
@@ -171,5 +554,138 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     document.body
   );
 });
+
+const CollaboratorsList = memo(
+  ({
+    workspaceId,
+    apiUrl,
+    open,
+  }: {
+    workspaceId: string | null;
+    apiUrl: string;
+    open: boolean;
+  }) => {
+    const [allMembers, setAllMembers] = useState<
+      Array<{
+        id: string;
+        name: string | null;
+        image: string | null;
+        role: string;
+      }>
+    >([]);
+    const [loading, setLoading] = useState(false);
+
+    const { user: localUser } = useAuth();
+    const { collaborators: onlineCollaborators, isCollaborating } =
+      useCollaboration();
+
+    useEffect(() => {
+      if (!(workspaceId && open)) {
+        return;
+      }
+
+      const fetchMembers = async () => {
+        setLoading(true);
+        try {
+          const response = await fetch(
+            `${apiUrl}/api/workspaces/${workspaceId}/collaborators`,
+            { credentials: "include" }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setAllMembers(data.collaborators || []);
+          }
+        } catch (error) {
+          logger.error("Failed to fetch collaborators", `${error}`);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchMembers();
+    }, [workspaceId, apiUrl, open]);
+
+    if (!workspaceId) {
+      return null;
+    }
+
+    if (loading && allMembers.length === 0) {
+      return (
+        <div className="space-y-3 pt-2">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!loading && allMembers.length === 0) {
+      return null;
+    }
+
+    const onlineIds = new Set<string>();
+    for (const c of onlineCollaborators) {
+      onlineIds.add(c.id);
+    }
+    if (isCollaborating && localUser) {
+      onlineIds.add(localUser.id);
+    }
+
+    return (
+      <div className="pt-2">
+        <h3 className="mb-2 font-medium text-muted-foreground text-xs">
+          Members
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <TooltipProvider delayDuration={0}>
+            {allMembers.map((user) => {
+              const isOnline = onlineIds.has(user.id);
+              return (
+                <Tooltip key={user.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`relative transition-all ${isOnline ? "" : "grayscale hover:grayscale-0"}`}
+                    >
+                      <Avatar
+                        className={`h-8 w-8 cursor-help rounded-lg border border-border/50 ring-2 ring-background ${isOnline ? "hover:scale-110 hover:ring-primary/20" : "bg-muted"}`}
+                      >
+                        <AvatarImage src={user.image || ""} />
+                        <AvatarFallback className="rounded-lg text-[10px]">
+                          {user.name?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isOnline && (
+                        <span className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">
+                      {user.name}
+                      {user.role === "owner" && " (Owner)"}
+                      {isOnline && " • Online"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
+        </div>
+      </div>
+    );
+  }
+);
 
 ProfileModal.displayName = "ProfileModal";

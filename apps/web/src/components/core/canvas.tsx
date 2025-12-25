@@ -42,6 +42,7 @@ import { useShallow } from "zustand/shallow";
 // biome-ignore lint/suspicious/noTsIgnore: added because of CSS import & VSCode false positive
 // @ts-ignore: False positive due to CSS import
 import "@xyflow/react/dist/style.css";
+import { CursorOverlay, useCollaboration } from "../../features/collab";
 import { nodeTypes } from "../../features/kanban/components/board-node";
 import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
 import {
@@ -233,6 +234,9 @@ export function KanbanCanvas() {
     }),
     []
   );
+
+  const { collaborators, updateCursor, isCollaborating } = useCollaboration();
+  const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
   const [activeColumnData, setActiveColumnData] = useState<{
     columnId: string;
@@ -1058,8 +1062,6 @@ export function KanbanCanvas() {
     screenY: number;
   } | null>(null);
 
-  const { screenToFlowPosition } = useReactFlow();
-
   const handleSelectionEnd = useCallback(
     (_event: React.MouseEvent) => {
       const selectionBox = document.querySelector(
@@ -1134,6 +1136,31 @@ export function KanbanCanvas() {
     [activeColumnData]
   );
 
+  // Cursor tracking for collaboration
+  // Use flow coordinates so cursor position is absolute on the canvas
+  // This ensures cursors appear at the correct canvas position regardless of viewport
+  const handleCanvasMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isCollaborating) {
+        return;
+      }
+      // Convert screen position to flow (canvas) coordinates
+      // Flow coordinates are absolute on the canvas, independent of zoom/pan
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor({ x: flowPos.x, y: flowPos.y });
+    },
+    [isCollaborating, screenToFlowPosition, updateCursor]
+  );
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    if (isCollaborating) {
+      updateCursor(null);
+    }
+  }, [isCollaborating, updateCursor]);
+
   return (
     <DndContext
       collisionDetection={closestCenter}
@@ -1142,7 +1169,13 @@ export function KanbanCanvas() {
       sensors={sensors}
     >
       <ColumnDragContext.Provider value={columnDragContextValue}>
-        <div className="h-full w-full">
+        {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: cursor tracking goes brr */}
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: cursor tracking goes brr */}
+        <div
+          className="h-full w-full"
+          onMouseLeave={handleCanvasMouseLeave}
+          onMouseMove={handleCanvasMouseMove}
+        >
           {/* Layer 1: Fixed Background */}
           <div className="fixed inset-0 -z-10 bg-background" />
 
@@ -1219,6 +1252,14 @@ export function KanbanCanvas() {
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />
+          {/* Collaboration cursor overlay */}
+
+          {isCollaborating && collaborators.length > 0 && (
+            <CursorOverlay
+              collaborators={collaborators}
+              flowToScreenPosition={flowToScreenPosition}
+            />
+          )}
           {edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}

@@ -25,6 +25,7 @@ import {
   useCurrentWorkspace,
   useShowWelcomeScreen,
 } from "../features/kanban/store/selectors";
+import { SyncStatusIndicator } from "./sync-status-indicator";
 
 const MotionButton = motion.create(Button);
 
@@ -116,6 +117,7 @@ export const FloatingNavbar = memo(() => {
 
       <div className="h-3.5 w-px bg-border/60" />
 
+      <SyncStatusIndicator />
       <UserButton size="sm" />
 
       {isOffline && (

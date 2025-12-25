@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, User } from "lucide-react";
-import { memo, useState } from "react";
+import { memo } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -9,6 +9,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
+import { useKanbanStore } from "../../kanban/store";
 import { ProfileModal } from "./profile-modal";
 
 type UserButtonProps = {
@@ -19,7 +20,13 @@ type UserButtonProps = {
 
 export const UserButton = memo(
   ({ size = "md", className, showLabel = true }: UserButtonProps) => {
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const isProfileModalOpen = useKanbanStore(
+      (state) => state.isProfileModalOpen
+    );
+    const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+    const closeProfileModal = useKanbanStore(
+      (state) => state.closeProfileModal
+    );
     const { user, isLoading } = useAuth();
 
     const userName = user?.name || user?.email || "Guest";
@@ -57,7 +64,7 @@ export const UserButton = memo(
             buttonPadding,
             className
           )}
-          onClick={() => setIsProfileOpen(true)}
+          onClick={() => openProfileModal()}
           title={userName}
           type="button"
         >
@@ -75,8 +82,8 @@ export const UserButton = memo(
         </button>
 
         <ProfileModal
-          onClose={() => setIsProfileOpen(false)}
-          open={isProfileOpen}
+          onClose={() => closeProfileModal()}
+          open={isProfileModalOpen}
         />
       </>
     );

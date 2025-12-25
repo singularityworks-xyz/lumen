@@ -1,14 +1,10 @@
-import { PrismaClient } from "@lumen/db/prisma/generated/prisma/client";
+import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { jwt } from "better-auth/plugins";
 
 const logger = createLogger({ name: "auth:config" });
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
-const prisma = new PrismaClient({ adapter });
 
 logger.info("Initializing Better Auth with Prisma adapter");
 
@@ -35,6 +31,16 @@ export const auth = betterAuth({
       strategy: "compact",
     },
   },
+  plugins: [
+    jwt({
+      jwt: {
+        expirationTime: "1h",
+      },
+      jwks: {
+        disablePrivateKeyEncryption: true,
+      },
+    }),
+  ],
   secret: process.env.BETTER_AUTH_SECRET as string,
   baseURL: process.env.BETTER_AUTH_URL as string,
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") || [],
@@ -55,6 +61,7 @@ logger.info("Better Auth initialized successfully", {
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") || [],
   sessionExpiresIn: "7 days",
   cookieStrategy: "compact",
+  jwtEnabled: true,
 });
 
 export type Auth = typeof auth;

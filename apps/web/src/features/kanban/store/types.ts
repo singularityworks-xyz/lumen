@@ -42,6 +42,7 @@ export type KanbanState = {
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
+  workspaceShareUrls: Record<string, string>; // workspaceId -> shareUrl
   selectedTaskIds: string[];
   draggedTaskId: string | null;
   shakingTaskDetailModalId: string | null;
@@ -109,22 +110,17 @@ export type KanbanState = {
     areaName: string;
     position: { x: number; y: number };
   } | null;
+  deletedSharedWorkspaceId: string | null;
+  isProfileModalOpen: boolean;
 };
 
 export type KanbanActions = {
   // Workspace actions
   setCurrentWorkspace: (workspaceId: string | null) => void;
   addWorkspace: (name: string, description?: string) => string;
-  updateWorkspace: (
-    workspaceId: string,
-    updates: Partial<
-      Pick<
-        Workspace,
-        "name" | "description" | "customColors" | "colorUsage" | "iconUsage"
-      >
-    >
-  ) => void;
-  deleteWorkspace: (workspaceId: string) => void;
+  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) => void;
+  updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
+  deleteWorkspace: (workspaceId: string) => Promise<boolean>;
   resetWorkspace: (
     workspaceId: string,
     options?: { clearBoardsAndColumns?: boolean }
@@ -149,6 +145,14 @@ export type KanbanActions = {
   closeWorkspaceDialog: () => void;
   updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
   updateWorkspaceDialogInputValue: (value: string) => void;
+  setWorkspaceShareUrl: (workspaceId: string, url: string) => void;
+  clearWorkspaceShareUrl: (workspaceId: string) => void;
+  markWorkspaceDeleted: (workspaceId: string) => void;
+  setDeletedSharedWorkspace: (workspaceId: string | null) => void;
+
+  // Profile modal actions
+  openProfileModal: () => void;
+  closeProfileModal: () => void;
 
   // Column actions
   openColumnQuickActions: (
