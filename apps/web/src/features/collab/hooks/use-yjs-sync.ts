@@ -150,7 +150,6 @@ export function useYjsSync(
     }
   }, [doc, currentWorkspaceId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: na
   useEffect(() => {
     if (!(doc && isConnected)) {
       return;
@@ -182,9 +181,8 @@ export function useYjsSync(
     prevStateRef.current = state;
     const unobserve = observeYjsChanges(doc, applyYjsChanges);
     return unobserve;
-  }, [doc, isConnected, applyYjsChanges]);
+  }, [doc, isConnected, applyYjsChanges, currentWorkspaceId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: na
   useEffect(() => {
     if (!(doc && isConnected)) {
       return;
@@ -296,7 +294,7 @@ export function useYjsSync(
     });
 
     return unsubscribe;
-  }, [doc, isConnected]);
+  }, [doc, isConnected, currentWorkspaceId]);
 
   // Manual sync actions (for explicit sync when needed)
   const syncBoard = useCallback(

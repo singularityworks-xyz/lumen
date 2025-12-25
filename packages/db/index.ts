@@ -1,12 +1,13 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import { createJwksEncryptionExtension } from "./lib/prisma-middleware";
 // biome-ignore lint/style/noExportedImports: We want to re-export PrismaClient
 import { PrismaClient } from "./prisma/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
-function createPrismaClient(): PrismaClient {
+function createPrismaClient() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL environment variable is not set");
   }
@@ -15,7 +16,7 @@ function createPrismaClient(): PrismaClient {
     connectionString: process.env.DATABASE_URL,
   });
 
-  return new PrismaClient({
+  const baseClient = new PrismaClient({
     adapter,
     log:
       process.env.NODE_ENV === "development"
@@ -23,6 +24,8 @@ function createPrismaClient(): PrismaClient {
           [/*"query",*/ "error", "warn"]
         : ["error"],
   });
+
+  return baseClient.$extends(createJwksEncryptionExtension());
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

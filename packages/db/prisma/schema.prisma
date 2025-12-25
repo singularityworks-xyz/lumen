@@ -28,6 +28,7 @@ model User {
   accounts      Account[]
   collaborators WorkspaceCollaborator[]
   workspaces    Workspace[]
+  workspaceShares WorkspaceShare[]
 
   @@map("user")
 }
@@ -106,18 +107,27 @@ model WorkspaceShare {
   createdAt   DateTime  @default(now())
   expiresAt   DateTime?
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([workspaceId])
+  @@index([createdBy])
   @@map("workspace_share")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
 }
 
 model WorkspaceCollaborator {
   id          String   @id @default(cuid())
   workspaceId String
   userId      String
-  role        String   @default("editor")
+  role        Role     @default(EDITOR)
   joinedAt    DateTime @default(now())
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -134,6 +144,7 @@ model WorkspaceState {
   workspaceId String   @unique
   yjsState    Bytes
   stateVector Bytes?
+  createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -143,10 +154,12 @@ model WorkspaceState {
 
 model Jwks {
   id         String    @id @default(cuid())
-  publicKey  String
+  publicKey  String    @unique
   privateKey String
   createdAt  DateTime  @default(now())
   expiresAt  DateTime?
+  isActive   Boolean   @default(true)
 
+  @@index([isActive, expiresAt])
   @@map("jwks")
 }

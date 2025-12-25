@@ -149,9 +149,10 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     const currentUserId = sessionResult.data?.user?.id ?? null;
 
     // Determine if user is the owner of this workspace by comparing ownerId
+    // For legacy workspaces (missing ownerId), treat current user as owner
     const isOwner = workspace.ownerId
       ? workspace.ownerId === currentUserId
-      : false;
+      : true;
 
     logger.info(
       {

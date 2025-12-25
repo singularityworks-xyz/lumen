@@ -13,6 +13,7 @@
     "studio": "prisma studio --config ./prisma.config.ts"
   },
   "devDependencies": {
+    "@lumen/logger": "workspace:^",
     "@types/node": "^25.0.3",
     "@types/pg": "^8.16.0",
     "prisma": "^7.2.0",

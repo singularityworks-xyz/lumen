@@ -255,7 +255,7 @@ export function CollaborationProvider({
       const stateVectorBase64 = uint8ArrayToBase64(stateVector);
 
       const ws = new WebSocket(
-        `${wsUrl}/ws/collab/${workspaceId}?token=${encodeURIComponent(token)}&stateVector=${encodeURIComponent(stateVectorBase64)}`
+        `${wsUrl}/ws/collab/${workspaceId}?stateVector=${encodeURIComponent(stateVectorBase64)}`
       );
       wsRef.current = ws;
 

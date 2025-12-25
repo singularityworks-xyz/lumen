@@ -36,6 +36,9 @@ export const auth = betterAuth({
       jwt: {
         expirationTime: "1h",
       },
+      jwks: {
+        disablePrivateKeyEncryption: true,
+      },
     }),
   ],
   secret: process.env.BETTER_AUTH_SECRET as string,

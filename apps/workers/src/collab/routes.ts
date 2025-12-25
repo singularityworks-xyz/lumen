@@ -1,4 +1,4 @@
-import { prisma } from "@lumen/db";
+import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { Elysia, t } from "elysia";
 import { auth } from "../auth/config/auth";
@@ -27,7 +27,7 @@ type WsData = {
     email: string;
     image?: string | null;
   };
-  collaborator?: { role: "owner" | "editor" | "viewer" };
+  collaborator?: { role: Role };
   initialStateVector?: Uint8Array;
   connectionId?: string;
 };
@@ -42,7 +42,7 @@ const pendingAuth = new Map<
       email: string;
       image?: string | null;
     };
-    collaborator: { role: "owner" | "editor" | "viewer" };
+    collaborator: { role: Role };
     initialStateVector?: Uint8Array;
     connectionId: string;
     timestamp: number;
@@ -129,8 +129,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
                   message: "Workspace does not exist",
                 };
               }
-              await addCollaborator(workspaceId, userId, "owner");
-              collab = { role: "owner" };
+              await addCollaborator(workspaceId, userId, "OWNER");
+              collab = { role: "OWNER" };
               logger.info("Auto-assigned owner role", { workspaceId, userId });
             } else {
               logger.warn("Non-collaborator WebSocket connection attempt", {
@@ -227,8 +227,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               message: "Workspace does not exist",
             };
           }
-          await addCollaborator(workspaceId, session.user.id, "owner");
-          collab = { role: "owner" };
+          await addCollaborator(workspaceId, session.user.id, "OWNER");
+          collab = { role: "OWNER" };
           logger.info("Auto-assigned owner role", {
             workspaceId,
             userId: session.user.id,
@@ -487,8 +487,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             });
           }
 
-          await addCollaborator(workspaceId, session.user.id, "owner");
-          collab = { role: "owner" };
+          await addCollaborator(workspaceId, session.user.id, "OWNER");
+          collab = { role: "OWNER" };
           logger.info("Auto-assigned owner role on share", {
             workspaceId,
             userId: session.user.id,
@@ -496,7 +496,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         }
       }
 
-      if (!collab || collab.role !== "owner") {
+      if (!collab || collab.role !== "OWNER") {
         set.status = 403;
         return { error: "Only workspace owner can create share links" };
       }
@@ -646,7 +646,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         };
       }
 
-      await addCollaborator(shareInfo.workspaceId, session.user.id, "editor");
+      await addCollaborator(shareInfo.workspaceId, session.user.id, "EDITOR");
 
       logger.info("User joined workspace via share link", {
         workspaceId: shareInfo.workspaceId,
@@ -655,7 +655,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
 
       return {
         workspaceId: shareInfo.workspaceId,
-        role: "editor",
+        role: "EDITOR",
         message: "Successfully joined workspace",
         workspaceName: shareInfo.workspaceName,
         owner: shareInfo.owner,
@@ -740,7 +740,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             name: workspace.owner.name,
             email: workspace.owner.email,
             image: workspace.owner.image,
-            role: "owner",
+            role: "OWNER",
             joinedAt: workspace.createdAt,
           });
         }
@@ -927,7 +927,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             collaborators: {
               create: {
                 userId: session.user.id,
-                role: "owner",
+                role: "OWNER",
               },
             },
           },
@@ -984,7 +984,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
 
       // Check permissions
       const collab = await getCollaborator(workspaceId, session.user.id);
-      if (!collab || collab.role !== "owner") {
+      if (!collab || collab.role !== "OWNER") {
         set.status = 403;
         return { error: "Only workspace owner can update workspace details" };
       }

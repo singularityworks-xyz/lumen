@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/performance/noNamespaceImport: usecase */
-import { prisma } from "@lumen/db";
+import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
@@ -18,7 +18,7 @@ export type CollaboratorInfo = {
   name: string;
   email: string;
   image?: string | null;
-  role: "owner" | "editor" | "viewer";
+  role: Role;
   color: string;
 };
 
@@ -270,7 +270,7 @@ class RoomManager {
     if (
       (syncMsgType === syncProtocol.messageYjsSyncStep2 ||
         syncMsgType === syncProtocol.messageYjsUpdate) &&
-      connection.user.role === "viewer"
+      connection.user.role === "VIEWER"
     ) {
       logger.warn("Viewer attempted write operation", {
         connectionId: connection.id,

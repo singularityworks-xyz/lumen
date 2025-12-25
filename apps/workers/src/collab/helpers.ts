@@ -1,4 +1,4 @@
-import { prisma } from "@lumen/db";
+import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import { roomManager } from "./room-manager";
@@ -57,7 +57,7 @@ export function toHeaders(
 export async function getCollaborator(
   workspaceId: string,
   userId: string
-): Promise<{ role: "owner" | "editor" | "viewer" } | null> {
+): Promise<{ role: Role } | null> {
   try {
     const collab = await prisma.workspaceCollaborator.findUnique({
       where: { workspaceId_userId: { workspaceId, userId } },
@@ -65,7 +65,7 @@ export async function getCollaborator(
     if (!collab) {
       return null;
     }
-    return { role: collab.role as "owner" | "editor" | "viewer" };
+    return { role: collab.role };
   } catch (error) {
     logger.error("Failed to get collaborator", {
       workspaceId,
@@ -79,11 +79,11 @@ export async function getCollaborator(
 export async function addCollaborator(
   workspaceId: string,
   userId: string,
-  role: "owner" | "editor" | "viewer"
+  role: Role
 ): Promise<void> {
   try {
     // Ensure workspace exists before adding collaborator (handles race conditions)
-    if (role === "owner") {
+    if (role === "OWNER") {
       const workspaceExists = await prisma.workspace.findUnique({
         where: { id: workspaceId },
         select: { id: true },
