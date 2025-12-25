@@ -330,7 +330,11 @@ export async function getWorkspaceCollaboratorCount(
     return await prisma.workspaceCollaborator.count({
       where: { workspaceId },
     });
-  } catch {
+  } catch (error) {
+    logger.error("Failed to count workspace collaborators", {
+      workspaceId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return 0;
   }
 }
