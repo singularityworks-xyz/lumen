@@ -11,6 +11,8 @@ import type { KanbanStore } from "../types";
 import { getNextZIndex } from "../utils";
 
 const logger = createLogger({ name: "[client] kanban/workspace" });
+const NEXT_PUBLIC_API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,
@@ -76,10 +78,10 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     logger.info({ id, name }, "Workspace created");
 
     // Persist to backend metadata table (fire and forget)
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
-    fetch(`${apiUrl}/api/workspaces`, {
+    fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ id, name, description }),
     }).catch((error) => {
       logger.error({ id, error }, "Failed to create workspace metadata");
@@ -96,11 +98,10 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
 
         // Persist to backend metadata table (fire and forget)
         if (updates.name || updates.description) {
-          const apiUrl =
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
-          fetch(`${apiUrl}/api/workspaces/${workspaceId}`, {
+          fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({
               name: updates.name,
               description: updates.description,
@@ -166,10 +167,9 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
 
     if (isOwner) {
       // Owner deletes: Call server API which will notify all editors
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
       try {
         const response = await fetch(
-          `${apiUrl}/api/workspaces/${workspaceId}`,
+          `${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`,
           {
             method: "DELETE",
             credentials: "include",

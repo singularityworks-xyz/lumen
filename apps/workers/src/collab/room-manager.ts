@@ -39,6 +39,7 @@ type Room = {
   awareness: awarenessProtocol.Awareness;
   connections: Map<string, WsConnection>;
   persistenceTimeout: ReturnType<typeof setTimeout> | null;
+  cleanupTimeout: ReturnType<typeof setTimeout> | null;
   lastModified: number;
 };
 
@@ -89,6 +90,7 @@ class RoomManager {
         awareness,
         connections: new Map(),
         persistenceTimeout: null,
+        cleanupTimeout: null,
         lastModified: Date.now(),
       };
 
@@ -158,6 +160,12 @@ class RoomManager {
       workspaceId,
       awarenessClientId,
     };
+
+    // Cancel any scheduled cleanup since room is now active
+    if (room.cleanupTimeout) {
+      clearTimeout(room.cleanupTimeout);
+      room.cleanupTimeout = null;
+    }
 
     room.connections.set(connectionId, connection);
     this.connectionToRoom.set(connectionId, workspaceId);
@@ -552,7 +560,18 @@ class RoomManager {
   }
 
   private scheduleRoomCleanup(workspaceId: string): void {
-    setTimeout(async () => {
+    const currentRoom = this.rooms.get(workspaceId);
+    if (!currentRoom) {
+      return;
+    }
+
+    // Clear any existing cleanup timeout before scheduling a new one
+    if (currentRoom.cleanupTimeout) {
+      clearTimeout(currentRoom.cleanupTimeout);
+    }
+
+    // Store the timeout ID so it can be cancelled if room becomes active
+    currentRoom.cleanupTimeout = setTimeout(async () => {
       const room = this.rooms.get(workspaceId);
       if (room && room.connections.size === 0) {
         await this.persistRoom(workspaceId);

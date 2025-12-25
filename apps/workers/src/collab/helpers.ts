@@ -247,7 +247,7 @@ export async function getWorkspaceName(
     // Fallback: Try to get from active room
     const room = roomManager.getRoom(workspaceId);
     if (room) {
-      const workspaceMap = room.doc.getMap("workspace");
+      const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
       // Assuming workspace map keys are workspace IDs
       const workspace = workspaceMap.get(workspaceId) as
         | { name: string }
@@ -264,7 +264,7 @@ export async function getWorkspaceName(
       // Create temp room to parse name
       // Note: This parses the whole doc which is heavy, but we need the name
       const tempRoom = roomManager.getOrCreateRoom(workspaceId);
-      const workspaceMap = tempRoom.doc.getMap("workspace");
+      const workspaceMap = tempRoom.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
       const workspace = workspaceMap.get(workspaceId) as
         | { name: string }
         | undefined;
