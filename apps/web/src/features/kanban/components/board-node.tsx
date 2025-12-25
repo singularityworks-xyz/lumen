@@ -33,6 +33,7 @@ import {
   shouldApplyResize,
 } from "../utils/board-resize-rules";
 import { ICON_MAP } from "../utils/color-icon-utils";
+import { BoardPresenceIndicator } from "./board-presence-indicator";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -235,7 +236,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
 
     // Get collaboration context for cursor tracking during resize
-    const { isCollaborating, updateCursor } = useCollaboration();
+    const { isCollaborating, updateCursor, updateSelection, collaborators } =
+      useCollaboration();
 
     // Track cursor position during resize operations
     // NodeResizer uses pointer capture, so we need to listen at the window level
@@ -260,6 +262,11 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         window.removeEventListener("pointermove", handlePointerMove, true);
       };
     }, [isResizing, isCollaborating, screenToFlowPosition, updateCursor]);
+
+    const activeCollaborator = useMemo(
+      () => collaborators.find((c) => c.selection?.includes(id)),
+      [collaborators, id]
+    );
 
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
@@ -359,6 +366,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         }
       } else {
         setSelectedBoard(id);
+        if (isCollaborating) {
+          updateSelection([id]);
+        }
       }
     };
 
@@ -518,6 +528,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               </span>
             </div>
           </div>
+        )}
+
+        {activeCollaborator && (
+          <BoardPresenceIndicator activeCollaborator={activeCollaborator} />
         )}
 
         {(selected || isSelected || isMultiSelected) && (

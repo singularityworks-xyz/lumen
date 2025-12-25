@@ -235,7 +235,8 @@ export function KanbanCanvas() {
     []
   );
 
-  const { collaborators, updateCursor, isCollaborating } = useCollaboration();
+  const { collaborators, updateCursor, isCollaborating, updateSelection } =
+    useCollaboration();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
   const [activeColumnData, setActiveColumnData] = useState<{
@@ -1230,6 +1231,12 @@ export function KanbanCanvas() {
     [setReactFlowViewport]
   );
 
+  const handlePaneClick = useCallback(() => {
+    if (isCollaborating) {
+      updateSelection([]);
+    }
+  }, [isCollaborating, updateSelection]);
+
   return (
     <DndContext
       collisionDetection={closestCenter}
@@ -1273,6 +1280,7 @@ export function KanbanCanvas() {
             onMoveEnd={handleMoveEnd}
             onNodeDrag={handleNodeDrag}
             onNodesChange={handleNodesChange}
+            onPaneClick={handlePaneClick}
             onSelectionEnd={handleSelectionEnd}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
             panOnScroll={!showWelcomeScreen && interactionMode === "drag"}

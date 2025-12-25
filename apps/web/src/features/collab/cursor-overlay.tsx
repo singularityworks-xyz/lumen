@@ -32,9 +32,7 @@ const CursorIcon = memo(({ color }: { color: string }) => (
       // So the tip at (1,1) rotates around (1,1), staying at (1,1),
       // then translates by (-1,-1) to end up at (0,0).
       transformOrigin: "1px 1px",
-      // modified it slightly to better align with pointer position
-      // TODO: make this more precise based on actual cursor hotspot rather than eyeballing
-      transform: "translate(2px, 2px) rotate(-18deg)",
+      transform: "translate(-1px, -1px) rotate(-19deg)",
     }}
     viewBox="0 0 14 18"
     width="14"
