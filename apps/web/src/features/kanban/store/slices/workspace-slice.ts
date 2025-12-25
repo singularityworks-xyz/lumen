@@ -1,4 +1,5 @@
 import { createLogger } from "@lumen/logger";
+import { authClient } from "@/src/lib/auth-client";
 import type { Workspace } from "../../types";
 import {
   generateBoardId,
@@ -143,13 +144,22 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       return false;
     }
 
-    // Determine if user is the owner of this workspace
-    // If isShared is true, the user joined via share link (not owner)
-    // If isShared is false/undefined, the user created this workspace (is owner)
-    const isOwner = !workspace.isShared;
+    // Get current user ID from auth session
+    const sessionResult = await authClient.getSession();
+    const currentUserId = sessionResult.data?.user?.id ?? null;
+
+    // Determine if user is the owner of this workspace by comparing ownerId
+    const isOwner = workspace.ownerId
+      ? workspace.ownerId === currentUserId
+      : false;
 
     logger.info(
-      { workspaceId, isOwner, isShared: workspace.isShared },
+      {
+        workspaceId,
+        isOwner,
+        workspaceOwnerId: workspace.ownerId,
+        currentUserId,
+      },
       "Deleting workspace"
     );
 

@@ -1,7 +1,9 @@
 "use client";
 
+import { logger } from "@lumen/logger";
 import { AlertTriangle, Download } from "lucide-react";
 import { useCallback } from "react";
+import { toast } from "sonner";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
@@ -32,10 +34,35 @@ export function WorkspaceDeletedBanner() {
 
     const newId = duplicateWorkspace(deletedSharedWorkspaceId, workspace.name);
 
-    if (newId) {
-      setCurrentWorkspace(newId);
+    if (!newId) {
+      logger.error("Failed to duplicate workspace", {
+        workspaceId: deletedSharedWorkspaceId,
+        workspaceName: workspace.name,
+      });
+      toast.error("Failed to save workspace", {
+        description: "Could not create a local copy of the workspace.",
+      });
+      return;
+    }
+
+    try {
       await deleteWorkspace(deletedSharedWorkspaceId);
+      setCurrentWorkspace(newId);
       setDeletedSharedWorkspace(null);
+
+      toast.success("Workspace saved", {
+        description: `"${workspace.name}" has been saved as a local workspace.`,
+      });
+    } catch (error) {
+      logger.error("Failed to delete shared workspace", {
+        workspaceId: deletedSharedWorkspaceId,
+        workspaceName: workspace.name,
+        error,
+      });
+      toast.error("Failed to remove shared workspace", {
+        description:
+          "The local copy was created, but the shared workspace could not be removed.",
+      });
     }
   }, [
     deletedSharedWorkspaceId,

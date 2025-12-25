@@ -1,21 +1,10 @@
+import { isEqual } from "lodash-es";
+
 // Deep equality check optimized for Kanban entities.
-// Uses JSON.stringify for reliable deep comparison.
+// Uses lodash's isEqual for robust deep comparison that handles
+// key order differences, circular references, and edge cases.
 export function deepEquals<T>(a: T, b: T): boolean {
-  if (a === b) {
-    return true;
-  }
-
-  if (typeof a !== typeof b) {
-    return false;
-  }
-
-  if (typeof a !== "object" || a === null || b === null) {
-    return false;
-  }
-
-  // For arrays and objects, use JSON comparison
-  // This is safe because our entities are JSON-serializable
-  return JSON.stringify(a) === JSON.stringify(b);
+  return isEqual(a, b);
 }
 
 // Shallow diff to find which keys changed

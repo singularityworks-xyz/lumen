@@ -38,6 +38,7 @@ export const DeleteWorkspaceDialog = memo(
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
+    const isMountedRef = useRef(false);
     const dragRef = useRef<{
       startX: number;
       startY: number;
@@ -68,6 +69,13 @@ export const DeleteWorkspaceDialog = memo(
       }
       setMounted(true);
     }, [getSourceButtonRect, externalPosition]);
+
+    useEffect(() => {
+      isMountedRef.current = true;
+      return () => {
+        isMountedRef.current = false;
+      };
+    }, []);
 
     useEffect(() => {
       const handleEscape = (e: KeyboardEvent) => {
@@ -189,6 +197,7 @@ export const DeleteWorkspaceDialog = memo(
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Button
               className="h-8 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+              disabled={isLoading}
               onClick={onClose}
               type="button"
               variant="ghost"
@@ -206,7 +215,9 @@ export const DeleteWorkspaceDialog = memo(
                     onClose();
                   }
                 } finally {
-                  setIsLoading(false);
+                  if (isMountedRef.current) {
+                    setIsLoading(false);
+                  }
                 }
               }}
               type="button"

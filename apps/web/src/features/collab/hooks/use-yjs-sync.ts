@@ -107,6 +107,8 @@ export function useYjsSync(
           const workspace = state.workspaces.byId[workspaceId];
           if (workspace) {
             const syncedBoardIds = newState.boards?.allIds ?? [];
+            const newBoardIds: string[] = [];
+
             for (const boardId of syncedBoardIds) {
               const board = newState.boards?.byId[boardId];
               if (
@@ -114,10 +116,27 @@ export function useYjsSync(
                 board.workspace_id === workspaceId &&
                 !workspace.board_ids.includes(boardId)
               ) {
-                workspace.board_ids.push(boardId);
+                newBoardIds.push(boardId);
               }
             }
+
+            // Only update if there are new boards to add (immutable update)
+            if (newBoardIds.length > 0) {
+              return {
+                workspaces: {
+                  ...state.workspaces,
+                  byId: {
+                    ...state.workspaces.byId,
+                    [workspaceId]: {
+                      ...workspace,
+                      board_ids: [...workspace.board_ids, ...newBoardIds],
+                    },
+                  },
+                },
+              };
+            }
           }
+          return state;
         });
         logger.debug("Synced workspace.board_ids with Yjs boards", {
           workspaceId,

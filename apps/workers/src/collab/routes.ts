@@ -355,6 +355,7 @@ const pendingAuth = new Map<
     };
     collaborator: { role: "owner" | "editor" | "viewer" };
     initialStateVector?: Uint8Array;
+    connectionId: string;
     timestamp: number;
   }
 >();
@@ -466,8 +467,12 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             }
           }
 
+          // Generate unique connection ID for this WebSocket connection
+          const connectionId = generateId(16);
+
           // Store auth data in pending map for open handler to retrieve
-          const authKey = `${workspaceId}:${userId}`;
+          // Use exact key with connectionId to prevent auth data collision
+          const authKey = `${workspaceId}:${connectionId}`;
           pendingAuth.set(authKey, {
             user: {
               id: userId,
@@ -481,11 +486,13 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             },
             collaborator: collab,
             initialStateVector,
+            connectionId,
             timestamp: Date.now(),
           });
 
           logger.debug("JWT auth successful, stored in pendingAuth", {
             userId,
+            connectionId,
             authKey,
           });
 
@@ -561,17 +568,23 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         }
       }
 
+      // Generate unique connection ID for this WebSocket connection
+      const connectionId = generateId(16);
+
       // Store auth data in pending map for open handler to retrieve
-      const authKey = `${workspaceId}:${session.user.id}`;
+      // Use exact key with connectionId to prevent auth data collision
+      const authKey = `${workspaceId}:${connectionId}`;
       pendingAuth.set(authKey, {
         user: session.user,
         collaborator: collab,
         initialStateVector,
+        connectionId,
         timestamp: Date.now(),
       });
 
       logger.debug("Session auth successful, stored in pendingAuth", {
         userId: session.user.id,
+        connectionId,
         authKey,
       });
 
@@ -584,7 +597,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       const { workspaceId } = ws.data.params;
       const wsData = ws.data as unknown as WsData;
 
-      // Find auth data from pendingAuth Map - look for any entry with matching workspaceId
+      // Find the most recent auth entry for this workspace (FIFO approach)
+      // Since connections are processed sequentially, the first match should be correct
       let authData:
         | (typeof pendingAuth extends Map<string, infer V> ? V : never)
         | undefined;
@@ -611,9 +625,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         pendingAuth.delete(authKey);
       }
 
-      const { user, collaborator, initialStateVector } = authData;
-
-      const connectionId = generateId(12);
+      const { user, collaborator, initialStateVector, connectionId } = authData;
       const color = getColorForUser(user.id);
 
       const collabInfo: CollaboratorInfo = {
@@ -1004,8 +1016,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         },
       });
 
-      // Also fetch owner info if not in collaborators table (though should be there)
-      await prisma.workspace.findUnique({
+      // Also fetch owner info to ensure they're included even if not in collaborators table
+      const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId },
         include: {
           owner: {
@@ -1028,9 +1040,24 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         joinedAt: c.joinedAt,
       }));
 
-      // Ensure owner is in list (if for some reason not in collaborators)
-      // but typically we add owner to collaborators on creation.
-      // Filter out duplicates just in case
+      // Ensure owner is in list (if not already in collaborators table)
+      if (workspace?.owner) {
+        const ownerAlreadyInList = result.some(
+          (c) => c.id === workspace.owner.id
+        );
+        if (!ownerAlreadyInList) {
+          result.push({
+            id: workspace.owner.id,
+            name: workspace.owner.name,
+            email: workspace.owner.email,
+            image: workspace.owner.image,
+            role: "owner",
+            joinedAt: workspace.createdAt,
+          });
+        }
+      }
+
+      // Remove duplicates just in case
       const uniqueCollaborators = new Map();
       for (const c of result) {
         uniqueCollaborators.set(c.id, c);

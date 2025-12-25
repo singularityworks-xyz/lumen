@@ -23,6 +23,22 @@ const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_WORKSPACE_DELETED = 3;
 
+// Encode Uint8Array to base64 string in a browser-compatible way
+// Uses btoa for browsers, falls back to Buffer for Node environments
+function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  // Feature-detect Buffer for Node.js environments
+  if (typeof Buffer !== "undefined" && Buffer.from) {
+    return Buffer.from(uint8Array).toString("base64");
+  }
+
+  // Browser-compatible approach: convert bytes to binary string, then base64
+  let binaryString = "";
+  for (const byte of uint8Array) {
+    binaryString += String.fromCharCode(byte);
+  }
+  return btoa(binaryString);
+}
+
 export type CursorPosition = {
   x: number;
   y: number;
@@ -236,7 +252,7 @@ export function CollaborationProvider({
       // biome-ignore lint/performance/useTopLevelRegex: nah
       const wsUrl = apiUrl.replace(/^http/, "ws");
       const stateVector = Y.encodeStateVector(doc);
-      const stateVectorBase64 = Buffer.from(stateVector).toString("base64");
+      const stateVectorBase64 = uint8ArrayToBase64(stateVector);
 
       const ws = new WebSocket(
         `${wsUrl}/ws/collab/${workspaceId}?token=${encodeURIComponent(token)}&stateVector=${encodeURIComponent(stateVectorBase64)}`
