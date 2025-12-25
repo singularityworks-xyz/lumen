@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/src/components/ui/popover";
+import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -126,14 +127,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       return { done, total };
     }, [board]);
 
-    const {
-      getNode,
-      setNodes,
-      setCenter,
-      screenToFlowPosition,
-      getViewport,
-      setViewport,
-    } = useReactFlow();
+    const { setCenter, screenToFlowPosition, getViewport, setViewport } =
+      useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
 
@@ -239,6 +234,33 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.boardPositions.byId[boardId]
     );
 
+    // Get collaboration context for cursor tracking during resize
+    const { isCollaborating, updateCursor } = useCollaboration();
+
+    // Track cursor position during resize operations
+    // NodeResizer uses pointer capture, so we need to listen at the window level
+    // with the capture phase to get events even during pointer capture
+    useEffect(() => {
+      if (!(isResizing && isCollaborating)) {
+        return;
+      }
+
+      const handlePointerMove = (event: PointerEvent) => {
+        const flowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+        updateCursor({ x: flowPos.x, y: flowPos.y });
+      };
+
+      // Use capture phase to get events even when element has pointer capture
+      window.addEventListener("pointermove", handlePointerMove, true);
+
+      return () => {
+        window.removeEventListener("pointermove", handlePointerMove, true);
+      };
+    }, [isResizing, isCollaborating, screenToFlowPosition, updateCursor]);
+
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
       return {
@@ -248,18 +270,19 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [board?.columns]);
 
+    const updateBoardDimensions = useKanbanStore(
+      (state) => state.updateBoardDimensions
+    );
+
     useEffect(() => {
       if (isResizing) {
         return;
       }
 
-      const node = getNode(String(id));
-      if (!node) {
-        return;
-      }
-
-      const currentWidth = node.width || minDimensions.width;
-      const currentHeight = node.height || minDimensions.height;
+      // Use dimensions from synced store state (boardPosition), not React Flow node
+      // This ensures consistent sizing across synced browsers
+      const currentWidth = boardPosition?.width || minDimensions.width;
+      const currentHeight = boardPosition?.height || minDimensions.height;
       const userResized = boardPosition?.userResized ?? false;
 
       const { shouldResize, newDimensions } = shouldApplyResize(
@@ -279,35 +302,26 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           maxDimensions.height
         );
 
-        setNodes((nodes) =>
-          nodes.map((n) => {
-            if (n.id === String(id)) {
-              return {
-                ...n,
-                width: finalWidth,
-                height: finalHeight,
-                style: {
-                  ...n.style,
-                  width: finalWidth,
-                  height: finalHeight,
-                },
-              };
-            }
-            return n;
-          })
+        // Update through the store so dimensions sync via Yjs to other browsers
+        // Don't mark as user resize - this is auto-resize based on content
+        updateBoardDimensions(
+          boardId,
+          { width: finalWidth, height: finalHeight },
+          false
         );
       }
     }, [
-      id,
+      boardId,
       isResizing,
       contentDimensions,
       minDimensions,
       maxDimensions,
+      boardPosition?.width,
+      boardPosition?.height,
       boardPosition?.userResized,
       boardPosition?.lastUserWidth,
       boardPosition?.lastUserHeight,
-      getNode,
-      setNodes,
+      updateBoardDimensions,
     ]);
 
     const handleRemove = useCallback(

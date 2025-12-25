@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Collaborator } from "./collab-provider";
 
 type CursorOverlayProps = {
@@ -23,7 +23,18 @@ const CursorIcon = memo(({ color }: { color: string }) => (
     height="18"
     style={{
       filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.2))",
-      transform: "rotate(-19deg)",
+      // The SVG path starts at (1,1), and we apply a -19deg rotation.
+      // To keep the cursor tip at position (0,0) of the parent div:
+      // 1. Set transform-origin at the SVG path tip (1px, 1px)
+      // 2. Translate by -1px on both axes to move tip to origin
+      // CSS transforms apply right-to-left, so translate happens after rotate
+      // when written as "translate rotate", the rotate is applied first.
+      // So the tip at (1,1) rotates around (1,1), staying at (1,1),
+      // then translates by (-1,-1) to end up at (0,0).
+      transformOrigin: "1px 1px",
+      // modified it slightly to better align with pointer position
+      // TODO: make this more precise based on actual cursor hotspot rather than eyeballing
+      transform: "translate(2px, 2px) rotate(-18deg)",
     }}
     viewBox="0 0 14 18"
     width="14"
@@ -174,7 +185,10 @@ const CollaboratorDisplay = memo(
     collaborator,
     flowToScreenPosition,
     onNavigate,
-  }: CollaboratorDisplayProps) => {
+    containerOffset,
+  }: CollaboratorDisplayProps & {
+    containerOffset: { x: number; y: number };
+  }) => {
     const { cursor, name, color } = collaborator;
     const lastInViewportRef = useRef(true);
 
@@ -184,10 +198,12 @@ const CollaboratorDisplay = memo(
     }
 
     const screenPos = flowToScreenPosition({ x: cursor.x, y: cursor.y });
-    const x = screenPos.x;
-    const y = screenPos.y;
 
-    const inViewport = isInViewport(x, y);
+    // Adjust screen position by subtracting container offset to get local coordinates
+    // This ensures cursor is correctly positioned even if container is not at (0,0) viewport
+    const x = screenPos.x - containerOffset.x;
+    const y = screenPos.y - containerOffset.y;
+    const inViewport = isInViewport(screenPos.x, screenPos.y);
 
     // Use ref to track state changes and prevent rapid switching
     // This adds hysteresis to prevent flickering at the boundary
@@ -196,7 +212,10 @@ const CollaboratorDisplay = memo(
     }
 
     const firstName = name.split(" ")[0] || name;
-    const edgePos = inViewport ? null : getEdgeIndicatorPosition(x, y);
+    // Edge indicator uses viewport coordinates relative to window
+    const edgePos = inViewport
+      ? null
+      : getEdgeIndicatorPosition(screenPos.x, screenPos.y);
 
     const handleClick = () => {
       if (onNavigate && cursor) {
@@ -239,8 +258,8 @@ const CollaboratorDisplay = memo(
           <motion.div
             animate={{
               opacity: inViewport ? 0 : 1,
-              x: edgePos.edgeX,
-              y: edgePos.edgeY,
+              x: edgePos.edgeX - containerOffset.x,
+              y: edgePos.edgeY - containerOffset.y,
             }}
             className="pointer-events-auto absolute top-0 left-0 z-9998 flex cursor-pointer items-center gap-1"
             initial={false}
@@ -279,6 +298,22 @@ export const CursorOverlay = memo(
     flowToScreenPosition,
     onNavigateToUser,
   }: CursorOverlayProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerOffset, setContainerOffset] = useState({ x: 0, y: 0 });
+
+    useEffect(() => {
+      const updateOffset = () => {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          setContainerOffset({ x: rect.left, y: rect.top });
+        }
+      };
+
+      updateOffset();
+      window.addEventListener("resize", updateOffset);
+      return () => window.removeEventListener("resize", updateOffset);
+    }, []);
+
     // Only show collaborators who have an active cursor (not null)
     // Cursor is null when user leaves tab, switches apps, or mouse leaves canvas
     const activeCollaborators = useMemo(
@@ -305,12 +340,14 @@ export const CursorOverlay = memo(
     return (
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
+        ref={containerRef}
         style={{ zIndex: 9999 }}
       >
         <AnimatePresence>
           {activeCollaborators.map((collaborator) => (
             <CollaboratorDisplay
               collaborator={collaborator}
+              containerOffset={containerOffset}
               flowToScreenPosition={flowToScreenPosition}
               key={collaborator.id}
               onNavigate={handleNavigate}
@@ -321,5 +358,4 @@ export const CursorOverlay = memo(
     );
   }
 );
-
 CursorOverlay.displayName = "CursorOverlay";

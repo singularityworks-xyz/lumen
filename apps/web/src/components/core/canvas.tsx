@@ -1136,16 +1136,53 @@ export function KanbanCanvas() {
     [activeColumnData]
   );
 
-  // Cursor tracking for collaboration
-  // Use flow coordinates so cursor position is absolute on the canvas
-  // This ensures cursors appear at the correct canvas position regardless of viewport
+  // Window-level cursor tracking for collaboration
+  // This ensures cursor updates even during resize operations when React Flow
+  // NodeResizer captures pointer events and stops them from bubbling
+  useEffect(() => {
+    if (!isCollaborating) {
+      return;
+    }
+
+    let lastUpdateTime = 0;
+    const THROTTLE_MS = 16; // ~60fps throttle to avoid too many updates
+
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      const now = Date.now();
+      if (now - lastUpdateTime < THROTTLE_MS) {
+        return;
+      }
+      lastUpdateTime = now;
+
+      // Convert screen position to flow (canvas) coordinates
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor({ x: flowPos.x, y: flowPos.y });
+    };
+
+    const handleWindowMouseLeave = () => {
+      updateCursor(null);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    document.addEventListener("mouseleave", handleWindowMouseLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      document.removeEventListener("mouseleave", handleWindowMouseLeave);
+    };
+  }, [isCollaborating, screenToFlowPosition, updateCursor]);
+
+  // Legacy mouse move handler (kept for backup, but window listener is preferred)
   const handleCanvasMouseMove = useCallback(
     (event: React.MouseEvent) => {
+      // Window listener handles this now, but keep for cases where window listener
+      // might not capture (e.g., during certain pointer capture scenarios)
       if (!isCollaborating) {
         return;
       }
-      // Convert screen position to flow (canvas) coordinates
-      // Flow coordinates are absolute on the canvas, independent of zoom/pan
       const flowPos = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
