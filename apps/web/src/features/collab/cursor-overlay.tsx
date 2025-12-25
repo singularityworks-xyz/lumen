@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import type { Collaborator } from "./collab-provider";
 
 type CursorOverlayProps = {
@@ -14,7 +14,7 @@ type CursorOverlayProps = {
 };
 
 const EDGE_PADDING = 60;
-const VIEWPORT_MARGIN = 20;
+const VIEWPORT_MARGIN = 50;
 
 const CursorIcon = memo(({ color }: { color: string }) => (
   // biome-ignore lint/a11y/noSvgWithoutTitle: skip for decorative icon
@@ -40,7 +40,6 @@ const CursorIcon = memo(({ color }: { color: string }) => (
 
 CursorIcon.displayName = "CursorIcon";
 
-// Arrow icon for edge indicators
 const DirectionArrow = memo(
   ({ color, rotation }: { color: string; rotation: number }) => (
     // biome-ignore lint/a11y/noSvgWithoutTitle: skip for decorative icon
@@ -66,12 +65,13 @@ const DirectionArrow = memo(
 
 DirectionArrow.displayName = "DirectionArrow";
 
-type CollaboratorCursorProps = {
+type CollaboratorDisplayProps = {
   collaborator: Collaborator;
   flowToScreenPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
   };
+  onNavigate?: (position: { x: number; y: number }) => void;
 };
 
 // Check if position is within viewport
@@ -167,86 +167,16 @@ function getEdgeIndicatorPosition(
   return { edgeX, edgeY, rotation };
 }
 
-// Edge indicator component for off-screen cursors
-const EdgeIndicator = memo(
+// Combined component that handles both cursor and edge indicator
+// This prevents the janky animations when switching between the two
+const CollaboratorDisplay = memo(
   ({
     collaborator,
     flowToScreenPosition,
     onNavigate,
-  }: {
-    collaborator: Collaborator;
-    flowToScreenPosition: (pos: { x: number; y: number }) => {
-      x: number;
-      y: number;
-    };
-    onNavigate?: (position: { x: number; y: number }) => void;
-  }) => {
+  }: CollaboratorDisplayProps) => {
     const { cursor, name, color } = collaborator;
-
-    // Don't show if cursor is null (user left tab/switched apps)
-    if (!cursor) {
-      return null;
-    }
-
-    const screenPos = flowToScreenPosition({ x: cursor.x, y: cursor.y });
-    const firstName = name.split(" ")[0] || name;
-
-    // If cursor is in viewport, don't show edge indicator
-    if (isInViewport(screenPos.x, screenPos.y)) {
-      return null;
-    }
-
-    const edgePos = getEdgeIndicatorPosition(screenPos.x, screenPos.y);
-    if (!edgePos) {
-      return null;
-    }
-
-    const handleClick = () => {
-      if (onNavigate && cursor) {
-        onNavigate({ x: cursor.x, y: cursor.y });
-      }
-    };
-
-    return (
-      <motion.div
-        animate={{
-          opacity: 1,
-          x: edgePos.edgeX,
-          y: edgePos.edgeY,
-        }}
-        className="pointer-events-auto absolute top-0 left-0 z-9998 flex cursor-pointer items-center gap-1"
-        exit={{ opacity: 0 }}
-        initial={{ opacity: 0 }}
-        onClick={handleClick}
-        style={{ willChange: "transform" }}
-        transition={{
-          x: { type: "spring", stiffness: 800, damping: 60 },
-          y: { type: "spring", stiffness: 800, damping: 60 },
-          opacity: { duration: 0.15 },
-        }}
-      >
-        <div
-          className="flex items-center gap-1.5 rounded-full px-2 py-1 shadow-lg transition-transform hover:scale-105"
-          style={{
-            backgroundColor: color,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-          }}
-        >
-          <DirectionArrow color="white" rotation={edgePos.rotation} />
-          <span className="font-medium text-[10px] text-white">
-            {firstName}
-          </span>
-        </div>
-      </motion.div>
-    );
-  }
-);
-
-EdgeIndicator.displayName = "EdgeIndicator";
-
-const CollaboratorCursor = memo(
-  ({ collaborator, flowToScreenPosition }: CollaboratorCursorProps) => {
-    const { cursor, name, color } = collaborator;
+    const lastInViewportRef = useRef(true);
 
     // Don't show if cursor is null (user left tab/switched apps)
     if (!cursor) {
@@ -257,43 +187,91 @@ const CollaboratorCursor = memo(
     const x = screenPos.x;
     const y = screenPos.y;
 
-    // Don't render cursor if it's outside viewport (edge indicator handles this)
-    if (!isInViewport(x, y)) {
-      return null;
+    const inViewport = isInViewport(x, y);
+
+    // Use ref to track state changes and prevent rapid switching
+    // This adds hysteresis to prevent flickering at the boundary
+    if (inViewport !== lastInViewportRef.current) {
+      lastInViewportRef.current = inViewport;
     }
 
     const firstName = name.split(" ")[0] || name;
+    const edgePos = inViewport ? null : getEdgeIndicatorPosition(x, y);
+
+    const handleClick = () => {
+      if (onNavigate && cursor) {
+        onNavigate({ x: cursor.x, y: cursor.y });
+      }
+    };
 
     return (
-      <motion.div
-        animate={{ opacity: 1, scale: 1, x, y }}
-        className="pointer-events-none absolute top-0 left-0 z-9999"
-        exit={{ opacity: 0, scale: 0.5 }}
-        initial={{ opacity: 0, scale: 0.5 }}
-        style={{ willChange: "transform" }}
-        transition={{
-          x: { type: "spring", stiffness: 800, damping: 60 },
-          y: { type: "spring", stiffness: 800, damping: 60 },
-          opacity: { duration: 0.1 },
-          scale: { duration: 0.1 },
-        }}
-      >
-        <CursorIcon color={color} />
-        <div
-          className="absolute top-4 left-2.5 whitespace-nowrap rounded-full px-2 py-0.5 font-medium text-[10px] text-white"
-          style={{
-            backgroundColor: color,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+      <>
+        <motion.div
+          animate={{
+            opacity: inViewport ? 1 : 0,
+            scale: inViewport ? 1 : 0.5,
+            x,
+            y,
+          }}
+          className="pointer-events-none absolute top-0 left-0 z-9999"
+          initial={false}
+          style={{ willChange: "transform" }}
+          transition={{
+            x: { type: "spring", stiffness: 800, damping: 60 },
+            y: { type: "spring", stiffness: 800, damping: 60 },
+            opacity: { duration: 0.15 },
+            scale: { duration: 0.15 },
           }}
         >
-          {firstName}
-        </div>
-      </motion.div>
+          <CursorIcon color={color} />
+          <div
+            className="absolute top-4 left-2.5 whitespace-nowrap rounded-full px-2 py-0.5 font-medium text-[10px] text-white"
+            style={{
+              backgroundColor: color,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+            }}
+          >
+            {firstName}
+          </div>
+        </motion.div>
+
+        {edgePos && (
+          <motion.div
+            animate={{
+              opacity: inViewport ? 0 : 1,
+              x: edgePos.edgeX,
+              y: edgePos.edgeY,
+            }}
+            className="pointer-events-auto absolute top-0 left-0 z-9998 flex cursor-pointer items-center gap-1"
+            initial={false}
+            onClick={handleClick}
+            style={{ willChange: "transform" }}
+            transition={{
+              x: { type: "spring", stiffness: 800, damping: 60 },
+              y: { type: "spring", stiffness: 800, damping: 60 },
+              opacity: { duration: 0.15 },
+            }}
+          >
+            <div
+              className="flex items-center gap-1.5 rounded-full px-2 py-1 shadow-lg transition-transform hover:scale-105"
+              style={{
+                backgroundColor: color,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+              }}
+            >
+              <DirectionArrow color="white" rotation={edgePos.rotation} />
+              <span className="font-medium text-[10px] text-white">
+                {firstName}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </>
     );
   }
 );
 
-CollaboratorCursor.displayName = "CollaboratorCursor";
+CollaboratorDisplay.displayName = "CollaboratorDisplay";
 
 export const CursorOverlay = memo(
   ({
@@ -331,17 +309,10 @@ export const CursorOverlay = memo(
       >
         <AnimatePresence>
           {activeCollaborators.map((collaborator) => (
-            <CollaboratorCursor
+            <CollaboratorDisplay
               collaborator={collaborator}
               flowToScreenPosition={flowToScreenPosition}
               key={collaborator.id}
-            />
-          ))}
-          {activeCollaborators.map((collaborator) => (
-            <EdgeIndicator
-              collaborator={collaborator}
-              flowToScreenPosition={flowToScreenPosition}
-              key={`edge-${collaborator.id}`}
               onNavigate={handleNavigate}
             />
           ))}
