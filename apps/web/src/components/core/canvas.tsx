@@ -42,25 +42,28 @@ import { useShallow } from "zustand/shallow";
 // biome-ignore lint/suspicious/noTsIgnore: added because of CSS import & VSCode false positive
 // @ts-ignore: False positive due to CSS import
 import "@xyflow/react/dist/style.css";
-import { CursorOverlay, useCollaboration } from "../../features/collab";
-import { nodeTypes } from "../../features/kanban/components/board-node";
-import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
+import {
+  type BoardEdge,
+  BoardEdgeComponent,
+} from "@/src/components/core/board-edge";
+import { CustomControls } from "@/src/components/custom-controls";
+import { WelcomeScreen } from "@/src/components/dialogs/welcome-screen";
+import { EdgeContextMenu } from "@/src/components/edge-context-menu";
+import { RightControls } from "@/src/components/right-controls";
+import { CursorOverlay, useCollaboration } from "@/src/features/collab";
+import { nodeTypes } from "@/src/features/kanban/components/board-node";
+import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import {
   canRedo,
   canUndo,
   redo,
   undo,
   useKanbanStore,
-} from "../../features/kanban/store/kanban-store";
-import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
-import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
-import type { BoardNode } from "../../features/kanban/types";
-import { type BoardEdge, BoardEdgeComponent } from "../core/board-edge";
-import { CustomControls } from "../custom-controls";
-import { WelcomeScreen } from "../dialogs/welcome-screen";
-import { EdgeContextMenu } from "../edge-context-menu";
-import { RightControls } from "../right-controls";
-import { WorkspaceSelector } from "../workspace-selector";
+} from "@/src/features/kanban/store/kanban-store";
+import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import type { BoardNode } from "@/src/features/kanban/types";
+import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 

@@ -2,12 +2,11 @@
 
 import { Building2, Check, Plus, User, Users } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { CreateWorkspaceDialog } from "@/src/components/dialogs/create-workspace-dialog";
-import { DeleteWorkspaceDialog } from "@/src/components/dialogs/delete-workspace-dialog";
-import { DuplicateWorkspaceDialog } from "@/src/components/dialogs/duplicate-workspace-dialog";
-import { RenameWorkspaceDialog } from "@/src/components/dialogs/rename-workspace-dialog";
-import { ResetWorkspaceDialog } from "@/src/components/dialogs/reset-workspace-dialog";
-import { SharedWorkspaceQuickActions } from "@/src/components/shared-workspace-quick-actions";
+import { CreateWorkspaceDialog } from "@/src/components/dialogs/workspace/create-workspace-dialog";
+import { DeleteWorkspaceDialog } from "@/src/components/dialogs/workspace/delete-workspace-dialog";
+import { DuplicateWorkspaceDialog } from "@/src/components/dialogs/workspace/duplicate-workspace-dialog";
+import { RenameWorkspaceDialog } from "@/src/components/dialogs/workspace/rename-workspace-dialog";
+import { ResetWorkspaceDialog } from "@/src/components/dialogs/workspace/reset-workspace-dialog";
 import { Button } from "@/src/components/ui/button";
 import {
   DropdownMenu,
@@ -16,9 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
-import { WorkspaceQuickActions } from "@/src/components/workspace-quick-actions";
+import { SharedWorkspaceQuickActions } from "@/src/features/workspace/components/shared-workspace-quick-actions";
+import { WorkspaceQuickActions } from "@/src/features/workspace/components/workspace-quick-actions";
 import { useAuth } from "@/src/hooks/use-auth";
-import { useKanbanStore } from "../features/kanban/store/kanban-store";
+import { useKanbanStore } from "../../kanban/store/kanban-store";
 
 export function WorkspaceSelector() {
   const workspaces = useKanbanStore((state) => state.workspaces);

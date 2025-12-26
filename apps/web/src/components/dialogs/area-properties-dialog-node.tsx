@@ -4,12 +4,12 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { HexColorPicker } from "react-colorful";
-import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import {
   ACCENT_COLORS,
   COLUMN_ICONS,
-} from "../../features/kanban/utils/color-icon-utils";
+} from "@/src/features/kanban/utils/color-icon-utils";
+import { cn } from "@/src/lib/utils";
 
 type AreaPropertiesDialogNodeData = {
   dialogId: string;

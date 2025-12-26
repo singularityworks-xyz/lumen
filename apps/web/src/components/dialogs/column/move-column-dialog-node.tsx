@@ -26,9 +26,9 @@ import {
 } from "@/src/components/scaled-dropdown";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type MoveColumnDialogNodeData = {
   columnId: string;

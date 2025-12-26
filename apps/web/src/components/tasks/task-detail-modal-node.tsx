@@ -8,9 +8,9 @@ import {
 } from "@xyflow/react";
 import { ArrowLeft, Columns, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 import { TaskDetailForm } from "./task-detail-form";
 import { TaskViewForm } from "./task-view-form";
 

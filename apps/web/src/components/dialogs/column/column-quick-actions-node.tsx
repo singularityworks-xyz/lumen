@@ -28,10 +28,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
-
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type ColumnQuickActionsNodeData = {
   columnId: string;

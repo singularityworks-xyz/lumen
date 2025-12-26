@@ -28,9 +28,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
 
 type TaskQuickActionsNodeData = {
   taskId: string;

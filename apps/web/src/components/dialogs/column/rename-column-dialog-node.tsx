@@ -14,9 +14,9 @@ import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Textarea } from "@/src/components/ui/textarea";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
 

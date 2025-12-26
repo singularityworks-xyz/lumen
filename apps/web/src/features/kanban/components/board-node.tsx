@@ -875,13 +875,13 @@ import { DeleteBoardDialogNodeComponent } from "@/src/components/dialogs/board/d
 import { DuplicateBoardDialogNodeComponent } from "@/src/components/dialogs/board/duplicate-board-dialog-node";
 import { RenameBoardDialogNodeComponent } from "@/src/components/dialogs/board/rename-board-dialog-node";
 import { ColorIconPickerDialogNodeComponent } from "@/src/components/dialogs/color-icon-picker-dialog-node";
-import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column-quick-actions-node";
-import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/delete-column-dialog-node";
-import { MoveColumnDialogNodeComponent } from "@/src/components/dialogs/move-column-dialog-node";
-import { RenameColumnDialogNodeComponent } from "@/src/components/dialogs/rename-column-dialog-node";
-import { TaskQuickActionsNodeComponent } from "@/src/components/dialogs/task-quick-actions-node";
+import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column/column-quick-actions-node";
+import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/column/delete-column-dialog-node";
+import { MoveColumnDialogNodeComponent } from "@/src/components/dialogs/column/move-column-dialog-node";
+import { RenameColumnDialogNodeComponent } from "@/src/components/dialogs/column/rename-column-dialog-node";
 import { TaskDetailModalNodeComponent } from "@/src/components/tasks/task-detail-modal-node";
 import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
+import { TaskQuickActionsNodeComponent } from "@/src/components/tasks/task-quick-actions-node";
 import { AreaNodeComponent } from "./area-node";
 
 export const nodeTypes = {
