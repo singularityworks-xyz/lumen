@@ -73,12 +73,6 @@ export const BoardPropertiesDialogNodeComponent =
     const { flowToScreenPosition } = useReactFlow();
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
-    const [expandedColumnId, setExpandedColumnId] = useState<string | null>(
-      null
-    );
-    const [activeTab, setActiveTab] = useState<"progress" | "style">(
-      "progress"
-    );
 
     const dialogId = data.dialogId;
     const dialog = useKanbanStore((state) => state.boardDialogs[dialogId]);
@@ -93,6 +87,25 @@ export const BoardPropertiesDialogNodeComponent =
     const updateColumn = useKanbanStore((state) => state.updateColumn);
     const updateBoardDialogColumnProgress = useKanbanStore(
       (state) => state.updateBoardDialogColumnProgress
+    );
+    const updateBoardDialogUIState = useKanbanStore(
+      (state) => state.updateBoardDialogUIState
+    );
+
+    // Get UI state from store (synced across collaborators)
+    const expandedColumnId = dialog?.expandedColumnId ?? null;
+    const activeTab = dialog?.activeTab ?? "progress";
+
+    // Setter functions that update store (syncing to collaborators)
+    const setExpandedColumnId = useCallback(
+      (value: string | null) =>
+        updateBoardDialogUIState(dialogId, { expandedColumnId: value }),
+      [dialogId, updateBoardDialogUIState]
+    );
+    const setActiveTab = useCallback(
+      (value: "progress" | "style") =>
+        updateBoardDialogUIState(dialogId, { activeTab: value }),
+      [dialogId, updateBoardDialogUIState]
     );
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
@@ -150,6 +163,7 @@ export const BoardPropertiesDialogNodeComponent =
         .sort((a, b) => a.position - b.position);
     }, [board, columns]);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: skip
     useEffect(() => {
       if (expandedColumnId === null && boardColumns.length > 0) {
         setExpandedColumnId(boardColumns[0]?.id ?? null);

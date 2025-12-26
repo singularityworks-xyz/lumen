@@ -300,6 +300,13 @@ export type KanbanActions = {
     columnId: string,
     value: number
   ) => void;
+  updateBoardDialogUIState: (
+    id: string,
+    state: {
+      expandedColumnId?: string | null;
+      activeTab?: "progress" | "style";
+    }
+  ) => void;
   openConnectionDialog: (
     boardId: string,
     position: { x: number; y: number }

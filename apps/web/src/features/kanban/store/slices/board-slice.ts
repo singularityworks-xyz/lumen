@@ -37,6 +37,7 @@ type SliceCreator = (
   | "updateBoardDialogNewName"
   | "updateBoardDialogCopyConnections"
   | "updateBoardDialogColumnProgress"
+  | "updateBoardDialogUIState"
   | "openConnectionDialog"
   | "closeConnectionDialog"
   | "updateConnectionDialogPosition"
@@ -542,6 +543,14 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
           dialog.columnProgressValues = {};
         }
         dialog.columnProgressValues[columnId] = value;
+      }
+    }),
+
+  updateBoardDialogUIState: (id, uiState) =>
+    set((state) => {
+      const dialog = state.boardDialogs[id];
+      if (dialog) {
+        Object.assign(dialog, uiState);
       }
     }),
 

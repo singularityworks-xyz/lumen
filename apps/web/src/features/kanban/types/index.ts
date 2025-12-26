@@ -219,6 +219,8 @@ export type BoardDialogState = {
   columnId?: string;
   targetType?: "board" | "column";
   sourceDialogId?: string;
+  expandedColumnId?: string | null;
+  activeTab?: "progress" | "style";
 };
 
 export type BoardQuickActionsState = {

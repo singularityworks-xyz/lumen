@@ -182,6 +182,8 @@ export const BoardDialogSchema = z.object({
   columnId: z.string().optional(),
   targetType: z.enum(["board", "column"]).optional(),
   sourceDialogId: z.string().optional(),
+  expandedColumnId: z.string().nullable().optional(),
+  activeTab: z.enum(["progress", "style"]).optional(),
 });
 
 // Connection dialog schema - syncs across collaborators
