@@ -17,8 +17,14 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   );
   const isConnected = connectionState === "connected";
 
-  // Only auto-connect when workspace is shared (joined via share OR has share URL)
-  const isSharedWorkspace = currentWorkspace?.isShared === true || !!shareUrl;
+  // Only auto-connect when workspace is shared:
+  // - isShared: true means the workspace was joined via share link (editor)
+  // - shareUrl set in state means owner has shared this workspace
+  // - shareToken on workspace means owner has shared (persisted token)
+  const isSharedWorkspace =
+    currentWorkspace?.isShared === true ||
+    !!shareUrl ||
+    !!currentWorkspace?.shareToken;
 
   // Auto-connect when shared workspace is available
   useEffect(() => {

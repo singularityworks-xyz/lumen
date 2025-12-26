@@ -867,21 +867,21 @@ BoardNodeComponent.displayName = "BoardNode";
 // Dialog components are rendered as React Flow nodes; they still use portals internally
 // for certain elements like connector edges.
 
-import { AreaPropertiesDialogNodeComponent } from "../../../components/dialogs/area-properties-dialog-node";
-import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
-import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
-import { ColorIconPickerDialogNodeComponent } from "../../../components/dialogs/color-icon-picker-dialog-node";
-import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
-import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
-import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
-import { DeleteColumnDialogNodeComponent } from "../../../components/dialogs/delete-column-dialog-node";
-import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
-import { MoveColumnDialogNodeComponent } from "../../../components/dialogs/move-column-dialog-node";
-import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
-import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
-import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
-import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
-import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
+import { AreaPropertiesDialogNodeComponent } from "@/src/components/dialogs/area-properties-dialog-node";
+import { BoardPropertiesDialogNodeComponent } from "@/src/components/dialogs/board/board-properties-dialog-node";
+import { BoardQuickActionsNodeComponent } from "@/src/components/dialogs/board/board-quick-actions-node";
+import { ConnectionDialogNodeComponent } from "@/src/components/dialogs/board/connection-dialog-node";
+import { DeleteBoardDialogNodeComponent } from "@/src/components/dialogs/board/delete-board-dialog-node";
+import { DuplicateBoardDialogNodeComponent } from "@/src/components/dialogs/board/duplicate-board-dialog-node";
+import { RenameBoardDialogNodeComponent } from "@/src/components/dialogs/board/rename-board-dialog-node";
+import { ColorIconPickerDialogNodeComponent } from "@/src/components/dialogs/color-icon-picker-dialog-node";
+import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column-quick-actions-node";
+import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/delete-column-dialog-node";
+import { MoveColumnDialogNodeComponent } from "@/src/components/dialogs/move-column-dialog-node";
+import { RenameColumnDialogNodeComponent } from "@/src/components/dialogs/rename-column-dialog-node";
+import { TaskQuickActionsNodeComponent } from "@/src/components/dialogs/task-quick-actions-node";
+import { TaskDetailModalNodeComponent } from "@/src/components/tasks/task-detail-modal-node";
+import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
 import { AreaNodeComponent } from "./area-node";
 
 export const nodeTypes = {

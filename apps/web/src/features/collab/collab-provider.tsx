@@ -46,6 +46,21 @@ export type CursorPosition = {
   viewportY?: number;
 };
 
+export type OpenDialog = {
+  id: string;
+  type:
+    | "quick-actions"
+    | "board-dialog"
+    | "column-dialog"
+    | "task-dialog"
+    | "connection-dialog"
+    | "create-task";
+  targetId: string;
+  dialogType?: string;
+  position?: { x: number; y: number };
+  data?: Record<string, unknown>;
+};
+
 export type Collaborator = {
   id: string;
   name: string;
@@ -53,6 +68,7 @@ export type Collaborator = {
   role: "owner" | "editor" | "viewer";
   cursor?: CursorPosition;
   selection?: string[];
+  openDialogs?: OpenDialog[];
 };
 
 export type ConnectionState =
@@ -72,6 +88,7 @@ export type CollaborationContextType = {
   disconnect: () => void;
   updateCursor: (position: CursorPosition | null) => void;
   updateSelection: (selectedIds: string[]) => void;
+  updateOpenDialogs: (dialogs: OpenDialog[]) => void;
 };
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -199,6 +216,7 @@ export function CollaborationProvider({
           role: state.user.role || "viewer",
           cursor: state.cursor,
           selection: state.selection,
+          openDialogs: state.openDialogs,
         });
       }
     });
@@ -507,6 +525,15 @@ export function CollaborationProvider({
     awareness.setLocalStateField("selection", selectedIds);
   }, []);
 
+  const updateOpenDialogs = useCallback((dialogs: OpenDialog[]) => {
+    const awareness = awarenessRef.current;
+    if (!awareness) {
+      return;
+    }
+
+    awareness.setLocalStateField("openDialogs", dialogs);
+  }, []);
+
   useEffect(() => cleanup, [cleanup]);
 
   return (
@@ -522,6 +549,7 @@ export function CollaborationProvider({
         disconnect,
         updateCursor,
         updateSelection,
+        updateOpenDialogs,
       }}
     >
       {children}

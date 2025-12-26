@@ -10,9 +10,13 @@ import {
   areaPositionSync,
   areaSync,
   boardConnectionSync,
+  boardDialogSync,
   boardPositionSync,
+  boardQuickActionsSync,
   boardSync,
   columnSync,
+  connectionDialogSync,
+  createTaskModalSync,
   taskSync,
   workspaceSync,
 } from "./syncs";
@@ -238,6 +242,94 @@ export function applyYjsToState(
     (pos) => activeAreaIds.has(pos.id)
   );
 
+  // Sync dialogs - these don't need workspace filtering (ephemeral UI state)
+  const syncedBoardQuickActions = boardQuickActionsSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.BOARD_QUICK_ACTIONS)
+  );
+  const syncedBoardDialogs = boardDialogSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.BOARD_DIALOGS)
+  );
+
+  // Convert board quick actions from entity map format to Record format
+  const boardQuickActions: Record<
+    string,
+    { boardId: string; position: { x: number; y: number } }
+  > = {};
+  for (const id of syncedBoardQuickActions.allIds) {
+    const qa = syncedBoardQuickActions.byId[id];
+    if (qa) {
+      boardQuickActions[qa.boardId] = {
+        boardId: qa.boardId,
+        position: qa.position,
+      };
+    }
+  }
+
+  // Convert board dialogs from entity map format to Record format
+  const boardDialogs: Record<string, (typeof syncedBoardDialogs.byId)[string]> =
+    {};
+  for (const id of syncedBoardDialogs.allIds) {
+    const dialog = syncedBoardDialogs.byId[id];
+    if (dialog) {
+      boardDialogs[dialog.id] = dialog;
+    }
+  }
+
+  // Sync connection dialogs - ephemeral UI state
+  const syncedConnectionDialogs = connectionDialogSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.CONNECTION_DIALOGS)
+  );
+
+  // Convert connection dialogs to the KanbanState format (single object or null)
+  // We pick the first one if any (there should only be one per board at a time)
+  let connectionDialog: {
+    boardId: string;
+    position: { x: number; y: number };
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
+  } | null = null;
+  if (syncedConnectionDialogs.allIds.length > 0) {
+    const firstId = syncedConnectionDialogs.allIds[0];
+    const dialog = firstId ? syncedConnectionDialogs.byId[firstId] : undefined;
+    if (dialog) {
+      connectionDialog = {
+        boardId: dialog.boardId,
+        position: dialog.position,
+        selectedTargetId: dialog.selectedTargetId,
+        editingConnectionId: dialog.editingConnectionId,
+        sourceHandle: dialog.sourceHandle,
+        targetHandle: dialog.targetHandle,
+        lineStyle: dialog.lineStyle,
+        showArrow: dialog.showArrow,
+        label: dialog.label,
+        searchQuery: dialog.searchQuery,
+      };
+    }
+  }
+
+  // Sync create task modals - ephemeral UI state
+  const syncedCreateTaskModals = createTaskModalSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.CREATE_TASK_MODALS)
+  );
+
+  // Convert create task modals from entity map format to Record format
+  const createTaskModals: Record<
+    string,
+    (typeof syncedCreateTaskModals.byId)[string]
+  > = {};
+  for (const id of syncedCreateTaskModals.allIds) {
+    const modal = syncedCreateTaskModals.byId[id];
+    if (modal) {
+      createTaskModals[modal.id] = modal;
+    }
+  }
+
   logger.debug("Applied Yjs to state (merged)", {
     currentWorkspaceId,
     syncedWorkspaces: syncedWorkspaces.allIds.length,
@@ -246,6 +338,10 @@ export function applyYjsToState(
     filteredBoards:
       boards.allIds.length - (currentState?.boards?.allIds.length ?? 0),
     totalBoards: boards.allIds.length,
+    syncedDialogs: syncedBoardDialogs.allIds.length,
+    syncedQuickActions: syncedBoardQuickActions.allIds.length,
+    syncedConnectionDialogs: syncedConnectionDialogs.allIds.length,
+    syncedCreateTaskModals: syncedCreateTaskModals.allIds.length,
   });
 
   return {
@@ -257,6 +353,10 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    boardQuickActions,
+    boardDialogs,
+    connectionDialog,
+    createTaskModals,
   };
 }
 
@@ -279,7 +379,7 @@ export function applyYjsToStateWithRepair(
     logger.info("Running state repair after Yjs sync");
     const repairedState = repairState(mergedState);
 
-    // Return only the repaired entity maps
+    // Return only the repaired entity maps + dialogs from original yjsState
     return {
       workspaces: repairedState.workspaces,
       boards: repairedState.boards,
@@ -289,6 +389,11 @@ export function applyYjsToStateWithRepair(
       boardConnections: repairedState.boardConnections,
       areas: repairedState.areas,
       areaPositions: repairedState.areaPositions,
+      // Dialogs don't need repair, pass through from yjsState
+      boardQuickActions: yjsState.boardQuickActions,
+      boardDialogs: yjsState.boardDialogs,
+      connectionDialog: yjsState.connectionDialog,
+      createTaskModals: yjsState.createTaskModals,
     };
   }
 
@@ -504,6 +609,10 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
     doc.getMap(YJS_MAP_NAMES.AREAS),
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS),
+    doc.getMap(YJS_MAP_NAMES.BOARD_QUICK_ACTIONS),
+    doc.getMap(YJS_MAP_NAMES.BOARD_DIALOGS),
+    doc.getMap(YJS_MAP_NAMES.CONNECTION_DIALOGS),
+    doc.getMap(YJS_MAP_NAMES.CREATE_TASK_MODALS),
   ];
 
   for (const map of maps) {

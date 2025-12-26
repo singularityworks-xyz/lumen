@@ -221,6 +221,12 @@ export type BoardDialogState = {
   sourceDialogId?: string;
 };
 
+export type BoardQuickActionsState = {
+  id: string;
+  boardId: string;
+  position: { x: number; y: number };
+};
+
 export type ConnectionDialogState = {
   boardId: string;
   position: { x: number; y: number };

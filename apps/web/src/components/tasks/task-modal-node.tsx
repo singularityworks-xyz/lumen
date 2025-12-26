@@ -9,6 +9,7 @@ import {
 import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import {
   ScaledSelect,
   ScaledSelectContent,
@@ -18,6 +19,7 @@ import {
 } from "@/src/components/scaled-dropdown";
 import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
+import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
@@ -89,6 +91,10 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     }, [zIndexDialogId, registerDialog, unregisterDialog]);
 
     const isTopmost = dialogFocusStack.at(-1) === zIndexDialogId;
+
+    // Dialog presence
+    const { dialogCollaborator, handleDialogPointerDown } =
+      useDialogPresenceLifecycle(zIndexDialogId, "create-task", data.modalId);
 
     const connectorZIndex = useMemo(() => {
       const index = dialogFocusStack.indexOf(zIndexDialogId);
@@ -286,10 +292,10 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       // biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler
       <div
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg bg-card transition-all duration-200",
+          "relative rounded-lg transition-all duration-200",
           selected || isFocused || isTopmost
-            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
-            : "shadow-lg ring-1 ring-border/50",
+            ? "scale-[1.02] shadow-xl"
+            : "shadow-lg",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
         )}
         onBlur={(e) => {
@@ -298,7 +304,10 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
-        onPointerDown={handleMouseDown}
+        onPointerDown={() => {
+          handleMouseDown();
+          handleDialogPointerDown();
+        }}
         style={{
           width: MODAL_WIDTH,
         }}
@@ -317,97 +326,111 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
             />,
             portalTarget
           )}
-        <div
-          className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-          style={
-            accentColor
-              ? {
-                  background: `linear-gradient(to right, ${accentColor}15, ${accentColor}08, transparent)`,
-                }
-              : {}
-          }
-        >
-          <div className="flex items-center gap-2">
-            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-            <span
-              className={cn(
-                "flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary",
-                !accentColor && "bg-primary/20 text-primary"
-              )}
-              style={
-                accentColor
-                  ? {
-                      backgroundColor: `${accentColor}25`,
-                      color: accentColor,
-                    }
-                  : {}
-              }
-            >
-              {(() => {
-                const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
-                return MappedIcon ? (
-                  <MappedIcon className="h-3 w-3" />
-                ) : (
-                  getInitials(boards.byId[selectedBoardId]?.name ?? "")
-                );
-              })()}
-            </span>
-            <span className="font-semibold text-xs">New Task</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <ScaledSelect
-              onValueChange={handleBoardChange}
-              value={selectedBoardId}
-            >
-              <ScaledSelectTrigger
-                className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
-                size="sm"
-              >
-                <ScaledSelectValue />
-              </ScaledSelectTrigger>
-              <ScaledSelectContent position="popper" sideOffset={4}>
-                {workspaceBoards.map((board) => (
-                  <ScaledSelectItem key={board.id} value={board.id}>
-                    {board.name}
-                  </ScaledSelectItem>
-                ))}
-              </ScaledSelectContent>
-            </ScaledSelect>
-            <EllipsisVertical className="size-4 text-muted-foreground" />
-            <ScaledSelect
-              onValueChange={setSelectedColumnId}
-              value={selectedColumnId}
-            >
-              <ScaledSelectTrigger
-                className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
-                size="sm"
-              >
-                <ScaledSelectValue placeholder="Column" />
-              </ScaledSelectTrigger>
-              <ScaledSelectContent position="popper" sideOffset={4}>
-                {selectedBoardColumns.map((col) => (
-                  <ScaledSelectItem key={col.id} value={col.id}>
-                    {col.name}
-                  </ScaledSelectItem>
-                ))}
-              </ScaledSelectContent>
-            </ScaledSelect>
-            <button
-              className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-              onClick={() => closeCreateTaskModal(data.modalId)}
-              type="button"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
 
-        <div className="nodrag nowheel nopan">
-          <CreateTaskForm
-            modalId={data.modalId}
-            modalState={updatedModalState}
-            selectedColumnId={selectedColumnId}
-          />
+        {dialogCollaborator && (
+          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
+        )}
+
+        <div
+          className={cn(
+            "flex flex-col overflow-hidden rounded-lg bg-card",
+            selected || isFocused || isTopmost
+              ? "ring-2 ring-primary/50"
+              : "ring-1 ring-border/50"
+          )}
+        >
+          <div
+            className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            style={
+              accentColor
+                ? {
+                    background: `linear-gradient(to right, ${accentColor}15, ${accentColor}08, transparent)`,
+                  }
+                : {}
+            }
+          >
+            <div className="flex items-center gap-2">
+              <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              <span
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary",
+                  !accentColor && "bg-primary/20 text-primary"
+                )}
+                style={
+                  accentColor
+                    ? {
+                        backgroundColor: `${accentColor}25`,
+                        color: accentColor,
+                      }
+                    : {}
+                }
+              >
+                {(() => {
+                  const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
+                  return MappedIcon ? (
+                    <MappedIcon className="h-3 w-3" />
+                  ) : (
+                    getInitials(boards.byId[selectedBoardId]?.name ?? "")
+                  );
+                })()}
+              </span>
+              <span className="font-semibold text-xs">New Task</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ScaledSelect
+                onValueChange={handleBoardChange}
+                value={selectedBoardId}
+              >
+                <ScaledSelectTrigger
+                  className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                  size="sm"
+                >
+                  <ScaledSelectValue />
+                </ScaledSelectTrigger>
+                <ScaledSelectContent position="popper" sideOffset={4}>
+                  {workspaceBoards.map((board) => (
+                    <ScaledSelectItem key={board.id} value={board.id}>
+                      {board.name}
+                    </ScaledSelectItem>
+                  ))}
+                </ScaledSelectContent>
+              </ScaledSelect>
+              <EllipsisVertical className="size-4 text-muted-foreground" />
+              <ScaledSelect
+                onValueChange={setSelectedColumnId}
+                value={selectedColumnId}
+              >
+                <ScaledSelectTrigger
+                  className="nodrag h-6 w-auto min-w-0 gap-1 rounded-md border-none bg-card/80 px-2 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                  size="sm"
+                >
+                  <ScaledSelectValue placeholder="Column" />
+                </ScaledSelectTrigger>
+                <ScaledSelectContent position="popper" sideOffset={4}>
+                  {selectedBoardColumns.map((col) => (
+                    <ScaledSelectItem key={col.id} value={col.id}>
+                      {col.name}
+                    </ScaledSelectItem>
+                  ))}
+                </ScaledSelectContent>
+              </ScaledSelect>
+              <button
+                className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                onClick={() => closeCreateTaskModal(data.modalId)}
+                type="button"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+
+          <div className="nodrag nowheel nopan">
+            <CreateTaskForm
+              modalId={data.modalId}
+              modalState={updatedModalState}
+              selectedColumnId={selectedColumnId}
+            />
+          </div>
         </div>
       </div>
     );

@@ -92,6 +92,15 @@ export type KanbanState = {
   connectionDialog: {
     boardId: string;
     position: { x: number; y: number };
+    // Connection config state - synced across collaborators
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
   } | null;
   taskQuickActions: Record<
     string,
@@ -297,6 +306,16 @@ export type KanbanActions = {
   ) => void;
   closeConnectionDialog: () => void;
   updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
+  updateConnectionDialogConfig: (config: {
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
+  }) => void;
 
   // Task quick actions
   openTaskQuickActions: (

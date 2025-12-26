@@ -2,9 +2,13 @@ import {
   AreaPositionSchema,
   AreaSchema,
   BoardConnectionSchema,
+  BoardDialogSchema,
   BoardPositionSchema,
+  BoardQuickActionsSchema,
   BoardSchema,
   ColumnSchema,
+  ConnectionDialogSchema,
+  CreateTaskModalSchema,
   TaskSchema,
   WorkspaceSchema,
 } from "@/src/features/collab/validation/schema";
@@ -13,8 +17,11 @@ import type {
   AreaPosition,
   Board,
   BoardConnection,
+  BoardDialogState,
   BoardPosition,
+  BoardQuickActionsState,
   Column,
+  CreateTaskModalState,
   Task,
   Workspace,
 } from "@/src/features/kanban/types";
@@ -69,6 +76,42 @@ export const areaPositionSync = createEntitySync<AreaPosition>({
   entityName: "areaPosition",
 });
 
+export const boardQuickActionsSync = createEntitySync<BoardQuickActionsState>({
+  mapName: YJS_MAP_NAMES.BOARD_QUICK_ACTIONS,
+  schema: BoardQuickActionsSchema,
+  entityName: "boardQuickActions",
+});
+
+export const boardDialogSync = createEntitySync<BoardDialogState>({
+  mapName: YJS_MAP_NAMES.BOARD_DIALOGS,
+  schema: BoardDialogSchema,
+  entityName: "boardDialog",
+});
+
+export const connectionDialogSync = createEntitySync<{
+  id: string;
+  boardId: string;
+  position: { x: number; y: number };
+  selectedTargetId?: string | null;
+  editingConnectionId?: string | null;
+  sourceHandle?: "top" | "right" | "bottom" | "left";
+  targetHandle?: "top" | "right" | "bottom" | "left";
+  lineStyle?: "solid" | "dotted";
+  showArrow?: boolean;
+  label?: string;
+  searchQuery?: string;
+}>({
+  mapName: YJS_MAP_NAMES.CONNECTION_DIALOGS,
+  schema: ConnectionDialogSchema,
+  entityName: "connectionDialog",
+});
+
+export const createTaskModalSync = createEntitySync<CreateTaskModalState>({
+  mapName: YJS_MAP_NAMES.CREATE_TASK_MODALS,
+  schema: CreateTaskModalSchema,
+  entityName: "createTaskModal",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -78,4 +121,8 @@ export const allSyncs = {
   areas: areaSync,
   areaPositions: areaPositionSync,
   workspace: workspaceSync,
+  boardQuickActions: boardQuickActionsSync,
+  boardDialogs: boardDialogSync,
+  connectionDialogs: connectionDialogSync,
+  createTaskModals: createTaskModalSync,
 } as const;

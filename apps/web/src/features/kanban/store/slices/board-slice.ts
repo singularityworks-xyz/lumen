@@ -40,6 +40,7 @@ type SliceCreator = (
   | "openConnectionDialog"
   | "closeConnectionDialog"
   | "updateConnectionDialogPosition"
+  | "updateConnectionDialogConfig"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -561,6 +562,13 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.connectionDialog) {
         state.connectionDialog.position = position;
+      }
+    }),
+
+  updateConnectionDialogConfig: (config) =>
+    set((state) => {
+      if (state.connectionDialog) {
+        Object.assign(state.connectionDialog, config);
       }
     }),
 });

@@ -130,6 +130,10 @@ export const YJS_MAP_NAMES = {
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
   CANVAS: "canvas",
+  BOARD_QUICK_ACTIONS: "boardQuickActions",
+  BOARD_DIALOGS: "boardDialogs",
+  CONNECTION_DIALOGS: "connectionDialogs",
+  CREATE_TASK_MODALS: "createTaskModals",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];

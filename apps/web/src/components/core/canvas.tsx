@@ -235,8 +235,13 @@ export function KanbanCanvas() {
     []
   );
 
-  const { collaborators, updateCursor, isCollaborating, updateSelection } =
-    useCollaboration();
+  const {
+    collaborators,
+    updateCursor,
+    isCollaborating,
+    updateSelection,
+    updateOpenDialogs,
+  } = useCollaboration();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
   const [activeColumnData, setActiveColumnData] = useState<{
@@ -1233,9 +1238,12 @@ export function KanbanCanvas() {
 
   const handlePaneClick = useCallback(() => {
     if (isCollaborating) {
+      // Clear board selection indicator
       updateSelection([]);
+      // Clear dialog focus indicator (so presence border disappears when clicking on canvas)
+      updateOpenDialogs([]);
     }
-  }, [isCollaborating, updateSelection]);
+  }, [isCollaborating, updateSelection, updateOpenDialogs]);
 
   return (
     <DndContext
