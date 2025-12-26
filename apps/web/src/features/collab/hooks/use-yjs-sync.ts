@@ -16,6 +16,8 @@ import {
   boardPositionSync,
   boardQuickActionsSync,
   boardSync,
+  columnDialogSync,
+  columnQuickActionsSync,
   columnSync,
   connectionDialogSync,
   createTaskModalSync,
@@ -462,6 +464,99 @@ export function useYjsSync(
       }
       for (const id of createTaskModalDiff.removed) {
         createTaskModalSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync column quick actions
+      // Convert column quick actions to entity map format for diffing
+      const prevColumnQAMap: Record<
+        string,
+        {
+          id: string;
+          columnId: string;
+          boardId: string;
+          showAddTask: boolean;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [columnId, qa] of Object.entries(
+        prevState.columnQuickActions
+      )) {
+        if (qa) {
+          prevColumnQAMap[columnId] = {
+            id: columnId,
+            columnId: qa.columnId,
+            boardId: qa.boardId,
+            showAddTask: qa.showAddTask,
+            position: qa.position,
+          };
+        }
+      }
+
+      const currColumnQAMap: Record<
+        string,
+        {
+          id: string;
+          columnId: string;
+          boardId: string;
+          showAddTask: boolean;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [columnId, qa] of Object.entries(state.columnQuickActions)) {
+        if (qa) {
+          currColumnQAMap[columnId] = {
+            id: columnId,
+            columnId: qa.columnId,
+            boardId: qa.boardId,
+            showAddTask: qa.showAddTask,
+            position: qa.position,
+          };
+        }
+      }
+
+      const columnQADiff = diffEntityMaps(prevColumnQAMap, currColumnQAMap);
+      for (const qa of [...columnQADiff.added, ...columnQADiff.changed]) {
+        columnQuickActionsSync.setInYjs(doc, qa);
+      }
+      for (const id of columnQADiff.removed) {
+        columnQuickActionsSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync column dialogs
+      const prevColumnDialogMap: Record<
+        string,
+        (typeof state.columnDialogs)[string] & { id: string }
+      > = {};
+      for (const [dialogId, dialog] of Object.entries(
+        prevState.columnDialogs
+      )) {
+        if (dialog) {
+          prevColumnDialogMap[dialogId] = { ...dialog, id: dialogId };
+        }
+      }
+
+      const currColumnDialogMap: Record<
+        string,
+        (typeof state.columnDialogs)[string] & { id: string }
+      > = {};
+      for (const [dialogId, dialog] of Object.entries(state.columnDialogs)) {
+        if (dialog) {
+          currColumnDialogMap[dialogId] = { ...dialog, id: dialogId };
+        }
+      }
+
+      const columnDialogDiff = diffEntityMaps(
+        prevColumnDialogMap,
+        currColumnDialogMap
+      );
+      for (const dialog of [
+        ...columnDialogDiff.added,
+        ...columnDialogDiff.changed,
+      ]) {
+        columnDialogSync.setInYjs(doc, dialog);
+      }
+      for (const id of columnDialogDiff.removed) {
+        columnDialogSync.deleteFromYjs(doc, id);
       }
     });
 

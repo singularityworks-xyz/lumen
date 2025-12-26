@@ -6,6 +6,8 @@ import {
   BoardPositionSchema,
   BoardQuickActionsSchema,
   BoardSchema,
+  ColumnDialogSchema,
+  ColumnQuickActionsSchema,
   ColumnSchema,
   ConnectionDialogSchema,
   CreateTaskModalSchema,
@@ -112,6 +114,35 @@ export const createTaskModalSync = createEntitySync<CreateTaskModalState>({
   entityName: "createTaskModal",
 });
 
+export const columnQuickActionsSync = createEntitySync<{
+  id: string;
+  columnId: string;
+  boardId: string;
+  showAddTask: boolean;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS,
+  schema: ColumnQuickActionsSchema,
+  entityName: "columnQuickActions",
+});
+
+export const columnDialogSync = createEntitySync<{
+  id: string;
+  type: "rename" | "delete" | "move";
+  columnId: string;
+  columnName: string;
+  columnDescription?: string;
+  boardId: string;
+  boardName: string;
+  inputValue?: string;
+  descriptionValue?: string;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.COLUMN_DIALOGS,
+  schema: ColumnDialogSchema,
+  entityName: "columnDialog",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -125,4 +156,6 @@ export const allSyncs = {
   boardDialogs: boardDialogSync,
   connectionDialogs: connectionDialogSync,
   createTaskModals: createTaskModalSync,
+  columnQuickActions: columnQuickActionsSync,
+  columnDialogs: columnDialogSync,
 } as const;

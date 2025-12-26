@@ -14,6 +14,8 @@ export const YJS_MAP_NAMES = {
   BOARD_DIALOGS: "boardDialogs",
   CONNECTION_DIALOGS: "connectionDialogs",
   CREATE_TASK_MODALS: "createTaskModals",
+  COLUMN_QUICK_ACTIONS: "columnQuickActions",
+  COLUMN_DIALOGS: "columnDialogs",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
@@ -146,6 +148,35 @@ export const CanvasStateSchema = z.object({
 export const BoardQuickActionsSchema = z.object({
   id: z.string(),
   boardId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+export const ColumnQuickActionsSchema = z.object({
+  id: z.string(),
+  columnId: z.string(),
+  boardId: z.string(),
+  showAddTask: z.boolean(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+export const ColumnDialogTypeSchema = z.enum(["rename", "delete", "move"]);
+
+export const ColumnDialogSchema = z.object({
+  id: z.string(),
+  type: ColumnDialogTypeSchema,
+  columnId: z.string(),
+  columnName: z.string(),
+  columnDescription: z.string().optional(),
+  boardId: z.string(),
+  boardName: z.string(),
+  inputValue: z.string().optional(),
+  descriptionValue: z.string().optional(),
   position: z.object({
     x: z.number(),
     y: z.number(),

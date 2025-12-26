@@ -14,6 +14,8 @@ import {
   boardPositionSync,
   boardQuickActionsSync,
   boardSync,
+  columnDialogSync,
+  columnQuickActionsSync,
   columnSync,
   connectionDialogSync,
   createTaskModalSync,
@@ -344,6 +346,61 @@ export function applyYjsToState(
     syncedCreateTaskModals: syncedCreateTaskModals.allIds.length,
   });
 
+  // Sync column quick actions - ephemeral UI state
+  const syncedColumnQuickActions = columnQuickActionsSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS)
+  );
+
+  // Convert column quick actions from entity map format to Record format
+  const columnQuickActions: Record<
+    string,
+    {
+      columnId: string;
+      boardId: string;
+      showAddTask: boolean;
+      position: { x: number; y: number };
+    }
+  > = {};
+  for (const id of syncedColumnQuickActions.allIds) {
+    const qa = syncedColumnQuickActions.byId[id];
+    if (qa) {
+      columnQuickActions[qa.columnId] = {
+        columnId: qa.columnId,
+        boardId: qa.boardId,
+        showAddTask: qa.showAddTask,
+        position: qa.position,
+      };
+    }
+  }
+
+  // Sync column dialogs - ephemeral UI state
+  const syncedColumnDialogs = columnDialogSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS)
+  );
+
+  // Convert column dialogs from entity map format to Record format
+  const columnDialogs: Record<
+    string,
+    {
+      id: string;
+      type: "rename" | "delete" | "move";
+      columnId: string;
+      columnName: string;
+      columnDescription?: string;
+      boardId: string;
+      boardName: string;
+      inputValue?: string;
+      descriptionValue?: string;
+      position: { x: number; y: number };
+    }
+  > = {};
+  for (const id of syncedColumnDialogs.allIds) {
+    const dialog = syncedColumnDialogs.byId[id];
+    if (dialog) {
+      columnDialogs[dialog.id] = dialog;
+    }
+  }
+
   return {
     workspaces,
     boards,
@@ -357,6 +414,8 @@ export function applyYjsToState(
     boardDialogs,
     connectionDialog,
     createTaskModals,
+    columnQuickActions,
+    columnDialogs,
   };
 }
 
@@ -394,6 +453,8 @@ export function applyYjsToStateWithRepair(
       boardDialogs: yjsState.boardDialogs,
       connectionDialog: yjsState.connectionDialog,
       createTaskModals: yjsState.createTaskModals,
+      columnQuickActions: yjsState.columnQuickActions,
+      columnDialogs: yjsState.columnDialogs,
     };
   }
 
@@ -613,6 +674,8 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.BOARD_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.CONNECTION_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.CREATE_TASK_MODALS),
+    doc.getMap(YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS),
+    doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
   ];
 
   for (const map of maps) {

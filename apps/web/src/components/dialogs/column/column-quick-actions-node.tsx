@@ -21,6 +21,7 @@ import {
   type BlockingDialog,
   BlockingDialogsManager,
 } from "@/src/components/dialogs/blocking-dialogs-manager";
+import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
@@ -30,6 +31,7 @@ import {
 } from "@/src/components/ui/tooltip";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
+import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
 type ColumnQuickActionsNodeData = {
@@ -175,6 +177,9 @@ export const ColumnQuickActionsNodeComponent =
     }, [dialogId, registerDialog, unregisterDialog]);
 
     const isTopmost = dialogFocusStack.at(-1) === dialogId;
+
+    const { dialogCollaborator, handleDialogPointerDown } =
+      useDialogPresenceLifecycle(dialogId, "column-dialog", columnId);
 
     const connectorZIndex = useMemo(() => {
       const index = dialogFocusStack.indexOf(dialogId);
@@ -443,187 +448,198 @@ export const ColumnQuickActionsNodeComponent =
     const showAddTask = columnQuickActionsState?.showAddTask ?? false;
 
     return (
-      // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
-      <div
-        aria-labelledby={`column-quick-actions-${id}`}
-        className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
-          selected || isFocused || isTopmost
-            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
-            : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
-          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+      <div className="relative rounded-lg" style={{ width: DIALOG_WIDTH }}>
+        {dialogCollaborator && (
+          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) {
-            setIsFocused(false);
-          }
-        }}
-        onFocus={() => setIsFocused(true)}
-        onPointerDown={() => bringDialogToFront(dialogId)}
-        role="dialog"
-        style={{ width: DIALOG_WIDTH }}
-      >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={column.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
+        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
         <div
-          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-          style={
-            column.accentColor
-              ? {
-                  background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
-                }
-              : {}
-          }
+          aria-labelledby={`column-quick-actions-${id}`}
+          className={cn(
+            "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+            selected || isFocused || isTopmost
+              ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
+              : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
+            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          )}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setIsFocused(false);
+            }
+          }}
+          onFocus={() => setIsFocused(true)}
+          onPointerDown={() => {
+            bringDialogToFront(dialogId);
+            handleDialogPointerDown();
+          }}
+          role="dialog"
         >
-          <div className="flex items-center gap-1.5">
-            <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-xs",
-                !column.accentColor &&
-                  "bg-violet-500/20 text-violet-600 dark:text-violet-400"
-              )}
-              style={
-                column.accentColor
-                  ? {
-                      backgroundColor: `${column.accentColor}25`,
-                      color: column.accentColor,
-                    }
-                  : {}
-              }
-            >
-              {(() => {
-                const IconComponent = column.icon
-                  ? ICON_MAP[column.icon]
-                  : null;
-                if (IconComponent) {
-                  return <IconComponent className="h-3 w-3" />;
-                }
-                return <Columns className="h-3 w-3" />;
-              })()}
-              <span className="max-w-20 truncate">{column.name}</span>
-            </span>
-          </div>
-          <BlockingDialogsManager
-            dialogs={blockingDialogs}
-            onCloseAll={handleCloseBlocking}
-            onCloseMenu={handleClose}
-          >
-            <X className="h-3 w-3" />
-          </BlockingDialogsManager>
-        </div>
-
-        <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
-          <span className="text-[10px] text-muted-foreground">
-            Board:{" "}
-            <span className="font-medium text-foreground">
-              {board?.name ?? "Unknown"}
-            </span>
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {taskCount} tasks
-          </span>
-        </div>
-
-        <div className="nodrag p-1">
-          <TooltipProvider delayDuration={300}>
-            {showAddTask && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                      onClick={handleAddTask}
-                      type="button"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Add Task</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p className="text-xs">Create a new task in this column</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="my-0.5 h-px bg-border/50" />
-              </>
+          {connectorState &&
+            portalTarget &&
+            createPortal(
+              <ConnectorEdge
+                customColor={column.accentColor}
+                endX={connectorState.end.x}
+                endY={connectorState.end.y}
+                startX={connectorState.start.x}
+                startY={connectorState.start.y}
+                zIndex={connectorZIndex}
+              />,
+              portalTarget
             )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleRename}
-                  type="button"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  <span>Rename</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Change column name</p>
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
-                    availableTargetBoards.length > 0
-                      ? "hover:bg-accent hover:text-accent-foreground"
-                      : "cursor-not-allowed opacity-50"
-                  )}
-                  disabled={availableTargetBoards.length === 0}
-                  onClick={
-                    availableTargetBoards.length > 0
-                      ? handleMoveToBoard
-                      : undefined
+          <div
+            className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            style={
+              column.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
                   }
-                  type="button"
-                >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                  <span>Move to board</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  {availableTargetBoards.length > 0
-                    ? "Move this column to another board"
-                    : "No other boards available"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
+                : {}
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              <GripHorizontal className="h-3 w-3 text-muted-foreground" />
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-xs",
+                  !column.accentColor &&
+                    "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+                )}
+                style={
+                  column.accentColor
+                    ? {
+                        backgroundColor: `${column.accentColor}25`,
+                        color: column.accentColor,
+                      }
+                    : {}
+                }
+              >
+                {(() => {
+                  const IconComponent = column.icon
+                    ? ICON_MAP[column.icon]
+                    : null;
+                  if (IconComponent) {
+                    return <IconComponent className="h-3 w-3" />;
+                  }
+                  return <Columns className="h-3 w-3" />;
+                })()}
+                <span className="max-w-20 truncate">{column.name}</span>
+              </span>
+            </div>
+            <BlockingDialogsManager
+              dialogs={blockingDialogs}
+              onCloseAll={handleCloseBlocking}
+              onCloseMenu={handleClose}
+            >
+              <X className="h-3 w-3" />
+            </BlockingDialogsManager>
+          </div>
 
-            <div className="my-0.5 h-px bg-border/50" />
+          <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
+            <span className="text-[10px] text-muted-foreground">
+              Board:{" "}
+              <span className="font-medium text-foreground">
+                {board?.name ?? "Unknown"}
+              </span>
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {taskCount} tasks
+            </span>
+          </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
-                  onClick={handleDelete}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Remove</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Delete this column and all its tasks</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="nodrag p-1">
+            <TooltipProvider delayDuration={300}>
+              {showAddTask && (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                        onClick={handleAddTask}
+                        type="button"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Task</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p className="text-xs">
+                        Create a new task in this column
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="my-0.5 h-px bg-border/50" />
+                </>
+              )}
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleRename}
+                    type="button"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    <span>Rename</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Change column name</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
+                      availableTargetBoards.length > 0
+                        ? "hover:bg-accent hover:text-accent-foreground"
+                        : "cursor-not-allowed opacity-50"
+                    )}
+                    disabled={availableTargetBoards.length === 0}
+                    onClick={
+                      availableTargetBoards.length > 0
+                        ? handleMoveToBoard
+                        : undefined
+                    }
+                    type="button"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span>Move to board</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    {availableTargetBoards.length > 0
+                      ? "Move this column to another board"
+                      : "No other boards available"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+
+              <div className="my-0.5 h-px bg-border/50" />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+                    onClick={handleDelete}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    Delete this column and all its tasks
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
     );
