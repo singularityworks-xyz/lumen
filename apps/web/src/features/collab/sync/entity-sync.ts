@@ -136,6 +136,8 @@ export const YJS_MAP_NAMES = {
   CREATE_TASK_MODALS: "createTaskModals",
   COLUMN_QUICK_ACTIONS: "columnQuickActions",
   COLUMN_DIALOGS: "columnDialogs",
+  TASK_QUICK_ACTIONS: "taskQuickActions",
+  TASK_DETAIL_MODALS: "taskDetailModals",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];

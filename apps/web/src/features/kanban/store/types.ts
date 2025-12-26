@@ -451,6 +451,7 @@ export type KanbanActions = {
   ) => void;
   bringTaskDetailModalToFront: (modalId: string) => void;
   triggerTaskDetailModalShake: (modalId: string) => void;
+  setTaskDetailModalEditing: (modalId: string, isEditing: boolean) => void;
 
   // UI actions
   setViewport: (viewport: ViewportState) => void;

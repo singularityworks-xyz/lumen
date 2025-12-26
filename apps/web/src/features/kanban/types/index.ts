@@ -190,6 +190,7 @@ export type TaskDetailModalState = {
   zIndex: number;
   sourceTaskId: string;
   initialIsEditing?: boolean;
+  isEditing?: boolean;
   openedFromQuickActions?: boolean;
 };
 

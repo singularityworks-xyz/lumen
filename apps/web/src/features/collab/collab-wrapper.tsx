@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { CollaborationProvider, useCollaboration } from "./collab-provider";
+import { useTaskDialogSync } from "./hooks/use-task-dialog-sync";
 import { useYjsSync } from "./hooks/use-yjs-sync";
 
 // Connects to WebSocket and enables sync when workspace is available and shared
@@ -40,7 +41,12 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
     };
   }, [currentWorkspaceId, isSharedWorkspace, connect, disconnect]);
 
+  // Main entity sync (boards, columns, tasks, etc.)
   useYjsSync(doc, isConnected, currentWorkspaceId);
+
+  // Dedicated task detail modal sync (handles ownership and prevents race conditions)
+  useTaskDialogSync(doc, isConnected);
+
   return <>{children}</>;
 }
 

@@ -16,6 +16,8 @@ export const YJS_MAP_NAMES = {
   CREATE_TASK_MODALS: "createTaskModals",
   COLUMN_QUICK_ACTIONS: "columnQuickActions",
   COLUMN_DIALOGS: "columnDialogs",
+  TASK_QUICK_ACTIONS: "taskQuickActions",
+  TASK_DETAIL_MODALS: "taskDetailModals",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
@@ -278,6 +280,34 @@ export const CreateTaskModalSchema = z.object({
   zIndex: z.number(),
 });
 
+// Task quick actions schema - syncs across collaborators
+export const TaskQuickActionsSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  boardId: z.string(),
+  columnId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+// Task detail modal schema - syncs across collaborators
+export const TaskDetailModalSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  boardId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  zIndex: z.number(),
+  sourceTaskId: z.string(),
+  initialIsEditing: z.boolean().optional(),
+  isEditing: z.boolean().optional(),
+  openedFromQuickActions: z.boolean().optional(),
+});
+
 export type Task = z.infer<typeof TaskSchema>;
 export type Column = z.infer<typeof ColumnSchema>;
 export type Board = z.infer<typeof BoardSchema>;
@@ -296,6 +326,8 @@ export type CreateTaskModalState = z.infer<typeof CreateTaskModalSchema>;
 export type CreateTaskModalFormData = z.infer<
   typeof CreateTaskModalFormDataSchema
 >;
+export type TaskQuickActionsState = z.infer<typeof TaskQuickActionsSchema>;
+export type TaskDetailModalState = z.infer<typeof TaskDetailModalSchema>;
 
 export type ValidationResult<T> =
   | { success: true; data: T }

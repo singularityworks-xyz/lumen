@@ -21,6 +21,7 @@ import {
   columnSync,
   connectionDialogSync,
   createTaskModalSync,
+  taskQuickActionsSync,
   taskSync,
   workspaceSync,
 } from "@/src/features/collab/sync/syncs";
@@ -558,6 +559,61 @@ export function useYjsSync(
       for (const id of columnDialogDiff.removed) {
         columnDialogSync.deleteFromYjs(doc, id);
       }
+
+      const prevTaskQAMap: Record<
+        string,
+        {
+          id: string;
+          taskId: string;
+          boardId: string;
+          columnId: string;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [taskId, qa] of Object.entries(prevState.taskQuickActions)) {
+        if (qa) {
+          prevTaskQAMap[taskId] = {
+            id: taskId,
+            taskId: qa.taskId,
+            boardId: qa.boardId,
+            columnId: qa.columnId,
+            position: qa.position,
+          };
+        }
+      }
+
+      const currTaskQAMap: Record<
+        string,
+        {
+          id: string;
+          taskId: string;
+          boardId: string;
+          columnId: string;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [taskId, qa] of Object.entries(state.taskQuickActions)) {
+        if (qa) {
+          currTaskQAMap[taskId] = {
+            id: taskId,
+            taskId: qa.taskId,
+            boardId: qa.boardId,
+            columnId: qa.columnId,
+            position: qa.position,
+          };
+        }
+      }
+
+      const taskQADiff = diffEntityMaps(prevTaskQAMap, currTaskQAMap);
+      for (const qa of [...taskQADiff.added, ...taskQADiff.changed]) {
+        taskQuickActionsSync.setInYjs(doc, qa);
+      }
+      for (const id of taskQADiff.removed) {
+        taskQuickActionsSync.deleteFromYjs(doc, id);
+      }
+
+      // NOTE: Task detail modals are synced by dedicated useTaskDialogSync hook
+      // This provides better ownership tracking and prevents race conditions
     });
 
     return unsubscribe;

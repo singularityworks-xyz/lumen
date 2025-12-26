@@ -11,6 +11,8 @@ import {
   ColumnSchema,
   ConnectionDialogSchema,
   CreateTaskModalSchema,
+  TaskDetailModalSchema,
+  TaskQuickActionsSchema,
   TaskSchema,
   WorkspaceSchema,
 } from "@/src/features/collab/validation/schema";
@@ -25,6 +27,7 @@ import type {
   Column,
   CreateTaskModalState,
   Task,
+  TaskDetailModalState,
   Workspace,
 } from "@/src/features/kanban/types";
 import { createEntitySync, YJS_MAP_NAMES } from "./entity-sync";
@@ -143,6 +146,24 @@ export const columnDialogSync = createEntitySync<{
   entityName: "columnDialog",
 });
 
+export const taskQuickActionsSync = createEntitySync<{
+  id: string;
+  taskId: string;
+  boardId: string;
+  columnId: string;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.TASK_QUICK_ACTIONS,
+  schema: TaskQuickActionsSchema,
+  entityName: "taskQuickActions",
+});
+
+export const taskDetailModalSync = createEntitySync<TaskDetailModalState>({
+  mapName: YJS_MAP_NAMES.TASK_DETAIL_MODALS,
+  schema: TaskDetailModalSchema,
+  entityName: "taskDetailModal",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -158,4 +179,6 @@ export const allSyncs = {
   createTaskModals: createTaskModalSync,
   columnQuickActions: columnQuickActionsSync,
   columnDialogs: columnDialogSync,
+  taskQuickActions: taskQuickActionsSync,
+  taskDetailModals: taskDetailModalSync,
 } as const;

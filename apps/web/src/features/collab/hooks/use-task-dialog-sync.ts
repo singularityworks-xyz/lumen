@@ -1,0 +1,247 @@
+"use client";
+
+import { createLogger } from "@lumen/logger";
+import { useCallback, useEffect, useRef } from "react";
+import type * as Y from "yjs";
+import { YJS_MAP_NAMES } from "@/src/features/collab/sync/entity-sync";
+import { taskDetailModalSync } from "@/src/features/collab/sync/syncs";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import type { TaskDetailModalState } from "@/src/features/kanban/types";
+
+const logger = createLogger({ name: "collab:task-dialog-sync" });
+
+// Throttle interval for position updates (ms)
+const POSITION_THROTTLE_MS = 50;
+
+/**
+ * Dedicated sync hook for task detail modals.
+ *
+ * This is separate from the main entity sync because task detail modals need special handling:
+ * - Modals are "owned" by whoever opens them
+ * - The owner's local state is authoritative
+ * - We sync TO others but don't overwrite our own modals from Yjs
+ * - Position updates are throttled to prevent overwhelming the sync
+ */
+export function useTaskDialogSync(
+  doc: Y.Doc | null,
+  isConnected: boolean
+): void {
+  // Track modals that WE opened (local ownership)
+  const localModalIdsRef = useRef<Set<string>>(new Set());
+
+  // Track last sync time per modal for throttling
+  const lastSyncTimesRef = useRef<Record<string, number>>({});
+
+  // Prevent re-entrancy during Yjs updates
+  const isApplyingFromYjsRef = useRef(false);
+
+  // Handle incoming changes from Yjs (modals opened by OTHER users)
+  const applyRemoteModals = useCallback(() => {
+    if (!doc || isApplyingFromYjsRef.current) {
+      return;
+    }
+
+    isApplyingFromYjsRef.current = true;
+
+    try {
+      const yjsMap = doc.getMap(YJS_MAP_NAMES.TASK_DETAIL_MODALS);
+      const currentState = useKanbanStore.getState();
+      const currentModals = { ...currentState.taskDetailModals };
+      let hasChanges = false;
+
+      // Add/update modals from Yjs
+      yjsMap.forEach((value, key) => {
+        const modal = value as TaskDetailModalState;
+        if (modal?.id && modal.taskId && modal.boardId && modal.position) {
+          const existingModal = currentModals[key];
+
+          // Validate the modal has required fields and position is valid, then check if update needed
+          if (
+            typeof modal.position.x === "number" &&
+            typeof modal.position.y === "number" &&
+            !Number.isNaN(modal.position.x) &&
+            !Number.isNaN(modal.position.y) &&
+            (!existingModal ||
+              existingModal.position.x !== modal.position.x ||
+              existingModal.position.y !== modal.position.y ||
+              existingModal.isEditing !== modal.isEditing)
+          ) {
+            currentModals[key] = modal;
+            hasChanges = true;
+          }
+        }
+      });
+
+      // Remove modals that were deleted by other users (not in Yjs but we don't own)
+      for (const id of Object.keys(currentModals)) {
+        if (!(localModalIdsRef.current.has(id) || yjsMap.has(id))) {
+          delete currentModals[id];
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        useKanbanStore.setState({ taskDetailModals: currentModals });
+        logger.debug("Applied remote task dialog updates", {
+          localModals: localModalIdsRef.current.size,
+          totalModals: Object.keys(currentModals).length,
+        });
+      }
+    } finally {
+      isApplyingFromYjsRef.current = false;
+    }
+  }, [doc]);
+
+  // Subscribe to Yjs changes for task detail modals
+  useEffect(() => {
+    if (!(doc && isConnected)) {
+      return;
+    }
+
+    const yjsMap = doc.getMap(YJS_MAP_NAMES.TASK_DETAIL_MODALS);
+
+    const handleYjsChange = () => {
+      applyRemoteModals();
+    };
+
+    yjsMap.observe(handleYjsChange);
+
+    // Initial sync
+    applyRemoteModals();
+
+    return () => {
+      yjsMap.unobserve(handleYjsChange);
+    };
+  }, [doc, isConnected, applyRemoteModals]);
+
+  // Sync our local modals TO Yjs
+  useEffect(() => {
+    if (!(doc && isConnected)) {
+      return;
+    }
+
+    const unsubscribe = useKanbanStore.subscribe((state, prevState) => {
+      if (isApplyingFromYjsRef.current) {
+        return;
+      }
+
+      const currentModals = state.taskDetailModals;
+      // Use Zustand's prevState for accurate previous state
+      const prevModals = prevState.taskDetailModals;
+
+      const now = Date.now();
+
+      // Find added or changed modals - sync from ANY user
+      for (const id of Object.keys(currentModals)) {
+        const modal = currentModals[id];
+        if (!modal) {
+          continue;
+        }
+
+        const wasExisting = id in prevModals;
+
+        if (wasExisting) {
+          // Existing modal - check if it changed (allow any user to sync)
+          const prevModal = prevModals[id];
+          if (prevModal && hasModalChanged(prevModal, modal)) {
+            // Check if this is a position-only change
+            const isPositionOnly = isPositionOnlyChange(prevModal, modal);
+
+            if (isPositionOnly) {
+              // Throttle position updates
+              const lastSync = lastSyncTimesRef.current[id] || 0;
+              if (now - lastSync >= POSITION_THROTTLE_MS) {
+                lastSyncTimesRef.current[id] = now;
+                if (isValidModal(modal)) {
+                  taskDetailModalSync.setInYjs(doc, modal);
+                }
+              }
+            } else {
+              // Non-position changes sync immediately
+              lastSyncTimesRef.current[id] = now;
+              if (isValidModal(modal)) {
+                taskDetailModalSync.setInYjs(doc, modal);
+              }
+            }
+          }
+        } else {
+          // New modal - mark as locally owned and sync immediately
+          localModalIdsRef.current.add(id);
+          lastSyncTimesRef.current[id] = now;
+
+          if (isValidModal(modal)) {
+            taskDetailModalSync.setInYjs(doc, modal);
+            logger.debug("Synced new task dialog to Yjs", { id });
+          }
+        }
+      }
+
+      // Find removed modals - allow any user to close modals from Yjs
+      for (const id of Object.keys(prevModals)) {
+        if (!(id in currentModals)) {
+          // Modal was closed locally - remove from Yjs
+          taskDetailModalSync.deleteFromYjs(doc, id);
+          localModalIdsRef.current.delete(id);
+          delete lastSyncTimesRef.current[id];
+          logger.debug("Removed task dialog from Yjs", { id });
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [doc, isConnected]);
+
+  // Clean up refs on disconnect
+  useEffect(() => {
+    if (!isConnected) {
+      localModalIdsRef.current.clear();
+      lastSyncTimesRef.current = {};
+    }
+  }, [isConnected]);
+}
+
+// Helper: Check if a modal has valid required fields
+function isValidModal(modal: TaskDetailModalState): boolean {
+  return !!(
+    modal.id &&
+    modal.taskId &&
+    modal.boardId &&
+    modal.position &&
+    typeof modal.position.x === "number" &&
+    typeof modal.position.y === "number" &&
+    !Number.isNaN(modal.position.x) &&
+    !Number.isNaN(modal.position.y) &&
+    typeof modal.zIndex === "number" &&
+    modal.sourceTaskId
+  );
+}
+
+// Helper: Check if modal state changed
+function hasModalChanged(
+  prev: TaskDetailModalState,
+  next: TaskDetailModalState
+): boolean {
+  return (
+    prev.position.x !== next.position.x ||
+    prev.position.y !== next.position.y ||
+    prev.zIndex !== next.zIndex ||
+    prev.isEditing !== next.isEditing ||
+    prev.taskId !== next.taskId ||
+    prev.boardId !== next.boardId
+  );
+}
+
+// Helper: Check if only position changed
+function isPositionOnlyChange(
+  prev: TaskDetailModalState,
+  next: TaskDetailModalState
+): boolean {
+  return (
+    prev.taskId === next.taskId &&
+    prev.boardId === next.boardId &&
+    prev.sourceTaskId === next.sourceTaskId &&
+    prev.zIndex === next.zIndex &&
+    prev.isEditing === next.isEditing &&
+    (prev.position.x !== next.position.x || prev.position.y !== next.position.y)
+  );
+}

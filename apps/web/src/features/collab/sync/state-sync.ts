@@ -19,6 +19,7 @@ import {
   columnSync,
   connectionDialogSync,
   createTaskModalSync,
+  taskQuickActionsSync,
   taskSync,
   workspaceSync,
 } from "./syncs";
@@ -79,14 +80,17 @@ export function applyYjsToState(
   }
 
   // For other entities, merge synced data with existing data
-  const syncedBoards = boardSync.applyFromYjs(doc.getMap(YJS_MAP_NAMES.BOARDS));
-  const syncedColumns = columnSync.applyFromYjs(
-    doc.getMap(YJS_MAP_NAMES.COLUMNS)
-  );
-  const syncedTasks = taskSync.applyFromYjs(doc.getMap(YJS_MAP_NAMES.TASKS));
-  const syncedBoardPositions = boardPositionSync.applyFromYjs(
-    doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS)
-  );
+  // Keep references to raw Yjs maps for existence checking in merge
+  const boardsYjsMap = doc.getMap(YJS_MAP_NAMES.BOARDS);
+  const columnsYjsMap = doc.getMap(YJS_MAP_NAMES.COLUMNS);
+  const tasksYjsMap = doc.getMap(YJS_MAP_NAMES.TASKS);
+
+  const syncedBoards = boardSync.applyFromYjs(boardsYjsMap);
+  const syncedColumns = columnSync.applyFromYjs(columnsYjsMap);
+  const syncedTasks = taskSync.applyFromYjs(tasksYjsMap);
+  const boardPositionsYjsMap = doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS);
+  const syncedBoardPositions =
+    boardPositionSync.applyFromYjs(boardPositionsYjsMap);
   const syncedBoardConnections = boardConnectionSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
   );
@@ -98,24 +102,30 @@ export function applyYjsToState(
   // Helper to merge entity maps, handling additions, updates, AND deletions
   // For entities belonging to the current workspace, if they exist locally but not in Yjs,
   // they should be removed (they were deleted by another collaborator)
+  // NOTE: We pass the raw Yjs map to check for existence even if validation failed
+  type MergeOptions<T> = {
+    filterFn?: (item: T) => boolean;
+    belongsToWorkspaceFn?: (item: T) => boolean;
+    rawYjsMap?: Y.Map<unknown>;
+  };
+
   const mergeEntityMaps = <T extends { id: string }>(
     existing: { byId: Record<string, T>; allIds: string[] } | undefined,
     synced: { byId: Record<string, T>; allIds: string[] },
-    filterFn?: (item: T) => boolean,
-    belongsToWorkspaceFn?: (item: T) => boolean
+    options?: MergeOptions<T>
   ): { byId: Record<string, T>; allIds: string[] } => {
     const merged = existing
       ? { byId: { ...existing.byId }, allIds: [...existing.allIds] }
       : { byId: {} as Record<string, T>, allIds: [] as string[] };
 
-    // Track which IDs from Yjs belong to current workspace
+    // Track which IDs from Yjs passed validation
     const syncedWorkspaceIds = new Set<string>();
 
     // Add/update items from Yjs
     for (const id of synced.allIds) {
       const syncedItem = synced.byId[id];
       if (syncedItem) {
-        if (filterFn && !filterFn(syncedItem)) {
+        if (options?.filterFn && !options.filterFn(syncedItem)) {
           continue;
         }
         syncedWorkspaceIds.add(id);
@@ -128,12 +138,23 @@ export function applyYjsToState(
 
     // Remove items that exist locally but not in Yjs (deleted by other collaborator)
     // Only remove if they belong to the current workspace (to avoid deleting local-only data)
-    if (currentWorkspaceId && belongsToWorkspaceFn) {
+    // IMPORTANT: Check the raw Yjs map if provided - if item exists in Yjs but failed validation,
+    // we keep the local version instead of deleting it
+    if (currentWorkspaceId && options?.belongsToWorkspaceFn) {
       const idsToRemove: string[] = [];
       for (const id of merged.allIds) {
         const item = merged.byId[id];
-        // If this item belongs to the current workspace but is not in Yjs, it was deleted
-        if (item && belongsToWorkspaceFn(item) && !syncedWorkspaceIds.has(id)) {
+        if (!(item && options.belongsToWorkspaceFn(item))) {
+          continue;
+        }
+
+        // If we have the raw Yjs map, check if the item exists in it
+        // Only delete if it's definitely NOT in Yjs (not just failed validation)
+        if (options.rawYjsMap) {
+          if (!(options.rawYjsMap.has(id) || syncedWorkspaceIds.has(id))) {
+            idsToRemove.push(id);
+          }
+        } else if (!syncedWorkspaceIds.has(id)) {
           idsToRemove.push(id);
         }
       }
@@ -147,14 +168,42 @@ export function applyYjsToState(
   };
 
   // Filter functions to only include entities belonging to the current workspace
-  const boardBelongsToWorkspace = (board: { workspace_id?: string }): boolean =>
-    !currentWorkspaceId || board.workspace_id === currentWorkspaceId;
+  // NOTE: Be permissive - if board exists in local state, don't filter it out
+  // This prevents boards from disappearing during sync
+  const boardBelongsToWorkspace = (board: {
+    workspace_id?: string;
+    id?: string;
+  }): boolean => {
+    // If no current workspace filter, include all
+    if (!currentWorkspaceId) {
+      return true;
+    }
+    // If workspace matches, include
+    if (board.workspace_id === currentWorkspaceId) {
+      return true;
+    }
+    // If board already exists in local state, keep it (don't filter out existing boards)
+    if (board.id && currentState?.boards?.byId[board.id]) {
+      return true;
+    }
+    // Otherwise, filter out
+    return false;
+  };
 
   // Get the set of board IDs that belong to current workspace (for filtering columns/tasks)
+  // Be permissive - include boards that are already in local state
   const workspaceBoardIds = new Set(
     syncedBoards.allIds.filter((id) => {
       const board = syncedBoards.byId[id];
-      return board && boardBelongsToWorkspace(board);
+      if (!board) {
+        return false;
+      }
+      // If board exists in local state, include it
+      if (currentState?.boards?.byId[id]) {
+        return true;
+      }
+      // Otherwise use workspace filter
+      return boardBelongsToWorkspace(board);
     })
   );
 
@@ -174,12 +223,11 @@ export function applyYjsToState(
     })
   );
 
-  const boards = mergeEntityMaps(
-    currentState?.boards,
-    syncedBoards,
-    boardBelongsToWorkspace,
-    boardBelongsToWorkspace
-  );
+  const boards = mergeEntityMaps(currentState?.boards, syncedBoards, {
+    filterFn: boardBelongsToWorkspace,
+    belongsToWorkspaceFn: boardBelongsToWorkspace,
+    rawYjsMap: boardsYjsMap,
+  });
 
   // Update workspaceBoardIds to include both synced AND remaining local boards
   // (needed for column/task filtering after some boards might have been removed)
@@ -189,38 +237,42 @@ export function applyYjsToState(
     !currentWorkspaceId ||
     Boolean(entity.board_id && activeBoardIds.has(entity.board_id));
 
-  const columns = mergeEntityMaps(
-    currentState?.columns,
-    syncedColumns,
-    entityBelongsToWorkspaceBoard,
-    entityBelongsToActiveBoard
-  );
-  const tasks = mergeEntityMaps(
-    currentState?.tasks,
-    syncedTasks,
-    entityBelongsToWorkspaceBoard,
-    entityBelongsToActiveBoard
-  );
+  const columns = mergeEntityMaps(currentState?.columns, syncedColumns, {
+    filterFn: entityBelongsToWorkspaceBoard,
+    belongsToWorkspaceFn: entityBelongsToActiveBoard,
+    rawYjsMap: columnsYjsMap,
+  });
+  const tasks = mergeEntityMaps(currentState?.tasks, syncedTasks, {
+    filterFn: entityBelongsToWorkspaceBoard,
+    belongsToWorkspaceFn: entityBelongsToActiveBoard,
+    rawYjsMap: tasksYjsMap,
+  });
   const boardPositions = mergeEntityMaps(
     currentState?.boardPositions,
     syncedBoardPositions,
-    (pos): boolean => !currentWorkspaceId || workspaceBoardIds.has(pos.id),
-    (pos): boolean => activeBoardIds.has(pos.id)
+    {
+      filterFn: (pos): boolean =>
+        !currentWorkspaceId || workspaceBoardIds.has(pos.id),
+      belongsToWorkspaceFn: (pos): boolean => activeBoardIds.has(pos.id),
+      rawYjsMap: boardPositionsYjsMap,
+    }
   );
   const boardConnections = mergeEntityMaps(
     currentState?.boardConnections,
     syncedBoardConnections,
-    (conn): boolean =>
-      !currentWorkspaceId ||
-      Boolean(
-        conn.source_board_id &&
-          workspaceBoardIds.has(conn.source_board_id) &&
-          conn.target_board_id &&
-          workspaceBoardIds.has(conn.target_board_id)
-      ),
-    (conn): boolean =>
-      activeBoardIds.has(conn.source_board_id) &&
-      activeBoardIds.has(conn.target_board_id)
+    {
+      filterFn: (conn): boolean =>
+        !currentWorkspaceId ||
+        Boolean(
+          conn.source_board_id &&
+            workspaceBoardIds.has(conn.source_board_id) &&
+            conn.target_board_id &&
+            workspaceBoardIds.has(conn.target_board_id)
+        ),
+      belongsToWorkspaceFn: (conn): boolean =>
+        activeBoardIds.has(conn.source_board_id) &&
+        activeBoardIds.has(conn.target_board_id),
+    }
   );
 
   // Update workspaceAreaIds similarly
@@ -231,17 +283,17 @@ export function applyYjsToState(
     })
   );
 
-  const areas = mergeEntityMaps(
-    currentState?.areas,
-    syncedAreas,
-    areaBelongsToWorkspace,
-    areaBelongsToWorkspace
-  );
+  const areas = mergeEntityMaps(currentState?.areas, syncedAreas, {
+    filterFn: areaBelongsToWorkspace,
+    belongsToWorkspaceFn: areaBelongsToWorkspace,
+  });
   const areaPositions = mergeEntityMaps(
     currentState?.areaPositions,
     syncedAreaPositions,
-    (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
-    (pos) => activeAreaIds.has(pos.id)
+    {
+      filterFn: (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
+      belongsToWorkspaceFn: (pos) => activeAreaIds.has(pos.id),
+    }
   );
 
   // Sync dialogs - these don't need workspace filtering (ephemeral UI state)
@@ -378,7 +430,7 @@ export function applyYjsToState(
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS)
   );
 
-  // Convert column dialogs from entity map format to Record format
+  // Sync column dialogs from entity map format to Record format
   const columnDialogs: Record<
     string,
     {
@@ -401,6 +453,45 @@ export function applyYjsToState(
     }
   }
 
+  // Sync task quick actions - ephemeral UI state
+  // IMPORTANT: Only ADD/UPDATE here, deletion handled by use-yjs-sync.ts
+  const syncedTaskQuickActions = taskQuickActionsSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS)
+  );
+
+  // Start with existing local quick actions (preserve all local state)
+  const taskQuickActions: Record<
+    string,
+    {
+      taskId: string;
+      boardId: string;
+      columnId: string;
+      position: { x: number; y: number };
+    }
+  > = currentState?.taskQuickActions
+    ? { ...currentState.taskQuickActions }
+    : {};
+
+  // Apply synced quick actions from Yjs (add new ones and update existing)
+  for (const id of syncedTaskQuickActions.allIds) {
+    const qa = syncedTaskQuickActions.byId[id];
+    if (qa) {
+      taskQuickActions[qa.taskId] = {
+        taskId: qa.taskId,
+        boardId: qa.boardId,
+        columnId: qa.columnId,
+        position: qa.position,
+      };
+    }
+  }
+
+  // NOTE: We do NOT delete quick actions here
+  // Deletion is handled by taskQuickActionsSync.deleteFromYjs() in use-yjs-sync.ts
+
+  // NOTE: Task detail modals are NOT synced here
+  // They are handled by the dedicated useTaskDialogSync hook
+  // This provides better ownership tracking and prevents race conditions
+
   return {
     workspaces,
     boards,
@@ -416,6 +507,8 @@ export function applyYjsToState(
     createTaskModals,
     columnQuickActions,
     columnDialogs,
+    taskQuickActions,
+    // taskDetailModals are NOT included - handled by useTaskDialogSync
   };
 }
 
@@ -433,7 +526,9 @@ export function applyYjsToStateWithRepair(
     ...yjsState,
   };
 
-  // Run fixers if needed
+  // NOTE: State repair is temporarily disabled to debug sync issues
+  // The repair was running on every sync and incorrectly recreating board positions
+  // Run fixers if needed - DISABLED for debugging
   if (needsRepair(mergedState)) {
     logger.info("Running state repair after Yjs sync");
     const repairedState = repairState(mergedState);
@@ -455,6 +550,8 @@ export function applyYjsToStateWithRepair(
       createTaskModals: yjsState.createTaskModals,
       columnQuickActions: yjsState.columnQuickActions,
       columnDialogs: yjsState.columnDialogs,
+      taskQuickActions: yjsState.taskQuickActions,
+      // taskDetailModals are NOT included - handled by useTaskDialogSync
     };
   }
 
@@ -676,6 +773,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.CREATE_TASK_MODALS),
     doc.getMap(YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
+    doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
   ];
 
   for (const map of maps) {
