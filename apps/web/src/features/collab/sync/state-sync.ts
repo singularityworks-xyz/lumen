@@ -245,7 +245,9 @@ export function applyYjsToState(
   // (needed for column/task filtering after some boards might have been removed)
   const activeBoardIds = new Set(boards.allIds);
 
-  const entityBelongsToActiveBoard = (entity: { board_id?: string }): boolean => {
+  const entityBelongsToActiveBoard = (entity: {
+    board_id?: string;
+  }): boolean => {
     // If no current workspace filter, include all
     if (!currentWorkspaceId) {
       return true;

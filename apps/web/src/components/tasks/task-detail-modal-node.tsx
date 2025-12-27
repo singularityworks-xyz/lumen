@@ -25,7 +25,7 @@ type TaskDetailModalNodeProps = NodeProps<Node<TaskDetailModalNodeData>>;
 const MODAL_WIDTH = 400;
 
 export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
-  ({ data, selected }) => {
+  ({ data, selected, positionAbsoluteX, positionAbsoluteY }) => {
     const { screenToFlowPosition } = useReactFlow();
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [mounted, setMounted] = useState(false);
@@ -118,7 +118,16 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
       // Access boardPosition to trigger recalc when board moves
       const _bp = boardPosition;
 
-      if (!(modalState?.sourceTaskId && modalState?.position)) {
+      if (!modalState?.sourceTaskId) {
+        return null;
+      }
+
+      // Use React Flow's position props which update synchronously during drag
+      // This eliminates the lag/flicker that occurs when using store position
+      const modalPosX = positionAbsoluteX;
+      const modalPosY = positionAbsoluteY;
+
+      if (!(Number.isFinite(modalPosX) && Number.isFinite(modalPosY))) {
         return null;
       }
 
@@ -151,20 +160,18 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
         return null;
       }
 
-      // Modal position is already in canvas coordinates
-      const modalPos = modalState.position;
-
       // Calculate offset from modal's top-left corner (where the SVG will be anchored)
       // The line goes FROM the task TO the modal's left edge
-      const startX = taskCanvasPos.x - modalPos.x;
-      const startY = taskCanvasPos.y - modalPos.y;
+      const startX = taskCanvasPos.x - modalPosX;
+      const startY = taskCanvasPos.y - modalPosY;
       const endX = 0;
       const endY = 24;
 
       return { startX, startY, endX, endY };
     }, [
       modalState?.sourceTaskId,
-      modalState?.position,
+      positionAbsoluteX,
+      positionAbsoluteY,
       boardPosition,
       screenToFlowPosition,
       vpX,
