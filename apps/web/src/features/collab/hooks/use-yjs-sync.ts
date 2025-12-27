@@ -90,7 +90,6 @@ export function useYjsSync(
   > | null>(null);
 
   // Track last sync times for throttling position updates
-  const lastBoardPosSyncRef = useRef<Record<string, number>>({});
   const lastAreaPosSyncRef = useRef<Record<string, number>>({});
 
   const applyYjsChanges = useCallback(() => {
@@ -265,15 +264,11 @@ export function useYjsSync(
       );
       const now = Date.now();
       for (const pos of [...posDiff.added, ...posDiff.changed]) {
-        const lastSync = lastBoardPosSyncRef.current[pos.id] || 0;
-        // Throttle position updates during drag
-        if (now - lastSync >= POSITION_THROTTLE_MS) {
-          lastBoardPosSyncRef.current[pos.id] = now;
-          boardPositionSync.setInYjs(doc, pos);
-        }
+        // For board positions, always sync immediately since board dragging is infrequent
+        // and we want to ensure final positions are always captured (especially on removal)
+        boardPositionSync.setInYjs(doc, pos);
       }
       for (const id of posDiff.removed) {
-        delete lastBoardPosSyncRef.current[id];
         boardPositionSync.deleteFromYjs(doc, id);
       }
 

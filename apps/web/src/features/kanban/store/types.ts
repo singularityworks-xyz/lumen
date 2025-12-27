@@ -260,6 +260,7 @@ export type KanbanActions = {
     boardId: string,
     position: { x: number; y: number }
   ) => void;
+  finalizeBoardDrag: (boardId: string) => void;
   updateBoardDimensions: (
     boardId: string,
     dimensions: { width: number; height: number },

@@ -111,6 +111,7 @@ export const AreaPropertiesDialogNodeComponent =
               </span>
             </div>
             <button
+              aria-label="Close area properties dialog"
               className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               onClick={handleClose}
               type="button"

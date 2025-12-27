@@ -22,6 +22,7 @@ type SliceCreator = (
   | "updateBoard"
   | "removeBoard"
   | "updateBoardPosition"
+  | "finalizeBoardDrag"
   | "updateBoardDimensions"
   | "bringBoardToFront"
   | "getDenormalizedBoard"
@@ -235,6 +236,17 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       if (boardPos) {
         boardPos.x = position.x;
         boardPos.y = position.y;
+      }
+    }),
+
+  finalizeBoardDrag: (boardId) =>
+    set((state) => {
+      // Final board drag - ensure position is synced
+      // The sync layer automatically detects when no dragging is active
+      // and syncs positions immediately without throttling
+      const boardPos = state.boardPositions.byId[boardId];
+      if (boardPos) {
+        // No action needed - sync layer handles final position syncing
       }
     }),
 

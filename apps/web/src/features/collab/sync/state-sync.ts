@@ -849,6 +849,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
     doc.getMap(YJS_MAP_NAMES.AREAS),
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS),
+    doc.getMap(YJS_MAP_NAMES.AREA_DRAG_ORIGINS),
     doc.getMap(YJS_MAP_NAMES.BOARD_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.BOARD_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.CONNECTION_DIALOGS),

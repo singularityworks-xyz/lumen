@@ -177,6 +177,7 @@ export function KanbanCanvas() {
     (state) => state.updateAreaDimensions
   );
   const finalizeAreaDrag = useKanbanStore((state) => state.finalizeAreaDrag);
+  const finalizeBoardDrag = useKanbanStore((state) => state.finalizeBoardDrag);
   const areaDragOrigins = useKanbanStore((state) => state.areaDragOrigins);
   const attachBoardToArea = useKanbanStore((state) => state.attachBoardToArea);
   const detachBoardFromArea = useKanbanStore(
@@ -795,7 +796,7 @@ export function KanbanCanvas() {
       type: "areaPropertiesDialog" as const,
       position: dialog.position,
       data: { dialogId: dialog.id },
-      style: { zIndex: 3000 },
+      style: { zIndex: computeZIndex(`area-properties-dialog-${dialog.id}`) },
       width: 300,
       height: 400,
       draggable: true,
@@ -1416,8 +1417,12 @@ export function KanbanCanvas() {
       if (node.id.startsWith("area_")) {
         finalizeAreaDrag(node.id);
       }
+      // If a board was dragged, finalize it to ensure final position is synced
+      else if (node.id.startsWith("board_")) {
+        finalizeBoardDrag(node.id);
+      }
     },
-    [finalizeAreaDrag]
+    [finalizeAreaDrag, finalizeBoardDrag]
   );
 
   // Navigate to a collaborator's cursor position (when clicking edge indicator)

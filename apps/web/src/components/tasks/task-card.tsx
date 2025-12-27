@@ -191,8 +191,22 @@ export const TaskCard = memo(
         z-index: 9999;
       `;
 
-      // Build content HTML
-      let html = `<div style="font-size:13px;font-weight:500;color:${textColor};line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${task.title}</div>`;
+      // Build content DOM nodes programmatically to prevent XSS
+      const container = document.createElement("div");
+
+      // Title
+      const titleDiv = document.createElement("div");
+      titleDiv.textContent = task.title;
+      titleDiv.style.cssText = `
+        font-size: 13px;
+        font-weight: 500;
+        color: ${textColor};
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      `;
+      container.appendChild(titleDiv);
 
       // Description (truncated)
       if (task.description) {
@@ -200,31 +214,91 @@ export const TaskCard = memo(
           task.description.length > 50
             ? `${task.description.slice(0, 50)}...`
             : task.description;
-        html += `<div style="margin-top:4px;font-size:10px;color:${mutedColor};line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${desc}</div>`;
+        const descDiv = document.createElement("div");
+        descDiv.textContent = desc;
+        descDiv.style.cssText = `
+          margin-top: 4px;
+          font-size: 10px;
+          color: ${mutedColor};
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        `;
+        container.appendChild(descDiv);
       }
 
       // Priority & Progress row
-      html += `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;">`;
-      html += `<span style="padding:2px 6px;font-size:9px;font-weight:500;border-radius:4px;background:${pColor.bg};color:${pColor.text};">${task.priority}</span>`;
+      const priorityRow = document.createElement("div");
+      priorityRow.style.cssText = `
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      `;
+
+      const prioritySpan = document.createElement("span");
+      prioritySpan.textContent = task.priority;
+      prioritySpan.style.cssText = `
+        padding: 2px 6px;
+        font-size: 9px;
+        font-weight: 500;
+        border-radius: 4px;
+        background: ${pColor.bg};
+        color: ${pColor.text};
+      `;
+      priorityRow.appendChild(prioritySpan);
+
       if (task.progress > 0) {
-        html += `<span style="font-size:9px;color:${mutedColor};">${task.progress}%</span>`;
+        const progressSpan = document.createElement("span");
+        progressSpan.textContent = `${task.progress}%`;
+        progressSpan.style.cssText = `
+          font-size: 9px;
+          color: ${mutedColor};
+        `;
+        priorityRow.appendChild(progressSpan);
       }
-      html += "</div>";
+
+      container.appendChild(priorityRow);
 
       // Tags (up to 2)
       if (task.tags && task.tags.length > 0) {
         const tagBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)";
-        html += `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">`;
+        const tagsDiv = document.createElement("div");
+        tagsDiv.style.cssText = `
+          margin-top: 6px;
+          display: flex;
+          gap: 4px;
+          flex-wrap: wrap;
+        `;
+
         for (const tag of task.tags.slice(0, 2)) {
-          html += `<span style="padding:2px 6px;font-size:8px;border-radius:3px;background:${tagBg};color:${mutedColor};">${tag}</span>`;
+          const tagSpan = document.createElement("span");
+          tagSpan.textContent = tag;
+          tagSpan.style.cssText = `
+            padding: 2px 6px;
+            font-size: 8px;
+            border-radius: 3px;
+            background: ${tagBg};
+            color: ${mutedColor};
+          `;
+          tagsDiv.appendChild(tagSpan);
         }
+
         if (task.tags.length > 2) {
-          html += `<span style="font-size:8px;color:${mutedColor};">+${task.tags.length - 2}</span>`;
+          const overflowSpan = document.createElement("span");
+          overflowSpan.textContent = `+${task.tags.length - 2}`;
+          overflowSpan.style.cssText = `
+            font-size: 8px;
+            color: ${mutedColor};
+          `;
+          tagsDiv.appendChild(overflowSpan);
         }
-        html += "</div>";
+
+        container.appendChild(tagsDiv);
       }
 
-      ghost.innerHTML = html;
+      ghost.appendChild(container);
       document.body.appendChild(ghost);
 
       e.dataTransfer.setDragImage(ghost, 100, 20);

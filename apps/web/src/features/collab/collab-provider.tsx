@@ -232,12 +232,16 @@ export function CollaborationProvider({
         const existing = collaboratorMap.get(state.user.id);
 
         // If we already have this user, check if we should update
-        // We want to preserve 'draggingTask' if it exists in either state
-        const draggingTask = state.draggingTask || existing?.draggingTask;
-        const draggingColumn = state.draggingColumn || existing?.draggingColumn;
+        // Use explicit null to clear drag state, undefined to preserve existing
+        const draggingTask = Object.hasOwn(state, "draggingTask")
+          ? state.draggingTask
+          : existing?.draggingTask;
+        const draggingColumn = Object.hasOwn(state, "draggingColumn")
+          ? state.draggingColumn
+          : existing?.draggingColumn;
 
         // TODO: Also might want to merge other meaningful presence overrides here
-        // For now, simpler is better: last write wins for most things, but draggingTask persists
+        // Fixed: Now properly handles null (clear) vs undefined (preserve) for drag states
 
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
