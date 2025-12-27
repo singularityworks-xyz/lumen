@@ -69,10 +69,14 @@ export function useTaskDialogSync(
         }
       });
 
-      // Remove modals that were deleted by other users (not in Yjs but we don't own)
+      // Remove modals that were deleted from Yjs
+      // If a modal is not in Yjs, it should be removed locally regardless of who opened it
+      // This ensures that when ANY user closes a modal, it's removed for everyone
       for (const id of Object.keys(currentModals)) {
-        if (!(localModalIdsRef.current.has(id) || yjsMap.has(id))) {
+        if (!yjsMap.has(id)) {
           delete currentModals[id];
+          // Also clear local ownership tracking if it was ours
+          localModalIdsRef.current.delete(id);
           hasChanges = true;
         }
       }
