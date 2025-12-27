@@ -70,7 +70,6 @@ export function createEntitySync<T extends { id: string }>(
       doc.transact(() => {
         map.set(entity.id, entity as unknown);
       });
-      logger.debug(`Set ${entityName} in Yjs`, { id: entity.id });
     },
 
     deleteFromYjs(doc: Y.Doc, id: string): void {
@@ -78,7 +77,6 @@ export function createEntitySync<T extends { id: string }>(
       doc.transact(() => {
         map.delete(id);
       });
-      logger.debug(`Deleted ${entityName} from Yjs`, { id });
     },
 
     batchSetInYjs(doc: Y.Doc, entities: T[]): void {
@@ -92,7 +90,6 @@ export function createEntitySync<T extends { id: string }>(
           map.set(entity.id, entity as unknown);
         }
       });
-      logger.debug(`Batch set ${entities.length} ${entityName}s in Yjs`);
     },
 
     initializeYjs(doc: Y.Doc, entityMap: EntityMap<T>): void {

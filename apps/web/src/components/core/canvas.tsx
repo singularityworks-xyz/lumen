@@ -509,6 +509,10 @@ export function KanbanCanvas() {
           data: { modalId: modal.id },
           style: { zIndex: computeZIndex(`task-detail-modal-${modal.id}`) },
           draggable: true,
+          // Prevent React Flow from hiding the node while measuring dimensions
+          // AHH this took forever to figure out T-T
+          width: 400,
+          height: 350,
         };
         return node;
       })

@@ -186,6 +186,18 @@ export function applyYjsToState(
     if (board.id && currentState?.boards?.byId[board.id]) {
       return true;
     }
+
+    // CRITICAL FIX: If this board has an open task detail modal, we MUST keep it
+    // otherwise the modal will disappear/close because its parent board is gone
+    if (board.id && currentState?.taskDetailModals) {
+      const hasOpenModal = Object.values(currentState.taskDetailModals).some(
+        (modal) => modal?.boardId === board.id
+      );
+      if (hasOpenModal) {
+        return true;
+      }
+    }
+
     // Otherwise, filter out
     return false;
   };
@@ -233,9 +245,30 @@ export function applyYjsToState(
   // (needed for column/task filtering after some boards might have been removed)
   const activeBoardIds = new Set(boards.allIds);
 
-  const entityBelongsToActiveBoard = (entity: { board_id?: string }): boolean =>
-    !currentWorkspaceId ||
-    Boolean(entity.board_id && activeBoardIds.has(entity.board_id));
+  const entityBelongsToActiveBoard = (entity: { board_id?: string }): boolean => {
+    // If no current workspace filter, include all
+    if (!currentWorkspaceId) {
+      return true;
+    }
+
+    if (!entity.board_id) {
+      return false;
+    }
+
+    // CRITICAL FIX: If this board has an open task detail modal, treat it as active
+    // This ensures tasks on this board (like the one in the modal!) aren't filtered out
+    // checking tasks specifically against active boards
+    if (currentState?.taskDetailModals) {
+      const hasOpenModal = Object.values(currentState.taskDetailModals).some(
+        (modal) => modal?.boardId === entity.board_id
+      );
+      if (hasOpenModal) {
+        return true;
+      }
+    }
+
+    return activeBoardIds.has(entity.board_id);
+  };
 
   const columns = mergeEntityMaps(currentState?.columns, syncedColumns, {
     filterFn: entityBelongsToWorkspaceBoard,

@@ -1,14 +1,11 @@
 "use client";
 
-import { createLogger } from "@lumen/logger";
 import { useCallback, useEffect, useRef } from "react";
 import type * as Y from "yjs";
 import { YJS_MAP_NAMES } from "@/src/features/collab/sync/entity-sync";
 import { taskDetailModalSync } from "@/src/features/collab/sync/syncs";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { TaskDetailModalState } from "@/src/features/kanban/types";
-
-const logger = createLogger({ name: "collab:task-dialog-sync" });
 
 // Throttle interval for position updates (ms)
 const POSITION_THROTTLE_MS = 50;
@@ -82,10 +79,6 @@ export function useTaskDialogSync(
 
       if (hasChanges) {
         useKanbanStore.setState({ taskDetailModals: currentModals });
-        logger.debug("Applied remote task dialog updates", {
-          localModals: localModalIdsRef.current.size,
-          totalModals: Object.keys(currentModals).length,
-        });
       }
     } finally {
       isApplyingFromYjsRef.current = false;
@@ -171,7 +164,6 @@ export function useTaskDialogSync(
 
           if (isValidModal(modal)) {
             taskDetailModalSync.setInYjs(doc, modal);
-            logger.debug("Synced new task dialog to Yjs", { id });
           }
         }
       }
@@ -179,11 +171,9 @@ export function useTaskDialogSync(
       // Find removed modals - allow any user to close modals from Yjs
       for (const id of Object.keys(prevModals)) {
         if (!(id in currentModals)) {
-          // Modal was closed locally - remove from Yjs
           taskDetailModalSync.deleteFromYjs(doc, id);
           localModalIdsRef.current.delete(id);
           delete lastSyncTimesRef.current[id];
-          logger.debug("Removed task dialog from Yjs", { id });
         }
       }
     });
