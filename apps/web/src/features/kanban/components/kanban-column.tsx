@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
+import { useTaskDragPresence } from "@/src/hooks/use-task-drag-presence";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
@@ -61,6 +62,8 @@ export const KanbanColumn = memo(
     const draggedTask = draggedTaskId ? tasksStore.byId[draggedTaskId] : null;
     const { getViewport, setViewport, screenToFlowPosition, getNode } =
       useReactFlow();
+
+    const { startDragging, stopDragging } = useTaskDragPresence();
 
     const availableTargetBoards = useMemo(() => {
       const sourceBoard = boards.byId[boardId];
@@ -117,13 +120,12 @@ export const KanbanColumn = memo(
 
     const taskCount = columnTasks.length;
 
-    // Auto-collapse logic removed to respect user state and persistence
-
     const handleDragStart = useCallback(
       (task: Task) => {
         setDraggedTask(task.id);
+        startDragging(task);
       },
-      [setDraggedTask]
+      [setDraggedTask, startDragging]
     );
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -144,8 +146,9 @@ export const KanbanColumn = memo(
           moveTask(draggedTask.id, draggedTask.column_id, column.id, boardId);
         }
         setDraggedTask(null);
+        stopDragging();
       },
-      [draggedTask, column.id, boardId, moveTask, setDraggedTask]
+      [draggedTask, column.id, boardId, moveTask, setDraggedTask, stopDragging]
     );
 
     const calculateQuickActionsPosition = useCallback(() => {

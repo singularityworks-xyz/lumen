@@ -61,14 +61,27 @@ export type OpenDialog = {
   data?: Record<string, unknown>;
 };
 
+/**
+ * Dragging task state broadcast via awareness
+ */
+export type DraggingTaskState = {
+  taskId: string;
+  fromColumnId: string;
+  fromBoardId: string;
+  cursorX?: number;
+  cursorY?: number;
+};
+
 export type Collaborator = {
   id: string;
   name: string;
   color: string;
   role: "owner" | "editor" | "viewer";
+  image?: string | null;
   cursor?: CursorPosition;
   selection?: string[];
   openDialogs?: OpenDialog[];
+  draggingTask?: DraggingTaskState;
 };
 
 export type ConnectionState =
@@ -155,6 +168,7 @@ export function CollaborationProvider({
     name: string;
     color: string;
     role: "owner" | "editor" | "viewer";
+    image?: string | null;
   } | null>(null);
   const workspaceDeletedRef = useRef(false);
 
@@ -208,15 +222,25 @@ export function CollaborationProvider({
       const isLocalUser = state.user?.id === localUserId;
 
       if (state.user && !isLocalClient && !isLocalUser) {
-        // Overwrite previous entry for same user - this ensures only 1 cursor per user
+        const existing = collaboratorMap.get(state.user.id);
+
+        // If we already have this user, check if we should update
+        // We want to preserve 'draggingTask' if it exists in either state
+        const draggingTask = state.draggingTask || existing?.draggingTask;
+
+        // TODO: Also might want to merge other meaningful presence overrides here
+        // For now, simpler is better: last write wins for most things, but draggingTask persists
+
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
           name: state.user.name || "Anonymous",
           color: state.user.color || "#888",
           role: state.user.role || "viewer",
+          image: state.user.image,
           cursor: state.cursor,
           selection: state.selection,
           openDialogs: state.openDialogs,
+          draggingTask,
         });
       }
     });
@@ -255,6 +279,7 @@ export function CollaborationProvider({
           name: sessionUser.name || sessionUser.email || "Anonymous",
           color: userColor,
           role: "editor",
+          image: sessionUser.image,
         };
       }
 

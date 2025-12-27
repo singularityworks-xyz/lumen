@@ -314,10 +314,11 @@ export const CursorOverlay = memo(
 
     // Only show collaborators who have an active cursor (not null)
     // Cursor is null when user leaves tab, switches apps, or mouse leaves canvas
+    // Also hide cursor for collaborators who are dragging - they have a drag overlay instead
     const activeCollaborators = useMemo(
       () =>
         collaborators.filter(
-          (c) => c.cursor !== undefined && c.cursor !== null
+          (c) => c.cursor !== undefined && c.cursor !== null && !c.draggingTask // Hide cursor when dragging - drag overlay shows instead
         ),
       [collaborators]
     );

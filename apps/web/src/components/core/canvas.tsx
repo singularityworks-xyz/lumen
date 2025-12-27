@@ -50,6 +50,7 @@ import { CustomControls } from "@/src/components/custom-controls";
 import { WelcomeScreen } from "@/src/components/dialogs/welcome-screen";
 import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
+import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
@@ -1345,7 +1346,6 @@ export function KanbanCanvas() {
           <RightControls />
           <BulkActionsBar />
           {/* Collaboration cursor overlay */}
-
           {isCollaborating && collaborators.length > 0 && (
             <CursorOverlay
               collaborators={collaborators}
@@ -1353,6 +1353,8 @@ export function KanbanCanvas() {
               onNavigateToUser={handleNavigateToUser}
             />
           )}
+          {/* Task drag overlays for collaborators */}
+          <TaskDragOverlayContainer />
           {edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}

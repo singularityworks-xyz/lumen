@@ -2,6 +2,7 @@ export type {
   Collaborator,
   ConnectionState,
   CursorPosition,
+  DraggingTaskState,
   OpenDialog,
 } from "./collab-provider";
 // biome-ignore lint/performance/noBarrelFile: it's okay for index files to re-export
