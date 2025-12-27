@@ -54,6 +54,7 @@ import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overl
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
+import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
 import {
   canRedo,
   canUndo,
@@ -65,6 +66,7 @@ import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import type { BoardNode } from "@/src/features/kanban/types";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
+import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 
@@ -248,12 +250,24 @@ export function KanbanCanvas() {
   } = useCollaboration();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
+  const {
+    startDragging: startColumnDrag,
+    stopDragging: stopColumnDrag,
+    updateDragPosition: updateColumnDragPosition,
+  } = useColumnDragPresence();
+
   const [activeColumnData, setActiveColumnData] = useState<{
     columnId: string;
     sourceBoardId: string;
     columnName: string;
     taskCount: number;
   } | null>(null);
+
+  // Ref to track active column data for event listeners to avoid stale closures
+  const activeColumnDataRef = useRef(activeColumnData);
+  useEffect(() => {
+    activeColumnDataRef.current = activeColumnData;
+  }, [activeColumnData]);
 
   const [edgeContextMenu, setEdgeContextMenu] = useState<{
     edgeId: string;
@@ -272,6 +286,7 @@ export function KanbanCanvas() {
     })
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's safe to omit updateColumnDragPosition
   const handleColumnDragStart = useCallback(
     (event: DragStartEvent) => {
       const { active } = event;
@@ -286,13 +301,39 @@ export function KanbanCanvas() {
           columnName: column?.name ?? "Column",
           taskCount: column?.task_ids.length ?? 0,
         });
+
+        if (
+          event.activatorEvent instanceof MouseEvent ||
+          event.activatorEvent instanceof PointerEvent ||
+          event.activatorEvent instanceof TouchEvent
+        ) {
+          let clientX = 0;
+          let clientY = 0;
+          if (
+            event.activatorEvent instanceof TouchEvent &&
+            event.activatorEvent.touches.length > 0 &&
+            event.activatorEvent.touches[0]
+          ) {
+            clientX = event.activatorEvent.touches[0].clientX;
+            clientY = event.activatorEvent.touches[0].clientY;
+          } else if (
+            event.activatorEvent instanceof MouseEvent ||
+            event.activatorEvent instanceof PointerEvent
+          ) {
+            clientX = event.activatorEvent.clientX;
+            clientY = event.activatorEvent.clientY;
+          }
+          startColumnDrag(data.columnId, data.boardId, clientX, clientY);
+        }
       }
     },
     [columns]
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's safe to omit startColumnDrag
   const handleColumnDragEnd = useCallback(
     (event: DragEndEvent) => {
+      stopColumnDrag();
       const { over } = event;
 
       if (!activeColumnData) {
@@ -1158,7 +1199,7 @@ export function KanbanCanvas() {
     }
 
     let lastUpdateTime = 0;
-    const THROTTLE_MS = 16; // ~60fps throttle to avoid too many updates
+    const THROTTLE_MS = 16; // ~60fps
 
     const handleWindowMouseMove = (event: MouseEvent) => {
       const now = Date.now();
@@ -1167,12 +1208,15 @@ export function KanbanCanvas() {
       }
       lastUpdateTime = now;
 
-      // Convert screen position to flow (canvas) coordinates
       const flowPos = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
       updateCursor({ x: flowPos.x, y: flowPos.y });
+
+      if (activeColumnDataRef.current) {
+        updateColumnDragPosition(event.clientX, event.clientY);
+      }
     };
 
     const handleWindowMouseLeave = () => {
@@ -1186,7 +1230,12 @@ export function KanbanCanvas() {
       window.removeEventListener("mousemove", handleWindowMouseMove);
       document.removeEventListener("mouseleave", handleWindowMouseLeave);
     };
-  }, [isCollaborating, screenToFlowPosition, updateCursor]);
+  }, [
+    isCollaborating,
+    screenToFlowPosition,
+    updateCursor,
+    updateColumnDragPosition,
+  ]);
 
   // Legacy mouse move handler (kept for backup, but window listener is preferred)
   const handleCanvasMouseMove = useCallback(
@@ -1345,7 +1394,6 @@ export function KanbanCanvas() {
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />
-          {/* Collaboration cursor overlay */}
           {isCollaborating && collaborators.length > 0 && (
             <CursorOverlay
               collaborators={collaborators}
@@ -1353,8 +1401,8 @@ export function KanbanCanvas() {
               onNavigateToUser={handleNavigateToUser}
             />
           )}
-          {/* Task drag overlays for collaborators */}
           <TaskDragOverlayContainer />
+          <ColumnDragOverlayContainer />
           {edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}

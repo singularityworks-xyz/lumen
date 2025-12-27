@@ -61,13 +61,17 @@ export type OpenDialog = {
   data?: Record<string, unknown>;
 };
 
-/**
- * Dragging task state broadcast via awareness
- */
 export type DraggingTaskState = {
   taskId: string;
   fromColumnId: string;
   fromBoardId: string;
+  cursorX?: number;
+  cursorY?: number;
+};
+
+export type DraggingColumnState = {
+  columnId: string;
+  sourceBoardId: string;
   cursorX?: number;
   cursorY?: number;
 };
@@ -82,6 +86,7 @@ export type Collaborator = {
   selection?: string[];
   openDialogs?: OpenDialog[];
   draggingTask?: DraggingTaskState;
+  draggingColumn?: DraggingColumnState;
 };
 
 export type ConnectionState =
@@ -227,6 +232,7 @@ export function CollaborationProvider({
         // If we already have this user, check if we should update
         // We want to preserve 'draggingTask' if it exists in either state
         const draggingTask = state.draggingTask || existing?.draggingTask;
+        const draggingColumn = state.draggingColumn || existing?.draggingColumn;
 
         // TODO: Also might want to merge other meaningful presence overrides here
         // For now, simpler is better: last write wins for most things, but draggingTask persists
@@ -241,6 +247,7 @@ export function CollaborationProvider({
           selection: state.selection,
           openDialogs: state.openDialogs,
           draggingTask,
+          draggingColumn,
         });
       }
     });

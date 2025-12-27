@@ -2,6 +2,7 @@ export type {
   Collaborator,
   ConnectionState,
   CursorPosition,
+  DraggingColumnState,
   DraggingTaskState,
   OpenDialog,
 } from "./collab-provider";

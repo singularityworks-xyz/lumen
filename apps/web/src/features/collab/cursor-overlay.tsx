@@ -318,7 +318,11 @@ export const CursorOverlay = memo(
     const activeCollaborators = useMemo(
       () =>
         collaborators.filter(
-          (c) => c.cursor !== undefined && c.cursor !== null && !c.draggingTask // Hide cursor when dragging - drag overlay shows instead
+          (c) =>
+            c.cursor !== undefined &&
+            c.cursor !== null &&
+            !c.draggingTask &&
+            !c.draggingColumn
         ),
       [collaborators]
     );
