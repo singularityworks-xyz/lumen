@@ -6,4 +6,5 @@ export const generateTaskId = (): string => `task_${nanoid()}`;
 export const generateChecklistId = (): string => `checklist_${nanoid()}`;
 export const generateConnectionId = (): string => `conn_${nanoid()}`;
 export const generateAreaId = (): string => `area_${nanoid()}`;
+export const generateDialogId = (): string => `dlg_${nanoid()}`;
 export const generateId = (): string => nanoid();

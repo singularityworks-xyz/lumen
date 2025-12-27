@@ -1,7 +1,7 @@
 "use client";
 
 import type { Area } from "../../types";
-import { generateAreaId } from "../ids";
+import { generateAreaId, generateDialogId } from "../ids";
 import type { KanbanStore } from "../types";
 
 type SliceCreator = (
@@ -21,6 +21,7 @@ type SliceCreator = (
   | "openAreaDialog"
   | "closeAreaDialog"
   | "updateAreaDialogPosition"
+  | "updateAreaDialogInputValue"
 >;
 
 const DEFAULT_AREA_COLOR = "#9ca3af";
@@ -153,24 +154,36 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openAreaDialog: (options) =>
+  openAreaDialog: (options) => {
+    const id = generateDialogId();
     set((state) => {
-      state.areaDialog = {
+      state.areaDialogs[id] = {
+        id,
         areaId: options.areaId,
         areaName: options.areaName,
         position: options.position,
+        inputValue: options.areaName,
       };
+    });
+    return id;
+  },
+
+  closeAreaDialog: (id) =>
+    set((state) => {
+      delete state.areaDialogs[id];
     }),
 
-  closeAreaDialog: () =>
+  updateAreaDialogPosition: (id, position) =>
     set((state) => {
-      state.areaDialog = null;
+      if (state.areaDialogs[id]) {
+        state.areaDialogs[id].position = position;
+      }
     }),
 
-  updateAreaDialogPosition: (position) =>
+  updateAreaDialogInputValue: (id, value) =>
     set((state) => {
-      if (state.areaDialog) {
-        state.areaDialog.position = position;
+      if (state.areaDialogs[id]) {
+        state.areaDialogs[id].inputValue = value;
       }
     }),
 });

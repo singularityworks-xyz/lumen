@@ -114,11 +114,16 @@ export type KanbanState = {
   // Z-index management
   dialogFocusStack: string[];
   columnUi: Record<string, ColumnUiState>;
-  areaDialog: {
-    areaId: string;
-    areaName: string;
-    position: { x: number; y: number };
-  } | null;
+  areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  >;
   deletedSharedWorkspaceId: string | null;
   isProfileModalOpen: boolean;
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
@@ -225,9 +230,13 @@ export type KanbanActions = {
     areaId: string;
     areaName: string;
     position: { x: number; y: number };
-  }) => void;
-  closeAreaDialog: () => void;
-  updateAreaDialogPosition: (position: { x: number; y: number }) => void;
+  }) => string;
+  closeAreaDialog: (id: string) => void;
+  updateAreaDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateAreaDialogInputValue: (id: string, value: string) => void;
 
   // Board actions
   addBoard: (

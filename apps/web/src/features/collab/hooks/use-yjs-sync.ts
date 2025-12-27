@@ -9,6 +9,7 @@ import {
   observeYjsChanges,
 } from "@/src/features/collab/sync/state-sync";
 import {
+  areaDialogSync,
   areaPositionSync,
   areaSync,
   boardConnectionSync,
@@ -297,6 +298,21 @@ export function useYjsSync(
       }
       for (const id of areaPosDiff.removed) {
         areaPositionSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync area dialogs
+      const areaDialogDiff = diffEntityMaps(
+        prevState.areaDialogs,
+        state.areaDialogs
+      );
+      for (const dialog of [
+        ...areaDialogDiff.added,
+        ...areaDialogDiff.changed,
+      ]) {
+        areaDialogSync.setInYjs(doc, dialog);
+      }
+      for (const id of areaDialogDiff.removed) {
+        areaDialogSync.deleteFromYjs(doc, id);
       }
 
       // Diff and sync board quick actions (dialog menus)

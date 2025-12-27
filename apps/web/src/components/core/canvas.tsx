@@ -54,6 +54,7 @@ import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overl
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
+import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/components/collaborator-selection-overlay-screen";
 import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
 import {
   canRedo,
@@ -67,6 +68,7 @@ import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import type { BoardNode } from "@/src/features/kanban/types";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
 import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
+import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 
@@ -230,7 +232,7 @@ export function KanbanCanvas() {
     (state) => state.updateTaskQuickActionsPosition
   );
   const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
-  const areaDialog = useKanbanStore((state) => state.areaDialog);
+  const areaDialogs = useKanbanStore((state) => state.areaDialogs);
   const updateAreaDialogPosition = useKanbanStore(
     (state) => state.updateAreaDialogPosition
   );
@@ -263,8 +265,19 @@ export function KanbanCanvas() {
     taskCount: number;
   } | null>(null);
 
+  const { setSelectionBox: setPresenceSelectionBox } = useSelectionPresence();
+  const selectionBox = useKanbanStore((state) => state.selectionBox);
+  const setStoreSelectionBox = useKanbanStore((state) => state.setSelectionBox);
+  const clearStoreSelectionBox = useKanbanStore(
+    (state) => state.clearSelectionBox
+  );
+
   // Ref to track active column data for event listeners to avoid stale closures
   const activeColumnDataRef = useRef(activeColumnData);
+  const isSelectingRef = useRef(false);
+  const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     activeColumnDataRef.current = activeColumnData;
   }, [activeColumnData]);
@@ -725,18 +738,16 @@ export function KanbanCanvas() {
         draggable: true,
       }));
 
-    const areaDialogNode = areaDialog
-      ? [
-          {
-            id: "area-properties-dialog",
-            type: "areaPropertiesDialog" as const,
-            position: areaDialog.position,
-            data: { dialogId: "area-properties-dialog" },
-            style: { zIndex: 3000 },
-            draggable: true,
-          },
-        ]
-      : [];
+    const areaDialogNodes = Object.values(areaDialogs).map((dialog) => ({
+      id: `area-dialog-${dialog.id}`,
+      type: "areaPropertiesDialog" as const,
+      position: dialog.position,
+      data: { dialogId: dialog.id },
+      style: { zIndex: 3000 },
+      width: 300,
+      height: 400,
+      draggable: true,
+    }));
 
     return [
       ...areaNodes,
@@ -749,7 +760,7 @@ export function KanbanCanvas() {
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
-      ...areaDialogNode,
+      ...areaDialogNodes,
     ];
   }, [
     areas,
@@ -771,7 +782,7 @@ export function KanbanCanvas() {
     taskQuickActions,
     columnQuickActions,
     dialogFocusStack,
-    areaDialog,
+    areaDialogs,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -972,8 +983,9 @@ export function KanbanCanvas() {
           } else if (change.id.startsWith("column-dialog-")) {
             const dialogId = change.id.replace("column-dialog-", "");
             updateColumnDialogPosition(dialogId, change.position);
-          } else if (change.id === "area-properties-dialog") {
-            updateAreaDialogPosition(change.position);
+          } else if (change.id.startsWith("area-dialog-")) {
+            const dialogId = change.id.replace("area-dialog-", "");
+            updateAreaDialogPosition(dialogId, change.position);
           } else {
             updateBoardPosition(change.id, change.position);
           }
@@ -1107,55 +1119,47 @@ export function KanbanCanvas() {
     []
   );
 
-  const [selectionMenu, setSelectionMenu] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    screenX: number;
-    screenY: number;
-  } | null>(null);
+  const handleSelectionEnd = useCallback((_event: React.MouseEvent) => {
+    const selectionBoxElement = document.querySelector(
+      ".react-flow__selection"
+    ) as HTMLElement | null;
 
-  const handleSelectionEnd = useCallback(
-    (_event: React.MouseEvent) => {
-      const selectionBox = document.querySelector(
-        ".react-flow__selection"
-      ) as HTMLElement | null;
+    if (!selectionBoxElement) {
+      return;
+    }
 
-      if (!selectionBox) {
-        return;
-      }
+    const rect = selectionBoxElement.getBoundingClientRect();
 
-      const rect = selectionBox.getBoundingClientRect();
-
-      if (rect.width < 50 || rect.height < 50) {
-        return;
-      }
-
-      const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
-      const bottomRight = screenToFlowPosition({
-        x: rect.right,
-        y: rect.bottom,
-      });
-
-      const width = bottomRight.x - topLeft.x;
-      const height = bottomRight.y - topLeft.y;
-
-      setSelectionMenu({
-        x: topLeft.x,
-        y: topLeft.y,
-        width,
-        height,
-        screenX: rect.right + 10,
-        screenY: rect.top,
-      });
-    },
-    [screenToFlowPosition]
-  );
+    if (rect.width < 50 || rect.height < 50) {
+      return;
+    }
+  }, []);
 
   const handleCloseSelectionMenu = useCallback(() => {
-    setSelectionMenu(null);
-  }, []);
+    clearStoreSelectionBox();
+    setPresenceSelectionBox(null);
+  }, [clearStoreSelectionBox, setPresenceSelectionBox]);
+
+  const handleSelectionStart = useCallback(
+    (event: React.MouseEvent) => {
+      isSelectingRef.current = true;
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      selectionStartRef.current = flowPos;
+      // Clear any existing persisted selection when starting a new one
+      clearStoreSelectionBox();
+    },
+    [screenToFlowPosition, clearStoreSelectionBox]
+  );
+
+  // Sync persisted selection box to presence (for refresh/reload case)
+  useEffect(() => {
+    if (selectionBox) {
+      setPresenceSelectionBox(selectionBox);
+    }
+  }, [selectionBox, setPresenceSelectionBox]);
 
   useEffect(() => {
     isUpdatingFromStore.current = true;
@@ -1217,6 +1221,22 @@ export function KanbanCanvas() {
       if (activeColumnDataRef.current) {
         updateColumnDragPosition(event.clientX, event.clientY);
       }
+
+      if (isSelectingRef.current && selectionStartRef.current) {
+        const currentFlowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        const x = Math.min(selectionStartRef.current.x, currentFlowPos.x);
+        const y = Math.min(selectionStartRef.current.y, currentFlowPos.y);
+        const width = Math.abs(currentFlowPos.x - selectionStartRef.current.x);
+        const height = Math.abs(currentFlowPos.y - selectionStartRef.current.y);
+
+        if (width > 0 && height > 0) {
+          setPresenceSelectionBox({ x, y, width, height });
+        }
+      }
     };
 
     const handleWindowMouseLeave = () => {
@@ -1235,6 +1255,7 @@ export function KanbanCanvas() {
     screenToFlowPosition,
     updateCursor,
     updateColumnDragPosition,
+    setPresenceSelectionBox,
   ]);
 
   // Legacy mouse move handler (kept for backup, but window listener is preferred)
@@ -1293,13 +1314,98 @@ export function KanbanCanvas() {
   );
 
   const handlePaneClick = useCallback(() => {
+    if (isSelectingRef.current) {
+      isSelectingRef.current = false;
+      selectionStartRef.current = null;
+    }
     if (isCollaborating) {
-      // Clear board selection indicator
       updateSelection([]);
-      // Clear dialog focus indicator (so presence border disappears when clicking on canvas)
       updateOpenDialogs([]);
     }
   }, [isCollaborating, updateSelection, updateOpenDialogs]);
+
+  const onSelectionEndWrapper = useCallback(
+    (event: React.MouseEvent) => {
+      // Instead of calculating from mouse events which can be slightly off from the visual
+      // rendered by React Flow, we measure the actual selection element before it disappears.
+      const selectionEl = document.querySelector(
+        ".react-flow__selection"
+      ) as HTMLElement | null;
+
+      if (selectionEl) {
+        const rect = selectionEl.getBoundingClientRect();
+        const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
+        const bottomRight = screenToFlowPosition({
+          x: rect.right,
+          y: rect.bottom,
+        });
+
+        const x = topLeft.x;
+        const y = topLeft.y;
+        const width = bottomRight.x - topLeft.x;
+        const height = bottomRight.y - topLeft.y;
+
+        if (width > 0 && height > 0) {
+          setStoreSelectionBox({ x, y, width, height });
+        }
+      } else if (isSelectingRef.current && selectionStartRef.current) {
+        // Fallback to calculation if DOM element is missing (rare)
+        const currentFlowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+        const x = Math.min(selectionStartRef.current.x, currentFlowPos.x);
+        const y = Math.min(selectionStartRef.current.y, currentFlowPos.y);
+        const width = Math.abs(currentFlowPos.x - selectionStartRef.current.x);
+        const height = Math.abs(currentFlowPos.y - selectionStartRef.current.y);
+
+        if (width > 0 && height > 0) {
+          setStoreSelectionBox({ x, y, width, height });
+        }
+      }
+
+      isSelectingRef.current = false;
+      selectionStartRef.current = null;
+      handleSelectionEnd(event);
+    },
+    [handleSelectionEnd, screenToFlowPosition, setStoreSelectionBox]
+  );
+
+  // Calculate screen position for context menu if selection exists
+  const selectionMenuProps = useMemo(() => {
+    if (!(selectionBox && containerRef.current)) {
+      return null;
+    }
+
+    // Calculate position relative to container
+    // This allows using absolute positioning which is more robust than fixed
+    // especially when the canvas is not at (0,0) or scrolling is involved.
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const screenTopLeft = flowToScreenPosition({
+      x: selectionBox.x,
+      y: selectionBox.y,
+    });
+    const screenBottomRight = flowToScreenPosition({
+      x: selectionBox.x + selectionBox.width,
+      y: selectionBox.y + selectionBox.height,
+    });
+
+    return {
+      // Flow coordinates for addArea
+      x: selectionBox.x,
+      y: selectionBox.y,
+      width: selectionBox.width,
+      height: selectionBox.height,
+      // Screen coordinates relative to container for menu positioning
+      screenX: screenBottomRight.x - containerRect.left + 10,
+      screenY: screenTopLeft.y - containerRect.top,
+      // Screen coordinates relative to container for ghost box
+      ghostLeft: screenTopLeft.x - containerRect.left,
+      ghostTop: screenTopLeft.y - containerRect.top,
+      ghostWidth: screenBottomRight.x - screenTopLeft.x,
+      ghostHeight: screenBottomRight.y - screenTopLeft.y,
+    };
+  }, [selectionBox, flowToScreenPosition]);
 
   return (
     <DndContext
@@ -1312,9 +1418,10 @@ export function KanbanCanvas() {
         {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: cursor tracking goes brr */}
         {/** biome-ignore lint/a11y/noStaticElementInteractions: cursor tracking goes brr */}
         <div
-          className="h-full w-full"
+          className="relative h-full w-full"
           onMouseLeave={handleCanvasMouseLeave}
           onMouseMove={handleCanvasMouseMove}
+          ref={containerRef}
         >
           {/* Layer 1: Fixed Background */}
           <div className="fixed inset-0 -z-10 bg-background" />
@@ -1345,7 +1452,8 @@ export function KanbanCanvas() {
             onNodeDrag={handleNodeDrag}
             onNodesChange={handleNodesChange}
             onPaneClick={handlePaneClick}
-            onSelectionEnd={handleSelectionEnd}
+            onSelectionEnd={onSelectionEndWrapper}
+            onSelectionStart={handleSelectionStart}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
             panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
             proOptions={{ hideAttribution: true }}
@@ -1401,8 +1509,7 @@ export function KanbanCanvas() {
               onNavigateToUser={handleNavigateToUser}
             />
           )}
-          <TaskDragOverlayContainer />
-          <ColumnDragOverlayContainer />
+
           {edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}
@@ -1411,17 +1518,40 @@ export function KanbanCanvas() {
               y={edgeContextMenu.y}
             />
           )}
-          {selectionMenu && (
+
+          {selectionBox && selectionMenuProps && (
             <SelectionContextMenu
-              height={selectionMenu.height}
+              height={selectionMenuProps.height}
               onClose={handleCloseSelectionMenu}
-              screenX={selectionMenu.screenX}
-              screenY={selectionMenu.screenY}
-              width={selectionMenu.width}
-              x={selectionMenu.x}
-              y={selectionMenu.y}
+              screenX={selectionMenuProps.screenX}
+              screenY={selectionMenuProps.screenY}
+              width={selectionMenuProps.width}
+              x={selectionMenuProps.x}
+              y={selectionMenuProps.y}
             />
           )}
+          {selectionMenuProps && (
+            <div
+              className="pointer-events-none absolute z-10 rounded border-2 border-dashed bg-primary/10"
+              style={{
+                left: selectionMenuProps.ghostLeft,
+                top: selectionMenuProps.ghostTop,
+                width: selectionMenuProps.ghostWidth,
+                height: selectionMenuProps.ghostHeight,
+                borderColor: "var(--primary)",
+              }}
+            />
+          )}
+          {isCollaborating && (
+            <CollaboratorSelectionOverlayScreen
+              collaborators={collaborators}
+              containerRef={containerRef}
+              flowToScreenPosition={flowToScreenPosition}
+            />
+          )}
+
+          <TaskDragOverlayContainer />
+          <ColumnDragOverlayContainer />
         </div>
       </ColumnDragContext.Provider>
       <DragOverlay dropAnimation={null}>

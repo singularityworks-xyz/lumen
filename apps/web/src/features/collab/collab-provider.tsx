@@ -54,7 +54,8 @@ export type OpenDialog = {
     | "column-dialog"
     | "task-dialog"
     | "connection-dialog"
-    | "create-task";
+    | "create-task"
+    | "area-dialog";
   targetId: string;
   dialogType?: string;
   position?: { x: number; y: number };
@@ -84,6 +85,7 @@ export type Collaborator = {
   image?: string | null;
   cursor?: CursorPosition;
   selection?: string[];
+  selectionBox?: { x: number; y: number; width: number; height: number } | null;
   openDialogs?: OpenDialog[];
   draggingTask?: DraggingTaskState;
   draggingColumn?: DraggingColumnState;
@@ -245,6 +247,7 @@ export function CollaborationProvider({
           image: state.user.image,
           cursor: state.cursor,
           selection: state.selection,
+          selectionBox: state.selectionBox,
           openDialogs: state.openDialogs,
           draggingTask,
           draggingColumn,

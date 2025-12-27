@@ -126,6 +126,7 @@ export const YJS_MAP_NAMES = {
   BOARD_CONNECTIONS: "boardConnections",
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
+  AREA_DIALOGS: "areaDialogs",
   CANVAS: "canvas",
   BOARD_QUICK_ACTIONS: "boardQuickActions",
   BOARD_DIALOGS: "boardDialogs",

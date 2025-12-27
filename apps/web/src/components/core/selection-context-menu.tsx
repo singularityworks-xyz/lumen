@@ -35,7 +35,7 @@ export const SelectionContextMenu = memo(
       <>
         <button
           aria-label="Close selection menu"
-          className="fixed inset-0 z-40"
+          className="absolute inset-0 z-40"
           onClick={onClose}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -46,7 +46,7 @@ export const SelectionContextMenu = memo(
         />
 
         <div
-          className="fixed z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          className="absolute z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           style={{ top: screenY, left: screenX }}
         >
           <div className="border-border/30 border-b px-3 py-1.5">

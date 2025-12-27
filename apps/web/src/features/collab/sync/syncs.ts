@@ -1,4 +1,5 @@
 import {
+  AreaDialogSchema,
   AreaPositionSchema,
   AreaSchema,
   BoardConnectionSchema,
@@ -79,6 +80,18 @@ export const areaPositionSync = createEntitySync<AreaPosition>({
   mapName: YJS_MAP_NAMES.AREA_POSITIONS,
   schema: AreaPositionSchema,
   entityName: "areaPosition",
+});
+
+export const areaDialogSync = createEntitySync<{
+  id: string;
+  areaId: string;
+  areaName: string;
+  position: { x: number; y: number };
+  inputValue?: string;
+}>({
+  mapName: YJS_MAP_NAMES.AREA_DIALOGS,
+  schema: AreaDialogSchema,
+  entityName: "areaDialog",
 });
 
 export const boardQuickActionsSync = createEntitySync<BoardQuickActionsState>({
@@ -172,6 +185,7 @@ export const allSyncs = {
   boardConnections: boardConnectionSync,
   areas: areaSync,
   areaPositions: areaPositionSync,
+  areaDialogs: areaDialogSync,
   workspace: workspaceSync,
   boardQuickActions: boardQuickActionsSync,
   boardDialogs: boardDialogSync,

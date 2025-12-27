@@ -7,6 +7,7 @@ import {
 import type { KanbanState } from "@/src/features/kanban/store/types";
 import { YJS_MAP_NAMES } from "./entity-sync";
 import {
+  areaDialogSync,
   areaPositionSync,
   areaSync,
   boardConnectionSync,
@@ -527,6 +528,29 @@ export function applyYjsToState(
   // They are handled by the dedicated useTaskDialogSync hook
   // This provides better ownership tracking and prevents race conditions
 
+  // Sync area dialogs - ephemeral UI state
+  const syncedAreaDialogs = areaDialogSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS)
+  );
+
+  // Convert area dialogs from entity map format to Record format
+  const areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  > = {};
+  for (const id of syncedAreaDialogs.allIds) {
+    const dialog = syncedAreaDialogs.byId[id];
+    if (dialog) {
+      areaDialogs[dialog.id] = dialog;
+    }
+  }
+
   return {
     workspaces,
     boards,
@@ -536,6 +560,7 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    areaDialogs,
     boardQuickActions,
     boardDialogs,
     connectionDialog,
@@ -586,6 +611,7 @@ export function applyYjsToStateWithRepair(
       columnQuickActions: yjsState.columnQuickActions,
       columnDialogs: yjsState.columnDialogs,
       taskQuickActions: yjsState.taskQuickActions,
+      areaDialogs: yjsState.areaDialogs,
       // taskDetailModals are NOT included - handled by useTaskDialogSync
     };
   }
@@ -809,6 +835,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
+    doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS),
   ];
 
   for (const map of maps) {

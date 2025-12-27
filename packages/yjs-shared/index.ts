@@ -9,6 +9,7 @@ export const YJS_MAP_NAMES = {
   BOARD_CONNECTIONS: "boardConnections",
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
+  AREA_DIALOGS: "areaDialogs",
   CANVAS: "canvas",
   BOARD_QUICK_ACTIONS: "boardQuickActions",
   BOARD_DIALOGS: "boardDialogs",
@@ -139,6 +140,17 @@ export const AreaPositionSchema = z.object({
   width: z.number(),
   height: z.number(),
   zIndex: z.number(),
+});
+
+export const AreaDialogSchema = z.object({
+  id: z.string(),
+  areaId: z.string(),
+  areaName: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  inputValue: z.string().optional(),
 });
 
 export const CanvasStateSchema = z.object({
@@ -339,6 +351,7 @@ export type CreateTaskModalFormData = z.infer<
 >;
 export type TaskQuickActionsState = z.infer<typeof TaskQuickActionsSchema>;
 export type TaskDetailModalState = z.infer<typeof TaskDetailModalSchema>;
+export type AreaDialogState = z.infer<typeof AreaDialogSchema>;
 
 export type ValidationResult<T> =
   | { success: true; data: T }

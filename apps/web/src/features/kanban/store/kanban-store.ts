@@ -94,6 +94,8 @@ export const useKanbanStore = create<KanbanStore>()(
           columnUi: state.columnUi,
           areas: state.areas,
           areaPositions: state.areaPositions,
+          areaDialogs: state.areaDialogs,
+          selectionBox: state.selectionBox,
           lastTaskModalPositions: state.lastTaskModalPositions,
         };
         return persisted;
