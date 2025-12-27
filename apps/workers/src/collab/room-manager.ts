@@ -176,9 +176,8 @@ class RoomManager {
     // Each client manages their own awareness state with their unique clientID.
     // Send initial sync (document state + existing awareness states)
     this.sendSyncStep1(connection, room, initialStateVector);
-    // Broadcast awareness update to ALL clients (including new one) so everyone
-    // can see everyone else's cursor immediately without needing to move their cursor
-    // This fixes the issue where cursors weren't visible until page refresh
+    // Broadcast awareness update to ALL clients (excluding the new one since they got it in step 1)
+    // so everyone can see everyone else's cursor immediately
     this.broadcastAwareness(workspaceId);
 
     logger.info("Client joined room", {

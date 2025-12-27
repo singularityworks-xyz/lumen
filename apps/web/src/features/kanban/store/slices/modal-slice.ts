@@ -17,7 +17,6 @@ type SliceCreator = (
   | "updateTaskDetailModalPosition"
   | "bringTaskDetailModalToFront"
   | "triggerTaskDetailModalShake"
-  | "triggerTaskDetailModalShake"
   | "setTaskDetailModalEditing"
   | "updateTaskDetailModalDraft"
   | "openProfileModal"

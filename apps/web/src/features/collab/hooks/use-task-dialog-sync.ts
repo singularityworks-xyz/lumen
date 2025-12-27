@@ -59,7 +59,6 @@ export function useTaskDialogSync(
             (!existingModal ||
               existingModal.position.x !== modal.position.x ||
               existingModal.position.y !== modal.position.y ||
-              existingModal.position.y !== modal.position.y ||
               existingModal.isEditing !== modal.isEditing ||
               hasModalChanged(existingModal, modal))
           ) {

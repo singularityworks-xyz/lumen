@@ -1,3 +1,5 @@
+export type { BoardQuickActionsState } from "@lumen/yjs-shared";
+
 export type Profile = {
   id: string;
   email: string;
@@ -232,12 +234,6 @@ export type BoardDialogState = {
   sourceDialogId?: string;
   expandedColumnId?: string | null;
   activeTab?: "progress" | "style";
-};
-
-export type BoardQuickActionsState = {
-  id: string;
-  boardId: string;
-  position: { x: number; y: number };
 };
 
 export type ConnectionDialogState = {

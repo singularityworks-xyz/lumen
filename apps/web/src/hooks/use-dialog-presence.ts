@@ -144,6 +144,14 @@ export function useDialogPresenceLifecycle(
     [dialogId, dialogType, targetId, dialogData]
   );
 
+  // Keep track of the current dialog object for cleanup and updates
+  const currentDialogRef = useRef<OpenDialog>(dialogObj);
+
+  // Update ref when dialogObj changes
+  useEffect(() => {
+    currentDialogRef.current = dialogObj;
+  }, [dialogObj]);
+
   // Handle pointer down to claim presence
   const handleDialogPointerDown = useCallback(() => {
     if (!isCollaborating) {
@@ -153,7 +161,8 @@ export function useDialogPresenceLifecycle(
     hasRegisteredRef.current = true;
   }, [isCollaborating, updateOpenDialogs, dialogObj]);
 
-  // Auto-register on mount if option is enabled
+  // Auto-register on mount if option is enabled, and handle cleanup on unmount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We only want to run this on mount/unmount
   useEffect(() => {
     if (!isCollaborating) {
       return;
@@ -164,22 +173,29 @@ export function useDialogPresenceLifecycle(
       hasRegisteredRef.current = true;
     }
 
-    // Always clean up on unmount
     return () => {
+      // Only clear if we were the one who registered it
       if (hasRegisteredRef.current) {
         updateOpenDialogs([]);
         hasRegisteredRef.current = false;
       }
     };
-  }, [isCollaborating, autoRegisterOnMount, updateOpenDialogs, dialogObj]);
+    // Crucially, we do NOT include dialogObj in dependencies here
+    // We only want to run this on mount/unmount or if autoRegisterOnMount changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCollaborating, autoRegisterOnMount, updateOpenDialogs]);
 
-  // Re-register if isCollaborating changes from false to true
+  // If dialogObj changes while we are registered, update our presence
   useEffect(() => {
-    if (isCollaborating && autoRegisterOnMount && !hasRegisteredRef.current) {
+    if (
+      isCollaborating &&
+      hasRegisteredRef.current &&
+      (currentDialogRef.current.id !== dialogObj.id ||
+        currentDialogRef.current.targetId !== dialogObj.targetId)
+    ) {
       updateOpenDialogs([dialogObj]);
-      hasRegisteredRef.current = true;
     }
-  }, [isCollaborating, autoRegisterOnMount, updateOpenDialogs, dialogObj]);
+  }, [isCollaborating, updateOpenDialogs, dialogObj]);
 
   return {
     dialogCollaborator,

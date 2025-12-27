@@ -79,7 +79,33 @@ export const RenameColumnDialogNodeComponent =
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
+      const getTarget = () => document.getElementById("board-connector-layer");
+
+      // Try to get it immediately
+      const initialTarget = getTarget();
+      if (initialTarget) {
+        setPortalTarget(initialTarget);
+        return;
+      }
+
+      // Fallback to body comfortably so we at least render content
+      setPortalTarget(document.body);
+
+      // Watch for it appearing
+      const observer = new MutationObserver(() => {
+        const target = getTarget();
+        if (target) {
+          setPortalTarget(target);
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      return () => observer.disconnect();
     }, []);
 
     useEffect(() => {
