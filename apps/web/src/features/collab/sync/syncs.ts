@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   AreaDialogSchema,
   AreaPositionSchema,
@@ -177,6 +178,22 @@ export const taskDetailModalSync = createEntitySync<TaskDetailModalState>({
   entityName: "taskDetailModal",
 });
 
+export const areaDragOriginSync = createEntitySync<{
+  id: string;
+  originX: number;
+  originY: number;
+}>({
+  mapName: YJS_MAP_NAMES.AREA_DRAG_ORIGINS,
+  // We can keep map name or rename it. Let's rename it to safe? No, let's keep the map name but change content.
+  // Actually, better to maintain consistent naming hehe
+  schema: z.object({
+    id: z.string(),
+    originX: z.number(),
+    originY: z.number(),
+  }),
+  entityName: "areaDragOrigin",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -195,4 +212,5 @@ export const allSyncs = {
   columnDialogs: columnDialogSync,
   taskQuickActions: taskQuickActionsSync,
   taskDetailModals: taskDetailModalSync,
+  areaDragOrigins: areaDragOriginSync,
 } as const;

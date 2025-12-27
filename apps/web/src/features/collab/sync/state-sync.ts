@@ -8,6 +8,7 @@ import type { KanbanState } from "@/src/features/kanban/store/types";
 import { YJS_MAP_NAMES } from "./entity-sync";
 import {
   areaDialogSync,
+  areaDragOriginSync,
   areaPositionSync,
   areaSync,
   boardConnectionSync,
@@ -551,6 +552,24 @@ export function applyYjsToState(
     }
   }
 
+  // Sync area drag origins - ephemeral UI state
+  const syncedAreaDragOrigins = areaDragOriginSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.AREA_DRAG_ORIGINS)
+  );
+
+  // Convert area drag origins from entity map format to Record format
+  const areaDragOrigins: Record<string, { originX: number; originY: number }> =
+    {};
+  for (const id of syncedAreaDragOrigins.allIds) {
+    const origin = syncedAreaDragOrigins.byId[id];
+    if (origin) {
+      areaDragOrigins[origin.id] = {
+        originX: origin.originX,
+        originY: origin.originY,
+      };
+    }
+  }
+
   return {
     workspaces,
     boards,
@@ -560,6 +579,7 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    areaDragOrigins,
     areaDialogs,
     boardQuickActions,
     boardDialogs,
@@ -603,6 +623,7 @@ export function applyYjsToStateWithRepair(
       boardConnections: repairedState.boardConnections,
       areas: repairedState.areas,
       areaPositions: repairedState.areaPositions,
+      areaDragOrigins: yjsState.areaDragOrigins,
       // Dialogs don't need repair, pass through from yjsState
       boardQuickActions: yjsState.boardQuickActions,
       boardDialogs: yjsState.boardDialogs,

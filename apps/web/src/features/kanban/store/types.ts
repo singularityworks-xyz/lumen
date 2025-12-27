@@ -127,6 +127,8 @@ export type KanbanState = {
   deletedSharedWorkspaceId: string | null;
   isProfileModalOpen: boolean;
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
+  // Track drag origins for areas - used to offset contained boards during drag
+  areaDragOrigins: Record<string, { originX: number; originY: number }>;
 };
 
 export type KanbanActions = {
@@ -212,10 +214,13 @@ export type KanbanActions = {
     updates: Partial<Pick<Area, "name" | "color" | "icon">>
   ) => void;
   removeArea: (areaId: string) => void;
+  // Updates only the area position (optimized for drag - does NOT update contained boards)
   updateAreaPosition: (
     areaId: string,
     position: { x: number; y: number }
   ) => void;
+  // Called on drag end to sync contained board positions with the area
+  finalizeAreaDrag: (areaId: string) => void;
   updateAreaDimensions: (
     areaId: string,
     dimensions: { width: number; height: number }

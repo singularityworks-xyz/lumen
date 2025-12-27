@@ -176,6 +176,8 @@ export function KanbanCanvas() {
   const updateAreaDimensions = useKanbanStore(
     (state) => state.updateAreaDimensions
   );
+  const finalizeAreaDrag = useKanbanStore((state) => state.finalizeAreaDrag);
+  const areaDragOrigins = useKanbanStore((state) => state.areaDragOrigins);
   const attachBoardToArea = useKanbanStore((state) => state.attachBoardToArea);
   const detachBoardFromArea = useKanbanStore(
     (state) => state.detachBoardFromArea
@@ -516,17 +518,67 @@ export function KanbanCanvas() {
         if (!position) {
           return null;
         }
+
+        // Check if board belongs to an area
+        let parentId: string | undefined;
+        let pPos = { x: position.x, y: position.y };
+        let zIndex = position.zIndex;
+
+        // Find if this board is in any area
+        // TODO: Optimization: In a real app with many areas, we should pre-calculate a map.
+        // For now, iteration is fine as area count is likely small.
+        for (const areaId of areas.allIds) {
+          const area = areas.byId[areaId];
+          if (area?.board_ids?.includes(boardId)) {
+            const areaPos = areaPositions.byId[areaId];
+            if (areaPos) {
+              parentId = areaId;
+
+              // Use drag origin if available (during drag), otherwise use current area position
+              const origin = areaDragOrigins[areaId];
+
+              // If there's an active drag, we use the ORIGIN to calculate the relative position.
+              // BoardAbs (Store) is constant during drag.
+              // OriginAbs (Store) is constant during drag.
+              // Relative = BoardAbs - OriginAbs.
+              // This ensures the relative position is CONSTANT during the drag, eliminating jitter entirely.
+              // Independent of the moving AreaPos or React Flow's internal state cycles.
+
+              if (origin) {
+                pPos = {
+                  x: position.x - origin.originX,
+                  y: position.y - origin.originY,
+                };
+              } else {
+                pPos = {
+                  x: position.x - areaPos.x,
+                  y: position.y - areaPos.y,
+                };
+              }
+
+              // Late night hacky fix:
+              // Reset zIndex for child node (relative to parent)
+              // Parent (Area) is z-index 0. Board should be above it.
+              zIndex = 10;
+            }
+            break;
+          }
+        }
+
         const node: KanbanNode = {
           id: boardId,
           type: "board",
-          position: { x: position.x, y: position.y },
+          position: pPos,
           data: {
             boardId,
             isSelected: boardId === selectedBoardId,
           },
-          style: { zIndex: position.zIndex },
+          style: { zIndex },
           width: position.width,
           height: position.height,
+          parentId,
+          // We don't strictly enforce extent='parent' so users can drag boards partially out if they want,
+          // but usually keeping them inside is better. Let's leave it open for now as per standard behavior.
         };
 
         return node;
@@ -783,6 +835,7 @@ export function KanbanCanvas() {
     columnQuickActions,
     dialogFocusStack,
     areaDialogs,
+    areaDragOrigins,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -952,6 +1005,7 @@ export function KanbanCanvas() {
     return () => clearTimeout(timeoutId);
   }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's intenional - ps. onNodesChange is stable
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -959,35 +1013,73 @@ export function KanbanCanvas() {
       for (const change of changes) {
         if (change.type === "position" && change.position) {
           if (change.id.startsWith("area_")) {
+            // React Flow's parentId handles the visual movement of child boards automatically.
+            // We only need to update the area's position in the store.
             updateAreaPosition(change.id, change.position);
-          } else if (change.id.startsWith("modal-")) {
-            const modalId = change.id.replace("modal-", "");
-            updateModalPosition(modalId, change.position);
-          } else if (change.id.startsWith("task-detail-modal-")) {
-            const modalId = change.id.replace("task-detail-modal-", "");
-            updateTaskDetailModalPosition(modalId, change.position);
-          } else if (change.id.startsWith("task-quick-actions-")) {
-            const taskId = change.id.replace("task-quick-actions-", "");
-            updateTaskQuickActionsPosition(taskId, change.position);
-          } else if (change.id.startsWith("column-quick-actions-")) {
-            const columnId = change.id.replace("column-quick-actions-", "");
-            updateColumnQuickActionsPosition(columnId, change.position);
-          } else if (change.id.startsWith("quick-actions-")) {
-            const boardId = change.id.replace("quick-actions-", "");
-            updateBoardQuickActionsPosition(boardId, change.position);
-          } else if (change.id.startsWith("board-dialog-")) {
-            const dialogId = change.id.replace("board-dialog-", "");
-            updateBoardDialogPosition(dialogId, change.position);
-          } else if (change.id.startsWith("connection-dialog-")) {
-            updateConnectionDialogPosition(change.position);
-          } else if (change.id.startsWith("column-dialog-")) {
-            const dialogId = change.id.replace("column-dialog-", "");
-            updateColumnDialogPosition(dialogId, change.position);
-          } else if (change.id.startsWith("area-dialog-")) {
-            const dialogId = change.id.replace("area-dialog-", "");
-            updateAreaDialogPosition(dialogId, change.position);
           } else {
-            updateBoardPosition(change.id, change.position);
+            // Handle board position updates
+            // If the board has a parent (Area), React Flow returns the position RELATIVE to the parent.
+            // We need to convert this back to ABSOLUTE coordinates for our store.
+            let absolutePosition = change.position;
+
+            if (
+              change.id &&
+              !change.id.startsWith("modal-") &&
+              !change.id.startsWith("task-") &&
+              !change.id.startsWith("column-") &&
+              !change.id.startsWith("quick-") &&
+              !change.id.startsWith("board-dialog-") &&
+              !change.id.startsWith("connection-") &&
+              !change.id.startsWith("area-dialog-")
+            ) {
+              // It's a board (or at least treated as one by updateBoardPosition default case)
+              // Check if it's inside an area
+              const freshState = useKanbanStore.getState();
+              for (const areaId of freshState.areas.allIds) {
+                const area = freshState.areas.byId[areaId];
+                if (area?.board_ids?.includes(change.id)) {
+                  const areaPos = freshState.areaPositions.byId[areaId];
+                  if (areaPos) {
+                    // Found the parent area. Convert relative change.position to absolute.
+                    absolutePosition = {
+                      x: areaPos.x + change.position.x,
+                      y: areaPos.y + change.position.y,
+                    };
+                  }
+                  break;
+                }
+              }
+            }
+
+            if (change.id.startsWith("modal-")) {
+              const modalId = change.id.replace("modal-", "");
+              updateModalPosition(modalId, change.position);
+            } else if (change.id.startsWith("task-detail-modal-")) {
+              const modalId = change.id.replace("task-detail-modal-", "");
+              updateTaskDetailModalPosition(modalId, change.position);
+            } else if (change.id.startsWith("task-quick-actions-")) {
+              const taskId = change.id.replace("task-quick-actions-", "");
+              updateTaskQuickActionsPosition(taskId, change.position);
+            } else if (change.id.startsWith("column-quick-actions-")) {
+              const columnId = change.id.replace("column-quick-actions-", "");
+              updateColumnQuickActionsPosition(columnId, change.position);
+            } else if (change.id.startsWith("quick-actions-")) {
+              const boardId = change.id.replace("quick-actions-", "");
+              updateBoardQuickActionsPosition(boardId, change.position);
+            } else if (change.id.startsWith("board-dialog-")) {
+              const dialogId = change.id.replace("board-dialog-", "");
+              updateBoardDialogPosition(dialogId, change.position);
+            } else if (change.id.startsWith("connection-dialog-")) {
+              updateConnectionDialogPosition(change.position);
+            } else if (change.id.startsWith("column-dialog-")) {
+              const dialogId = change.id.replace("column-dialog-", "");
+              updateColumnDialogPosition(dialogId, change.position);
+            } else if (change.id.startsWith("area-dialog-")) {
+              const dialogId = change.id.replace("area-dialog-", "");
+              updateAreaDialogPosition(dialogId, change.position);
+            } else {
+              updateBoardPosition(change.id, absolutePosition);
+            }
           }
         }
         if (change.type === "dimensions" && change.dimensions) {
@@ -1011,8 +1103,27 @@ export function KanbanCanvas() {
 
           const boardWidth = boardPos.width ?? 300;
           const boardHeight = boardPos.height ?? 200;
-          const boardCenterX = change.position.x + boardWidth / 2;
-          const boardCenterY = change.position.y + boardHeight / 2;
+
+          // Normalize to absolute position for intersection checking
+          // If the board is currently a child of an area, change.position is RELATIVE
+          let currentAbsX = change.position.x;
+          let currentAbsY = change.position.y;
+
+          const freshState = useKanbanStore.getState();
+          for (const areaId of freshState.areas.allIds) {
+            const area = freshState.areas.byId[areaId];
+            if (area?.board_ids?.includes(boardId)) {
+              const areaPos = freshState.areaPositions.byId[areaId];
+              if (areaPos) {
+                currentAbsX += areaPos.x;
+                currentAbsY += areaPos.y;
+              }
+              break;
+            }
+          }
+
+          const boardCenterX = currentAbsX + boardWidth / 2;
+          const boardCenterY = currentAbsY + boardHeight / 2;
 
           let foundAreaId: string | null = null;
           for (const areaId of areaPositions.allIds) {
@@ -1047,6 +1158,7 @@ export function KanbanCanvas() {
     },
     [
       onNodesChange,
+      setLocalNodes,
       updateAreaPosition,
       updateAreaDimensions,
       updateBoardPosition,
@@ -1297,6 +1409,17 @@ export function KanbanCanvas() {
     [isCollaborating, screenToFlowPosition, updateCursor]
   );
 
+  // Handle node drag end - finalize area drags to update contained board positions
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: CanvasNode) => {
+      // If an area was dragged, finalize it to update contained board positions
+      if (node.id.startsWith("area_")) {
+        finalizeAreaDrag(node.id);
+      }
+    },
+    [finalizeAreaDrag]
+  );
+
   // Navigate to a collaborator's cursor position (when clicking edge indicator)
   const handleNavigateToUser = useCallback(
     (position: { x: number; y: number }) => {
@@ -1450,6 +1573,7 @@ export function KanbanCanvas() {
             onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
             onNodeDrag={handleNodeDrag}
+            onNodeDragStop={handleNodeDragStop}
             onNodesChange={handleNodesChange}
             onPaneClick={handlePaneClick}
             onSelectionEnd={onSelectionEndWrapper}
