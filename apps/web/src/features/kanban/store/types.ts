@@ -114,14 +114,21 @@ export type KanbanState = {
   // Z-index management
   dialogFocusStack: string[];
   columnUi: Record<string, ColumnUiState>;
-  areaDialog: {
-    areaId: string;
-    areaName: string;
-    position: { x: number; y: number };
-  } | null;
+  areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  >;
   deletedSharedWorkspaceId: string | null;
   isProfileModalOpen: boolean;
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
+  // Track drag origins for areas - used to offset contained boards during drag
+  areaDragOrigins: Record<string, { originX: number; originY: number }>;
 };
 
 export type KanbanActions = {
@@ -207,10 +214,13 @@ export type KanbanActions = {
     updates: Partial<Pick<Area, "name" | "color" | "icon">>
   ) => void;
   removeArea: (areaId: string) => void;
+  // Updates only the area position (optimized for drag - does NOT update contained boards)
   updateAreaPosition: (
     areaId: string,
     position: { x: number; y: number }
   ) => void;
+  // Called on drag end to sync contained board positions with the area
+  finalizeAreaDrag: (areaId: string) => void;
   updateAreaDimensions: (
     areaId: string,
     dimensions: { width: number; height: number }
@@ -225,9 +235,13 @@ export type KanbanActions = {
     areaId: string;
     areaName: string;
     position: { x: number; y: number };
-  }) => void;
-  closeAreaDialog: () => void;
-  updateAreaDialogPosition: (position: { x: number; y: number }) => void;
+  }) => string;
+  closeAreaDialog: (id: string) => void;
+  updateAreaDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateAreaDialogInputValue: (id: string, value: string) => void;
 
   // Board actions
   addBoard: (
@@ -246,6 +260,7 @@ export type KanbanActions = {
     boardId: string,
     position: { x: number; y: number }
   ) => void;
+  finalizeBoardDrag: (boardId: string) => void;
   updateBoardDimensions: (
     boardId: string,
     dimensions: { width: number; height: number },

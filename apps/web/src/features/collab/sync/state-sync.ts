@@ -7,6 +7,8 @@ import {
 import type { KanbanState } from "@/src/features/kanban/store/types";
 import { YJS_MAP_NAMES } from "./entity-sync";
 import {
+  areaDialogSync,
+  areaDragOriginSync,
   areaPositionSync,
   areaSync,
   boardConnectionSync,
@@ -527,6 +529,47 @@ export function applyYjsToState(
   // They are handled by the dedicated useTaskDialogSync hook
   // This provides better ownership tracking and prevents race conditions
 
+  // Sync area dialogs - ephemeral UI state
+  const syncedAreaDialogs = areaDialogSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS)
+  );
+
+  // Convert area dialogs from entity map format to Record format
+  const areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  > = {};
+  for (const id of syncedAreaDialogs.allIds) {
+    const dialog = syncedAreaDialogs.byId[id];
+    if (dialog) {
+      areaDialogs[dialog.id] = dialog;
+    }
+  }
+
+  // Sync area drag origins - ephemeral UI state
+  const syncedAreaDragOrigins = areaDragOriginSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.AREA_DRAG_ORIGINS)
+  );
+
+  // Convert area drag origins from entity map format to Record format
+  const areaDragOrigins: Record<string, { originX: number; originY: number }> =
+    {};
+  for (const id of syncedAreaDragOrigins.allIds) {
+    const origin = syncedAreaDragOrigins.byId[id];
+    if (origin) {
+      areaDragOrigins[origin.id] = {
+        originX: origin.originX,
+        originY: origin.originY,
+      };
+    }
+  }
+
   return {
     workspaces,
     boards,
@@ -536,6 +579,8 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    areaDragOrigins,
+    areaDialogs,
     boardQuickActions,
     boardDialogs,
     connectionDialog,
@@ -578,6 +623,7 @@ export function applyYjsToStateWithRepair(
       boardConnections: repairedState.boardConnections,
       areas: repairedState.areas,
       areaPositions: repairedState.areaPositions,
+      areaDragOrigins: yjsState.areaDragOrigins,
       // Dialogs don't need repair, pass through from yjsState
       boardQuickActions: yjsState.boardQuickActions,
       boardDialogs: yjsState.boardDialogs,
@@ -586,6 +632,7 @@ export function applyYjsToStateWithRepair(
       columnQuickActions: yjsState.columnQuickActions,
       columnDialogs: yjsState.columnDialogs,
       taskQuickActions: yjsState.taskQuickActions,
+      areaDialogs: yjsState.areaDialogs,
       // taskDetailModals are NOT included - handled by useTaskDialogSync
     };
   }
@@ -802,6 +849,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
     doc.getMap(YJS_MAP_NAMES.AREAS),
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS),
+    doc.getMap(YJS_MAP_NAMES.AREA_DRAG_ORIGINS),
     doc.getMap(YJS_MAP_NAMES.BOARD_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.BOARD_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.CONNECTION_DIALOGS),
@@ -809,6 +857,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
+    doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS),
   ];
 
   for (const map of maps) {

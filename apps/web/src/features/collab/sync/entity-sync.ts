@@ -126,6 +126,7 @@ export const YJS_MAP_NAMES = {
   BOARD_CONNECTIONS: "boardConnections",
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
+  AREA_DIALOGS: "areaDialogs",
   CANVAS: "canvas",
   BOARD_QUICK_ACTIONS: "boardQuickActions",
   BOARD_DIALOGS: "boardDialogs",
@@ -135,6 +136,7 @@ export const YJS_MAP_NAMES = {
   COLUMN_DIALOGS: "columnDialogs",
   TASK_QUICK_ACTIONS: "taskQuickActions",
   TASK_DETAIL_MODALS: "taskDetailModals",
+  AREA_DRAG_ORIGINS: "areaDragOrigins",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];

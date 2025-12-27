@@ -70,9 +70,10 @@ export function createInitialState(): KanbanState {
     taskQuickActions: {},
     dialogFocusStack: [],
     columnUi: {},
-    areaDialog: null,
+    areaDialogs: {},
     deletedSharedWorkspaceId: null,
     isProfileModalOpen: false,
     lastTaskModalPositions: {},
+    areaDragOrigins: {},
   };
 }

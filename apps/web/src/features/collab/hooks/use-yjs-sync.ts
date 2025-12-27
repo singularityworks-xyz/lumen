@@ -9,6 +9,8 @@ import {
   observeYjsChanges,
 } from "@/src/features/collab/sync/state-sync";
 import {
+  areaDialogSync,
+  areaDragOriginSync,
   areaPositionSync,
   areaSync,
   boardConnectionSync,
@@ -39,6 +41,7 @@ import type {
 import { useKanbanStore } from "@/src/features/kanban";
 
 const logger = createLogger({ name: "collab:yjs-sync" });
+const POSITION_THROTTLE_MS = 14;
 
 export type YjsSyncActions = {
   // Sync a board change to Yjs
@@ -76,9 +79,6 @@ export type YjsSyncActions = {
 };
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
-// @param doc - Y.Doc instance (null when not connected)
-// @param isConnected - Whether WebSocket is connected
-// @returns Sync actions to call when Zustand state changes
 export function useYjsSync(
   doc: Y.Doc | null,
   isConnected: boolean,
@@ -88,6 +88,9 @@ export function useYjsSync(
   const prevStateRef = useRef<ReturnType<
     typeof useKanbanStore.getState
   > | null>(null);
+
+  // Track last sync times for throttling position updates
+  const lastAreaPosSyncRef = useRef<Record<string, number>>({});
 
   const applyYjsChanges = useCallback(() => {
     if (!doc || isUpdatingFromYjsRef.current) {
@@ -254,12 +257,15 @@ export function useYjsSync(
         taskSync.deleteFromYjs(doc, id);
       }
 
-      // Diff and sync board positions
+      // Diff and sync board positions - with throttling for drag performance
       const posDiff = diffEntityMaps(
         prevState.boardPositions.byId,
         state.boardPositions.byId
       );
+      const now = Date.now();
       for (const pos of [...posDiff.added, ...posDiff.changed]) {
+        // For board positions, always sync immediately since board dragging is infrequent
+        // and we want to ensure final positions are always captured (especially on removal)
         boardPositionSync.setInYjs(doc, pos);
       }
       for (const id of posDiff.removed) {
@@ -287,16 +293,37 @@ export function useYjsSync(
         areaSync.deleteFromYjs(doc, id);
       }
 
-      // Diff and sync area positions
+      // Diff and sync area positions - with throttling for drag performance
       const areaPosDiff = diffEntityMaps(
         prevState.areaPositions.byId,
         state.areaPositions.byId
       );
       for (const pos of [...areaPosDiff.added, ...areaPosDiff.changed]) {
-        areaPositionSync.setInYjs(doc, pos);
+        const lastSync = lastAreaPosSyncRef.current[pos.id] || 0;
+        // Throttle position updates during drag
+        if (now - lastSync >= POSITION_THROTTLE_MS) {
+          lastAreaPosSyncRef.current[pos.id] = now;
+          areaPositionSync.setInYjs(doc, pos);
+        }
       }
       for (const id of areaPosDiff.removed) {
+        delete lastAreaPosSyncRef.current[id];
         areaPositionSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync area dialogs
+      const areaDialogDiff = diffEntityMaps(
+        prevState.areaDialogs,
+        state.areaDialogs
+      );
+      for (const dialog of [
+        ...areaDialogDiff.added,
+        ...areaDialogDiff.changed,
+      ]) {
+        areaDialogSync.setInYjs(doc, dialog);
+      }
+      for (const id of areaDialogDiff.removed) {
+        areaDialogSync.deleteFromYjs(doc, id);
       }
 
       // Diff and sync board quick actions (dialog menus)
@@ -614,6 +641,62 @@ export function useYjsSync(
 
       // NOTE: Task detail modals are synced by dedicated useTaskDialogSync hook
       // This provides better ownership tracking and prevents race conditions
+      // Diff and sync area drag origins
+      // Convert to entity map format for diffing
+      const prevAreaDragOriginsMap: Record<
+        string,
+        { id: string; originX: number; originY: number }
+      > = {};
+      for (const [areaId, origin] of Object.entries(
+        prevState.areaDragOrigins
+      )) {
+        if (origin) {
+          prevAreaDragOriginsMap[areaId] = {
+            id: areaId,
+            originX: origin.originX,
+            originY: origin.originY,
+          };
+        }
+      }
+
+      const currAreaDragOriginsMap: Record<
+        string,
+        { id: string; originX: number; originY: number }
+      > = {};
+      for (const [areaId, origin] of Object.entries(state.areaDragOrigins)) {
+        if (origin) {
+          currAreaDragOriginsMap[areaId] = {
+            id: areaId,
+            originX: origin.originX,
+            originY: origin.originY,
+          };
+        }
+      }
+
+      const areaDragOriginDiff = diffEntityMaps(
+        prevAreaDragOriginsMap,
+        currAreaDragOriginsMap
+      );
+      for (const origin of [
+        ...areaDragOriginDiff.added,
+        ...areaDragOriginDiff.changed,
+      ]) {
+        // We probably don't need throttling for origins since they are constant during drag
+        // But for safety/consistency and to handle cleanup well:
+        areaDragOriginSync.setInYjs(doc, origin);
+      }
+      for (const id of areaDragOriginDiff.removed) {
+        areaDragOriginSync.deleteFromYjs(doc, id);
+
+        // Force sync the final area position to ensure Yjs is up to date.
+        // This handles cases where the final drag position update was throttled and skipped.
+        // We use the current state (post-drag) to get the final position.
+        const areaPos = state.areaPositions.byId[id];
+        if (areaPos) {
+          areaPositionSync.setInYjs(doc, areaPos);
+          lastAreaPosSyncRef.current[id] = Date.now();
+        }
+      }
     });
 
     return unsubscribe;

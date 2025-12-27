@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
   experimental: {
     cssChunking: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
   transpilePackages: [
     "@lumen/logger",
     "lib0",

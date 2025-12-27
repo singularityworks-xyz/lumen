@@ -10,11 +10,18 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  GripVertical,
   SquarePen,
   Trash2,
+  User,
 } from "lucide-react";
+import Image from "next/image";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { TaskCard } from "@/src/components/tasks/task-card";
+import { useCollaboration } from "@/src/features/collab";
+import { useCachedProfileImage } from "@/src/hooks/use-cached-profile-image";
+import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
+import { useTaskDragPresence } from "@/src/hooks/use-task-drag-presence";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
@@ -62,6 +69,14 @@ export const KanbanColumn = memo(
     const { getViewport, setViewport, screenToFlowPosition, getNode } =
       useReactFlow();
 
+    const { startDragging, stopDragging } = useTaskDragPresence();
+    const { draggingCollaborators } = useColumnDragPresence();
+    const { localUser } = useCollaboration();
+
+    const dragCollaborator = draggingCollaborators.find(
+      (c) => c.draggingColumn?.columnId === column.id
+    );
+
     const availableTargetBoards = useMemo(() => {
       const sourceBoard = boards.byId[boardId];
       const workspaceId = sourceBoard?.workspace_id;
@@ -94,6 +109,13 @@ export const KanbanColumn = memo(
       },
     });
 
+    const isBeingDragged = !!dragCollaborator;
+    const dragColor = dragCollaborator?.color ?? localUser?.color ?? "#3b82f6";
+    const dragName = dragCollaborator?.name ?? localUser?.name ?? "You";
+    const dragImage = dragCollaborator?.image ?? localUser?.image;
+
+    const { imageUrl, hasImage } = useCachedProfileImage(dragImage);
+
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
@@ -117,13 +139,12 @@ export const KanbanColumn = memo(
 
     const taskCount = columnTasks.length;
 
-    // Auto-collapse logic removed to respect user state and persistence
-
     const handleDragStart = useCallback(
       (task: Task) => {
         setDraggedTask(task.id);
+        startDragging(task);
       },
-      [setDraggedTask]
+      [setDraggedTask, startDragging]
     );
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -144,8 +165,9 @@ export const KanbanColumn = memo(
           moveTask(draggedTask.id, draggedTask.column_id, column.id, boardId);
         }
         setDraggedTask(null);
+        stopDragging();
       },
-      [draggedTask, column.id, boardId, moveTask, setDraggedTask]
+      [draggedTask, column.id, boardId, moveTask, setDraggedTask, stopDragging]
     );
 
     const calculateQuickActionsPosition = useCallback(() => {
@@ -340,13 +362,50 @@ export const KanbanColumn = memo(
     return (
       <section
         aria-label={`Column: ${column.name}`}
-        className="flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        className="relative flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
         id={`kanban-column-${column.id}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         ref={setNodeRef}
         style={style}
       >
+        {isBeingDragged && (
+          <div
+            className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm"
+            style={{
+              border: `2px solid ${dragColor}`,
+            }}
+          >
+            <div className="relative flex h-full w-full flex-col items-center justify-center gap-1.5 p-4">
+              <GripVertical className="h-10 w-10 animate-pulse text-muted-foreground/50" />
+              <span className="animate-pulse font-medium text-muted-foreground/70 text-xs uppercase tracking-wider">
+                Being moved
+              </span>
+              <div
+                className="absolute top-2 right-2 h-8 w-8 overflow-hidden rounded-full border-2 shadow-sm"
+                style={{ borderColor: dragColor }}
+                title={dragName}
+              >
+                {hasImage && imageUrl ? (
+                  <Image
+                    alt={dragName}
+                    className="h-full w-full object-cover"
+                    height={32}
+                    src={imageUrl}
+                    width={32}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center bg-muted"
+                    style={{ backgroundColor: dragColor }}
+                  >
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
         <div
           className="group cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"

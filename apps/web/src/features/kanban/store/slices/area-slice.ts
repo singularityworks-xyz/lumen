@@ -1,7 +1,7 @@
 "use client";
 
 import type { Area } from "../../types";
-import { generateAreaId } from "../ids";
+import { generateAreaId, generateDialogId } from "../ids";
 import type { KanbanStore } from "../types";
 
 type SliceCreator = (
@@ -13,6 +13,7 @@ type SliceCreator = (
   | "updateArea"
   | "removeArea"
   | "updateAreaPosition"
+  | "finalizeAreaDrag"
   | "updateAreaDimensions"
   | "setSelectionBox"
   | "clearSelectionBox"
@@ -21,6 +22,7 @@ type SliceCreator = (
   | "openAreaDialog"
   | "closeAreaDialog"
   | "updateAreaDialogPosition"
+  | "updateAreaDialogInputValue"
 >;
 
 const DEFAULT_AREA_COLOR = "#9ca3af";
@@ -53,7 +55,7 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
         y: position.y,
         width: dimensions.width,
         height: dimensions.height,
-        zIndex: 10,
+        zIndex: 0,
       };
       state.areaPositions.allIds.push(id);
     });
@@ -80,19 +82,49 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
       );
     }),
 
+  // Only updates area position - does NOT move contained boards
+  // This is optimized for drag performance. Call finalizeAreaDrag on drag end.
+  // Tracks the cumulative delta for board offset calculation
   updateAreaPosition: (areaId, position) =>
     set((state) => {
-      const area = state.areas.byId[areaId];
       const areaPos = state.areaPositions.byId[areaId];
-      if (!(areaPos && area)) {
+      if (!areaPos) {
         return;
       }
 
-      const deltaX = position.x - areaPos.x;
-      const deltaY = position.y - areaPos.y;
+      // Update area position FIRST
+      // If we don't have a start origin for this drag session, set it to the PREVIOUS position
+      // This is critical: if updateAreaPosition is called, it means "position is about to change" to `position` argument.
+      // So the current value in state.areaPositions is the "previous" value relative to this update.
+      // On the FIRST call of a drag session, state.areaPositions holds the START position.
+      if (!state.areaDragOrigins[areaId]) {
+        state.areaDragOrigins[areaId] = {
+          originX: areaPos.x,
+          originY: areaPos.y,
+        };
+      }
+
       areaPos.x = position.x;
       areaPos.y = position.y;
+    }),
 
+  // Called on drag end to update contained board positions
+  // Applies the accumulated delta to all boards and clears the delta
+  finalizeAreaDrag: (areaId) =>
+    set((state) => {
+      const area = state.areas.byId[areaId];
+      const origin = state.areaDragOrigins[areaId];
+      const areaPos = state.areaPositions.byId[areaId];
+
+      if (!(area && origin && areaPos)) {
+        return;
+      }
+
+      // Calculate total delta from start of drag
+      const deltaX = areaPos.x - origin.originX;
+      const deltaY = areaPos.y - origin.originY;
+
+      // Apply accumulated delta to all boards inside this area
       for (const boardId of area.board_ids ?? []) {
         const boardPos = state.boardPositions.byId[boardId];
         if (boardPos) {
@@ -100,6 +132,9 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
           boardPos.y += deltaY;
         }
       }
+
+      // Clear the drag origin
+      delete state.areaDragOrigins[areaId];
     }),
 
   updateAreaDimensions: (areaId, dimensions) =>
@@ -153,24 +188,36 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
       }
     }),
 
-  openAreaDialog: (options) =>
+  openAreaDialog: (options) => {
+    const id = generateDialogId();
     set((state) => {
-      state.areaDialog = {
+      state.areaDialogs[id] = {
+        id,
         areaId: options.areaId,
         areaName: options.areaName,
         position: options.position,
+        inputValue: options.areaName,
       };
+    });
+    return id;
+  },
+
+  closeAreaDialog: (id) =>
+    set((state) => {
+      delete state.areaDialogs[id];
     }),
 
-  closeAreaDialog: () =>
+  updateAreaDialogPosition: (id, position) =>
     set((state) => {
-      state.areaDialog = null;
+      if (state.areaDialogs[id]) {
+        state.areaDialogs[id].position = position;
+      }
     }),
 
-  updateAreaDialogPosition: (position) =>
+  updateAreaDialogInputValue: (id, value) =>
     set((state) => {
-      if (state.areaDialog) {
-        state.areaDialog.position = position;
+      if (state.areaDialogs[id]) {
+        state.areaDialogs[id].inputValue = value;
       }
     }),
 });

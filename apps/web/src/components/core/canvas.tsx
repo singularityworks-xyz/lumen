@@ -50,9 +50,12 @@ import { CustomControls } from "@/src/components/custom-controls";
 import { WelcomeScreen } from "@/src/components/dialogs/welcome-screen";
 import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
+import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
+import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/components/collaborator-selection-overlay-screen";
+import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
 import {
   canRedo,
   canUndo,
@@ -64,6 +67,8 @@ import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import type { BoardNode } from "@/src/features/kanban/types";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
+import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
+import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 
@@ -171,6 +176,9 @@ export function KanbanCanvas() {
   const updateAreaDimensions = useKanbanStore(
     (state) => state.updateAreaDimensions
   );
+  const finalizeAreaDrag = useKanbanStore((state) => state.finalizeAreaDrag);
+  const finalizeBoardDrag = useKanbanStore((state) => state.finalizeBoardDrag);
+  const areaDragOrigins = useKanbanStore((state) => state.areaDragOrigins);
   const attachBoardToArea = useKanbanStore((state) => state.attachBoardToArea);
   const detachBoardFromArea = useKanbanStore(
     (state) => state.detachBoardFromArea
@@ -227,7 +235,7 @@ export function KanbanCanvas() {
     (state) => state.updateTaskQuickActionsPosition
   );
   const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
-  const areaDialog = useKanbanStore((state) => state.areaDialog);
+  const areaDialogs = useKanbanStore((state) => state.areaDialogs);
   const updateAreaDialogPosition = useKanbanStore(
     (state) => state.updateAreaDialogPosition
   );
@@ -247,12 +255,35 @@ export function KanbanCanvas() {
   } = useCollaboration();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
+  const {
+    startDragging: startColumnDrag,
+    stopDragging: stopColumnDrag,
+    updateDragPosition: updateColumnDragPosition,
+  } = useColumnDragPresence();
+
   const [activeColumnData, setActiveColumnData] = useState<{
     columnId: string;
     sourceBoardId: string;
     columnName: string;
     taskCount: number;
   } | null>(null);
+
+  const { setSelectionBox: setPresenceSelectionBox } = useSelectionPresence();
+  const selectionBox = useKanbanStore((state) => state.selectionBox);
+  const setStoreSelectionBox = useKanbanStore((state) => state.setSelectionBox);
+  const clearStoreSelectionBox = useKanbanStore(
+    (state) => state.clearSelectionBox
+  );
+
+  // Ref to track active column data for event listeners to avoid stale closures
+  const activeColumnDataRef = useRef(activeColumnData);
+  const isSelectingRef = useRef(false);
+  const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    activeColumnDataRef.current = activeColumnData;
+  }, [activeColumnData]);
 
   const [edgeContextMenu, setEdgeContextMenu] = useState<{
     edgeId: string;
@@ -271,6 +302,7 @@ export function KanbanCanvas() {
     })
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's safe to omit updateColumnDragPosition
   const handleColumnDragStart = useCallback(
     (event: DragStartEvent) => {
       const { active } = event;
@@ -285,13 +317,39 @@ export function KanbanCanvas() {
           columnName: column?.name ?? "Column",
           taskCount: column?.task_ids.length ?? 0,
         });
+
+        if (
+          event.activatorEvent instanceof MouseEvent ||
+          event.activatorEvent instanceof PointerEvent ||
+          event.activatorEvent instanceof TouchEvent
+        ) {
+          let clientX = 0;
+          let clientY = 0;
+          if (
+            event.activatorEvent instanceof TouchEvent &&
+            event.activatorEvent.touches.length > 0 &&
+            event.activatorEvent.touches[0]
+          ) {
+            clientX = event.activatorEvent.touches[0].clientX;
+            clientY = event.activatorEvent.touches[0].clientY;
+          } else if (
+            event.activatorEvent instanceof MouseEvent ||
+            event.activatorEvent instanceof PointerEvent
+          ) {
+            clientX = event.activatorEvent.clientX;
+            clientY = event.activatorEvent.clientY;
+          }
+          startColumnDrag(data.columnId, data.boardId, clientX, clientY);
+        }
       }
     },
     [columns]
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's safe to omit startColumnDrag
   const handleColumnDragEnd = useCallback(
     (event: DragEndEvent) => {
+      stopColumnDrag();
       const { over } = event;
 
       if (!activeColumnData) {
@@ -461,17 +519,67 @@ export function KanbanCanvas() {
         if (!position) {
           return null;
         }
+
+        // Check if board belongs to an area
+        let parentId: string | undefined;
+        let pPos = { x: position.x, y: position.y };
+        let zIndex = position.zIndex;
+
+        // Find if this board is in any area
+        // TODO: Optimization: In a real app with many areas, we should pre-calculate a map.
+        // For now, iteration is fine as area count is likely small.
+        for (const areaId of areas.allIds) {
+          const area = areas.byId[areaId];
+          if (area?.board_ids?.includes(boardId)) {
+            const areaPos = areaPositions.byId[areaId];
+            if (areaPos) {
+              parentId = areaId;
+
+              // Use drag origin if available (during drag), otherwise use current area position
+              const origin = areaDragOrigins[areaId];
+
+              // If there's an active drag, we use the ORIGIN to calculate the relative position.
+              // BoardAbs (Store) is constant during drag.
+              // OriginAbs (Store) is constant during drag.
+              // Relative = BoardAbs - OriginAbs.
+              // This ensures the relative position is CONSTANT during the drag, eliminating jitter entirely.
+              // Independent of the moving AreaPos or React Flow's internal state cycles.
+
+              if (origin) {
+                pPos = {
+                  x: position.x - origin.originX,
+                  y: position.y - origin.originY,
+                };
+              } else {
+                pPos = {
+                  x: position.x - areaPos.x,
+                  y: position.y - areaPos.y,
+                };
+              }
+
+              // Late night hacky fix:
+              // Reset zIndex for child node (relative to parent)
+              // Parent (Area) is z-index 0. Board should be above it.
+              zIndex = 10;
+            }
+            break;
+          }
+        }
+
         const node: KanbanNode = {
           id: boardId,
           type: "board",
-          position: { x: position.x, y: position.y },
+          position: pPos,
           data: {
             boardId,
             isSelected: boardId === selectedBoardId,
           },
-          style: { zIndex: position.zIndex },
+          style: { zIndex },
           width: position.width,
           height: position.height,
+          parentId,
+          // We don't strictly enforce extent='parent' so users can drag boards partially out if they want,
+          // but usually keeping them inside is better. Let's leave it open for now as per standard behavior.
         };
 
         return node;
@@ -683,18 +791,16 @@ export function KanbanCanvas() {
         draggable: true,
       }));
 
-    const areaDialogNode = areaDialog
-      ? [
-          {
-            id: "area-properties-dialog",
-            type: "areaPropertiesDialog" as const,
-            position: areaDialog.position,
-            data: { dialogId: "area-properties-dialog" },
-            style: { zIndex: 3000 },
-            draggable: true,
-          },
-        ]
-      : [];
+    const areaDialogNodes = Object.values(areaDialogs).map((dialog) => ({
+      id: `area-dialog-${dialog.id}`,
+      type: "areaPropertiesDialog" as const,
+      position: dialog.position,
+      data: { dialogId: dialog.id },
+      style: { zIndex: computeZIndex(`area-properties-dialog-${dialog.id}`) },
+      width: 300,
+      height: 400,
+      draggable: true,
+    }));
 
     return [
       ...areaNodes,
@@ -707,7 +813,7 @@ export function KanbanCanvas() {
       ...dialogNodes,
       ...connectionDialogNodes,
       ...columnDialogNodes,
-      ...areaDialogNode,
+      ...areaDialogNodes,
     ];
   }, [
     areas,
@@ -729,7 +835,8 @@ export function KanbanCanvas() {
     taskQuickActions,
     columnQuickActions,
     dialogFocusStack,
-    areaDialog,
+    areaDialogs,
+    areaDragOrigins,
   ]);
 
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
@@ -899,6 +1006,7 @@ export function KanbanCanvas() {
     return () => clearTimeout(timeoutId);
   }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it's intenional - ps. onNodesChange is stable
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -906,34 +1014,73 @@ export function KanbanCanvas() {
       for (const change of changes) {
         if (change.type === "position" && change.position) {
           if (change.id.startsWith("area_")) {
+            // React Flow's parentId handles the visual movement of child boards automatically.
+            // We only need to update the area's position in the store.
             updateAreaPosition(change.id, change.position);
-          } else if (change.id.startsWith("modal-")) {
-            const modalId = change.id.replace("modal-", "");
-            updateModalPosition(modalId, change.position);
-          } else if (change.id.startsWith("task-detail-modal-")) {
-            const modalId = change.id.replace("task-detail-modal-", "");
-            updateTaskDetailModalPosition(modalId, change.position);
-          } else if (change.id.startsWith("task-quick-actions-")) {
-            const taskId = change.id.replace("task-quick-actions-", "");
-            updateTaskQuickActionsPosition(taskId, change.position);
-          } else if (change.id.startsWith("column-quick-actions-")) {
-            const columnId = change.id.replace("column-quick-actions-", "");
-            updateColumnQuickActionsPosition(columnId, change.position);
-          } else if (change.id.startsWith("quick-actions-")) {
-            const boardId = change.id.replace("quick-actions-", "");
-            updateBoardQuickActionsPosition(boardId, change.position);
-          } else if (change.id.startsWith("board-dialog-")) {
-            const dialogId = change.id.replace("board-dialog-", "");
-            updateBoardDialogPosition(dialogId, change.position);
-          } else if (change.id.startsWith("connection-dialog-")) {
-            updateConnectionDialogPosition(change.position);
-          } else if (change.id.startsWith("column-dialog-")) {
-            const dialogId = change.id.replace("column-dialog-", "");
-            updateColumnDialogPosition(dialogId, change.position);
-          } else if (change.id === "area-properties-dialog") {
-            updateAreaDialogPosition(change.position);
           } else {
-            updateBoardPosition(change.id, change.position);
+            // Handle board position updates
+            // If the board has a parent (Area), React Flow returns the position RELATIVE to the parent.
+            // We need to convert this back to ABSOLUTE coordinates for our store.
+            let absolutePosition = change.position;
+
+            if (
+              change.id &&
+              !change.id.startsWith("modal-") &&
+              !change.id.startsWith("task-") &&
+              !change.id.startsWith("column-") &&
+              !change.id.startsWith("quick-") &&
+              !change.id.startsWith("board-dialog-") &&
+              !change.id.startsWith("connection-") &&
+              !change.id.startsWith("area-dialog-")
+            ) {
+              // It's a board (or at least treated as one by updateBoardPosition default case)
+              // Check if it's inside an area
+              const freshState = useKanbanStore.getState();
+              for (const areaId of freshState.areas.allIds) {
+                const area = freshState.areas.byId[areaId];
+                if (area?.board_ids?.includes(change.id)) {
+                  const areaPos = freshState.areaPositions.byId[areaId];
+                  if (areaPos) {
+                    // Found the parent area. Convert relative change.position to absolute.
+                    absolutePosition = {
+                      x: areaPos.x + change.position.x,
+                      y: areaPos.y + change.position.y,
+                    };
+                  }
+                  break;
+                }
+              }
+            }
+
+            if (change.id.startsWith("modal-")) {
+              const modalId = change.id.replace("modal-", "");
+              updateModalPosition(modalId, change.position);
+            } else if (change.id.startsWith("task-detail-modal-")) {
+              const modalId = change.id.replace("task-detail-modal-", "");
+              updateTaskDetailModalPosition(modalId, change.position);
+            } else if (change.id.startsWith("task-quick-actions-")) {
+              const taskId = change.id.replace("task-quick-actions-", "");
+              updateTaskQuickActionsPosition(taskId, change.position);
+            } else if (change.id.startsWith("column-quick-actions-")) {
+              const columnId = change.id.replace("column-quick-actions-", "");
+              updateColumnQuickActionsPosition(columnId, change.position);
+            } else if (change.id.startsWith("quick-actions-")) {
+              const boardId = change.id.replace("quick-actions-", "");
+              updateBoardQuickActionsPosition(boardId, change.position);
+            } else if (change.id.startsWith("board-dialog-")) {
+              const dialogId = change.id.replace("board-dialog-", "");
+              updateBoardDialogPosition(dialogId, change.position);
+            } else if (change.id.startsWith("connection-dialog-")) {
+              updateConnectionDialogPosition(change.position);
+            } else if (change.id.startsWith("column-dialog-")) {
+              const dialogId = change.id.replace("column-dialog-", "");
+              updateColumnDialogPosition(dialogId, change.position);
+            } else if (change.id.startsWith("area-dialog-")) {
+              const dialogId = change.id.replace("area-dialog-", "");
+              updateAreaDialogPosition(dialogId, change.position);
+            } else {
+              updateBoardPosition(change.id, absolutePosition);
+            }
           }
         }
         if (change.type === "dimensions" && change.dimensions) {
@@ -957,8 +1104,27 @@ export function KanbanCanvas() {
 
           const boardWidth = boardPos.width ?? 300;
           const boardHeight = boardPos.height ?? 200;
-          const boardCenterX = change.position.x + boardWidth / 2;
-          const boardCenterY = change.position.y + boardHeight / 2;
+
+          // Normalize to absolute position for intersection checking
+          // If the board is currently a child of an area, change.position is RELATIVE
+          let currentAbsX = change.position.x;
+          let currentAbsY = change.position.y;
+
+          const freshState = useKanbanStore.getState();
+          for (const areaId of freshState.areas.allIds) {
+            const area = freshState.areas.byId[areaId];
+            if (area?.board_ids?.includes(boardId)) {
+              const areaPos = freshState.areaPositions.byId[areaId];
+              if (areaPos) {
+                currentAbsX += areaPos.x;
+                currentAbsY += areaPos.y;
+              }
+              break;
+            }
+          }
+
+          const boardCenterX = currentAbsX + boardWidth / 2;
+          const boardCenterY = currentAbsY + boardHeight / 2;
 
           let foundAreaId: string | null = null;
           for (const areaId of areaPositions.allIds) {
@@ -993,6 +1159,7 @@ export function KanbanCanvas() {
     },
     [
       onNodesChange,
+      setLocalNodes,
       updateAreaPosition,
       updateAreaDimensions,
       updateBoardPosition,
@@ -1065,55 +1232,47 @@ export function KanbanCanvas() {
     []
   );
 
-  const [selectionMenu, setSelectionMenu] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    screenX: number;
-    screenY: number;
-  } | null>(null);
+  const handleSelectionEnd = useCallback((_event: React.MouseEvent) => {
+    const selectionBoxElement = document.querySelector(
+      ".react-flow__selection"
+    ) as HTMLElement | null;
 
-  const handleSelectionEnd = useCallback(
-    (_event: React.MouseEvent) => {
-      const selectionBox = document.querySelector(
-        ".react-flow__selection"
-      ) as HTMLElement | null;
+    if (!selectionBoxElement) {
+      return;
+    }
 
-      if (!selectionBox) {
-        return;
-      }
+    const rect = selectionBoxElement.getBoundingClientRect();
 
-      const rect = selectionBox.getBoundingClientRect();
-
-      if (rect.width < 50 || rect.height < 50) {
-        return;
-      }
-
-      const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
-      const bottomRight = screenToFlowPosition({
-        x: rect.right,
-        y: rect.bottom,
-      });
-
-      const width = bottomRight.x - topLeft.x;
-      const height = bottomRight.y - topLeft.y;
-
-      setSelectionMenu({
-        x: topLeft.x,
-        y: topLeft.y,
-        width,
-        height,
-        screenX: rect.right + 10,
-        screenY: rect.top,
-      });
-    },
-    [screenToFlowPosition]
-  );
+    if (rect.width < 50 || rect.height < 50) {
+      return;
+    }
+  }, []);
 
   const handleCloseSelectionMenu = useCallback(() => {
-    setSelectionMenu(null);
-  }, []);
+    clearStoreSelectionBox();
+    setPresenceSelectionBox(null);
+  }, [clearStoreSelectionBox, setPresenceSelectionBox]);
+
+  const handleSelectionStart = useCallback(
+    (event: React.MouseEvent) => {
+      isSelectingRef.current = true;
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      selectionStartRef.current = flowPos;
+      // Clear any existing persisted selection when starting a new one
+      clearStoreSelectionBox();
+    },
+    [screenToFlowPosition, clearStoreSelectionBox]
+  );
+
+  // Sync persisted selection box to presence (for refresh/reload case)
+  useEffect(() => {
+    if (selectionBox) {
+      setPresenceSelectionBox(selectionBox);
+    }
+  }, [selectionBox, setPresenceSelectionBox]);
 
   useEffect(() => {
     isUpdatingFromStore.current = true;
@@ -1157,7 +1316,7 @@ export function KanbanCanvas() {
     }
 
     let lastUpdateTime = 0;
-    const THROTTLE_MS = 16; // ~60fps throttle to avoid too many updates
+    const THROTTLE_MS = 16; // ~60fps
 
     const handleWindowMouseMove = (event: MouseEvent) => {
       const now = Date.now();
@@ -1166,12 +1325,31 @@ export function KanbanCanvas() {
       }
       lastUpdateTime = now;
 
-      // Convert screen position to flow (canvas) coordinates
       const flowPos = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
       updateCursor({ x: flowPos.x, y: flowPos.y });
+
+      if (activeColumnDataRef.current) {
+        updateColumnDragPosition(event.clientX, event.clientY);
+      }
+
+      if (isSelectingRef.current && selectionStartRef.current) {
+        const currentFlowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        const x = Math.min(selectionStartRef.current.x, currentFlowPos.x);
+        const y = Math.min(selectionStartRef.current.y, currentFlowPos.y);
+        const width = Math.abs(currentFlowPos.x - selectionStartRef.current.x);
+        const height = Math.abs(currentFlowPos.y - selectionStartRef.current.y);
+
+        if (width > 0 && height > 0) {
+          setPresenceSelectionBox({ x, y, width, height });
+        }
+      }
     };
 
     const handleWindowMouseLeave = () => {
@@ -1185,7 +1363,13 @@ export function KanbanCanvas() {
       window.removeEventListener("mousemove", handleWindowMouseMove);
       document.removeEventListener("mouseleave", handleWindowMouseLeave);
     };
-  }, [isCollaborating, screenToFlowPosition, updateCursor]);
+  }, [
+    isCollaborating,
+    screenToFlowPosition,
+    updateCursor,
+    updateColumnDragPosition,
+    setPresenceSelectionBox,
+  ]);
 
   // Legacy mouse move handler (kept for backup, but window listener is preferred)
   const handleCanvasMouseMove = useCallback(
@@ -1226,6 +1410,21 @@ export function KanbanCanvas() {
     [isCollaborating, screenToFlowPosition, updateCursor]
   );
 
+  // Handle node drag end - finalize area drags to update contained board positions
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: CanvasNode) => {
+      // If an area was dragged, finalize it to update contained board positions
+      if (node.id.startsWith("area_")) {
+        finalizeAreaDrag(node.id);
+      }
+      // If a board was dragged, finalize it to ensure final position is synced
+      else if (node.id.startsWith("board_")) {
+        finalizeBoardDrag(node.id);
+      }
+    },
+    [finalizeAreaDrag, finalizeBoardDrag]
+  );
+
   // Navigate to a collaborator's cursor position (when clicking edge indicator)
   const handleNavigateToUser = useCallback(
     (position: { x: number; y: number }) => {
@@ -1243,13 +1442,98 @@ export function KanbanCanvas() {
   );
 
   const handlePaneClick = useCallback(() => {
+    if (isSelectingRef.current) {
+      isSelectingRef.current = false;
+      selectionStartRef.current = null;
+    }
     if (isCollaborating) {
-      // Clear board selection indicator
       updateSelection([]);
-      // Clear dialog focus indicator (so presence border disappears when clicking on canvas)
       updateOpenDialogs([]);
     }
   }, [isCollaborating, updateSelection, updateOpenDialogs]);
+
+  const onSelectionEndWrapper = useCallback(
+    (event: React.MouseEvent) => {
+      // Instead of calculating from mouse events which can be slightly off from the visual
+      // rendered by React Flow, we measure the actual selection element before it disappears.
+      const selectionEl = document.querySelector(
+        ".react-flow__selection"
+      ) as HTMLElement | null;
+
+      if (selectionEl) {
+        const rect = selectionEl.getBoundingClientRect();
+        const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
+        const bottomRight = screenToFlowPosition({
+          x: rect.right,
+          y: rect.bottom,
+        });
+
+        const x = topLeft.x;
+        const y = topLeft.y;
+        const width = bottomRight.x - topLeft.x;
+        const height = bottomRight.y - topLeft.y;
+
+        if (width > 0 && height > 0) {
+          setStoreSelectionBox({ x, y, width, height });
+        }
+      } else if (isSelectingRef.current && selectionStartRef.current) {
+        // Fallback to calculation if DOM element is missing (rare)
+        const currentFlowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+        const x = Math.min(selectionStartRef.current.x, currentFlowPos.x);
+        const y = Math.min(selectionStartRef.current.y, currentFlowPos.y);
+        const width = Math.abs(currentFlowPos.x - selectionStartRef.current.x);
+        const height = Math.abs(currentFlowPos.y - selectionStartRef.current.y);
+
+        if (width > 0 && height > 0) {
+          setStoreSelectionBox({ x, y, width, height });
+        }
+      }
+
+      isSelectingRef.current = false;
+      selectionStartRef.current = null;
+      handleSelectionEnd(event);
+    },
+    [handleSelectionEnd, screenToFlowPosition, setStoreSelectionBox]
+  );
+
+  // Calculate screen position for context menu if selection exists
+  const selectionMenuProps = useMemo(() => {
+    if (!(selectionBox && containerRef.current)) {
+      return null;
+    }
+
+    // Calculate position relative to container
+    // This allows using absolute positioning which is more robust than fixed
+    // especially when the canvas is not at (0,0) or scrolling is involved.
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const screenTopLeft = flowToScreenPosition({
+      x: selectionBox.x,
+      y: selectionBox.y,
+    });
+    const screenBottomRight = flowToScreenPosition({
+      x: selectionBox.x + selectionBox.width,
+      y: selectionBox.y + selectionBox.height,
+    });
+
+    return {
+      // Flow coordinates for addArea
+      x: selectionBox.x,
+      y: selectionBox.y,
+      width: selectionBox.width,
+      height: selectionBox.height,
+      // Screen coordinates relative to container for menu positioning
+      screenX: screenBottomRight.x - containerRect.left + 10,
+      screenY: screenTopLeft.y - containerRect.top,
+      // Screen coordinates relative to container for ghost box
+      ghostLeft: screenTopLeft.x - containerRect.left,
+      ghostTop: screenTopLeft.y - containerRect.top,
+      ghostWidth: screenBottomRight.x - screenTopLeft.x,
+      ghostHeight: screenBottomRight.y - screenTopLeft.y,
+    };
+  }, [selectionBox, flowToScreenPosition]);
 
   return (
     <DndContext
@@ -1262,9 +1546,10 @@ export function KanbanCanvas() {
         {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: cursor tracking goes brr */}
         {/** biome-ignore lint/a11y/noStaticElementInteractions: cursor tracking goes brr */}
         <div
-          className="h-full w-full"
+          className="relative h-full w-full"
           onMouseLeave={handleCanvasMouseLeave}
           onMouseMove={handleCanvasMouseMove}
+          ref={containerRef}
         >
           {/* Layer 1: Fixed Background */}
           <div className="fixed inset-0 -z-10 bg-background" />
@@ -1293,9 +1578,11 @@ export function KanbanCanvas() {
             onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
             onNodeDrag={handleNodeDrag}
+            onNodeDragStop={handleNodeDragStop}
             onNodesChange={handleNodesChange}
             onPaneClick={handlePaneClick}
-            onSelectionEnd={handleSelectionEnd}
+            onSelectionEnd={onSelectionEndWrapper}
+            onSelectionStart={handleSelectionStart}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
             panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
             proOptions={{ hideAttribution: true }}
@@ -1344,8 +1631,6 @@ export function KanbanCanvas() {
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />
-          {/* Collaboration cursor overlay */}
-
           {isCollaborating && collaborators.length > 0 && (
             <CursorOverlay
               collaborators={collaborators}
@@ -1353,6 +1638,7 @@ export function KanbanCanvas() {
               onNavigateToUser={handleNavigateToUser}
             />
           )}
+
           {edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}
@@ -1361,17 +1647,40 @@ export function KanbanCanvas() {
               y={edgeContextMenu.y}
             />
           )}
-          {selectionMenu && (
+
+          {selectionBox && selectionMenuProps && (
             <SelectionContextMenu
-              height={selectionMenu.height}
+              height={selectionMenuProps.height}
               onClose={handleCloseSelectionMenu}
-              screenX={selectionMenu.screenX}
-              screenY={selectionMenu.screenY}
-              width={selectionMenu.width}
-              x={selectionMenu.x}
-              y={selectionMenu.y}
+              screenX={selectionMenuProps.screenX}
+              screenY={selectionMenuProps.screenY}
+              width={selectionMenuProps.width}
+              x={selectionMenuProps.x}
+              y={selectionMenuProps.y}
             />
           )}
+          {selectionMenuProps && (
+            <div
+              className="pointer-events-none absolute z-10 rounded border-2 border-dashed bg-primary/10"
+              style={{
+                left: selectionMenuProps.ghostLeft,
+                top: selectionMenuProps.ghostTop,
+                width: selectionMenuProps.ghostWidth,
+                height: selectionMenuProps.ghostHeight,
+                borderColor: "var(--primary)",
+              }}
+            />
+          )}
+          {isCollaborating && (
+            <CollaboratorSelectionOverlayScreen
+              collaborators={collaborators}
+              containerRef={containerRef}
+              flowToScreenPosition={flowToScreenPosition}
+            />
+          )}
+
+          <TaskDragOverlayContainer />
+          <ColumnDragOverlayContainer />
         </div>
       </ColumnDragContext.Provider>
       <DragOverlay dropAnimation={null}>

@@ -54,11 +54,27 @@ export type OpenDialog = {
     | "column-dialog"
     | "task-dialog"
     | "connection-dialog"
-    | "create-task";
+    | "create-task"
+    | "area-dialog";
   targetId: string;
   dialogType?: string;
   position?: { x: number; y: number };
   data?: Record<string, unknown>;
+};
+
+export type DraggingTaskState = {
+  taskId: string;
+  fromColumnId: string;
+  fromBoardId: string;
+  cursorX?: number;
+  cursorY?: number;
+};
+
+export type DraggingColumnState = {
+  columnId: string;
+  sourceBoardId: string;
+  cursorX?: number;
+  cursorY?: number;
 };
 
 export type Collaborator = {
@@ -66,9 +82,13 @@ export type Collaborator = {
   name: string;
   color: string;
   role: "owner" | "editor" | "viewer";
+  image?: string | null;
   cursor?: CursorPosition;
   selection?: string[];
+  selectionBox?: { x: number; y: number; width: number; height: number } | null;
   openDialogs?: OpenDialog[];
+  draggingTask?: DraggingTaskState;
+  draggingColumn?: DraggingColumnState;
 };
 
 export type ConnectionState =
@@ -155,6 +175,7 @@ export function CollaborationProvider({
     name: string;
     color: string;
     role: "owner" | "editor" | "viewer";
+    image?: string | null;
   } | null>(null);
   const workspaceDeletedRef = useRef(false);
 
@@ -208,15 +229,32 @@ export function CollaborationProvider({
       const isLocalUser = state.user?.id === localUserId;
 
       if (state.user && !isLocalClient && !isLocalUser) {
-        // Overwrite previous entry for same user - this ensures only 1 cursor per user
+        const existing = collaboratorMap.get(state.user.id);
+
+        // If we already have this user, check if we should update
+        // Use explicit null to clear drag state, undefined to preserve existing
+        const draggingTask = Object.hasOwn(state, "draggingTask")
+          ? state.draggingTask
+          : existing?.draggingTask;
+        const draggingColumn = Object.hasOwn(state, "draggingColumn")
+          ? state.draggingColumn
+          : existing?.draggingColumn;
+
+        // TODO: Also might want to merge other meaningful presence overrides here
+        // Fixed: Now properly handles null (clear) vs undefined (preserve) for drag states
+
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
           name: state.user.name || "Anonymous",
           color: state.user.color || "#888",
           role: state.user.role || "viewer",
+          image: state.user.image,
           cursor: state.cursor,
           selection: state.selection,
+          selectionBox: state.selectionBox,
           openDialogs: state.openDialogs,
+          draggingTask,
+          draggingColumn,
         });
       }
     });
@@ -255,6 +293,7 @@ export function CollaborationProvider({
           name: sessionUser.name || sessionUser.email || "Anonymous",
           color: userColor,
           role: "editor",
+          image: sessionUser.image,
         };
       }
 
