@@ -465,6 +465,8 @@ export type KanbanActions = {
         | "draftTags"
         | "draftColumnId"
         | "draftChecklists"
+        | "draftLastUpdatedBy"
+        | "draftLastUpdatedAt"
       >
     >
   ) => void;

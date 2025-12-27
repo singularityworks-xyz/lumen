@@ -7,7 +7,7 @@ import {
   useViewport,
 } from "@xyflow/react";
 import { Columns, GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
@@ -44,6 +44,8 @@ export const RenameColumnDialogNodeComponent =
     const { flowToScreenPosition } = useReactFlow();
     const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
+    const [nameError, setNameError] = useState<string | null>(null);
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     const columnDialog = useKanbanStore(
       (state) => state.columnDialogs[data.dialogId]
@@ -156,8 +158,15 @@ export const RenameColumnDialogNodeComponent =
         const name = columnDialog.inputValue?.trim();
         const description = columnDialog.descriptionValue?.trim();
 
+        if (!name || name === "") {
+          setNameError("Column name cannot be empty");
+          nameInputRef.current?.focus();
+          return;
+        }
+        setNameError(null);
+
         const updates: { name?: string; description?: string } = {};
-        if (name !== undefined) {
+        if (name !== undefined && name !== "") {
           updates.name = name;
         }
         if (description !== undefined) {
@@ -179,6 +188,7 @@ export const RenameColumnDialogNodeComponent =
     const handleNameChange = useCallback(
       (value: string) => {
         updateColumnDialogInputValue(data.dialogId, value);
+        setNameError(null);
       },
       [updateColumnDialogInputValue, data.dialogId]
     );
@@ -324,8 +334,10 @@ export const RenameColumnDialogNodeComponent =
                 onKeyDown={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
                 placeholder="New column name"
+                ref={nameInputRef}
                 value={columnDialog.inputValue ?? columnDialog.columnName}
               />
+              {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
 
               <Label
                 className="sr-only"

@@ -200,6 +200,8 @@ export type TaskDetailModalState = {
   draftTags?: string;
   draftColumnId?: string;
   draftChecklists?: Checklist[];
+  draftLastUpdatedBy?: string;
+  draftLastUpdatedAt?: number;
 };
 
 export type BoardDialogType =

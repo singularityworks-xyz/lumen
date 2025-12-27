@@ -315,6 +315,8 @@ export const TaskDetailModalSchema = z.object({
   draftTags: z.string().optional(),
   draftColumnId: z.string().optional(),
   draftChecklists: z.array(ChecklistSchema).optional(),
+  draftLastUpdatedBy: z.string().optional(),
+  draftLastUpdatedAt: z.number().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;

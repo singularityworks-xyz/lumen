@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   CalendarIcon,
   Check,
@@ -11,8 +11,9 @@ import {
   Plus,
   Tag,
   Trash2,
+  User,
 } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -24,9 +25,11 @@ import {
   type Checklist,
   type Column,
   type Task,
+  type TaskDetailModalState,
   useKanbanStore,
 } from "@/src/features/kanban";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
+import { useSession } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import {
   ScaledPopover,
@@ -100,17 +103,16 @@ export const TaskDetailForm = memo(
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const { data: session } = useSession();
 
-    // Effect to initialize draft state if it's empty when we start editing
-    useEffect(() => {
-      if (modalState?.isEditing) {
-        // Only init if drafts are undefined to avoid overwriting others' work
-        // logic: if I opened it and it has no drafts, I should probably seed it with current task values?
-        // Actually, falling back to task.* in the render variable definition handles the "read" part.
-        // But for "write", we need to know if we should update the draft.
-        // The pattern used in RenameColumnDialog is to rely on values falling back to original if draft is missing.
-      }
-    }, [modalState?.isEditing]);
+    // Helper to update draft and set last updated metadata
+    const updateDraft = (draft: Partial<TaskDetailModalState>) => {
+      updateTaskDetailModalDraft(modalId, {
+        ...draft,
+        draftLastUpdatedBy: session?.user?.name || "Unknown",
+        draftLastUpdatedAt: Date.now(),
+      });
+    };
 
     const handleAddChecklist = () => {
       if (newChecklistItem.trim()) {
@@ -122,7 +124,7 @@ export const TaskDetailForm = memo(
           position: checklists.length,
         };
         const newChecklists = [...checklists, newItem];
-        updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
+        updateDraft({ draftChecklists: newChecklists });
         setNewChecklistItem("");
       }
     };
@@ -131,14 +133,14 @@ export const TaskDetailForm = memo(
       const newChecklists = checklists.map((item: Checklist) =>
         item.id === id ? { ...item, completed: !item.completed } : item
       );
-      updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
+      updateDraft({ draftChecklists: newChecklists });
     };
 
     const handleDeleteChecklist = (id: string) => {
       const newChecklists = checklists.filter(
         (item: Checklist) => item.id !== id
       );
-      updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
+      updateDraft({ draftChecklists: newChecklists });
     };
 
     const handleSave = (e: React.FormEvent) => {
@@ -170,7 +172,6 @@ export const TaskDetailForm = memo(
 
       // Clear drafts after save (by closing the modal or separate cleanup if we kept it open)
       // Since existing behavior closes modal or returns to view, closing deletes the modal state entirely anyway.
-
       if (onSaved) {
         onSaved();
       } else {
@@ -183,13 +184,6 @@ export const TaskDetailForm = memo(
       closeTaskDetailModal(modalId);
     };
 
-    const handleTitleChange = (value: string) => {
-      updateTaskDetailModalDraft(modalId, { draftTitle: value });
-      if (value.trim()) {
-        setTitleError(false);
-      }
-    };
-
     const completedCount = checklists.filter(
       (c: Checklist) => c.completed
     ).length;
@@ -197,6 +191,25 @@ export const TaskDetailForm = memo(
     return (
       <form className="flex h-full flex-col" onSubmit={handleSave}>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {modalState?.draftLastUpdatedBy && (
+            <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-muted-foreground text-xs">
+              <User className="h-3.5 w-3.5" />
+              <span>
+                Draft edited by{" "}
+                <span className="font-medium text-foreground">
+                  {modalState.draftLastUpdatedBy}
+                </span>{" "}
+                {modalState.draftLastUpdatedAt && (
+                  <span>
+                    {formatDistanceToNow(modalState.draftLastUpdatedAt, {
+                      addSuffix: true,
+                    })}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor={`task-title-${modalId}`}>
               Task Title <span className="text-destructive">*</span>
@@ -209,7 +222,7 @@ export const TaskDetailForm = memo(
                 isShaking && "animate-shake"
               )}
               id={`task-title-${modalId}`}
-              onChange={(e) => handleTitleChange(e.target.value)}
+              onChange={(e) => updateDraft({ draftTitle: e.target.value })}
               placeholder="Task title"
               type="text"
               value={title}
@@ -229,7 +242,7 @@ export const TaskDetailForm = memo(
             </Label>
             <ScaledSelect
               onValueChange={(newColumnId) => {
-                updateTaskDetailModalDraft(modalId, {
+                updateDraft({
                   draftColumnId: newColumnId,
                 });
               }}
@@ -278,7 +291,7 @@ export const TaskDetailForm = memo(
               <Label htmlFor={`task-priority-${modalId}`}>Priority</Label>
               <ScaledSelect
                 onValueChange={(v) =>
-                  updateTaskDetailModalDraft(modalId, {
+                  updateDraft({
                     draftPriority: v as Task["priority"],
                   })
                 }
@@ -333,7 +346,7 @@ export const TaskDetailForm = memo(
                   <Calendar
                     mode="single"
                     onSelect={(date) => {
-                      updateTaskDetailModalDraft(modalId, {
+                      updateDraft({
                         draftDueDate: date?.toISOString() ?? "",
                       });
                       setCalendarOpen(false);
@@ -345,7 +358,7 @@ export const TaskDetailForm = memo(
                       <Button
                         className="w-full"
                         onClick={() => {
-                          updateTaskDetailModalDraft(modalId, {
+                          updateDraft({
                             draftDueDate: "",
                           });
                           setCalendarOpen(false);
@@ -388,9 +401,7 @@ export const TaskDetailForm = memo(
                 className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
-                onValueChange={([v]) =>
-                  updateTaskDetailModalDraft(modalId, { draftProgress: v ?? 0 })
-                }
+                onValueChange={([v]) => updateDraft({ draftProgress: v ?? 0 })}
                 step={5}
                 value={[progress]}
               />
@@ -412,7 +423,7 @@ export const TaskDetailForm = memo(
               className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
               onChange={(e) =>
-                updateTaskDetailModalDraft(modalId, {
+                updateDraft({
                   draftTags: e.target.value,
                 })
               }
@@ -469,7 +480,7 @@ export const TaskDetailForm = memo(
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
               onChange={(e) =>
-                updateTaskDetailModalDraft(modalId, {
+                updateDraft({
                   draftDescription: e.target.value,
                 })
               }

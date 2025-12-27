@@ -230,7 +230,9 @@ function hasModalChanged(
     prev.draftTags !== next.draftTags ||
     prev.draftColumnId !== next.draftColumnId ||
     JSON.stringify(prev.draftChecklists) !==
-      JSON.stringify(next.draftChecklists)
+      JSON.stringify(next.draftChecklists) ||
+    prev.draftLastUpdatedBy !== next.draftLastUpdatedBy ||
+    prev.draftLastUpdatedAt !== next.draftLastUpdatedAt
   );
 }
 
@@ -254,6 +256,8 @@ function isPositionOnlyChange(
     prev.draftColumnId === next.draftColumnId &&
     JSON.stringify(prev.draftChecklists) ===
       JSON.stringify(next.draftChecklists) &&
+    prev.draftLastUpdatedBy === next.draftLastUpdatedBy &&
+    prev.draftLastUpdatedAt === next.draftLastUpdatedAt &&
     (prev.position.x !== next.position.x || prev.position.y !== next.position.y)
   );
 }
