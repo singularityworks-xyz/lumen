@@ -12,7 +12,7 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -61,7 +61,6 @@ export const TaskDetailForm = memo(
   ({ modalId, task, boardId, onSaved, onCancel }: TaskDetailFormProps) => {
     const updateTask = useKanbanStore((state) => state.updateTask);
     const deleteTask = useKanbanStore((state) => state.deleteTask);
-    const moveTask = useKanbanStore((state) => state.moveTask);
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
@@ -74,68 +73,44 @@ export const TaskDetailForm = memo(
       .filter((col): col is Column => col !== undefined)
       .sort((a, b) => a.position - b.position);
 
-    const [title, setTitle] = useState(task.title);
-    const [description, setDescription] = useState(task.description ?? "");
-    const [priority, setPriority] = useState<Task["priority"]>(task.priority);
-    const [progress, setProgress] = useState(task.progress);
-    const [dueDate, setDueDate] = useState<Date | undefined>(
-      task.due_date ? new Date(task.due_date) : undefined
+    const modalState = useKanbanStore(
+      (state) => state.taskDetailModals[modalId]
     );
-    const [tagsInput, setTagsInput] = useState(task.tags?.join(", ") ?? "");
-    const [checklists, setChecklists] = useState<Checklist[]>(
-      task.checklists ?? []
+    const updateTaskDetailModalDraft = useKanbanStore(
+      (state) => state.updateTaskDetailModalDraft
     );
+
+    // Initialize state from props, but defer to synced draft state if present
+    const title = modalState?.draftTitle ?? task.title;
+    const description = modalState?.draftDescription ?? task.description ?? "";
+    const priority = modalState?.draftPriority ?? task.priority;
+    const progress = modalState?.draftProgress ?? task.progress;
+    const dueDate = modalState?.draftDueDate
+      ? new Date(modalState.draftDueDate)
+      : task.due_date
+        ? new Date(task.due_date)
+        : undefined;
+    const tagsInput = modalState?.draftTags ?? task.tags?.join(", ") ?? "";
+    const checklists = modalState?.draftChecklists ?? task.checklists ?? [];
+    const selectedColumnId = modalState?.draftColumnId ?? task.column_id;
+
+    // We still use some local state for UI-only things or transient interactions
     const [newChecklistItem, setNewChecklistItem] = useState("");
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [selectedColumnId, setSelectedColumnId] = useState(task.column_id);
 
-    const formValuesRef = useRef({
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tagsInput,
-      checklists,
-    });
-
-    formValuesRef.current = {
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tagsInput,
-      checklists,
-    };
-
-    // Auto-save on unmount
-    useEffect(
-      () => () => {
-        const values = formValuesRef.current;
-        if (values.title.trim()) {
-          const tags =
-            values.tagsInput
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean) || undefined;
-
-          updateTask(task.id, {
-            title: values.title,
-            description: values.description || undefined,
-            priority: values.priority,
-            progress: values.progress,
-            due_date: values.dueDate?.toISOString(),
-            tags: tags && tags.length > 0 ? tags : undefined,
-            checklists: values.checklists,
-          });
-        }
-      },
-      [task.id, updateTask]
-    );
+    // Effect to initialize draft state if it's empty when we start editing
+    useEffect(() => {
+      if (modalState?.isEditing) {
+        // Only init if drafts are undefined to avoid overwriting others' work
+        // logic: if I opened it and it has no drafts, I should probably seed it with current task values?
+        // Actually, falling back to task.* in the render variable definition handles the "read" part.
+        // But for "write", we need to know if we should update the draft.
+        // The pattern used in RenameColumnDialog is to rely on values falling back to original if draft is missing.
+      }
+    }, [modalState?.isEditing]);
 
     const handleAddChecklist = () => {
       if (newChecklistItem.trim()) {
@@ -146,21 +121,24 @@ export const TaskDetailForm = memo(
           completed: false,
           position: checklists.length,
         };
-        setChecklists([...checklists, newItem]);
+        const newChecklists = [...checklists, newItem];
+        updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
         setNewChecklistItem("");
       }
     };
 
     const handleToggleChecklist = (id: string) => {
-      setChecklists(
-        checklists.map((item) =>
-          item.id === id ? { ...item, completed: !item.completed } : item
-        )
+      const newChecklists = checklists.map((item: Checklist) =>
+        item.id === id ? { ...item, completed: !item.completed } : item
       );
+      updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
     };
 
     const handleDeleteChecklist = (id: string) => {
-      setChecklists(checklists.filter((item) => item.id !== id));
+      const newChecklists = checklists.filter(
+        (item: Checklist) => item.id !== id
+      );
+      updateTaskDetailModalDraft(modalId, { draftChecklists: newChecklists });
     };
 
     const handleSave = (e: React.FormEvent) => {
@@ -176,7 +154,7 @@ export const TaskDetailForm = memo(
       const tags =
         tagsInput
           .split(",")
-          .map((tag) => tag.trim())
+          .map((tag: string) => tag.trim())
           .filter(Boolean) || undefined;
 
       updateTask(task.id, {
@@ -187,7 +165,11 @@ export const TaskDetailForm = memo(
         due_date: dueDate?.toISOString(),
         tags: tags && tags.length > 0 ? tags : undefined,
         checklists,
+        column_id: selectedColumnId,
       });
+
+      // Clear drafts after save (by closing the modal or separate cleanup if we kept it open)
+      // Since existing behavior closes modal or returns to view, closing deletes the modal state entirely anyway.
 
       if (onSaved) {
         onSaved();
@@ -202,13 +184,15 @@ export const TaskDetailForm = memo(
     };
 
     const handleTitleChange = (value: string) => {
-      setTitle(value);
+      updateTaskDetailModalDraft(modalId, { draftTitle: value });
       if (value.trim()) {
         setTitleError(false);
       }
     };
 
-    const completedCount = checklists.filter((c) => c.completed).length;
+    const completedCount = checklists.filter(
+      (c: Checklist) => c.completed
+    ).length;
 
     return (
       <form className="flex h-full flex-col" onSubmit={handleSave}>
@@ -235,7 +219,6 @@ export const TaskDetailForm = memo(
             )}
           </div>
 
-          {/* Column Selector */}
           <div className="space-y-2">
             <Label
               className="flex items-center gap-1.5"
@@ -246,11 +229,9 @@ export const TaskDetailForm = memo(
             </Label>
             <ScaledSelect
               onValueChange={(newColumnId) => {
-                if (newColumnId !== selectedColumnId) {
-                  const fromColumnId = selectedColumnId;
-                  setSelectedColumnId(newColumnId);
-                  moveTask(task.id, fromColumnId, newColumnId, boardId);
-                }
+                updateTaskDetailModalDraft(modalId, {
+                  draftColumnId: newColumnId,
+                });
               }}
               value={selectedColumnId}
             >
@@ -296,7 +277,11 @@ export const TaskDetailForm = memo(
             <div className="space-y-2">
               <Label htmlFor={`task-priority-${modalId}`}>Priority</Label>
               <ScaledSelect
-                onValueChange={(v) => setPriority(v as Task["priority"])}
+                onValueChange={(v) =>
+                  updateTaskDetailModalDraft(modalId, {
+                    draftPriority: v as Task["priority"],
+                  })
+                }
                 value={priority}
               >
                 <ScaledSelectTrigger
@@ -348,7 +333,9 @@ export const TaskDetailForm = memo(
                   <Calendar
                     mode="single"
                     onSelect={(date) => {
-                      setDueDate(date);
+                      updateTaskDetailModalDraft(modalId, {
+                        draftDueDate: date?.toISOString() ?? "",
+                      });
                       setCalendarOpen(false);
                     }}
                     selected={dueDate}
@@ -358,7 +345,9 @@ export const TaskDetailForm = memo(
                       <Button
                         className="w-full"
                         onClick={() => {
-                          setDueDate(undefined);
+                          updateTaskDetailModalDraft(modalId, {
+                            draftDueDate: "",
+                          });
                           setCalendarOpen(false);
                         }}
                         size="sm"
@@ -399,7 +388,9 @@ export const TaskDetailForm = memo(
                 className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
-                onValueChange={([v]) => setProgress(v ?? 0)}
+                onValueChange={([v]) =>
+                  updateTaskDetailModalDraft(modalId, { draftProgress: v ?? 0 })
+                }
                 step={5}
                 value={[progress]}
               />
@@ -420,7 +411,11 @@ export const TaskDetailForm = memo(
             <Input
               className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
-              onChange={(e) => setTagsInput(e.target.value)}
+              onChange={(e) =>
+                updateTaskDetailModalDraft(modalId, {
+                  draftTags: e.target.value,
+                })
+              }
               placeholder="design, research, bug"
               value={tagsInput}
             />
@@ -428,9 +423,9 @@ export const TaskDetailForm = memo(
               <div className="flex flex-wrap gap-1">
                 {tagsInput
                   .split(",")
-                  .map((tag) => tag.trim())
+                  .map((tag: string) => tag.trim())
                   .filter(Boolean)
-                  .map((tag) => (
+                  .map((tag: string) => (
                     <span
                       className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
                       key={tag}
@@ -473,7 +468,11 @@ export const TaskDetailForm = memo(
             <Textarea
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) =>
+                updateTaskDetailModalDraft(modalId, {
+                  draftDescription: e.target.value,
+                })
+              }
               placeholder="Add more details about this task..."
               value={description}
             />
@@ -492,7 +491,7 @@ export const TaskDetailForm = memo(
 
             {checklists.length > 0 && (
               <div className="space-y-2">
-                {checklists.map((item) => (
+                {checklists.map((item: Checklist) => (
                   <div
                     className="flex items-center gap-3 rounded-lg border border-border/30 bg-muted/80 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-colors hover:bg-muted dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]"
                     key={item.id}

@@ -17,7 +17,9 @@ type SliceCreator = (
   | "updateTaskDetailModalPosition"
   | "bringTaskDetailModalToFront"
   | "triggerTaskDetailModalShake"
+  | "triggerTaskDetailModalShake"
   | "setTaskDetailModalEditing"
+  | "updateTaskDetailModalDraft"
   | "openProfileModal"
   | "closeProfileModal"
 >;
@@ -251,6 +253,17 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       const modal = state.taskDetailModals[modalId];
       if (modal) {
         modal.isEditing = isEditing;
+        // When switching to edit mode, we could optionally init drafts here,
+        // but it's better handled by the UI component to avoid overwriting existing drafts
+        // if multiple people are editing.
+      }
+    }),
+
+  updateTaskDetailModalDraft: (modalId, draftData) =>
+    set((state) => {
+      const modal = state.taskDetailModals[modalId];
+      if (modal) {
+        Object.assign(modal, draftData);
       }
     }),
 

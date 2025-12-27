@@ -192,6 +192,14 @@ export type TaskDetailModalState = {
   initialIsEditing?: boolean;
   isEditing?: boolean;
   openedFromQuickActions?: boolean;
+  draftTitle?: string;
+  draftDescription?: string;
+  draftPriority?: "low" | "medium" | "high";
+  draftProgress?: number;
+  draftDueDate?: string;
+  draftTags?: string;
+  draftColumnId?: string;
+  draftChecklists?: Checklist[];
 };
 
 export type BoardDialogType =

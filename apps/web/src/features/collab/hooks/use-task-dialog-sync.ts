@@ -7,12 +7,10 @@ import { taskDetailModalSync } from "@/src/features/collab/sync/syncs";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { TaskDetailModalState } from "@/src/features/kanban/types";
 
-// Throttle interval for position updates (ms)
-const POSITION_THROTTLE_MS = 50;
+const POSITION_THROTTLE_MS = 16;
 
 /**
  * Dedicated sync hook for task detail modals.
- *
  * This is separate from the main entity sync because task detail modals need special handling:
  * - Modals are "owned" by whoever opens them
  * - The owner's local state is authoritative
@@ -61,7 +59,9 @@ export function useTaskDialogSync(
             (!existingModal ||
               existingModal.position.x !== modal.position.x ||
               existingModal.position.y !== modal.position.y ||
-              existingModal.isEditing !== modal.isEditing)
+              existingModal.position.y !== modal.position.y ||
+              existingModal.isEditing !== modal.isEditing ||
+              hasModalChanged(existingModal, modal))
           ) {
             currentModals[key] = modal;
             hasChanges = true;
@@ -221,7 +221,16 @@ function hasModalChanged(
     prev.zIndex !== next.zIndex ||
     prev.isEditing !== next.isEditing ||
     prev.taskId !== next.taskId ||
-    prev.boardId !== next.boardId
+    prev.boardId !== next.boardId ||
+    prev.draftTitle !== next.draftTitle ||
+    prev.draftDescription !== next.draftDescription ||
+    prev.draftPriority !== next.draftPriority ||
+    prev.draftProgress !== next.draftProgress ||
+    prev.draftDueDate !== next.draftDueDate ||
+    prev.draftTags !== next.draftTags ||
+    prev.draftColumnId !== next.draftColumnId ||
+    JSON.stringify(prev.draftChecklists) !==
+      JSON.stringify(next.draftChecklists)
   );
 }
 
@@ -236,6 +245,15 @@ function isPositionOnlyChange(
     prev.sourceTaskId === next.sourceTaskId &&
     prev.zIndex === next.zIndex &&
     prev.isEditing === next.isEditing &&
+    prev.draftTitle === next.draftTitle &&
+    prev.draftDescription === next.draftDescription &&
+    prev.draftPriority === next.draftPriority &&
+    prev.draftProgress === next.draftProgress &&
+    prev.draftDueDate === next.draftDueDate &&
+    prev.draftTags === next.draftTags &&
+    prev.draftColumnId === next.draftColumnId &&
+    JSON.stringify(prev.draftChecklists) ===
+      JSON.stringify(next.draftChecklists) &&
     (prev.position.x !== next.position.x || prev.position.y !== next.position.y)
   );
 }

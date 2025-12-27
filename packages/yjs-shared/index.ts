@@ -306,6 +306,15 @@ export const TaskDetailModalSchema = z.object({
   initialIsEditing: z.boolean().optional(),
   isEditing: z.boolean().optional(),
   openedFromQuickActions: z.boolean().optional(),
+  // Draft state for real-time collaboration
+  draftTitle: z.string().optional(),
+  draftDescription: z.string().optional(),
+  draftPriority: PrioritySchema.optional(),
+  draftProgress: z.number().optional(),
+  draftDueDate: z.string().optional(),
+  draftTags: z.string().optional(),
+  draftColumnId: z.string().optional(),
+  draftChecklists: z.array(ChecklistSchema).optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;

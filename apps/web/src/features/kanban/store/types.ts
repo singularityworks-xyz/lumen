@@ -452,6 +452,22 @@ export type KanbanActions = {
   bringTaskDetailModalToFront: (modalId: string) => void;
   triggerTaskDetailModalShake: (modalId: string) => void;
   setTaskDetailModalEditing: (modalId: string, isEditing: boolean) => void;
+  updateTaskDetailModalDraft: (
+    modalId: string,
+    draftData: Partial<
+      Pick<
+        TaskDetailModalState,
+        | "draftTitle"
+        | "draftDescription"
+        | "draftPriority"
+        | "draftProgress"
+        | "draftDueDate"
+        | "draftTags"
+        | "draftColumnId"
+        | "draftChecklists"
+      >
+    >
+  ) => void;
 
   // UI actions
   setViewport: (viewport: ViewportState) => void;
