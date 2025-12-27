@@ -20,6 +20,7 @@ import {
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { BlockingDialogsManager } from "@/src/components/dialogs/blocking-dialogs-manager";
+import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
@@ -27,11 +28,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
-
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
+import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 type BoardQuickActionsNodeData = {
   boardId: string;
@@ -92,6 +93,10 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const dialogId = `board-quick-actions-${boardId}`;
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    // Dialog presence for collaboration - auto-registers on mount, auto-cleans on unmount
+    const { dialogCollaborator, handleDialogPointerDown } =
+      useDialogPresenceLifecycle(dialogId, "quick-actions", boardId);
 
     useEffect(() => {
       setPortalTarget(document.getElementById("board-connector-layer"));
@@ -630,12 +635,12 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
 
     return (
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
+      // biome-ignore lint/a11y/noStaticElementInteractions: skip
       <div
-        aria-labelledby={`quick-actions-${id}`}
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+          "relative rounded-lg transition-all duration-200",
           selected || isFocused || isTopmost
-            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
+            ? "scale-[1.02] shadow-xl"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
           "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
         )}
@@ -645,8 +650,10 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
           }
         }}
         onFocus={() => setIsFocused(true)}
-        onPointerDown={() => bringDialogToFront(dialogId)}
-        role="dialog"
+        onPointerDown={() => {
+          bringDialogToFront(dialogId);
+          handleDialogPointerDown();
+        }}
         style={{ width: DIALOG_WIDTH }}
       >
         {connectorState &&
@@ -663,189 +670,204 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
             portalTarget
           )}
 
+        {dialogCollaborator && (
+          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
+        )}
+
         <div
-          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-          style={
-            board.accentColor
-              ? {
-                  background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
-                }
-              : {}
-          }
-        >
-          <div className="flex items-center gap-1.5">
-            <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-primary text-xs",
-                !board.accentColor && "bg-primary/10"
-              )}
-              style={
-                board.accentColor
-                  ? {
-                      backgroundColor: `${board.accentColor}25`,
-                      color: board.accentColor,
-                    }
-                  : {}
-              }
-            >
-              {(() => {
-                const IconComponent = board.icon ? ICON_MAP[board.icon] : null;
-                if (IconComponent) {
-                  return <IconComponent className="h-3 w-3" />;
-                }
-                return <LayoutGrid className="h-3 w-3" />;
-              })()}
-              <span className="max-w-24 truncate">{board.name}</span>
-            </span>
-          </div>
-          <BlockingDialogsManager
-            dialogs={blockingDialogs}
-            onCloseAll={handleCloseBlocking}
-            onCloseMenu={handleClose}
-          >
-            <X className="h-3 w-3" />
-          </BlockingDialogsManager>
-        </div>
-
-        <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
-          <span className="text-[10px] text-muted-foreground">
-            {columnCount} columns
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {taskCount} tasks
-          </span>
-          {connectionCount > 0 && (
-            <span className="text-[10px] text-muted-foreground">
-              {connectionCount} connections
-            </span>
+          aria-labelledby={`quick-actions-${id}`}
+          className={cn(
+            "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card",
+            selected || isFocused || isTopmost ? "ring-2 ring-primary/50" : ""
           )}
-        </div>
+          role="dialog"
+        >
+          <div
+            className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            style={
+              board.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
+                  }
+                : {}
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              <GripHorizontal className="h-3 w-3 text-muted-foreground" />
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-primary text-xs",
+                  !board.accentColor && "bg-primary/10"
+                )}
+                style={
+                  board.accentColor
+                    ? {
+                        backgroundColor: `${board.accentColor}25`,
+                        color: board.accentColor,
+                      }
+                    : {}
+                }
+              >
+                {(() => {
+                  const IconComponent = board.icon
+                    ? ICON_MAP[board.icon]
+                    : null;
+                  if (IconComponent) {
+                    return <IconComponent className="h-3 w-3" />;
+                  }
+                  return <LayoutGrid className="h-3 w-3" />;
+                })()}
+                <span className="max-w-24 truncate">{board.name}</span>
+              </span>
+            </div>
+            <BlockingDialogsManager
+              dialogs={blockingDialogs}
+              onCloseAll={handleCloseBlocking}
+              onCloseMenu={handleClose}
+            >
+              <X className="h-3 w-3" />
+            </BlockingDialogsManager>
+          </div>
 
-        <div className="nodrag p-1">
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleRename}
-                  type="button"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  <span>Rename</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Change board name</p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
+            <span className="text-[10px] text-muted-foreground">
+              {columnCount} columns
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {taskCount} tasks
+            </span>
+            {connectionCount > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                {connectionCount} connections
+              </span>
+            )}
+          </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleAddTask}
-                  type="button"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Task</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Create a new task in this board</p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="nodrag p-1">
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleRename}
+                    type="button"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    <span>Rename</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Change board name</p>
+                </TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleDuplicate}
-                  type="button"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Duplicate</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">
-                    {taskCount}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  Create a copy of this board with all tasks
-                </p>
-              </TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleAddTask}
+                    type="button"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Task</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Create a new task in this board</p>
+                </TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
-                    hasOtherBoards
-                      ? "hover:bg-accent hover:text-accent-foreground"
-                      : "cursor-not-allowed opacity-50"
-                  )}
-                  disabled={!hasOtherBoards}
-                  onClick={hasOtherBoards ? handleConnections : undefined}
-                  type="button"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  <span>Connections</span>
-                  {connectionCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleDuplicate}
+                    type="button"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Duplicate</span>
                     <span className="ml-auto text-[10px] text-muted-foreground">
-                      {connectionCount}
+                      {taskCount}
                     </span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  {hasOtherBoards
-                    ? "Manage links to other boards"
-                    : "No boards available"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    Create a copy of this board with all tasks
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleProperties}
-                  type="button"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  <span>Properties</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  Configure board settings and column progress
-                </p>
-              </TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
+                      hasOtherBoards
+                        ? "hover:bg-accent hover:text-accent-foreground"
+                        : "cursor-not-allowed opacity-50"
+                    )}
+                    disabled={!hasOtherBoards}
+                    onClick={hasOtherBoards ? handleConnections : undefined}
+                    type="button"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    <span>Connections</span>
+                    {connectionCount > 0 && (
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {connectionCount}
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    {hasOtherBoards
+                      ? "Manage links to other boards"
+                      : "No boards available"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <div className="my-0.5 h-px bg-border/50" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleProperties}
+                    type="button"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Properties</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    Configure board settings and column progress
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
-                  onClick={handleDelete}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Board</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  Permanently delete this board and all tasks
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+              <div className="my-0.5 h-px bg-border/50" />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+                    onClick={handleDelete}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Board</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">
+                    Permanently delete this board and all tasks
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
     );

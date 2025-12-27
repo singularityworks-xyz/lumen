@@ -2,9 +2,17 @@ import {
   AreaPositionSchema,
   AreaSchema,
   BoardConnectionSchema,
+  BoardDialogSchema,
   BoardPositionSchema,
+  BoardQuickActionsSchema,
   BoardSchema,
+  ColumnDialogSchema,
+  ColumnQuickActionsSchema,
   ColumnSchema,
+  ConnectionDialogSchema,
+  CreateTaskModalSchema,
+  TaskDetailModalSchema,
+  TaskQuickActionsSchema,
   TaskSchema,
   WorkspaceSchema,
 } from "@/src/features/collab/validation/schema";
@@ -13,9 +21,13 @@ import type {
   AreaPosition,
   Board,
   BoardConnection,
+  BoardDialogState,
   BoardPosition,
+  BoardQuickActionsState,
   Column,
+  CreateTaskModalState,
   Task,
+  TaskDetailModalState,
   Workspace,
 } from "@/src/features/kanban/types";
 import { createEntitySync, YJS_MAP_NAMES } from "./entity-sync";
@@ -69,6 +81,89 @@ export const areaPositionSync = createEntitySync<AreaPosition>({
   entityName: "areaPosition",
 });
 
+export const boardQuickActionsSync = createEntitySync<BoardQuickActionsState>({
+  mapName: YJS_MAP_NAMES.BOARD_QUICK_ACTIONS,
+  schema: BoardQuickActionsSchema,
+  entityName: "boardQuickActions",
+});
+
+export const boardDialogSync = createEntitySync<BoardDialogState>({
+  mapName: YJS_MAP_NAMES.BOARD_DIALOGS,
+  schema: BoardDialogSchema,
+  entityName: "boardDialog",
+});
+
+export const connectionDialogSync = createEntitySync<{
+  id: string;
+  boardId: string;
+  position: { x: number; y: number };
+  selectedTargetId?: string | null;
+  editingConnectionId?: string | null;
+  sourceHandle?: "top" | "right" | "bottom" | "left";
+  targetHandle?: "top" | "right" | "bottom" | "left";
+  lineStyle?: "solid" | "dotted";
+  showArrow?: boolean;
+  label?: string;
+  searchQuery?: string;
+}>({
+  mapName: YJS_MAP_NAMES.CONNECTION_DIALOGS,
+  schema: ConnectionDialogSchema,
+  entityName: "connectionDialog",
+});
+
+export const createTaskModalSync = createEntitySync<CreateTaskModalState>({
+  mapName: YJS_MAP_NAMES.CREATE_TASK_MODALS,
+  schema: CreateTaskModalSchema,
+  entityName: "createTaskModal",
+});
+
+export const columnQuickActionsSync = createEntitySync<{
+  id: string;
+  columnId: string;
+  boardId: string;
+  showAddTask: boolean;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.COLUMN_QUICK_ACTIONS,
+  schema: ColumnQuickActionsSchema,
+  entityName: "columnQuickActions",
+});
+
+export const columnDialogSync = createEntitySync<{
+  id: string;
+  type: "rename" | "delete" | "move";
+  columnId: string;
+  columnName: string;
+  columnDescription?: string;
+  boardId: string;
+  boardName: string;
+  inputValue?: string;
+  descriptionValue?: string;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.COLUMN_DIALOGS,
+  schema: ColumnDialogSchema,
+  entityName: "columnDialog",
+});
+
+export const taskQuickActionsSync = createEntitySync<{
+  id: string;
+  taskId: string;
+  boardId: string;
+  columnId: string;
+  position: { x: number; y: number };
+}>({
+  mapName: YJS_MAP_NAMES.TASK_QUICK_ACTIONS,
+  schema: TaskQuickActionsSchema,
+  entityName: "taskQuickActions",
+});
+
+export const taskDetailModalSync = createEntitySync<TaskDetailModalState>({
+  mapName: YJS_MAP_NAMES.TASK_DETAIL_MODALS,
+  schema: TaskDetailModalSchema,
+  entityName: "taskDetailModal",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -78,4 +173,12 @@ export const allSyncs = {
   areas: areaSync,
   areaPositions: areaPositionSync,
   workspace: workspaceSync,
+  boardQuickActions: boardQuickActionsSync,
+  boardDialogs: boardDialogSync,
+  connectionDialogs: connectionDialogSync,
+  createTaskModals: createTaskModalSync,
+  columnQuickActions: columnQuickActionsSync,
+  columnDialogs: columnDialogSync,
+  taskQuickActions: taskQuickActionsSync,
+  taskDetailModals: taskDetailModalSync,
 } as const;

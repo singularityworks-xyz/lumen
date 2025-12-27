@@ -6,6 +6,7 @@ import type {
   DenormalizedColumn,
   Task,
 } from "../../types";
+import { calculateInitialBoardDimensions } from "../../utils/board-resize-rules";
 import { generateBoardId, generateColumnId } from "../ids";
 import type { KanbanStore } from "../types";
 import { getNextZIndex } from "../utils";
@@ -36,9 +37,11 @@ type SliceCreator = (
   | "updateBoardDialogNewName"
   | "updateBoardDialogCopyConnections"
   | "updateBoardDialogColumnProgress"
+  | "updateBoardDialogUIState"
   | "openConnectionDialog"
   | "closeConnectionDialog"
   | "updateConnectionDialogPosition"
+  | "updateConnectionDialogConfig"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -84,24 +87,10 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       },
     ];
 
-    const COLUMN_WIDTH = 300;
-    const COLUMN_GAP = 12;
-    const BOARD_PADDING = 24;
-    const HEADER_HEIGHT = 42;
-    const COLUMN_HEADER = 56;
-    const COLUMN_PADDING = 24;
-    const SKELETON_COLUMN_WIDTH = 225;
-    const columnCount = columns.length;
-
-    const initialWidth =
-      columnCount * COLUMN_WIDTH +
-      (columnCount > 0 ? columnCount * COLUMN_GAP : 0) +
-      (columnCount > 0 ? COLUMN_GAP : 0) +
-      SKELETON_COLUMN_WIDTH +
-      BOARD_PADDING * 2;
-
-    const initialHeight =
-      HEADER_HEIGHT + COLUMN_HEADER + 160 + COLUMN_PADDING + BOARD_PADDING;
+    // Use centralized dimension calculation for consistency across synced browsers
+    // This matches the logic used in calculateContentDimensions to prevent size mismatches
+    const { width: initialWidth, height: initialHeight } =
+      calculateInitialBoardDimensions(columns.length);
 
     set((state) => {
       let finalPosition: { x: number; y: number } = position || { x: 0, y: 0 };
@@ -557,6 +546,14 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
       }
     }),
 
+  updateBoardDialogUIState: (id, uiState) =>
+    set((state) => {
+      const dialog = state.boardDialogs[id];
+      if (dialog) {
+        Object.assign(dialog, uiState);
+      }
+    }),
+
   openConnectionDialog: (boardId, position) =>
     set((state) => {
       state.connectionDialog = {
@@ -574,6 +571,13 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.connectionDialog) {
         state.connectionDialog.position = position;
+      }
+    }),
+
+  updateConnectionDialogConfig: (config) =>
+    set((state) => {
+      if (state.connectionDialog) {
+        Object.assign(state.connectionDialog, config);
       }
     }),
 });

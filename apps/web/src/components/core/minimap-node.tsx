@@ -3,7 +3,7 @@
 import type { MiniMapNodeProps } from "@xyflow/react";
 import { useReactFlow } from "@xyflow/react";
 import { memo, useCallback } from "react";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
 const WORD_SPLIT_REGEX = /\s+/;
 

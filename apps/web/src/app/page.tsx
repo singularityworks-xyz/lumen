@@ -8,7 +8,6 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightControls } from "@/src/components/right-controls";
-import { WorkspaceDeletedBanner } from "@/src/components/workspace-deleted-banner";
 import {
   type JoinSuccessData,
   JoinWorkspaceHandler,
@@ -22,6 +21,7 @@ import type {
   Column,
   Task,
 } from "@/src/features/kanban/types";
+import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
 import { useWorkspaceSync } from "@/src/hooks/use-workspace-sync";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 

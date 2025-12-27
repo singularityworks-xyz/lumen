@@ -1,3 +1,5 @@
+export type { BoardQuickActionsState } from "@lumen/yjs-shared";
+
 export type Profile = {
   id: string;
   email: string;
@@ -190,7 +192,18 @@ export type TaskDetailModalState = {
   zIndex: number;
   sourceTaskId: string;
   initialIsEditing?: boolean;
+  isEditing?: boolean;
   openedFromQuickActions?: boolean;
+  draftTitle?: string;
+  draftDescription?: string;
+  draftPriority?: "low" | "medium" | "high";
+  draftProgress?: number;
+  draftDueDate?: string;
+  draftTags?: string;
+  draftColumnId?: string;
+  draftChecklists?: Checklist[];
+  draftLastUpdatedBy?: string;
+  draftLastUpdatedAt?: number;
 };
 
 export type BoardDialogType =
@@ -219,6 +232,8 @@ export type BoardDialogState = {
   columnId?: string;
   targetType?: "board" | "column";
   sourceDialogId?: string;
+  expandedColumnId?: string | null;
+  activeTab?: "progress" | "style";
 };
 
 export type ConnectionDialogState = {

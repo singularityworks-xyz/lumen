@@ -95,8 +95,12 @@ class RoomManager {
       };
 
       // Cleanup awareness when connection leaves
-      awareness.on("change", () => {
-        this.broadcastAwareness(workspaceId);
+      awareness.on("change", (_changes: unknown, origin: unknown) => {
+        // Only broadcast if the change didn't originate from a client message
+        // (which is already broadcasted efficiently in handleAwarenessMessage)
+        if (origin !== "client-update") {
+          this.broadcastAwareness(workspaceId);
+        }
       });
 
       // Schedule persistence on doc updates
@@ -170,16 +174,15 @@ class RoomManager {
     room.connections.set(connectionId, connection);
     this.connectionToRoom.set(connectionId, workspaceId);
 
-    // Set awareness state for this user
-    room.awareness.setLocalStateField("user", {
-      id: user.id,
-      name: user.name,
-      color: user.color,
-      role: user.role,
-    });
-
-    // Send initial sync
+    // NOTE: We don't set awareness state on the server-side anymore.
+    // The server acts as a relay - clients send their own awareness states.
+    // Setting awareness here would use the server's clientID which is wrong.
+    // Each client manages their own awareness state with their unique clientID.
+    // Send initial sync (document state + existing awareness states)
     this.sendSyncStep1(connection, room, initialStateVector);
+    // Broadcast awareness update to ALL clients (excluding the new one since they got it in step 1)
+    // so everyone can see everyone else's cursor immediately
+    this.broadcastAwareness(workspaceId);
 
     logger.info("Client joined room", {
       connectionId,
@@ -320,8 +323,43 @@ class RoomManager {
     decoder: decoding.Decoder
   ): boolean {
     const update = decoding.readVarUint8Array(decoder);
-    awarenessProtocol.applyAwarenessUpdate(room.awareness, update, connection);
+    awarenessProtocol.applyAwarenessUpdate(
+      room.awareness,
+      update,
+      "client-update"
+    );
+
+    // Explicitly broadcast awareness updates to other clients
+    // The awareness.on('change') listener also broadcasts, but this ensures
+    // immediate propagation of cursor updates without waiting for change processing
+    this.broadcastAwarenessToOthers(room, connection.id, update);
+
     return true;
+  }
+
+  // Broadcast awareness update to all clients except sender
+  private broadcastAwarenessToOthers(
+    room: Room,
+    excludeConnectionId: string,
+    update: Uint8Array
+  ): void {
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+    encoding.writeVarUint8Array(encoder, update);
+    const message = encoding.toUint8Array(encoder);
+
+    for (const [connId, conn] of room.connections.entries()) {
+      if (connId !== excludeConnectionId) {
+        try {
+          conn.ws.send(message);
+        } catch (error) {
+          logger.error("Failed to broadcast awareness to connection", {
+            connectionId: connId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+    }
   }
 
   // Send initial sync (step 1) and optionally step 2 if state vector provided

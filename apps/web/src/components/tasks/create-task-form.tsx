@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { CalendarIcon, Info, Loader, Tag } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
 import { Input } from "@/src/components/ui/input";
@@ -59,16 +59,13 @@ export const CreateTaskForm = memo(
       (state) => state.closeCreateTaskModal
     );
 
-    const [title, setTitle] = useState(formData.title);
-    const [description, setDescription] = useState(formData.description);
-    const [priority, setPriority] = useState<Task["priority"]>(
-      formData.priority
-    );
-    const [progress, setProgress] = useState(formData.progress);
-    const [dueDate, setDueDate] = useState<Date | undefined>(
-      formData.dueDate ? new Date(formData.dueDate) : undefined
-    );
-    const [tags, setTags] = useState<string[]>(() => {
+    // Get form values directly from store (synced across collaborators)
+    const title = formData.title;
+    const description = formData.description;
+    const priority = formData.priority;
+    const progress = formData.progress;
+    const dueDate = formData.dueDate ? new Date(formData.dueDate) : undefined;
+    const tags = (() => {
       if (!formData.tags) {
         return [];
       }
@@ -78,32 +75,43 @@ export const CreateTaskForm = memo(
       } catch {
         return formData.tags.split(",").filter((t) => t.trim().length > 0);
       }
-    });
+    })();
+
+    // Setter functions that update store (syncing to collaborators)
+    const setTitle = useCallback(
+      (value: string) => updateModalFormData(modalId, { title: value }),
+      [modalId, updateModalFormData]
+    );
+    const setDescription = useCallback(
+      (value: string) => updateModalFormData(modalId, { description: value }),
+      [modalId, updateModalFormData]
+    );
+    const setPriority = useCallback(
+      (value: Task["priority"]) =>
+        updateModalFormData(modalId, { priority: value }),
+      [modalId, updateModalFormData]
+    );
+    const setProgress = useCallback(
+      (value: number) => updateModalFormData(modalId, { progress: value }),
+      [modalId, updateModalFormData]
+    );
+    const setDueDate = useCallback(
+      (date: Date | undefined) =>
+        updateModalFormData(modalId, { dueDate: date?.toISOString() ?? "" }),
+      [modalId, updateModalFormData]
+    );
+    const setTags = useCallback(
+      (newTags: string[]) =>
+        updateModalFormData(modalId, { tags: JSON.stringify(newTags) }),
+      [modalId, updateModalFormData]
+    );
 
     const suggestions = useTagSuggestions(boardId, selectedColumnId, tags);
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
 
-    const formValuesRef = useRef({
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tags,
-    });
-
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    formValuesRef.current = {
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tags,
-    };
 
     useEffect(() => {
       if (textareaRef.current) {
@@ -111,21 +119,6 @@ export const CreateTaskForm = memo(
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
       }
     }, []);
-
-    useEffect(
-      () => () => {
-        const values = formValuesRef.current;
-        updateModalFormData(modalId, {
-          title: values.title,
-          description: values.description,
-          priority: values.priority,
-          progress: values.progress,
-          dueDate: values.dueDate?.toISOString() ?? "",
-          tags: JSON.stringify(values.tags),
-        });
-      },
-      [modalId, updateModalFormData]
-    );
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -153,39 +146,31 @@ export const CreateTaskForm = memo(
       if (value.trim()) {
         setTitleError(false);
       }
-      updateModalFormData(modalId, { title: value });
     };
 
     const handleDescriptionChange = (
       e: React.ChangeEvent<HTMLTextAreaElement>
     ) => {
-      const value = e.target.value;
-      setDescription(value);
-      updateModalFormData(modalId, { description: value });
-
+      setDescription(e.target.value);
       e.target.style.height = "auto";
       e.target.style.height = `${e.target.scrollHeight}px`;
     };
 
     const handlePriorityChange = (value: Task["priority"]) => {
       setPriority(value);
-      updateModalFormData(modalId, { priority: value });
     };
 
     const handleProgressChange = (value: number[]) => {
       const val = value[0] ?? 0;
       setProgress(val);
-      updateModalFormData(modalId, { progress: val });
     };
 
     const handleDueDateChange = (date: Date | undefined) => {
       setDueDate(date);
-      updateModalFormData(modalId, { dueDate: date?.toISOString() ?? "" });
     };
 
     const handleTagsChange = (newTags: string[]) => {
       setTags(newTags);
-      updateModalFormData(modalId, { tags: JSON.stringify(newTags) });
     };
 
     return (

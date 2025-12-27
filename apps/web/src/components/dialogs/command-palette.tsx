@@ -9,11 +9,11 @@ import {
   useCanRedo,
   useCanUndo,
   useKanbanStore,
-} from "../../features/kanban/store/kanban-store";
+} from "@/src/features/kanban/store/kanban-store";
 import {
   useCurrentWorkspace,
   useShowWelcomeScreen,
-} from "../../features/kanban/store/selectors";
+} from "@/src/features/kanban/store/selectors";
 
 type Command = {
   id: string;

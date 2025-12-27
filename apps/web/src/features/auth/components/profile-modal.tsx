@@ -1,4 +1,5 @@
 import { createLogger } from "@lumen/logger";
+import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   ChevronDown,
@@ -12,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -565,82 +566,123 @@ const CollaboratorsList = memo(
     apiUrl: string;
     open: boolean;
   }) => {
-    const [allMembers, setAllMembers] = useState<
-      Array<{
+    const { user: authUser } = useAuth();
+    const {
+      collaborators: onlineCollaborators,
+      isCollaborating,
+      localUser: collabLocalUser,
+    } = useCollaboration();
+
+    // Use TanStack Query for caching collaborators data
+    const { data: apiMembers = [], isLoading } = useQuery({
+      queryKey: ["workspace-collaborators", workspaceId],
+      queryFn: async () => {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${workspaceId}/collaborators`,
+          { credentials: "include" }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch collaborators");
+        }
+        const data = await response.json();
+        return (data.collaborators || []) as Array<{
+          id: string;
+          name: string | null;
+          image: string | null;
+          role: string;
+        }>;
+      },
+      enabled: !!workspaceId && open,
+      staleTime: 30 * 1000, // Consider data stale after 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    });
+
+    // Build combined members list from WS + API data
+    const { allMembers, onlineIds } = useMemo(() => {
+      const ids = new Set<string>();
+      const onlineMembers: Array<{
         id: string;
-        name: string | null;
+        name: string;
         image: string | null;
         role: string;
-      }>
-    >([]);
-    const [loading, setLoading] = useState(false);
+        color?: string;
+      }> = [];
 
-    const { user: localUser } = useAuth();
-    const { collaborators: onlineCollaborators, isCollaborating } =
-      useCollaboration();
-
-    useEffect(() => {
-      if (!(workspaceId && open)) {
-        return;
+      // Add current user if collaborating
+      if (isCollaborating && authUser) {
+        ids.add(authUser.id);
+        onlineMembers.push({
+          id: authUser.id,
+          name: authUser.name || "You",
+          image: authUser.image || null,
+          role: "owner",
+          color: collabLocalUser?.color, // Use the local user's cursor color
+        });
       }
 
-      const fetchMembers = async () => {
-        setLoading(true);
-        try {
-          const response = await fetch(
-            `${apiUrl}/api/workspaces/${workspaceId}/collaborators`,
-            { credentials: "include" }
-          );
-          if (response.ok) {
-            const data = await response.json();
-            setAllMembers(data.collaborators || []);
-          }
-        } catch (error) {
-          logger.error("Failed to fetch collaborators", `${error}`);
-        } finally {
-          setLoading(false);
+      // Add WebSocket collaborators
+      for (const c of onlineCollaborators) {
+        if (!ids.has(c.id)) {
+          ids.add(c.id);
+          onlineMembers.push({
+            id: c.id,
+            name: c.name,
+            image: null,
+            role: c.role,
+            color: c.color,
+          });
         }
-      };
+      }
 
-      fetchMembers();
-    }, [workspaceId, apiUrl, open]);
+      // Merge with API data for images and past members
+      const members = [...onlineMembers];
+
+      for (const apiMember of apiMembers) {
+        if (ids.has(apiMember.id)) {
+          // Update online member with API image if available
+          const existing = members.find((m) => m.id === apiMember.id);
+          if (existing && apiMember.image) {
+            existing.image = apiMember.image;
+          }
+        } else {
+          members.push({
+            id: apiMember.id,
+            name: apiMember.name || "Unknown",
+            image: apiMember.image,
+            role: apiMember.role,
+          });
+        }
+      }
+
+      return { allMembers: members, onlineIds: ids };
+    }, [
+      isCollaborating,
+      authUser,
+      collabLocalUser,
+      onlineCollaborators,
+      apiMembers,
+    ]);
 
     if (!workspaceId) {
       return null;
     }
 
-    if (loading && allMembers.length === 0) {
+    if (isLoading && allMembers.length === 0) {
       return (
-        <div className="space-y-3 pt-2">
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <div className="flex gap-2">
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-24" />
-            <div className="flex gap-2">
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-            </div>
+        <div className="space-y-2 pt-2">
+          <Skeleton className="h-3 w-20" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
           </div>
         </div>
       );
     }
 
-    if (!loading && allMembers.length === 0) {
+    if (allMembers.length === 0) {
       return null;
-    }
-
-    const onlineIds = new Set<string>();
-    for (const c of onlineCollaborators) {
-      onlineIds.add(c.id);
-    }
-    if (isCollaborating && localUser) {
-      onlineIds.add(localUser.id);
     }
 
     return (
@@ -650,31 +692,52 @@ const CollaboratorsList = memo(
         </h3>
         <div className="flex flex-wrap gap-2">
           <TooltipProvider delayDuration={0}>
-            {allMembers.map((user) => {
-              const isOnline = onlineIds.has(user.id);
+            {allMembers.map((member) => {
+              const isOnline = onlineIds.has(member.id);
+              const cursorColor = member.color;
               return (
-                <Tooltip key={user.id}>
+                <Tooltip key={member.id}>
                   <TooltipTrigger asChild>
                     <div
                       className={`relative transition-all ${isOnline ? "" : "grayscale hover:grayscale-0"}`}
                     >
                       <Avatar
-                        className={`h-8 w-8 cursor-help rounded-lg border border-border/50 ring-2 ring-background ${isOnline ? "hover:scale-110 hover:ring-primary/20" : "bg-muted"}`}
+                        className={`h-8 w-8 cursor-help rounded-lg ring-2 ring-background ${isOnline ? "hover:scale-110" : "border border-border/50 bg-muted"}`}
+                        style={
+                          isOnline && cursorColor
+                            ? { border: `2px solid ${cursorColor}` }
+                            : isOnline
+                              ? { border: "2px solid hsl(var(--primary))" }
+                              : undefined
+                        }
                       >
-                        <AvatarImage src={user.image || ""} />
-                        <AvatarFallback className="rounded-lg text-[10px]">
-                          {user.name?.charAt(0) || "U"}
+                        <AvatarImage src={member.image || ""} />
+                        <AvatarFallback
+                          className="rounded-lg text-[10px]"
+                          style={
+                            cursorColor
+                              ? {
+                                  backgroundColor: `${cursorColor}20`,
+                                  color: cursorColor,
+                                }
+                              : undefined
+                          }
+                        >
+                          {member.name?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
                       {isOnline && (
-                        <span className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
+                        <span
+                          className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background"
+                          style={{ backgroundColor: cursorColor || "#22c55e" }}
+                        />
                       )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     <p className="text-xs">
-                      {user.name}
-                      {user.role === "owner" && " (Owner)"}
+                      {member.name}
+                      {member.role === "owner" && " (Owner)"}
                       {isOnline && " • Online"}
                     </p>
                   </TooltipContent>

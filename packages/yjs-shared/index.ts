@@ -10,6 +10,14 @@ export const YJS_MAP_NAMES = {
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
   CANVAS: "canvas",
+  BOARD_QUICK_ACTIONS: "boardQuickActions",
+  BOARD_DIALOGS: "boardDialogs",
+  CONNECTION_DIALOGS: "connectionDialogs",
+  CREATE_TASK_MODALS: "createTaskModals",
+  COLUMN_QUICK_ACTIONS: "columnQuickActions",
+  COLUMN_DIALOGS: "columnDialogs",
+  TASK_QUICK_ACTIONS: "taskQuickActions",
+  TASK_DETAIL_MODALS: "taskDetailModals",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
@@ -139,6 +147,178 @@ export const CanvasStateSchema = z.object({
   lastInteractionTime: z.number(),
 });
 
+export const BoardQuickActionsSchema = z.object({
+  id: z.string(),
+  boardId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+export const ColumnQuickActionsSchema = z.object({
+  id: z.string(),
+  columnId: z.string(),
+  boardId: z.string(),
+  showAddTask: z.boolean(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+export const ColumnDialogTypeSchema = z.enum(["rename", "delete", "move"]);
+
+export const ColumnDialogSchema = z.object({
+  id: z.string(),
+  type: ColumnDialogTypeSchema,
+  columnId: z.string(),
+  columnName: z.string(),
+  columnDescription: z.string().optional(),
+  boardId: z.string(),
+  boardName: z.string(),
+  inputValue: z.string().optional(),
+  descriptionValue: z.string().optional(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+export const BoardDialogTypeSchema = z.enum([
+  "rename",
+  "duplicate",
+  "delete",
+  "properties",
+  "color-icon-picker",
+]);
+
+export const BoardDialogSchema = z.object({
+  id: z.string(),
+  type: BoardDialogTypeSchema,
+  boardId: z.string(),
+  boardName: z.string(),
+  boardDescription: z.string().optional(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  zIndex: z.number(),
+  inputValue: z.string().optional(),
+  descriptionValue: z.string().optional(),
+  newName: z.string().optional(),
+  copyConnections: z.boolean().optional(),
+  columnCount: z.number().optional(),
+  taskCount: z.number().optional(),
+  connectionCount: z.number().optional(),
+  columnProgressValues: z.record(z.string(), z.number()).optional(),
+  columnId: z.string().optional(),
+  targetType: z.enum(["board", "column"]).optional(),
+  sourceDialogId: z.string().optional(),
+  expandedColumnId: z.string().nullable().optional(),
+  activeTab: z.enum(["progress", "style"]).optional(),
+});
+
+// Connection dialog schema - syncs across collaborators
+export const ConnectionDialogSchema = z.object({
+  id: z.string(),
+  boardId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  // Connection config state
+  selectedTargetId: z.string().nullable().optional(),
+  editingConnectionId: z.string().nullable().optional(),
+  sourceHandle: HandlePositionSchema.optional(),
+  targetHandle: HandlePositionSchema.optional(),
+  lineStyle: LineStyleSchema.optional(),
+  showArrow: z.boolean().optional(),
+  label: z.string().optional(),
+  searchQuery: z.string().optional(),
+});
+
+// Create task modal form data schema
+export const CreateTaskModalFormDataSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  priority: PrioritySchema,
+  progress: z.number(),
+  dueDate: z.string(),
+  tags: z.string(),
+});
+
+// Create task modal schema - syncs across collaborators
+export const CreateTaskModalSchema = z.object({
+  id: z.string(),
+  boardId: z.string(),
+  columnId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  sourcePosition: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+    })
+    .optional(),
+  sourceRect: z
+    .object({
+      top: z.number(),
+      right: z.number(),
+      bottom: z.number(),
+      left: z.number(),
+      width: z.number(),
+      height: z.number(),
+    })
+    .optional(),
+  sourceType: z
+    .enum(["board-menu", "board-header", "column-menu", "column-header"])
+    .optional(),
+  formData: CreateTaskModalFormDataSchema,
+  zIndex: z.number(),
+});
+
+// Task quick actions schema - syncs across collaborators
+export const TaskQuickActionsSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  boardId: z.string(),
+  columnId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+// Task detail modal schema - syncs across collaborators
+export const TaskDetailModalSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  boardId: z.string(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }),
+  zIndex: z.number(),
+  sourceTaskId: z.string(),
+  initialIsEditing: z.boolean().optional(),
+  isEditing: z.boolean().optional(),
+  openedFromQuickActions: z.boolean().optional(),
+  // Draft state for real-time collaboration
+  draftTitle: z.string().optional(),
+  draftDescription: z.string().optional(),
+  draftPriority: PrioritySchema.optional(),
+  draftProgress: z.number().optional(),
+  draftDueDate: z.string().optional(),
+  draftTags: z.string().optional(),
+  draftColumnId: z.string().optional(),
+  draftChecklists: z.array(ChecklistSchema).optional(),
+  draftLastUpdatedBy: z.string().optional(),
+  draftLastUpdatedAt: z.number().optional(),
+});
+
 export type Task = z.infer<typeof TaskSchema>;
 export type Column = z.infer<typeof ColumnSchema>;
 export type Board = z.infer<typeof BoardSchema>;
@@ -150,6 +330,15 @@ export type AreaPosition = z.infer<typeof AreaPositionSchema>;
 export type ViewportState = z.infer<typeof ViewportStateSchema>;
 export type Checklist = z.infer<typeof ChecklistSchema>;
 export type CanvasState = z.infer<typeof CanvasStateSchema>;
+export type BoardQuickActionsState = z.infer<typeof BoardQuickActionsSchema>;
+export type BoardDialogState = z.infer<typeof BoardDialogSchema>;
+export type ConnectionDialogState = z.infer<typeof ConnectionDialogSchema>;
+export type CreateTaskModalState = z.infer<typeof CreateTaskModalSchema>;
+export type CreateTaskModalFormData = z.infer<
+  typeof CreateTaskModalFormDataSchema
+>;
+export type TaskQuickActionsState = z.infer<typeof TaskQuickActionsSchema>;
+export type TaskDetailModalState = z.infer<typeof TaskDetailModalSchema>;
 
 export type ValidationResult<T> =
   | { success: true; data: T }

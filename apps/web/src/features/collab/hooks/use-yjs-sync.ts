@@ -12,9 +12,16 @@ import {
   areaPositionSync,
   areaSync,
   boardConnectionSync,
+  boardDialogSync,
   boardPositionSync,
+  boardQuickActionsSync,
   boardSync,
+  columnDialogSync,
+  columnQuickActionsSync,
   columnSync,
+  connectionDialogSync,
+  createTaskModalSync,
+  taskQuickActionsSync,
   taskSync,
   workspaceSync,
 } from "@/src/features/collab/sync/syncs";
@@ -291,6 +298,322 @@ export function useYjsSync(
       for (const id of areaPosDiff.removed) {
         areaPositionSync.deleteFromYjs(doc, id);
       }
+
+      // Diff and sync board quick actions (dialog menus)
+      const prevQuickActions = Object.entries(
+        prevState.boardQuickActions
+      ).reduce(
+        (acc, [boardId, qa]) => {
+          if (qa) {
+            acc[boardId] = { id: boardId, boardId, position: qa.position };
+          }
+          return acc;
+        },
+        {} as Record<
+          string,
+          { id: string; boardId: string; position: { x: number; y: number } }
+        >
+      );
+      const currQuickActions = Object.entries(state.boardQuickActions).reduce(
+        (acc, [boardId, qa]) => {
+          if (qa) {
+            acc[boardId] = { id: boardId, boardId, position: qa.position };
+          }
+          return acc;
+        },
+        {} as Record<
+          string,
+          { id: string; boardId: string; position: { x: number; y: number } }
+        >
+      );
+      const qaDiff = diffEntityMaps(prevQuickActions, currQuickActions);
+      if (
+        qaDiff.added.length > 0 ||
+        qaDiff.changed.length > 0 ||
+        qaDiff.removed.length > 0
+      ) {
+        logger.debug("Syncing quick actions to Yjs", {
+          added: qaDiff.added.length,
+          changed: qaDiff.changed.length,
+          removed: qaDiff.removed.length,
+        });
+      }
+      for (const qa of [...qaDiff.added, ...qaDiff.changed]) {
+        boardQuickActionsSync.setInYjs(doc, qa);
+      }
+      for (const id of qaDiff.removed) {
+        boardQuickActionsSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync board dialogs
+      const dialogDiff = diffEntityMaps(
+        prevState.boardDialogs,
+        state.boardDialogs
+      );
+      if (
+        dialogDiff.added.length > 0 ||
+        dialogDiff.changed.length > 0 ||
+        dialogDiff.removed.length > 0
+      ) {
+        logger.debug("Syncing board dialogs to Yjs", {
+          added: dialogDiff.added.length,
+          changed: dialogDiff.changed.length,
+          removed: dialogDiff.removed.length,
+        });
+      }
+      for (const dialog of [...dialogDiff.added, ...dialogDiff.changed]) {
+        boardDialogSync.setInYjs(doc, dialog);
+      }
+      for (const id of dialogDiff.removed) {
+        boardDialogSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync connection dialog
+      // connectionDialog is a single object or null, so we handle it specially
+      const prevConnDialog = prevState.connectionDialog;
+      const currConnDialog = state.connectionDialog;
+
+      // Full connection dialog type for syncing
+      type ConnDialogSync = {
+        id: string;
+        boardId: string;
+        position: { x: number; y: number };
+        selectedTargetId?: string | null;
+        editingConnectionId?: string | null;
+        sourceHandle?: "top" | "right" | "bottom" | "left";
+        targetHandle?: "top" | "right" | "bottom" | "left";
+        lineStyle?: "solid" | "dotted";
+        showArrow?: boolean;
+        label?: string;
+        searchQuery?: string;
+      };
+
+      // Convert to record format for diffing (using boardId as key)
+      const prevConnDialogMap: Record<string, ConnDialogSync> = {};
+      if (prevConnDialog) {
+        prevConnDialogMap[prevConnDialog.boardId] = {
+          id: prevConnDialog.boardId,
+          boardId: prevConnDialog.boardId,
+          position: prevConnDialog.position,
+          selectedTargetId: prevConnDialog.selectedTargetId,
+          editingConnectionId: prevConnDialog.editingConnectionId,
+          sourceHandle: prevConnDialog.sourceHandle,
+          targetHandle: prevConnDialog.targetHandle,
+          lineStyle: prevConnDialog.lineStyle,
+          showArrow: prevConnDialog.showArrow,
+          label: prevConnDialog.label,
+          searchQuery: prevConnDialog.searchQuery,
+        };
+      }
+
+      const currConnDialogMap: Record<string, ConnDialogSync> = {};
+      if (currConnDialog) {
+        currConnDialogMap[currConnDialog.boardId] = {
+          id: currConnDialog.boardId,
+          boardId: currConnDialog.boardId,
+          position: currConnDialog.position,
+          selectedTargetId: currConnDialog.selectedTargetId,
+          editingConnectionId: currConnDialog.editingConnectionId,
+          sourceHandle: currConnDialog.sourceHandle,
+          targetHandle: currConnDialog.targetHandle,
+          lineStyle: currConnDialog.lineStyle,
+          showArrow: currConnDialog.showArrow,
+          label: currConnDialog.label,
+          searchQuery: currConnDialog.searchQuery,
+        };
+      }
+
+      const connDialogDiff = diffEntityMaps(
+        prevConnDialogMap,
+        currConnDialogMap
+      );
+      for (const dialog of [
+        ...connDialogDiff.added,
+        ...connDialogDiff.changed,
+      ]) {
+        connectionDialogSync.setInYjs(doc, dialog);
+        logger.debug("Synced connection dialog to Yjs", {
+          boardId: dialog.boardId,
+        });
+      }
+      for (const id of connDialogDiff.removed) {
+        connectionDialogSync.deleteFromYjs(doc, id);
+        logger.debug("Removed connection dialog from Yjs", { boardId: id });
+      }
+
+      // Diff and sync create task modals
+      const createTaskModalDiff = diffEntityMaps(
+        prevState.createTaskModals,
+        state.createTaskModals
+      );
+      if (
+        createTaskModalDiff.added.length > 0 ||
+        createTaskModalDiff.changed.length > 0 ||
+        createTaskModalDiff.removed.length > 0
+      ) {
+        logger.debug("Syncing create task modals to Yjs", {
+          added: createTaskModalDiff.added.length,
+          changed: createTaskModalDiff.changed.length,
+          removed: createTaskModalDiff.removed.length,
+        });
+      }
+      for (const modal of [
+        ...createTaskModalDiff.added,
+        ...createTaskModalDiff.changed,
+      ]) {
+        createTaskModalSync.setInYjs(doc, modal);
+      }
+      for (const id of createTaskModalDiff.removed) {
+        createTaskModalSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync column quick actions
+      // Convert column quick actions to entity map format for diffing
+      const prevColumnQAMap: Record<
+        string,
+        {
+          id: string;
+          columnId: string;
+          boardId: string;
+          showAddTask: boolean;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [columnId, qa] of Object.entries(
+        prevState.columnQuickActions
+      )) {
+        if (qa) {
+          prevColumnQAMap[columnId] = {
+            id: columnId,
+            columnId: qa.columnId,
+            boardId: qa.boardId,
+            showAddTask: qa.showAddTask,
+            position: qa.position,
+          };
+        }
+      }
+
+      const currColumnQAMap: Record<
+        string,
+        {
+          id: string;
+          columnId: string;
+          boardId: string;
+          showAddTask: boolean;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [columnId, qa] of Object.entries(state.columnQuickActions)) {
+        if (qa) {
+          currColumnQAMap[columnId] = {
+            id: columnId,
+            columnId: qa.columnId,
+            boardId: qa.boardId,
+            showAddTask: qa.showAddTask,
+            position: qa.position,
+          };
+        }
+      }
+
+      const columnQADiff = diffEntityMaps(prevColumnQAMap, currColumnQAMap);
+      for (const qa of [...columnQADiff.added, ...columnQADiff.changed]) {
+        columnQuickActionsSync.setInYjs(doc, qa);
+      }
+      for (const id of columnQADiff.removed) {
+        columnQuickActionsSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync column dialogs
+      const prevColumnDialogMap: Record<
+        string,
+        (typeof state.columnDialogs)[string] & { id: string }
+      > = {};
+      for (const [dialogId, dialog] of Object.entries(
+        prevState.columnDialogs
+      )) {
+        if (dialog) {
+          prevColumnDialogMap[dialogId] = { ...dialog, id: dialogId };
+        }
+      }
+
+      const currColumnDialogMap: Record<
+        string,
+        (typeof state.columnDialogs)[string] & { id: string }
+      > = {};
+      for (const [dialogId, dialog] of Object.entries(state.columnDialogs)) {
+        if (dialog) {
+          currColumnDialogMap[dialogId] = { ...dialog, id: dialogId };
+        }
+      }
+
+      const columnDialogDiff = diffEntityMaps(
+        prevColumnDialogMap,
+        currColumnDialogMap
+      );
+      for (const dialog of [
+        ...columnDialogDiff.added,
+        ...columnDialogDiff.changed,
+      ]) {
+        columnDialogSync.setInYjs(doc, dialog);
+      }
+      for (const id of columnDialogDiff.removed) {
+        columnDialogSync.deleteFromYjs(doc, id);
+      }
+
+      const prevTaskQAMap: Record<
+        string,
+        {
+          id: string;
+          taskId: string;
+          boardId: string;
+          columnId: string;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [taskId, qa] of Object.entries(prevState.taskQuickActions)) {
+        if (qa) {
+          prevTaskQAMap[taskId] = {
+            id: taskId,
+            taskId: qa.taskId,
+            boardId: qa.boardId,
+            columnId: qa.columnId,
+            position: qa.position,
+          };
+        }
+      }
+
+      const currTaskQAMap: Record<
+        string,
+        {
+          id: string;
+          taskId: string;
+          boardId: string;
+          columnId: string;
+          position: { x: number; y: number };
+        }
+      > = {};
+      for (const [taskId, qa] of Object.entries(state.taskQuickActions)) {
+        if (qa) {
+          currTaskQAMap[taskId] = {
+            id: taskId,
+            taskId: qa.taskId,
+            boardId: qa.boardId,
+            columnId: qa.columnId,
+            position: qa.position,
+          };
+        }
+      }
+
+      const taskQADiff = diffEntityMaps(prevTaskQAMap, currTaskQAMap);
+      for (const qa of [...taskQADiff.added, ...taskQADiff.changed]) {
+        taskQuickActionsSync.setInYjs(doc, qa);
+      }
+      for (const id of taskQADiff.removed) {
+        taskQuickActionsSync.deleteFromYjs(doc, id);
+      }
+
+      // NOTE: Task detail modals are synced by dedicated useTaskDialogSync hook
+      // This provides better ownership tracking and prevents race conditions
     });
 
     return unsubscribe;

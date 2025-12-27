@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { CollaborationProvider, useCollaboration } from "./collab-provider";
+import { useTaskDialogSync } from "./hooks/use-task-dialog-sync";
 import { useYjsSync } from "./hooks/use-yjs-sync";
 
 // Connects to WebSocket and enables sync when workspace is available and shared
@@ -17,8 +18,14 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   );
   const isConnected = connectionState === "connected";
 
-  // Only auto-connect when workspace is shared (joined via share OR has share URL)
-  const isSharedWorkspace = currentWorkspace?.isShared === true || !!shareUrl;
+  // Only auto-connect when workspace is shared:
+  // - isShared: true means the workspace was joined via share link (editor)
+  // - shareUrl set in state means owner has shared this workspace
+  // - shareToken on workspace means owner has shared (persisted token)
+  const isSharedWorkspace =
+    currentWorkspace?.isShared === true ||
+    !!shareUrl ||
+    !!currentWorkspace?.shareToken;
 
   // Auto-connect when shared workspace is available
   useEffect(() => {
@@ -34,7 +41,12 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
     };
   }, [currentWorkspaceId, isSharedWorkspace, connect, disconnect]);
 
+  // Main entity sync (boards, columns, tasks, etc.)
   useYjsSync(doc, isConnected, currentWorkspaceId);
+
+  // Dedicated task detail modal sync (handles ownership and prevents race conditions)
+  useTaskDialogSync(doc, isConnected);
+
   return <>{children}</>;
 }
 

@@ -42,25 +42,28 @@ import { useShallow } from "zustand/shallow";
 // biome-ignore lint/suspicious/noTsIgnore: added because of CSS import & VSCode false positive
 // @ts-ignore: False positive due to CSS import
 import "@xyflow/react/dist/style.css";
-import { CursorOverlay, useCollaboration } from "../../features/collab";
-import { nodeTypes } from "../../features/kanban/components/board-node";
-import { BulkActionsBar } from "../../features/kanban/components/bulk-actions-bar";
+import {
+  type BoardEdge,
+  BoardEdgeComponent,
+} from "@/src/components/core/board-edge";
+import { CustomControls } from "@/src/components/custom-controls";
+import { WelcomeScreen } from "@/src/components/dialogs/welcome-screen";
+import { EdgeContextMenu } from "@/src/components/edge-context-menu";
+import { RightControls } from "@/src/components/right-controls";
+import { CursorOverlay, useCollaboration } from "@/src/features/collab";
+import { nodeTypes } from "@/src/features/kanban/components/board-node";
+import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import {
   canRedo,
   canUndo,
   redo,
   undo,
   useKanbanStore,
-} from "../../features/kanban/store/kanban-store";
-import { useShowWelcomeScreen } from "../../features/kanban/store/selectors";
-import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
-import type { BoardNode } from "../../features/kanban/types";
-import { type BoardEdge, BoardEdgeComponent } from "../core/board-edge";
-import { CustomControls } from "../custom-controls";
-import { WelcomeScreen } from "../dialogs/welcome-screen";
-import { EdgeContextMenu } from "../edge-context-menu";
-import { RightControls } from "../right-controls";
-import { WorkspaceSelector } from "../workspace-selector";
+} from "@/src/features/kanban/store/kanban-store";
+import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import type { BoardNode } from "@/src/features/kanban/types";
+import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 
@@ -235,7 +238,13 @@ export function KanbanCanvas() {
     []
   );
 
-  const { collaborators, updateCursor, isCollaborating } = useCollaboration();
+  const {
+    collaborators,
+    updateCursor,
+    isCollaborating,
+    updateSelection,
+    updateOpenDialogs,
+  } = useCollaboration();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
 
   const [activeColumnData, setActiveColumnData] = useState<{
@@ -500,6 +509,9 @@ export function KanbanCanvas() {
           data: { modalId: modal.id },
           style: { zIndex: computeZIndex(`task-detail-modal-${modal.id}`) },
           draggable: true,
+          // Prevent React Flow from hiding the node while measuring dimensions
+          width: 400,
+          height: 1,
         };
         return node;
       })
@@ -1136,16 +1148,53 @@ export function KanbanCanvas() {
     [activeColumnData]
   );
 
-  // Cursor tracking for collaboration
-  // Use flow coordinates so cursor position is absolute on the canvas
-  // This ensures cursors appear at the correct canvas position regardless of viewport
+  // Window-level cursor tracking for collaboration
+  // This ensures cursor updates even during resize operations when React Flow
+  // NodeResizer captures pointer events and stops them from bubbling
+  useEffect(() => {
+    if (!isCollaborating) {
+      return;
+    }
+
+    let lastUpdateTime = 0;
+    const THROTTLE_MS = 16; // ~60fps throttle to avoid too many updates
+
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      const now = Date.now();
+      if (now - lastUpdateTime < THROTTLE_MS) {
+        return;
+      }
+      lastUpdateTime = now;
+
+      // Convert screen position to flow (canvas) coordinates
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor({ x: flowPos.x, y: flowPos.y });
+    };
+
+    const handleWindowMouseLeave = () => {
+      updateCursor(null);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    document.addEventListener("mouseleave", handleWindowMouseLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      document.removeEventListener("mouseleave", handleWindowMouseLeave);
+    };
+  }, [isCollaborating, screenToFlowPosition, updateCursor]);
+
+  // Legacy mouse move handler (kept for backup, but window listener is preferred)
   const handleCanvasMouseMove = useCallback(
     (event: React.MouseEvent) => {
+      // Window listener handles this now, but keep for cases where window listener
+      // might not capture (e.g., during certain pointer capture scenarios)
       if (!isCollaborating) {
         return;
       }
-      // Convert screen position to flow (canvas) coordinates
-      // Flow coordinates are absolute on the canvas, independent of zoom/pan
       const flowPos = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -1160,6 +1209,47 @@ export function KanbanCanvas() {
       updateCursor(null);
     }
   }, [isCollaborating, updateCursor]);
+
+  // Track cursor during node dragging (board, dialog, etc.)
+  // This fixes the issue where cursor doesn't update when dragging boards by header
+  const handleNodeDrag = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isCollaborating) {
+        return;
+      }
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor({ x: flowPos.x, y: flowPos.y });
+    },
+    [isCollaborating, screenToFlowPosition, updateCursor]
+  );
+
+  // Navigate to a collaborator's cursor position (when clicking edge indicator)
+  const handleNavigateToUser = useCallback(
+    (position: { x: number; y: number }) => {
+      // Center the viewport on the collaborator's cursor position
+      setReactFlowViewport(
+        {
+          x: -position.x + window.innerWidth / 2,
+          y: -position.y + window.innerHeight / 2,
+          zoom: 1,
+        },
+        { duration: 500 }
+      );
+    },
+    [setReactFlowViewport]
+  );
+
+  const handlePaneClick = useCallback(() => {
+    if (isCollaborating) {
+      // Clear board selection indicator
+      updateSelection([]);
+      // Clear dialog focus indicator (so presence border disappears when clicking on canvas)
+      updateOpenDialogs([]);
+    }
+  }, [isCollaborating, updateSelection, updateOpenDialogs]);
 
   return (
     <DndContext
@@ -1202,7 +1292,9 @@ export function KanbanCanvas() {
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
             onMoveEnd={handleMoveEnd}
+            onNodeDrag={handleNodeDrag}
             onNodesChange={handleNodesChange}
+            onPaneClick={handlePaneClick}
             onSelectionEnd={handleSelectionEnd}
             panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
             panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
@@ -1258,6 +1350,7 @@ export function KanbanCanvas() {
             <CursorOverlay
               collaborators={collaborators}
               flowToScreenPosition={flowToScreenPosition}
+              onNavigateToUser={handleNavigateToUser}
             />
           )}
           {edgeContextMenu && (

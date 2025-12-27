@@ -12,6 +12,12 @@ import { CheckCircle2, GripVertical, Plus, SquarePen, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Button } from "@/src/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/src/components/ui/popover";
+import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import type {
@@ -27,6 +33,7 @@ import {
   shouldApplyResize,
 } from "../utils/board-resize-rules";
 import { ICON_MAP } from "../utils/color-icon-utils";
+import { BoardPresenceIndicator } from "./board-presence-indicator";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
@@ -121,14 +128,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       return { done, total };
     }, [board]);
 
-    const {
-      getNode,
-      setNodes,
-      setCenter,
-      screenToFlowPosition,
-      getViewport,
-      setViewport,
-    } = useReactFlow();
+    const { setCenter, screenToFlowPosition, getViewport, setViewport } =
+      useReactFlow();
 
     const { boardId, isSelected } = data as BoardNode["data"];
 
@@ -145,6 +146,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     );
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
 
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const headerRef = useRef<HTMLDivElement>(null);
 
     const VIEWPORT_PADDING = 100;
@@ -233,6 +235,39 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.boardPositions.byId[boardId]
     );
 
+    // Get collaboration context for cursor tracking during resize
+    const { isCollaborating, updateCursor, updateSelection, collaborators } =
+      useCollaboration();
+
+    // Track cursor position during resize operations
+    // NodeResizer uses pointer capture, so we need to listen at the window level
+    // with the capture phase to get events even during pointer capture
+    useEffect(() => {
+      if (!(isResizing && isCollaborating)) {
+        return;
+      }
+
+      const handlePointerMove = (event: PointerEvent) => {
+        const flowPos = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+        updateCursor({ x: flowPos.x, y: flowPos.y });
+      };
+
+      // Use capture phase to get events even when element has pointer capture
+      window.addEventListener("pointermove", handlePointerMove, true);
+
+      return () => {
+        window.removeEventListener("pointermove", handlePointerMove, true);
+      };
+    }, [isResizing, isCollaborating, screenToFlowPosition, updateCursor]);
+
+    const activeCollaborator = useMemo(
+      () => collaborators.find((c) => c.selection?.includes(id)),
+      [collaborators, id]
+    );
+
     const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
       const boardColumns = board?.columns ?? [];
       return {
@@ -242,18 +277,19 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       };
     }, [board?.columns]);
 
+    const updateBoardDimensions = useKanbanStore(
+      (state) => state.updateBoardDimensions
+    );
+
     useEffect(() => {
       if (isResizing) {
         return;
       }
 
-      const node = getNode(String(id));
-      if (!node) {
-        return;
-      }
-
-      const currentWidth = node.width || minDimensions.width;
-      const currentHeight = node.height || minDimensions.height;
+      // Use dimensions from synced store state (boardPosition), not React Flow node
+      // This ensures consistent sizing across synced browsers
+      const currentWidth = boardPosition?.width || minDimensions.width;
+      const currentHeight = boardPosition?.height || minDimensions.height;
       const userResized = boardPosition?.userResized ?? false;
 
       const { shouldResize, newDimensions } = shouldApplyResize(
@@ -273,41 +309,44 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           maxDimensions.height
         );
 
-        setNodes((nodes) =>
-          nodes.map((n) => {
-            if (n.id === String(id)) {
-              return {
-                ...n,
-                width: finalWidth,
-                height: finalHeight,
-                style: {
-                  ...n.style,
-                  width: finalWidth,
-                  height: finalHeight,
-                },
-              };
-            }
-            return n;
-          })
+        // Update through the store so dimensions sync via Yjs to other browsers
+        // Don't mark as user resize - this is auto-resize based on content
+        updateBoardDimensions(
+          boardId,
+          { width: finalWidth, height: finalHeight },
+          false
         );
       }
     }, [
-      id,
+      boardId,
       isResizing,
       contentDimensions,
       minDimensions,
       maxDimensions,
+      boardPosition?.width,
+      boardPosition?.height,
       boardPosition?.userResized,
       boardPosition?.lastUserWidth,
       boardPosition?.lastUserHeight,
-      getNode,
-      setNodes,
+      updateBoardDimensions,
     ]);
 
-    const handleRemove = (e: React.MouseEvent) => {
-      e.stopPropagation();
+    const handleRemove = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (taskCounts.total >= 1) {
+          setShowDeleteConfirm(true);
+        } else {
+          removeBoard(id);
+        }
+      },
+      [id, removeBoard, taskCounts.total]
+    );
+
+    const handleConfirmDelete = useCallback(() => {
+      setShowDeleteConfirm(false);
       removeBoard(id);
-    };
+    }, [id, removeBoard]);
 
     const handleClick = (e: {
       metaKey: boolean;
@@ -327,6 +366,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         }
       } else {
         setSelectedBoard(id);
+        if (isCollaborating) {
+          updateSelection([id]);
+        }
       }
     };
 
@@ -486,6 +528,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               </span>
             </div>
           </div>
+        )}
+
+        {activeCollaborator && (
+          <BoardPresenceIndicator activeCollaborator={activeCollaborator} />
         )}
 
         {(selected || isSelected || isMultiSelected) && (
@@ -699,13 +745,39 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 <Plus className="h-3 w-3" />
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
-              <button
-                className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                onClick={handleRemove}
-                type="button"
+              <Popover
+                onOpenChange={setShowDeleteConfirm}
+                open={showDeleteConfirm}
               >
-                <X className="h-3 w-3" />
-              </button>
+                <PopoverTrigger asChild>
+                  <button
+                    className="nodrag flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                    onClick={handleRemove}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="center"
+                  className="nodrag w-auto border-border/50 bg-card px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  side="top"
+                  sideOffset={8}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs">
+                      Delete board?
+                    </span>
+                    <button
+                      className="flex h-5 w-5 items-center justify-center rounded text-destructive transition-colors hover:bg-destructive/10"
+                      onClick={handleConfirmDelete}
+                      type="button"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -795,21 +867,21 @@ BoardNodeComponent.displayName = "BoardNode";
 // Dialog components are rendered as React Flow nodes; they still use portals internally
 // for certain elements like connector edges.
 
-import { AreaPropertiesDialogNodeComponent } from "../../../components/dialogs/area-properties-dialog-node";
-import { BoardPropertiesDialogNodeComponent } from "../../../components/dialogs/board-properties-dialog-node";
-import { BoardQuickActionsNodeComponent } from "../../../components/dialogs/board-quick-actions-node";
-import { ColorIconPickerDialogNodeComponent } from "../../../components/dialogs/color-icon-picker-dialog-node";
-import { ColumnQuickActionsNodeComponent } from "../../../components/dialogs/column-quick-actions-node";
-import { ConnectionDialogNodeComponent } from "../../../components/dialogs/connection-dialog-node";
-import { DeleteBoardDialogNodeComponent } from "../../../components/dialogs/delete-board-dialog-node";
-import { DeleteColumnDialogNodeComponent } from "../../../components/dialogs/delete-column-dialog-node";
-import { DuplicateBoardDialogNodeComponent } from "../../../components/dialogs/duplicate-board-dialog-node";
-import { MoveColumnDialogNodeComponent } from "../../../components/dialogs/move-column-dialog-node";
-import { RenameBoardDialogNodeComponent } from "../../../components/dialogs/rename-board-dialog-node";
-import { RenameColumnDialogNodeComponent } from "../../../components/dialogs/rename-column-dialog-node";
-import { TaskQuickActionsNodeComponent } from "../../../components/dialogs/task-quick-actions-node";
-import { TaskDetailModalNodeComponent } from "../../../components/tasks/task-detail-modal-node";
-import { TaskModalNodeComponent } from "../../../components/tasks/task-modal-node";
+import { AreaPropertiesDialogNodeComponent } from "@/src/components/dialogs/area-properties-dialog-node";
+import { BoardPropertiesDialogNodeComponent } from "@/src/components/dialogs/board/board-properties-dialog-node";
+import { BoardQuickActionsNodeComponent } from "@/src/components/dialogs/board/board-quick-actions-node";
+import { ConnectionDialogNodeComponent } from "@/src/components/dialogs/board/connection-dialog-node";
+import { DeleteBoardDialogNodeComponent } from "@/src/components/dialogs/board/delete-board-dialog-node";
+import { DuplicateBoardDialogNodeComponent } from "@/src/components/dialogs/board/duplicate-board-dialog-node";
+import { RenameBoardDialogNodeComponent } from "@/src/components/dialogs/board/rename-board-dialog-node";
+import { ColorIconPickerDialogNodeComponent } from "@/src/components/dialogs/color-icon-picker-dialog-node";
+import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column/column-quick-actions-node";
+import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/column/delete-column-dialog-node";
+import { MoveColumnDialogNodeComponent } from "@/src/components/dialogs/column/move-column-dialog-node";
+import { RenameColumnDialogNodeComponent } from "@/src/components/dialogs/column/rename-column-dialog-node";
+import { TaskDetailModalNodeComponent } from "@/src/components/tasks/task-detail-modal-node";
+import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
+import { TaskQuickActionsNodeComponent } from "@/src/components/tasks/task-quick-actions-node";
 import { AreaNodeComponent } from "./area-node";
 
 export const nodeTypes = {

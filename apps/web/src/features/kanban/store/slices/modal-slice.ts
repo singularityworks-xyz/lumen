@@ -17,6 +17,8 @@ type SliceCreator = (
   | "updateTaskDetailModalPosition"
   | "bringTaskDetailModalToFront"
   | "triggerTaskDetailModalShake"
+  | "setTaskDetailModalEditing"
+  | "updateTaskDetailModalDraft"
   | "openProfileModal"
   | "closeProfileModal"
 >;
@@ -163,9 +165,14 @@ export const createModalSlice: SliceCreator = (set, get) => ({
 
     let modalX: number;
     let modalY: number;
+    const lastPosition = get().lastTaskModalPositions[taskId];
+
     if (position) {
       modalX = position.x;
       modalY = position.y;
+    } else if (lastPosition) {
+      modalX = lastPosition.x;
+      modalY = lastPosition.y;
     } else {
       const MODAL_WIDTH = 450;
       const STACK_GAP = 20;
@@ -177,7 +184,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       const boardY = boardPosition?.y ?? 0;
       const boardWidth = boardPosition?.width ?? 400;
       modalX = boardX + boardWidth + 20 + horizontalOffset;
-      modalY = boardY; // Keep same Y position for horizontal stacking
+      modalY = boardY;
     }
 
     const maxZIndex = existingModals.reduce(
@@ -198,6 +205,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
 
     set((state) => {
       state.taskDetailModals[modalId] = modalState;
+      state.lastTaskModalPositions[taskId] = { x: modalX, y: modalY };
     });
 
     return {
@@ -217,6 +225,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       const modal = state.taskDetailModals[modalId];
       if (modal) {
         modal.position = position;
+        state.lastTaskModalPositions[modal.taskId] = position;
       }
     }),
 
@@ -244,6 +253,40 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       });
     }, 300);
   },
+
+  setTaskDetailModalEditing: (modalId, isEditing) =>
+    set((state) => {
+      const modal = state.taskDetailModals[modalId];
+      if (modal) {
+        modal.isEditing = isEditing;
+      }
+    }),
+
+  updateTaskDetailModalDraft: (modalId, draftData) =>
+    set((state) => {
+      const modal = state.taskDetailModals[modalId];
+      if (modal) {
+        const allowedFields = [
+          "draftTitle",
+          "draftDescription",
+          "draftPriority",
+          "draftProgress",
+          "draftDueDate",
+          "draftTags",
+          "draftColumnId",
+          "draftChecklists",
+          "draftLastUpdatedBy",
+          "draftLastUpdatedAt",
+        ] as const;
+
+        for (const key of allowedFields) {
+          if (draftData[key] !== undefined) {
+            // @ts-expect-error - Iterate over allowed keys which matches the type
+            modal[key] = draftData[key];
+          }
+        }
+      }
+    }),
 
   openProfileModal: () =>
     set((state) => {

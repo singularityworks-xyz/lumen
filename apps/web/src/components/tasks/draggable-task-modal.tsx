@@ -4,9 +4,9 @@
 import { GripHorizontal, X } from "lucide-react";
 import type { PointerEvent } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import type { CreateTaskModalState } from "@/src/features/kanban/types";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import type { CreateTaskModalState } from "../../features/kanban/types";
 import {
   ModalScaleProvider,
   ScaledSelect,

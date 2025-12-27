@@ -14,8 +14,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
-import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
 
 export type BlockingDialog = {
   id: string;

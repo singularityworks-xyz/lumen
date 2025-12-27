@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { HelpDialog } from "./help-dialog";
 
 export const WelcomeScreen = memo(() => {

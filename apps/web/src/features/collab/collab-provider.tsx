@@ -46,6 +46,21 @@ export type CursorPosition = {
   viewportY?: number;
 };
 
+export type OpenDialog = {
+  id: string;
+  type:
+    | "quick-actions"
+    | "board-dialog"
+    | "column-dialog"
+    | "task-dialog"
+    | "connection-dialog"
+    | "create-task";
+  targetId: string;
+  dialogType?: string;
+  position?: { x: number; y: number };
+  data?: Record<string, unknown>;
+};
+
 export type Collaborator = {
   id: string;
   name: string;
@@ -53,6 +68,7 @@ export type Collaborator = {
   role: "owner" | "editor" | "viewer";
   cursor?: CursorPosition;
   selection?: string[];
+  openDialogs?: OpenDialog[];
 };
 
 export type ConnectionState =
@@ -72,6 +88,7 @@ export type CollaborationContextType = {
   disconnect: () => void;
   updateCursor: (position: CursorPosition | null) => void;
   updateSelection: (selectedIds: string[]) => void;
+  updateOpenDialogs: (dialogs: OpenDialog[]) => void;
 };
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -79,7 +96,7 @@ const CollaborationContext = createContext<CollaborationContextType | null>(
 );
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16_000, 30_000];
-const CURSOR_THROTTLE_MS = 50;
+const CURSOR_THROTTLE_MS = 16; // ~60fps for smooth cursor updates - will turn it down if needed
 
 const CURSOR_COLORS = [
   "#ef4444", // red
@@ -180,8 +197,17 @@ export function CollaborationProvider({
     // Use Map to deduplicate by user.id - keep only the latest state for each user
     const collaboratorMap = new Map<string, Collaborator>();
 
+    // Get local user ID to filter out own cursor
+    const localUserId = localUserInfoRef.current?.id;
+
     states.forEach((state, clientId) => {
-      if (state.user && clientId !== awareness.clientID) {
+      // Filter out own cursor by both clientID AND userId
+      // This handles edge cases where same user has multiple connections
+      // or server-side awareness state matches local user
+      const isLocalClient = clientId === awareness.clientID;
+      const isLocalUser = state.user?.id === localUserId;
+
+      if (state.user && !isLocalClient && !isLocalUser) {
         // Overwrite previous entry for same user - this ensures only 1 cursor per user
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
@@ -190,6 +216,7 @@ export function CollaborationProvider({
           role: state.user.role || "viewer",
           cursor: state.cursor,
           selection: state.selection,
+          openDialogs: state.openDialogs,
         });
       }
     });
@@ -275,6 +302,20 @@ export function CollaborationProvider({
           awareness.setLocalStateField("user", localUserInfoRef.current);
           setLocalUser(localUserInfoRef.current);
         }
+
+        // Immediately broadcast local awareness state to ensure other clients see us
+        // This fixes the issue where cursors aren't visible until page refresh
+        const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
+          awareness,
+          [awareness.clientID]
+        );
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+        encoding.writeVarUint8Array(encoder, awarenessUpdate);
+        ws.send(encoding.toUint8Array(encoder));
+
+        // Trigger local awareness update handler to sync any existing collaborator state
+        handleAwarenessUpdate();
       };
 
       ws.onmessage = (event) => {
@@ -484,6 +525,15 @@ export function CollaborationProvider({
     awareness.setLocalStateField("selection", selectedIds);
   }, []);
 
+  const updateOpenDialogs = useCallback((dialogs: OpenDialog[]) => {
+    const awareness = awarenessRef.current;
+    if (!awareness) {
+      return;
+    }
+
+    awareness.setLocalStateField("openDialogs", dialogs);
+  }, []);
+
   useEffect(() => cleanup, [cleanup]);
 
   return (
@@ -499,6 +549,7 @@ export function CollaborationProvider({
         disconnect,
         updateCursor,
         updateSelection,
+        updateOpenDialogs,
       }}
     >
       {children}

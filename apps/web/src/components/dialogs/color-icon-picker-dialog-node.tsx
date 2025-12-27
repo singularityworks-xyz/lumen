@@ -11,15 +11,15 @@ import { memo, useCallback, useMemo, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
-import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import {
   ACCENT_COLORS,
   COLUMN_ICONS,
   incrementColorUsage,
   incrementIconUsage,
   isValidHexColor,
-} from "../../features/kanban/utils/color-icon-utils";
+} from "@/src/features/kanban/utils/color-icon-utils";
+import { cn } from "@/src/lib/utils";
 
 type ColorIconPickerDialogNodeData = {
   dialogId: string;

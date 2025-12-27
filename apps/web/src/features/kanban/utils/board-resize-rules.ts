@@ -118,6 +118,40 @@ export function calculateMaxDimensions(columns: DenormalizedColumn[]): {
 }
 
 /**
+ * Calculate initial dimensions for a newly created board with empty columns.
+ * This ensures consistent sizing when boards are synced across browsers.
+ * Uses the same calculation logic as calculateContentDimensions for consistency.
+ * @param columnCount - Number of columns in the new board
+ */
+export function calculateInitialBoardDimensions(columnCount: number): {
+  width: number;
+  height: number;
+} {
+  const {
+    COLUMN_WIDTH,
+    COLUMN_GAP,
+    BOARD_PADDING,
+    HEADER_HEIGHT,
+    COLUMN_HEADER,
+    COLUMN_PADDING,
+    COLUMN_FOOTER_HEIGHT,
+  } = BOARD_RESIZE_CONSTANTS;
+
+  // Width = columns + gaps + padding (NO skeleton - same as calculateContentDimensions)
+  const width =
+    columnCount * COLUMN_WIDTH +
+    (columnCount > 0 ? (columnCount - 1) * COLUMN_GAP : 0) +
+    BOARD_PADDING * 2;
+
+  // Height for empty columns: header + column header + empty placeholder + footer + padding
+  const emptyColumnHeight =
+    COLUMN_HEADER + COLUMN_PADDING + 160 + COLUMN_FOOTER_HEIGHT;
+  const height = HEADER_HEIGHT + emptyColumnHeight + BOARD_PADDING;
+
+  return { width, height };
+}
+
+/**
  * Calculate the required content dimensions based on actual column content
  * Note: Does NOT include skeleton column - that's UI chrome, not content
  */
@@ -160,12 +194,6 @@ export function calculateContentDimensions(columns: DenormalizedColumn[]): {
  * - If content exceeds current size -> grow to fit
  * - If user resized -> respect their size as minimum
  * - Never auto-shrink (prevents flickering)
- *
- * @param currentDimensions - Current node dimensions
- * @param contentDimensions - Required dimensions for content
- * @param userResized - Whether user has manually resized
- * @param userDimensions - User's last set dimensions (if any)
- * @returns Object with shouldResize flag and new dimensions
  */
 export function shouldApplyResize(
   currentDimensions: { width: number; height: number },

@@ -92,6 +92,15 @@ export type KanbanState = {
   connectionDialog: {
     boardId: string;
     position: { x: number; y: number };
+    // Connection config state - synced across collaborators
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
   } | null;
   taskQuickActions: Record<
     string,
@@ -112,6 +121,7 @@ export type KanbanState = {
   } | null;
   deletedSharedWorkspaceId: string | null;
   isProfileModalOpen: boolean;
+  lastTaskModalPositions: Record<string, { x: number; y: number }>;
 };
 
 export type KanbanActions = {
@@ -291,12 +301,29 @@ export type KanbanActions = {
     columnId: string,
     value: number
   ) => void;
+  updateBoardDialogUIState: (
+    id: string,
+    state: {
+      expandedColumnId?: string | null;
+      activeTab?: "progress" | "style";
+    }
+  ) => void;
   openConnectionDialog: (
     boardId: string,
     position: { x: number; y: number }
   ) => void;
   closeConnectionDialog: () => void;
   updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
+  updateConnectionDialogConfig: (config: {
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
+  }) => void;
 
   // Task quick actions
   openTaskQuickActions: (
@@ -425,6 +452,25 @@ export type KanbanActions = {
   ) => void;
   bringTaskDetailModalToFront: (modalId: string) => void;
   triggerTaskDetailModalShake: (modalId: string) => void;
+  setTaskDetailModalEditing: (modalId: string, isEditing: boolean) => void;
+  updateTaskDetailModalDraft: (
+    modalId: string,
+    draftData: Partial<
+      Pick<
+        TaskDetailModalState,
+        | "draftTitle"
+        | "draftDescription"
+        | "draftPriority"
+        | "draftProgress"
+        | "draftDueDate"
+        | "draftTags"
+        | "draftColumnId"
+        | "draftChecklists"
+        | "draftLastUpdatedBy"
+        | "draftLastUpdatedAt"
+      >
+    >
+  ) => void;
 
   // UI actions
   setViewport: (viewport: ViewportState) => void;

@@ -21,6 +21,7 @@ import {
   type BlockingDialog,
   BlockingDialogsManager,
 } from "@/src/components/dialogs/blocking-dialogs-manager";
+import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
@@ -28,9 +29,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
-import { useKanbanStore } from "../../features/kanban/store/kanban-store";
-import { Z_INDEX_BASE } from "../../features/kanban/store/slices/z-index-slice";
 
 type TaskQuickActionsNodeData = {
   taskId: string;
@@ -78,6 +80,11 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     );
 
     const dialogId = `task-quick-actions-${taskId}`;
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+      setPortalTarget(document.getElementById("board-connector-layer"));
+    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -85,6 +92,9 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     }, [dialogId, registerDialog, unregisterDialog]);
 
     const isTopmost = dialogFocusStack.at(-1) === dialogId;
+
+    const { dialogCollaborator, handleDialogPointerDown } =
+      useDialogPresenceLifecycle(dialogId, "task-dialog", taskId);
 
     const connectorZIndex = useMemo(() => {
       const index = dialogFocusStack.indexOf(dialogId);
@@ -343,228 +353,237 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     const isDone = task.status === "done";
 
     return (
-      // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
-      <div
-        aria-labelledby={`task-quick-actions-${id}`}
-        className={cn(
-          "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
-          selected || isFocused || isTopmost
-            ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
-            : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
-          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+      <div className="relative rounded-lg" style={{ width: DIALOG_WIDTH }}>
+        {dialogCollaborator && (
+          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) {
-            setIsFocused(false);
-          }
-        }}
-        onFocus={() => setIsFocused(true)}
-        onPointerDown={() => bringDialogToFront(dialogId)}
-        role="dialog"
-        style={{ width: DIALOG_WIDTH }}
-      >
-        {connectorState &&
-          createPortal(
-            <ConnectorEdge
-              customColor={column?.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            document.body
-          )}
-
-        {taskDetailConnectorState &&
-          createPortal(
-            <ConnectorEdge
-              customColor={column?.accentColor}
-              endX={taskDetailConnectorState.end.x}
-              endY={taskDetailConnectorState.end.y}
-              startX={taskDetailConnectorState.start.x}
-              startY={taskDetailConnectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            document.body
-          )}
-
+        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
         <div
-          className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-          style={
-            column?.accentColor
-              ? {
-                  background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
-                }
-              : {}
-          }
+          aria-labelledby={`task-quick-actions-${id}`}
+          className={cn(
+            "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+            selected || isFocused || isTopmost
+              ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
+              : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
+            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          )}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setIsFocused(false);
+            }
+          }}
+          onFocus={() => setIsFocused(true)}
+          onPointerDown={() => {
+            bringDialogToFront(dialogId);
+            handleDialogPointerDown();
+          }}
+          role="dialog"
         >
-          <div className="flex items-center gap-1.5">
-            <GripHorizontal className="h-3 w-3 text-muted-foreground" />
-            <span
-              className="max-w-28 truncate font-medium text-xs"
-              style={
-                column?.accentColor
-                  ? {
-                      color: column.accentColor,
-                    }
-                  : { color: "var(--foreground)" }
-              }
+          {connectorState &&
+            portalTarget &&
+            createPortal(
+              <ConnectorEdge
+                customColor={column?.accentColor}
+                endX={connectorState.end.x}
+                endY={connectorState.end.y}
+                startX={connectorState.start.x}
+                startY={connectorState.start.y}
+                zIndex={connectorZIndex}
+              />,
+              portalTarget
+            )}
+
+          {taskDetailConnectorState &&
+            portalTarget &&
+            createPortal(
+              <ConnectorEdge
+                customColor={column?.accentColor}
+                endX={taskDetailConnectorState.end.x}
+                endY={taskDetailConnectorState.end.y}
+                startX={taskDetailConnectorState.start.x}
+                startY={taskDetailConnectorState.start.y}
+                zIndex={connectorZIndex}
+              />,
+              portalTarget
+            )}
+
+          <div
+            className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            style={
+              column?.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
+                  }
+                : {}
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              <GripHorizontal className="h-3 w-3 text-muted-foreground" />
+              <span
+                className="max-w-28 truncate font-medium text-xs"
+                style={
+                  column?.accentColor
+                    ? {
+                        color: column.accentColor,
+                      }
+                    : { color: "var(--foreground)" }
+                }
+              >
+                {task.title}
+              </span>
+            </div>
+            <BlockingDialogsManager
+              dialogs={blockingDialogs}
+              onCloseAll={handleCloseBlocking}
+              onCloseMenu={handleClose}
             >
-              {task.title}
+              <X className="h-3 w-3" />
+            </BlockingDialogsManager>
+          </div>
+
+          <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
+            <span
+              className={cn(
+                "flex items-center gap-1 text-[10px]",
+                isDone
+                  ? "text-green-500"
+                  : isTrash
+                    ? "text-red-500"
+                    : "text-muted-foreground"
+              )}
+            >
+              {isDone ? (
+                <>
+                  <Check className="h-2.5 w-2.5" />
+                  Done
+                </>
+              ) : isTrash ? (
+                <>
+                  <Trash2 className="h-2.5 w-2.5" />
+                  Trash
+                </>
+              ) : (
+                "To Do"
+              )}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {task.priority}
             </span>
           </div>
-          <BlockingDialogsManager
-            dialogs={blockingDialogs}
-            onCloseAll={handleCloseBlocking}
-            onCloseMenu={handleClose}
-          >
-            <X className="h-3 w-3" />
-          </BlockingDialogsManager>
-        </div>
 
-        <div className="flex gap-3 border-border/50 border-b bg-muted/30 px-3 py-1.5">
-          <span
-            className={cn(
-              "flex items-center gap-1 text-[10px]",
-              isDone
-                ? "text-green-500"
-                : isTrash
-                  ? "text-red-500"
-                  : "text-muted-foreground"
-            )}
-          >
-            {isDone ? (
-              <>
-                <Check className="h-2.5 w-2.5" />
-                Done
-              </>
-            ) : isTrash ? (
-              <>
-                <Trash2 className="h-2.5 w-2.5" />
-                Trash
-              </>
-            ) : (
-              "To Do"
-            )}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {task.priority}
-          </span>
-        </div>
-
-        <div className="nodrag p-1">
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleEdit}
-                  type="button"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  <span>Edit</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Edit task details</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {!isTrash && (
+          <div className="nodrag p-1">
+            <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
-                      isDone
-                        ? "text-yellow-600 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
-                        : "text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/20"
-                    )}
-                    onClick={handleMarkDone}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleEdit}
                     type="button"
                   >
-                    {isDone ? (
-                      <>
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        <span>Mark as To Do</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Mark as Done</span>
-                      </>
-                    )}
+                    <Edit2 className="h-3.5 w-3.5" />
+                    <span>Edit</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Edit task details</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {!isTrash && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]",
+                        isDone
+                          ? "text-yellow-600 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                          : "text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/20"
+                      )}
+                      onClick={handleMarkDone}
+                      type="button"
+                    >
+                      {isDone ? (
+                        <>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Mark as To Do</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Mark as Done</span>
+                        </>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">
+                      {isDone
+                        ? "Move back to active tasks"
+                        : "Complete this task"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {isTrash && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-green-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-green-100 dark:text-green-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-green-900/20"
+                      onClick={handleRestore}
+                      type="button"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>Restore</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">Restore from trash</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    onClick={handleDuplicate}
+                    type="button"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Duplicate</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Create a copy of this task</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <div className="my-0.5 h-px bg-border/50" />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+                    onClick={handleMoveToTrash}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>
+                      {isTrash ? "Delete Permanently" : "Move to Trash"}
+                    </span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
                   <p className="text-xs">
-                    {isDone
-                      ? "Move back to active tasks"
-                      : "Complete this task"}
+                    {isTrash
+                      ? "Permanently delete this task"
+                      : "Move task to trash"}
                   </p>
                 </TooltipContent>
               </Tooltip>
-            )}
-
-            {isTrash && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-green-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-green-100 dark:text-green-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-green-900/20"
-                    onClick={handleRestore}
-                    type="button"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Restore</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p className="text-xs">Restore from trash</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-                  onClick={handleDuplicate}
-                  type="button"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Duplicate</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">Create a copy of this task</p>
-              </TooltipContent>
-            </Tooltip>
-
-            <div className="my-0.5 h-px bg-border/50" />
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
-                  onClick={handleMoveToTrash}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>
-                    {isTrash ? "Delete Permanently" : "Move to Trash"}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="text-xs">
-                  {isTrash
-                    ? "Permanently delete this task"
-                    : "Move task to trash"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
     );

@@ -70,7 +70,6 @@ export function createEntitySync<T extends { id: string }>(
       doc.transact(() => {
         map.set(entity.id, entity as unknown);
       });
-      logger.debug(`Set ${entityName} in Yjs`, { id: entity.id });
     },
 
     deleteFromYjs(doc: Y.Doc, id: string): void {
@@ -78,7 +77,6 @@ export function createEntitySync<T extends { id: string }>(
       doc.transact(() => {
         map.delete(id);
       });
-      logger.debug(`Deleted ${entityName} from Yjs`, { id });
     },
 
     batchSetInYjs(doc: Y.Doc, entities: T[]): void {
@@ -92,7 +90,6 @@ export function createEntitySync<T extends { id: string }>(
           map.set(entity.id, entity as unknown);
         }
       });
-      logger.debug(`Batch set ${entities.length} ${entityName}s in Yjs`);
     },
 
     initializeYjs(doc: Y.Doc, entityMap: EntityMap<T>): void {
@@ -130,6 +127,14 @@ export const YJS_MAP_NAMES = {
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
   CANVAS: "canvas",
+  BOARD_QUICK_ACTIONS: "boardQuickActions",
+  BOARD_DIALOGS: "boardDialogs",
+  CONNECTION_DIALOGS: "connectionDialogs",
+  CREATE_TASK_MODALS: "createTaskModals",
+  COLUMN_QUICK_ACTIONS: "columnQuickActions",
+  COLUMN_DIALOGS: "columnDialogs",
+  TASK_QUICK_ACTIONS: "taskQuickActions",
+  TASK_DETAIL_MODALS: "taskDetailModals",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];

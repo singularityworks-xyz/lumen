@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   CalendarIcon,
   Check,
@@ -11,8 +11,9 @@ import {
   Plus,
   Tag,
   Trash2,
+  User,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Calendar } from "@/src/components/ui/calendar";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -24,9 +25,11 @@ import {
   type Checklist,
   type Column,
   type Task,
+  type TaskDetailModalState,
   useKanbanStore,
 } from "@/src/features/kanban";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
+import { useSession } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import {
   ScaledPopover,
@@ -61,7 +64,6 @@ export const TaskDetailForm = memo(
   ({ modalId, task, boardId, onSaved, onCancel }: TaskDetailFormProps) => {
     const updateTask = useKanbanStore((state) => state.updateTask);
     const deleteTask = useKanbanStore((state) => state.deleteTask);
-    const moveTask = useKanbanStore((state) => state.moveTask);
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
@@ -74,68 +76,43 @@ export const TaskDetailForm = memo(
       .filter((col): col is Column => col !== undefined)
       .sort((a, b) => a.position - b.position);
 
-    const [title, setTitle] = useState(task.title);
-    const [description, setDescription] = useState(task.description ?? "");
-    const [priority, setPriority] = useState<Task["priority"]>(task.priority);
-    const [progress, setProgress] = useState(task.progress);
-    const [dueDate, setDueDate] = useState<Date | undefined>(
-      task.due_date ? new Date(task.due_date) : undefined
+    const modalState = useKanbanStore(
+      (state) => state.taskDetailModals[modalId]
     );
-    const [tagsInput, setTagsInput] = useState(task.tags?.join(", ") ?? "");
-    const [checklists, setChecklists] = useState<Checklist[]>(
-      task.checklists ?? []
+    const updateTaskDetailModalDraft = useKanbanStore(
+      (state) => state.updateTaskDetailModalDraft
     );
+
+    // Initialize state from props, but defer to synced draft state if present
+    const title = modalState?.draftTitle ?? task.title;
+    const description = modalState?.draftDescription ?? task.description ?? "";
+    const priority = modalState?.draftPriority ?? task.priority;
+    const progress = modalState?.draftProgress ?? task.progress;
+    const dueDate = modalState?.draftDueDate
+      ? new Date(modalState.draftDueDate)
+      : task.due_date
+        ? new Date(task.due_date)
+        : undefined;
+    const tagsInput = modalState?.draftTags ?? task.tags?.join(", ") ?? "";
+    const checklists = modalState?.draftChecklists ?? task.checklists ?? [];
+    const selectedColumnId = modalState?.draftColumnId ?? task.column_id;
+
+    // We still use some local state for UI-only things or transient interactions
     const [newChecklistItem, setNewChecklistItem] = useState("");
     const [titleError, setTitleError] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [selectedColumnId, setSelectedColumnId] = useState(task.column_id);
+    const { data: session } = useSession();
 
-    const formValuesRef = useRef({
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tagsInput,
-      checklists,
-    });
-
-    formValuesRef.current = {
-      title,
-      description,
-      priority,
-      progress,
-      dueDate,
-      tagsInput,
-      checklists,
+    // Helper to update draft and set last updated metadata
+    const updateDraft = (draft: Partial<TaskDetailModalState>) => {
+      updateTaskDetailModalDraft(modalId, {
+        ...draft,
+        draftLastUpdatedBy: session?.user?.name || "Unknown",
+        draftLastUpdatedAt: Date.now(),
+      });
     };
-
-    // Auto-save on unmount
-    useEffect(
-      () => () => {
-        const values = formValuesRef.current;
-        if (values.title.trim()) {
-          const tags =
-            values.tagsInput
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean) || undefined;
-
-          updateTask(task.id, {
-            title: values.title,
-            description: values.description || undefined,
-            priority: values.priority,
-            progress: values.progress,
-            due_date: values.dueDate?.toISOString(),
-            tags: tags && tags.length > 0 ? tags : undefined,
-            checklists: values.checklists,
-          });
-        }
-      },
-      [task.id, updateTask]
-    );
 
     const handleAddChecklist = () => {
       if (newChecklistItem.trim()) {
@@ -146,21 +123,24 @@ export const TaskDetailForm = memo(
           completed: false,
           position: checklists.length,
         };
-        setChecklists([...checklists, newItem]);
+        const newChecklists = [...checklists, newItem];
+        updateDraft({ draftChecklists: newChecklists });
         setNewChecklistItem("");
       }
     };
 
     const handleToggleChecklist = (id: string) => {
-      setChecklists(
-        checklists.map((item) =>
-          item.id === id ? { ...item, completed: !item.completed } : item
-        )
+      const newChecklists = checklists.map((item: Checklist) =>
+        item.id === id ? { ...item, completed: !item.completed } : item
       );
+      updateDraft({ draftChecklists: newChecklists });
     };
 
     const handleDeleteChecklist = (id: string) => {
-      setChecklists(checklists.filter((item) => item.id !== id));
+      const newChecklists = checklists.filter(
+        (item: Checklist) => item.id !== id
+      );
+      updateDraft({ draftChecklists: newChecklists });
     };
 
     const handleSave = (e: React.FormEvent) => {
@@ -176,7 +156,7 @@ export const TaskDetailForm = memo(
       const tags =
         tagsInput
           .split(",")
-          .map((tag) => tag.trim())
+          .map((tag: string) => tag.trim())
           .filter(Boolean) || undefined;
 
       updateTask(task.id, {
@@ -187,8 +167,11 @@ export const TaskDetailForm = memo(
         due_date: dueDate?.toISOString(),
         tags: tags && tags.length > 0 ? tags : undefined,
         checklists,
+        column_id: selectedColumnId,
       });
 
+      // Clear drafts after save (by closing the modal or separate cleanup if we kept it open)
+      // Since existing behavior closes modal or returns to view, closing deletes the modal state entirely anyway.
       if (onSaved) {
         onSaved();
       } else {
@@ -201,18 +184,32 @@ export const TaskDetailForm = memo(
       closeTaskDetailModal(modalId);
     };
 
-    const handleTitleChange = (value: string) => {
-      setTitle(value);
-      if (value.trim()) {
-        setTitleError(false);
-      }
-    };
-
-    const completedCount = checklists.filter((c) => c.completed).length;
+    const completedCount = checklists.filter(
+      (c: Checklist) => c.completed
+    ).length;
 
     return (
       <form className="flex h-full flex-col" onSubmit={handleSave}>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {modalState?.draftLastUpdatedBy && (
+            <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-muted-foreground text-xs">
+              <User className="h-3.5 w-3.5" />
+              <span>
+                Draft edited by{" "}
+                <span className="font-medium text-foreground">
+                  {modalState.draftLastUpdatedBy}
+                </span>{" "}
+                {modalState.draftLastUpdatedAt && (
+                  <span>
+                    {formatDistanceToNow(modalState.draftLastUpdatedAt, {
+                      addSuffix: true,
+                    })}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor={`task-title-${modalId}`}>
               Task Title <span className="text-destructive">*</span>
@@ -225,7 +222,7 @@ export const TaskDetailForm = memo(
                 isShaking && "animate-shake"
               )}
               id={`task-title-${modalId}`}
-              onChange={(e) => handleTitleChange(e.target.value)}
+              onChange={(e) => updateDraft({ draftTitle: e.target.value })}
               placeholder="Task title"
               type="text"
               value={title}
@@ -235,7 +232,6 @@ export const TaskDetailForm = memo(
             )}
           </div>
 
-          {/* Column Selector */}
           <div className="space-y-2">
             <Label
               className="flex items-center gap-1.5"
@@ -246,11 +242,9 @@ export const TaskDetailForm = memo(
             </Label>
             <ScaledSelect
               onValueChange={(newColumnId) => {
-                if (newColumnId !== selectedColumnId) {
-                  const fromColumnId = selectedColumnId;
-                  setSelectedColumnId(newColumnId);
-                  moveTask(task.id, fromColumnId, newColumnId, boardId);
-                }
+                updateDraft({
+                  draftColumnId: newColumnId,
+                });
               }}
               value={selectedColumnId}
             >
@@ -296,7 +290,11 @@ export const TaskDetailForm = memo(
             <div className="space-y-2">
               <Label htmlFor={`task-priority-${modalId}`}>Priority</Label>
               <ScaledSelect
-                onValueChange={(v) => setPriority(v as Task["priority"])}
+                onValueChange={(v) =>
+                  updateDraft({
+                    draftPriority: v as Task["priority"],
+                  })
+                }
                 value={priority}
               >
                 <ScaledSelectTrigger
@@ -348,7 +346,9 @@ export const TaskDetailForm = memo(
                   <Calendar
                     mode="single"
                     onSelect={(date) => {
-                      setDueDate(date);
+                      updateDraft({
+                        draftDueDate: date?.toISOString() ?? "",
+                      });
                       setCalendarOpen(false);
                     }}
                     selected={dueDate}
@@ -358,7 +358,9 @@ export const TaskDetailForm = memo(
                       <Button
                         className="w-full"
                         onClick={() => {
-                          setDueDate(undefined);
+                          updateDraft({
+                            draftDueDate: "",
+                          });
                           setCalendarOpen(false);
                         }}
                         size="sm"
@@ -399,7 +401,7 @@ export const TaskDetailForm = memo(
                 className="**:data-[slot=slider-thumb]:h-5 **:data-[slot=slider-thumb]:w-5 **:data-[slot=slider-thumb]:border-0 **:data-[slot=slider-thumb]:bg-foreground **:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.1)] dark:**:data-[slot=slider-thumb]:bg-muted-foreground dark:**:data-[slot=slider-thumb]:shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.15)]"
                 max={100}
                 min={0}
-                onValueChange={([v]) => setProgress(v ?? 0)}
+                onValueChange={([v]) => updateDraft({ draftProgress: v ?? 0 })}
                 step={5}
                 value={[progress]}
               />
@@ -420,7 +422,11 @@ export const TaskDetailForm = memo(
             <Input
               className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-tags-${modalId}`}
-              onChange={(e) => setTagsInput(e.target.value)}
+              onChange={(e) =>
+                updateDraft({
+                  draftTags: e.target.value,
+                })
+              }
               placeholder="design, research, bug"
               value={tagsInput}
             />
@@ -428,9 +434,9 @@ export const TaskDetailForm = memo(
               <div className="flex flex-wrap gap-1">
                 {tagsInput
                   .split(",")
-                  .map((tag) => tag.trim())
+                  .map((tag: string) => tag.trim())
                   .filter(Boolean)
-                  .map((tag) => (
+                  .map((tag: string) => (
                     <span
                       className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
                       key={tag}
@@ -473,7 +479,11 @@ export const TaskDetailForm = memo(
             <Textarea
               className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
               id={`task-description-${modalId}`}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) =>
+                updateDraft({
+                  draftDescription: e.target.value,
+                })
+              }
               placeholder="Add more details about this task..."
               value={description}
             />
@@ -492,7 +502,7 @@ export const TaskDetailForm = memo(
 
             {checklists.length > 0 && (
               <div className="space-y-2">
-                {checklists.map((item) => (
+                {checklists.map((item: Checklist) => (
                   <div
                     className="flex items-center gap-3 rounded-lg border border-border/30 bg-muted/80 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-colors hover:bg-muted dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]"
                     key={item.id}

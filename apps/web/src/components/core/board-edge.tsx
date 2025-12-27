@@ -6,7 +6,7 @@ import {
   getBezierPath,
 } from "@xyflow/react";
 import { useState } from "react";
-import { useKanbanStore } from "../../features/kanban/store";
+import { useKanbanStore } from "@/src/features/kanban/store";
 
 export type BoardEdgeData = {
   label?: string;
