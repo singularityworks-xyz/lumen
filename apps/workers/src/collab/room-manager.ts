@@ -95,8 +95,12 @@ class RoomManager {
       };
 
       // Cleanup awareness when connection leaves
-      awareness.on("change", () => {
-        this.broadcastAwareness(workspaceId);
+      awareness.on("change", (_changes: unknown, origin: unknown) => {
+        // Only broadcast if the change didn't originate from a client message
+        // (which is already broadcasted efficiently in handleAwarenessMessage)
+        if (origin !== "client-update") {
+          this.broadcastAwareness(workspaceId);
+        }
       });
 
       // Schedule persistence on doc updates
@@ -319,7 +323,11 @@ class RoomManager {
     decoder: decoding.Decoder
   ): boolean {
     const update = decoding.readVarUint8Array(decoder);
-    awarenessProtocol.applyAwarenessUpdate(room.awareness, update, connection);
+    awarenessProtocol.applyAwarenessUpdate(
+      room.awareness,
+      update,
+      "client-update"
+    );
 
     // Explicitly broadcast awareness updates to other clients
     // The awareness.on('change') listener also broadcasts, but this ensures

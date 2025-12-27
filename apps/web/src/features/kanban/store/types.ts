@@ -121,6 +121,7 @@ export type KanbanState = {
   } | null;
   deletedSharedWorkspaceId: string | null;
   isProfileModalOpen: boolean;
+  lastTaskModalPositions: Record<string, { x: number; y: number }>;
 };
 
 export type KanbanActions = {

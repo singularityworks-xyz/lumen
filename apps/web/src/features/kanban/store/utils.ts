@@ -73,5 +73,6 @@ export function createInitialState(): KanbanState {
     areaDialog: null,
     deletedSharedWorkspaceId: null,
     isProfileModalOpen: false,
+    lastTaskModalPositions: {},
   };
 }
