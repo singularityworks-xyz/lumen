@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { TaskDragPresenceIndicator } from "@/src/components/tasks/task-drag-presence-indicator";
 import { Badge } from "@/src/components/ui/badge";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -107,8 +107,8 @@ export const TaskCard = memo(
       [getViewport, setViewport]
     );
 
-    const dragStartPos = { current: { x: 0, y: 0 } };
-    const isDragging = { current: false };
+    const dragStartPos = useRef({ x: 0, y: 0 });
+    const isDragging = useRef(false);
 
     const handleMouseDown = (e: React.MouseEvent) => {
       dragStartPos.current = { x: e.clientX, y: e.clientY };

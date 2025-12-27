@@ -36,7 +36,7 @@ export const TaskDragOverlay = memo<TaskDragOverlayProps>(
     return (
       <div
         className={cn(
-          "pointer-events-none fixed z-9999 transition-all duration-150 ease-out",
+          "pointer-events-none fixed z-9999 transition-all duration-75 ease-out",
           isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         )}
         style={{

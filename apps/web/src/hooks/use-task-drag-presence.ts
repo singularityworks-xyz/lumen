@@ -50,12 +50,21 @@ export function useTaskDragPresence() {
     [isCollaborating, awareness]
   );
 
+  const lastUpdateRef = useRef(0);
+
   // Update cursor position while dragging (for collaborators to see)
   const updateDragPosition = useCallback(
     (cursorX: number, cursorY: number) => {
       if (!isDraggingRef.current) {
         return;
       }
+
+      const now = Date.now();
+      if (now - lastUpdateRef.current < 24) {
+        return;
+      }
+      lastUpdateRef.current = now;
+
       // Broadcast to collaborators if connected
       if (isCollaborating && awareness) {
         const currentState =
