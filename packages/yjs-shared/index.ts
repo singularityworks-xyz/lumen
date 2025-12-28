@@ -341,6 +341,7 @@ export const CommentSchema = z.object({
   workspaceId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  lastEditedById: z.string().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;

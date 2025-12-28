@@ -83,6 +83,7 @@ class RoomManager {
       doc.getMap(YJS_MAP_NAMES.AREAS);
       doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS);
       doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      doc.getMap(YJS_MAP_NAMES.COMMENTS);
 
       room = {
         workspaceId,
@@ -490,6 +491,7 @@ class RoomManager {
         boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS).size,
         areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
         areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+        comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
       };
 
       logger.info("Persisting room state", {
@@ -566,6 +568,7 @@ class RoomManager {
               .size,
             areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
             areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+            comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
           };
 
           logger.info("Loaded room state from database", {
