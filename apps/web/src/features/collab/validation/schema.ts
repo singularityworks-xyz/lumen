@@ -7,6 +7,7 @@ export type {
   BoardPosition as ValidatedBoardPosition,
   CanvasState as ValidatedCanvasState,
   Column as ValidatedColumn,
+  Comment as ValidatedComment,
   Task as ValidatedTask,
   ViewportState as ValidatedViewportState,
   Workspace as ValidatedWorkspace,

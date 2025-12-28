@@ -48,6 +48,18 @@ export type Column = {
   icon?: string;
 };
 
+export type Comment = {
+  id: string;
+  x: number;
+  y: number;
+  content: string;
+  authorId: string;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastEditedById?: string;
+};
+
 export type Board = {
   id: string;
   name: string;
@@ -257,6 +269,7 @@ export type PersistedState = {
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
+  comments: EntityMap<Comment>;
   boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;

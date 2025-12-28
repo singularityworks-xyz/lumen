@@ -38,6 +38,7 @@ export function createInitialState(): KanbanState {
     boards: { byId: {}, allIds: [] },
     columns: { byId: {}, allIds: [] },
     tasks: { byId: {}, allIds: [] },
+    comments: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
     boardConnections: { byId: {}, allIds: [] },
     areas: { byId: {}, allIds: [] },

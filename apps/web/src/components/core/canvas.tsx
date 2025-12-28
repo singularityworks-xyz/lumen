@@ -52,6 +52,7 @@ import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
 import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
+import { CommentNode } from "@/src/features/comments/comment-node";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/components/collaborator-selection-overlay-screen";
@@ -143,7 +144,8 @@ type CanvasNode =
   | ColumnQuickActionsNode
   | BoardDialogNode
   | ConnectionDialogNode
-  | ColumnDialogNode;
+  | ColumnDialogNode
+  | Node<{ comment: unknown }, "comment">;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -198,6 +200,8 @@ export function KanbanCanvas() {
   const updateTaskDetailModalPosition = useKanbanStore(
     (state) => state.updateTaskDetailModalPosition
   );
+  const comments = useKanbanStore((state) => state.comments);
+  const updateComment = useKanbanStore((state) => state.updateComment);
   const moveColumn = useKanbanStore((state) => state.moveColumn);
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const columns = useKanbanStore((state) => state.columns);
@@ -604,6 +608,37 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskModalNode => node !== null);
 
+    const commentNodes = comments.allIds
+      .map(
+        (
+          id
+        ): Node<
+          { comment: (typeof comments.byId)[string] },
+          "comment"
+        > | null => {
+          const comment = comments.byId[id];
+          if (!comment) {
+            return null;
+          }
+          return {
+            id: `comment-${comment.id}`,
+            type: "comment",
+            position: { x: comment.x, y: comment.y },
+            data: { comment },
+            style: { zIndex: Z_INDEX_BASE.DIALOGS },
+            draggable: true,
+          };
+        }
+      )
+      .filter(
+        (
+          node
+        ): node is Node<
+          { comment: (typeof comments.byId)[string] },
+          "comment"
+        > => node !== null
+      );
+
     const taskDetailModalNodes: TaskDetailModalNode[] = taskDetailModalIds
       .map((id) => {
         const modal = taskDetailModals[id];
@@ -814,12 +849,14 @@ export function KanbanCanvas() {
       ...connectionDialogNodes,
       ...columnDialogNodes,
       ...areaDialogNodes,
+      ...commentNodes,
     ];
   }, [
     areas,
     areaPositions,
     boards,
     boardPositions,
+    comments,
     currentWorkspaceId,
     workspaces,
     selectedBoardId,
@@ -1078,6 +1115,12 @@ export function KanbanCanvas() {
             } else if (change.id.startsWith("area-dialog-")) {
               const dialogId = change.id.replace("area-dialog-", "");
               updateAreaDialogPosition(dialogId, change.position);
+            } else if (change.id.startsWith("comment-")) {
+              const commentId = change.id.replace("comment-", "");
+              updateComment(commentId, {
+                x: change.position.x,
+                y: change.position.y,
+              });
             } else {
               updateBoardPosition(change.id, absolutePosition);
             }
@@ -1172,6 +1215,7 @@ export function KanbanCanvas() {
       updateBoardDialogPosition,
       updateConnectionDialogPosition,
       updateColumnDialogPosition,
+      updateComment,
       areas,
       areaPositions,
       boardPositions,
@@ -1572,7 +1616,7 @@ export function KanbanCanvas() {
               !showWelcomeScreen && interactionMode === "select"
             }
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
-            nodeTypes={nodeTypes}
+            nodeTypes={{ ...nodeTypes, comment: CommentNode }}
             onConnect={handleConnect}
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
@@ -1591,7 +1635,6 @@ export function KanbanCanvas() {
               interactionMode === "select" ? SelectionMode.Partial : undefined
             }
             selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
-            style={{ zIndex: 2000 }}
             zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
             zoomOnScroll={!showWelcomeScreen}
           >

@@ -167,10 +167,10 @@ function KanbanPageContent() {
           <ReactFlowProvider>
             <KanbanCanvas />
             <MobileNavbar position="bottom" />
+            <CanvasContextMenu />
           </ReactFlowProvider>
           <FloatingNavbar />
           <RightControls />
-          <CanvasContextMenu />
           <CommandPalette />
           <BulkActionsBar />
         </>

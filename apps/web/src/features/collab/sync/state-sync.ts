@@ -19,6 +19,7 @@ import {
   columnDialogSync,
   columnQuickActionsSync,
   columnSync,
+  commentSync,
   connectionDialogSync,
   createTaskModalSync,
   taskQuickActionsSync,
@@ -99,6 +100,9 @@ export function applyYjsToState(
   const syncedAreas = areaSync.applyFromYjs(doc.getMap(YJS_MAP_NAMES.AREAS));
   const syncedAreaPositions = areaPositionSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS)
+  );
+  const syncedComments = commentSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.COMMENTS)
   );
 
   // Helper to merge entity maps, handling additions, updates, AND deletions
@@ -332,6 +336,13 @@ export function applyYjsToState(
       belongsToWorkspaceFn: (pos) => activeAreaIds.has(pos.id),
     }
   );
+
+  const comments = mergeEntityMaps(currentState?.comments, syncedComments, {
+    filterFn: (comment) =>
+      !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+    belongsToWorkspaceFn: (comment) =>
+      !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+  });
 
   // Sync dialogs - these don't need workspace filtering (ephemeral UI state)
   const syncedBoardQuickActions = boardQuickActionsSync.applyFromYjs(
@@ -579,6 +590,7 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    comments,
     areaDragOrigins,
     areaDialogs,
     boardQuickActions,
@@ -651,6 +663,7 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
   boardConnectionSync.initializeYjs(doc, state.boardConnections);
   areaSync.initializeYjs(doc, state.areas);
   areaPositionSync.initializeYjs(doc, state.areaPositions);
+  commentSync.initializeYjs(doc, state.comments);
 
   logger.info("Initialized Yjs from Zustand state");
 }
@@ -827,6 +840,24 @@ export function initializeYjsForWorkspace(
     });
   }
 
+  const workspaceComments = state.comments.allIds
+    .map((id) => state.comments.byId[id])
+    .filter((comment) => comment && comment.workspaceId === workspaceId);
+
+  const commentsMap = doc.getMap(YJS_MAP_NAMES.COMMENTS);
+  if (commentsMap.size === 0 && workspaceComments.length > 0) {
+    doc.transact(() => {
+      for (const comment of workspaceComments) {
+        if (comment) {
+          commentsMap.set(comment.id, comment);
+        }
+      }
+    });
+    logger.debug("Initialized comments in Yjs", {
+      count: workspaceComments.length,
+    });
+  }
+
   logger.info("Initialized Yjs for workspace", {
     workspaceId,
     boards: workspaceBoards.length,
@@ -858,6 +889,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS),
+    doc.getMap(YJS_MAP_NAMES.COMMENTS),
   ];
 
   for (const map of maps) {

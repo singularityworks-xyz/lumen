@@ -7,6 +7,7 @@ import { immer } from "zustand/middleware/immer";
 import { createAreaSlice } from "./slices/area-slice";
 import { createBoardSlice } from "./slices/board-slice";
 import { createColumnSlice } from "./slices/column-slice";
+import { createCommentSlice } from "./slices/comment-slice";
 import { createConnectionSlice } from "./slices/connection-slice";
 import { createModalSlice } from "./slices/modal-slice";
 import { createTaskSlice } from "./slices/task-slice";
@@ -29,6 +30,7 @@ const storeCreator: StateCreator<
   ...createWorkspaceSlice(set, get),
   ...createBoardSlice(set, get),
   ...createColumnSlice(set, get),
+  ...createCommentSlice(set, get),
   ...createTaskSlice(set, get),
   ...createConnectionSlice(set, get),
   ...createModalSlice(set, get),
@@ -76,6 +78,7 @@ export const useKanbanStore = create<KanbanStore>()(
           workspaces: state.workspaces,
           boards: state.boards,
           columns: state.columns,
+          comments: state.comments,
           tasks: state.tasks,
           boardPositions: state.boardPositions,
           boardConnections: state.boardConnections,

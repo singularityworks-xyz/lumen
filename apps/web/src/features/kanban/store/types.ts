@@ -8,6 +8,7 @@ import type {
   BoardPosition,
   CanvasState,
   Column,
+  Comment,
   CreateTaskModalFormData,
   CreateTaskModalState,
   EntityMap,
@@ -28,6 +29,7 @@ export type KanbanState = {
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
+  comments: EntityMap<Comment>;
   boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
   areas: EntityMap<Area>;
@@ -499,6 +501,18 @@ export type KanbanActions = {
   toggleTaskSelection: (taskId: string) => void;
   clearTaskSelection: () => void;
   updateColumnUi: (columnId: string, updates: Partial<ColumnUiState>) => void;
+
+  // Comment actions
+  addComment: (
+    position: { x: number; y: number },
+    content: string,
+    authorId: string
+  ) => void;
+  updateComment: (
+    id: string,
+    updates: Partial<Pick<Comment, "content" | "x" | "y" | "lastEditedById">>
+  ) => void;
+  removeComment: (id: string) => void;
 
   // Z-index management
   bringDialogToFront: (dialogId: string) => void;

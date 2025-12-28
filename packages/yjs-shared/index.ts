@@ -19,6 +19,7 @@ export const YJS_MAP_NAMES = {
   COLUMN_DIALOGS: "columnDialogs",
   TASK_QUICK_ACTIONS: "taskQuickActions",
   TASK_DETAIL_MODALS: "taskDetailModals",
+  COMMENTS: "comments",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
@@ -331,6 +332,17 @@ export const TaskDetailModalSchema = z.object({
   draftLastUpdatedAt: z.number().optional(),
 });
 
+export const CommentSchema = z.object({
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+  content: z.string(),
+  authorId: z.string(),
+  workspaceId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export type Task = z.infer<typeof TaskSchema>;
 export type Column = z.infer<typeof ColumnSchema>;
 export type Board = z.infer<typeof BoardSchema>;
@@ -351,6 +363,7 @@ export type CreateTaskModalFormData = z.infer<
 >;
 export type TaskQuickActionsState = z.infer<typeof TaskQuickActionsSchema>;
 export type TaskDetailModalState = z.infer<typeof TaskDetailModalSchema>;
+export type Comment = z.infer<typeof CommentSchema>;
 export type AreaDialogState = z.infer<typeof AreaDialogSchema>;
 
 export type ValidationResult<T> =

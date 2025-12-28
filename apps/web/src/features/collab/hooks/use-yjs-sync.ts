@@ -21,6 +21,7 @@ import {
   columnDialogSync,
   columnQuickActionsSync,
   columnSync,
+  commentSync,
   connectionDialogSync,
   createTaskModalSync,
   taskQuickActionsSync,
@@ -35,6 +36,7 @@ import type {
   BoardConnection,
   BoardPosition,
   Column,
+  Comment,
   Task,
   Workspace,
 } from "@/src/features/kanban";
@@ -76,6 +78,10 @@ export type YjsSyncActions = {
   syncWorkspace: (workspace: Workspace) => void;
   // Delete a workspace from Yjs
   deleteWorkspace: (id: string) => void;
+  // Sync a comment to Yjs
+  syncComment: (comment: Comment) => void;
+  // Delete a comment from Yjs
+  deleteComment: (id: string) => void;
 };
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
@@ -308,7 +314,20 @@ export function useYjsSync(
       }
       for (const id of areaPosDiff.removed) {
         delete lastAreaPosSyncRef.current[id];
+        delete lastAreaPosSyncRef.current[id];
         areaPositionSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync comments
+      const commentDiff = diffEntityMaps(
+        prevState.comments.byId,
+        state.comments.byId
+      );
+      for (const comment of [...commentDiff.added, ...commentDiff.changed]) {
+        commentSync.setInYjs(doc, comment);
+      }
+      for (const id of commentDiff.removed) {
+        commentSync.deleteFromYjs(doc, id);
       }
 
       // Diff and sync area dialogs
@@ -847,6 +866,24 @@ export function useYjsSync(
     [doc, isConnected]
   );
 
+  const syncComment = useCallback(
+    (comment: Comment) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        commentSync.setInYjs(doc, comment);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const deleteComment = useCallback(
+    (id: string) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        commentSync.deleteFromYjs(doc, id);
+      }
+    },
+    [doc, isConnected]
+  );
+
   return {
     syncBoard,
     deleteBoard,
@@ -864,5 +901,7 @@ export function useYjsSync(
     deleteAreaPosition,
     syncWorkspace,
     deleteWorkspace,
+    syncComment,
+    deleteComment,
   };
 }
