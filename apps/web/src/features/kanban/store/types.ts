@@ -506,11 +506,21 @@ export type KanbanActions = {
   addComment: (
     position: { x: number; y: number },
     content: string,
-    authorId: string
+    author: { id: string; name?: string; image?: string }
   ) => void;
   updateComment: (
     id: string,
-    updates: Partial<Pick<Comment, "content" | "x" | "y" | "lastEditedById">>
+    updates: Partial<
+      Pick<
+        Comment,
+        | "content"
+        | "x"
+        | "y"
+        | "lastEditedById"
+        | "lastEditorName"
+        | "lastEditorImage"
+      >
+    >
   ) => void;
   removeComment: (id: string) => void;
 

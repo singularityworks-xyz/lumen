@@ -20,13 +20,19 @@ export const CommentNode = memo(
     const [isOpen, setIsOpen] = useState(false);
     const { collaborators, localUser } = useCollaboration();
     const isOwnComment = localUser?.id === comment.authorId;
-    const author = isOwnComment
+
+    // Try to get author from online collaborators, fall back to stored comment data
+    const onlineAuthor = isOwnComment
       ? localUser
       : collaborators.find((c) => c.id === comment.authorId);
-    const fallback = (author?.name ?? comment.authorId)
-      .slice(0, 2)
-      .toUpperCase();
-    const authorColor = isOwnComment ? undefined : (author?.color ?? "#6e6e6e");
+
+    // Use stored author info as fallback
+    const authorName = onlineAuthor?.name ?? comment.authorName ?? "Unknown";
+    const authorImage = onlineAuthor?.image ?? comment.authorImage;
+    const authorColor = isOwnComment
+      ? undefined
+      : (onlineAuthor?.color ?? "#6e6e6e");
+    const fallback = authorName.slice(0, 2).toUpperCase();
 
     const handleToggle = () => {
       setIsOpen(!isOpen);
@@ -61,7 +67,7 @@ export const CommentNode = memo(
             )}
             style={authorColor ? { borderColor: authorColor } : undefined}
           >
-            <AvatarImage src={author?.image ?? undefined} />
+            <AvatarImage src={authorImage ?? undefined} />
             <AvatarFallback
               className={cn(
                 "font-bold text-xs",

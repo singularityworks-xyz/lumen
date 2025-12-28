@@ -20,17 +20,24 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
   const { localUser, collaborators } = useCollaboration();
   const isAuthor = localUser?.id === comment.authorId;
 
-  const author = isAuthor
+  const onlineAuthor = isAuthor
     ? localUser
     : collaborators.find((c) => c.id === comment.authorId);
   const isOwnComment = isAuthor;
-  const authorColor = isOwnComment ? undefined : (author?.color ?? "#6e6e6e");
+  const authorColor = isOwnComment
+    ? undefined
+    : (onlineAuthor?.color ?? "#6e6e6e");
 
-  const lastEditor = comment.lastEditedById
+  // Use stored author info as fallback
+  const authorName = onlineAuthor?.name ?? comment.authorName ?? "Unknown";
+
+  // Get last editor info with fallback
+  const onlineEditor = comment.lastEditedById
     ? comment.lastEditedById === localUser?.id
       ? localUser
       : collaborators.find((c) => c.id === comment.lastEditedById)
     : null;
+  const editorName = onlineEditor?.name ?? comment.lastEditorName;
   const wasEditedBySomeoneElse =
     comment.lastEditedById && comment.lastEditedById !== comment.authorId;
 
@@ -45,6 +52,8 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
       updateComment(comment.id, {
         content,
         lastEditedById: localUser?.id,
+        lastEditorName: localUser?.name,
+        lastEditorImage: localUser?.image ?? undefined,
       });
       setIsEditing(false);
     } else {
@@ -73,20 +82,20 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
 
   const getDisplayName = (
     userId: string | undefined | null,
-    userData: typeof author
+    name: string | undefined | null
   ) => {
-    if (!(userId && userData)) {
+    if (!userId) {
       return "Unknown";
     }
     if (userId === localUser?.id) {
       return "you";
     }
-    return userData.name ?? "Unknown";
+    return name ?? "Unknown";
   };
 
-  const authorDisplayName = getDisplayName(comment.authorId, author);
-  const editorDisplayName = lastEditor
-    ? getDisplayName(comment.lastEditedById, lastEditor)
+  const authorDisplayName = getDisplayName(comment.authorId, authorName);
+  const editorDisplayName = wasEditedBySomeoneElse
+    ? getDisplayName(comment.lastEditedById, editorName)
     : null;
 
   return (
@@ -210,14 +219,14 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
                 <>
                   <span
                     className="inline-block max-w-20 truncate align-bottom"
-                    title={author?.name}
+                    title={authorName}
                   >
                     {authorDisplayName}
                   </span>
                   {" · edited by "}
                   <span
                     className="inline-block max-w-20 truncate align-bottom"
-                    title={lastEditor?.name}
+                    title={editorName ?? undefined}
                   >
                     {editorDisplayName}
                   </span>
@@ -225,7 +234,7 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
               ) : (
                 <span
                   className="inline-block max-w-30 truncate"
-                  title={author?.name}
+                  title={authorName}
                 >
                   {authorDisplayName}
                 </span>

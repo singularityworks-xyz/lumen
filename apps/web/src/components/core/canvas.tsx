@@ -620,6 +620,13 @@ export function KanbanCanvas() {
           if (!comment) {
             return null;
           }
+          // Filter by current workspace
+          if (
+            currentWorkspaceId &&
+            comment.workspaceId !== currentWorkspaceId
+          ) {
+            return null;
+          }
           return {
             id: `comment-${comment.id}`,
             type: "comment",

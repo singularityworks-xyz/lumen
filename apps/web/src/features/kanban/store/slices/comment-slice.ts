@@ -9,11 +9,21 @@ export type CommentSlice = {
   addComment: (
     position: { x: number; y: number },
     content: string,
-    authorId: string
+    author: { id: string; name?: string; image?: string }
   ) => void;
   updateComment: (
     id: string,
-    updates: Partial<Pick<Comment, "content" | "x" | "y" | "lastEditedById">>
+    updates: Partial<
+      Pick<
+        Comment,
+        | "content"
+        | "x"
+        | "y"
+        | "lastEditedById"
+        | "lastEditorName"
+        | "lastEditorImage"
+      >
+    >
   ) => void;
   removeComment: (id: string) => void;
 };
@@ -28,7 +38,7 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
     byId: {},
     allIds: [],
   },
-  addComment: (position, content, authorId) => {
+  addComment: (position, content, author) => {
     const currentState = get();
     if (!currentState.currentWorkspaceId) {
       return;
@@ -39,7 +49,9 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
       x: position.x,
       y: position.y,
       content,
-      authorId,
+      authorId: author.id,
+      authorName: author.name,
+      authorImage: author.image,
       workspaceId: currentState.currentWorkspaceId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -65,6 +77,12 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
         }
         if (updates.lastEditedById !== undefined) {
           comment.lastEditedById = updates.lastEditedById;
+        }
+        if (updates.lastEditorName !== undefined) {
+          comment.lastEditorName = updates.lastEditorName;
+        }
+        if (updates.lastEditorImage !== undefined) {
+          comment.lastEditorImage = updates.lastEditorImage;
         }
         comment.updatedAt = new Date().toISOString();
       }

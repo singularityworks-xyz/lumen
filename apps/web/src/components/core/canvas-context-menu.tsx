@@ -40,7 +40,11 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
     }
 
     const position = screenToFlowPosition({ x, y });
-    useKanbanStore.getState().addComment(position, "", localUser.id);
+    useKanbanStore.getState().addComment(position, "", {
+      id: localUser.id,
+      name: localUser.name,
+      image: localUser.image ?? undefined,
+    });
     onClose();
   }, [x, y, onClose, screenToFlowPosition, localUser]);
 

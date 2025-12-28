@@ -54,10 +54,14 @@ export type Comment = {
   y: number;
   content: string;
   authorId: string;
+  authorName?: string;
+  authorImage?: string;
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
   lastEditedById?: string;
+  lastEditorName?: string;
+  lastEditorImage?: string;
 };
 
 export type Board = {

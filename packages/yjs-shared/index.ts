@@ -338,10 +338,14 @@ export const CommentSchema = z.object({
   y: z.number(),
   content: z.string(),
   authorId: z.string(),
+  authorName: z.string().optional(),
+  authorImage: z.string().optional(),
   workspaceId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   lastEditedById: z.string().optional(),
+  lastEditorName: z.string().optional(),
+  lastEditorImage: z.string().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
