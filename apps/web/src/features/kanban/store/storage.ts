@@ -1,10 +1,15 @@
 import { createLogger } from "@lumen/logger";
 import { del, get, set } from "idb-keyval";
 import type { StateStorage } from "zustand/middleware";
+import {
+  migrateFromLegacyStorage,
+  StorageKeys,
+} from "@/src/lib/storage-manager";
 
 const logger = createLogger({ name: "[client] storage" });
 
 export const STORAGE_VERSION = 1;
+export const getStorageKey = (): string => StorageKeys.kanbanStore();
 export const STORAGE_KEY = "lumen-kanban-store";
 
 type VersionedData<T> = {
@@ -35,15 +40,39 @@ function migrate<T>(oldVersion: number, data: T): T {
   return data;
 }
 
+// Transform the static storage name to an environment-scoped key
+// This allows us to use a static name in Zustand config while getting automatic environment isolation at runtime
+function transformStorageKey(name: string): string {
+  if (name === STORAGE_KEY) {
+    return getStorageKey();
+  }
+  return name;
+}
+
 export const indexedDBStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
-    // Skip on server-side
     if (typeof window === "undefined") {
       return null;
     }
 
+    const key = transformStorageKey(name);
+
     try {
-      const stored = await get<VersionedData<unknown>>(name);
+      // First try the environment-scoped key
+      let stored = await get<VersionedData<unknown>>(key);
+
+      // If not found and this is the kanban store, check for legacy data
+      if (!stored && name === STORAGE_KEY && key !== STORAGE_KEY) {
+        const legacyData = await get<VersionedData<unknown>>(STORAGE_KEY);
+        if (legacyData) {
+          logger.info(
+            "Found legacy data, migrating to environment-scoped storage"
+          );
+          // Migrate to new key
+          await set(key, legacyData);
+          stored = legacyData;
+        }
+      }
 
       if (!stored) {
         return null;
@@ -57,7 +86,7 @@ export const indexedDBStorage: StateStorage = {
       const { version, data } = stored;
       if (version < STORAGE_VERSION) {
         const migrated = migrate(version, data);
-        await set(name, {
+        await set(key, {
           version: STORAGE_VERSION,
           data: migrated,
           timestamp: Date.now(),
@@ -76,10 +105,11 @@ export const indexedDBStorage: StateStorage = {
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
-    // Skip on server-side
     if (typeof window === "undefined") {
       return;
     }
+
+    const key = transformStorageKey(name);
 
     try {
       const data = JSON.parse(value) as unknown;
@@ -88,7 +118,7 @@ export const indexedDBStorage: StateStorage = {
         data,
         timestamp: Date.now(),
       };
-      await set(name, versionedData);
+      await set(key, versionedData);
     } catch (error) {
       logger.error(
         { error: serializeError(error) },
@@ -98,13 +128,14 @@ export const indexedDBStorage: StateStorage = {
   },
 
   removeItem: async (name: string): Promise<void> => {
-    // Skip on server-side
     if (typeof window === "undefined") {
       return;
     }
 
+    const key = transformStorageKey(name);
+
     try {
-      await del(name);
+      await del(key);
     } catch (error) {
       logger.error(
         { error: serializeError(error) },
@@ -116,8 +147,9 @@ export const indexedDBStorage: StateStorage = {
 
 export async function clearStorage(): Promise<void> {
   try {
-    await del(STORAGE_KEY);
-    logger.info("Cleared all kanban data");
+    const key = getStorageKey();
+    await del(key);
+    logger.info({ key }, "Cleared kanban data");
   } catch (error) {
     logger.error({ error: serializeError(error) }, "Error clearing storage");
   }
@@ -128,5 +160,18 @@ export function isIndexedDBAvailable(): boolean {
     return typeof indexedDB !== "undefined";
   } catch {
     return false;
+  }
+}
+
+// Run migration from legacy storage to environment-scoped storage
+// Should be called once on app startup
+export async function runStorageMigration(): Promise<void> {
+  try {
+    const migrated = await migrateFromLegacyStorage();
+    if (migrated) {
+      logger.info("Successfully migrated from legacy storage");
+    }
+  } catch (error) {
+    logger.error({ error: serializeError(error) }, "Storage migration failed");
   }
 }

@@ -167,7 +167,8 @@ export function useYjsSync(
   }, [doc, currentWorkspaceId]);
 
   useEffect(() => {
-    if (!(doc && isConnected)) {
+    // CRITICAL: Only initialize Yjs sync when connected AND we have a valid workspace ID
+    if (!(doc && isConnected && currentWorkspaceId)) {
       return;
     }
 
@@ -200,7 +201,9 @@ export function useYjsSync(
   }, [doc, isConnected, applyYjsChanges, currentWorkspaceId]);
 
   useEffect(() => {
-    if (!(doc && isConnected)) {
+    // CRITICAL: Only sync to Yjs when connected AND we have a valid workspace ID
+    // This prevents local data from being synced to the wrong workspace
+    if (!(doc && isConnected && currentWorkspaceId)) {
       return;
     }
     const unsubscribe = useKanbanStore.subscribe((state, prevState) => {

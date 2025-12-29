@@ -41,8 +41,14 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
     };
   }, [currentWorkspaceId, isSharedWorkspace, connect, disconnect]);
 
+  // CRITICAL: Only pass workspaceId to sync when we're BOTH connected AND the workspace is shared
+  // This prevents local workspace data from being deleted by stale Yjs state
+  // When disconnected or on a local workspace, pass null to disable sync operations
+  const syncWorkspaceId =
+    isConnected && isSharedWorkspace ? currentWorkspaceId : null;
+
   // Main entity sync (boards, columns, tasks, etc.)
-  useYjsSync(doc, isConnected, currentWorkspaceId);
+  useYjsSync(doc, isConnected, syncWorkspaceId);
 
   // Dedicated task detail modal sync (handles ownership and prevents race conditions)
   useTaskDialogSync(doc, isConnected);
