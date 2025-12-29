@@ -211,6 +211,12 @@ export function useYjsSync(
         return;
       }
 
+      // CRITICAL: Skip syncing if the state's workspace doesn't match the hook's workspace
+      // This prevents stale dialog state from being synced when switching workspaces
+      if (state.currentWorkspaceId !== currentWorkspaceId) {
+        return;
+      }
+
       // Diff and sync workspaces (Only for current workspace)
       // We only sync the current workspace to avoid polluting the room with other workspaces
       if (currentWorkspaceId) {

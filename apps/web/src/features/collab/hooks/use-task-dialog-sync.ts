@@ -16,20 +16,21 @@ const POSITION_THROTTLE_MS = 16;
  * - The owner's local state is authoritative
  * - We sync TO others but don't overwrite our own modals from Yjs
  * - Position updates are throttled to prevent overwhelming the sync
+ * - Workspace changes are tracked to avoid syncing stale modals across workspaces
  */
 export function useTaskDialogSync(
   doc: Y.Doc | null,
-  isConnected: boolean
+  isConnected: boolean,
+  currentWorkspaceId: string | null
 ): void {
   // Track modals that WE opened (local ownership)
   const localModalIdsRef = useRef<Set<string>>(new Set());
-
   // Track last sync time per modal for throttling
   const lastSyncTimesRef = useRef<Record<string, number>>({});
-
   // Prevent re-entrancy during Yjs updates
   const isApplyingFromYjsRef = useRef(false);
-
+  // Track the previous workspace ID to detect workspace changes
+  const prevWorkspaceIdRef = useRef<string | null>(null);
   // Handle incoming changes from Yjs (modals opened by OTHER users)
   const applyRemoteModals = useCallback(() => {
     if (!doc || isApplyingFromYjsRef.current) {
@@ -102,7 +103,8 @@ export function useTaskDialogSync(
 
     yjsMap.observe(handleYjsChange);
 
-    // Initial sync
+    // Initial sync - only apply FROM Yjs, don't push local state
+    // This prevents stale modals from being synced to a new workspace
     applyRemoteModals();
 
     return () => {
@@ -116,8 +118,26 @@ export function useTaskDialogSync(
       return;
     }
 
+    // Detect workspace change - if workspace changed, don't sync old modals
+    const workspaceChanged =
+      prevWorkspaceIdRef.current !== null &&
+      prevWorkspaceIdRef.current !== currentWorkspaceId;
+    prevWorkspaceIdRef.current = currentWorkspaceId;
+
+    // If workspace changed, clear local tracking to avoid syncing stale modals
+    if (workspaceChanged) {
+      localModalIdsRef.current.clear();
+      lastSyncTimesRef.current = {};
+    }
+
     const unsubscribe = useKanbanStore.subscribe((state, prevState) => {
       if (isApplyingFromYjsRef.current) {
+        return;
+      }
+
+      // Skip syncing if workspace just changed - the modals in state might be stale
+      // Wait for the next state update after workspace switch completes
+      if (state.currentWorkspaceId !== currentWorkspaceId) {
         return;
       }
 
@@ -182,15 +202,21 @@ export function useTaskDialogSync(
     });
 
     return unsubscribe;
-  }, [doc, isConnected]);
+  }, [doc, isConnected, currentWorkspaceId]);
 
-  // Clean up refs on disconnect
+  // Clean up refs on disconnect or workspace change
   useEffect(() => {
     if (!isConnected) {
       localModalIdsRef.current.clear();
       lastSyncTimesRef.current = {};
     }
   }, [isConnected]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reset tracking when workspace changes
+  useEffect(() => {
+    localModalIdsRef.current.clear();
+    lastSyncTimesRef.current = {};
+  }, [currentWorkspaceId]);
 }
 
 // Helper: Check if a modal has valid required fields

@@ -46,13 +46,11 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   // When disconnected or on a local workspace, pass null to disable sync operations
   const syncWorkspaceId =
     isConnected && isSharedWorkspace ? currentWorkspaceId : null;
-
   // Main entity sync (boards, columns, tasks, etc.)
   useYjsSync(doc, isConnected, syncWorkspaceId);
-
   // Dedicated task detail modal sync (handles ownership and prevents race conditions)
-  useTaskDialogSync(doc, isConnected);
-
+  // Pass currentWorkspaceId so it can track workspace changes and avoid syncing stale modals
+  useTaskDialogSync(doc, isConnected, currentWorkspaceId);
   return <>{children}</>;
 }
 
