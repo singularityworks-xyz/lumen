@@ -5,6 +5,10 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ConsoleBranding } from "../components/dev/console-branding";
+import {
+  NativeTitlebar,
+  NativeTitlebarSpacer,
+} from "../components/native-titlebar";
 import { AppProviders } from "./providers/app-providers";
 
 const geistSans = localFont({
@@ -69,6 +73,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground`}
       >
+        <NativeTitlebar />
+        <NativeTitlebarSpacer />
         <ConsoleBranding />
         <AppProviders>{children}</AppProviders>
         <Analytics />

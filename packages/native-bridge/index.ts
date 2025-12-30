@@ -3,3 +3,4 @@
 // biome-ignore lint/performance/noBarrelFile: skippy due to module structure
 export * from "./platform";
 export * from "./store";
+export * from "./window";

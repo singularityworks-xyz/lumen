@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "postinstall": "bun run db:gen",
     "dev": "turbo run dev",
+    "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
     "check": "ultracite fix",
     "check-types": "turbo run check-types",
     "dep:check": "bunx sherif@latest --fix .",
@@ -23,6 +24,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
+    "concurrently": "^9.2.1",
     "lint-staged": "^16.2.7",
     "turbo": "^2.7.2",
     "ultracite": "6.3.4"

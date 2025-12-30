@@ -18,6 +18,7 @@ import {
 import { SharedWorkspaceQuickActions } from "@/src/features/workspace/components/shared-workspace-quick-actions";
 import { WorkspaceQuickActions } from "@/src/features/workspace/components/workspace-quick-actions";
 import { useAuth } from "@/src/hooks/use-auth";
+import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 import { useKanbanStore } from "../../kanban/store/kanban-store";
 
 export function WorkspaceSelector() {
@@ -83,6 +84,7 @@ export function WorkspaceSelector() {
     : null;
 
   const { user } = useAuth();
+  const titlebarOffset = useNativeTitlebarOffset();
 
   const myWorkspaces = workspaces.allIds.filter((id) => {
     const ws = workspaces.byId[id];
@@ -260,7 +262,10 @@ export function WorkspaceSelector() {
 
   return (
     <>
-      <div className="pointer-events-auto fixed top-4 left-4 z-50">
+      <div
+        className="pointer-events-auto fixed left-4 z-50"
+        style={{ top: `${16 + titlebarOffset}px` }}
+      >
         <DropdownMenu
           onOpenChange={handleDropdownOpenChange}
           open={dropdownOpen}
