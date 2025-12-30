@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import Elysia, { t } from "elysia";
+import { toHeaders } from "../../utils/headers";
 import { auth } from "../config/auth";
 
 const logger = createLogger({ name: "auth:routes" });
@@ -31,18 +32,6 @@ const cleanupInterval = setInterval(
 // Ensure cleanup stops on process exit (helps with hot reload)
 if (typeof process !== "undefined") {
   process.on("beforeExit", () => clearInterval(cleanupInterval));
-}
-
-function toHeaders(
-  headers: Record<string, string | null | undefined>
-): Headers {
-  const h = new Headers();
-  for (const [key, value] of Object.entries(headers)) {
-    if (value) {
-      h.set(key, value);
-    }
-  }
-  return h;
 }
 
 export const authRoutes = new Elysia({ name: "auth-routes" })
