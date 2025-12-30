@@ -1,10 +1,12 @@
 import { createLogger } from "@lumen/logger";
+import { isTauri } from "@lumen/native-bridge";
 import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   ChevronDown,
   Copy,
   Github,
+  Key,
   Link,
   Loader2,
   LogOut,
@@ -32,6 +34,7 @@ import {
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
+import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 
 const logger = createLogger({ name: "profile-modal" });
 
@@ -41,7 +44,13 @@ type ProfileModalProps = {
 };
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
-  const { user, isLoading, signInWithGitHub, signOutUser } = useAuth();
+  const {
+    user,
+    isLoading,
+    signInWithGitHub,
+    signOutUser,
+    exchangeManualToken,
+  } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +60,9 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const [pendingShareWorkspaceId, setPendingShareWorkspaceId] = useState<
     string | null
   >(null);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [manualToken, setManualToken] = useState("");
+  const [isExchangingToken, setIsExchangingToken] = useState(false);
 
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
@@ -96,6 +108,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     null
   );
   const [showOtherShared, setShowOtherShared] = useState(false);
+  const titlebarOffset = useNativeTitlebarOffset();
 
   useEffect(() => {
     if (!open) {
@@ -267,6 +280,33 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     }
   };
 
+  const handleManualTokenExchange = async () => {
+    if (!manualToken.trim()) {
+      setError("Please enter a token");
+      return;
+    }
+
+    setIsExchangingToken(true);
+    setError(null);
+
+    try {
+      const success = await exchangeManualToken(manualToken.trim());
+      if (success) {
+        setManualToken("");
+        setShowTokenInput(false);
+      } else {
+        setError("Invalid or expired token. Please try again.");
+      }
+    } catch (err) {
+      logger.error("Manual token exchange failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+      setError("Failed to exchange token. Please try again.");
+    } finally {
+      setIsExchangingToken(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     setError(null);
@@ -302,9 +342,10 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="fixed top-4 left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            className="fixed left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
             exit={{ opacity: 0, y: -8 }}
             initial={{ opacity: 0, y: -12 }}
+            style={{ top: `${16 + titlebarOffset}px` }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
             <button
@@ -546,6 +587,70 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                     </>
                   )}
                 </Button>
+
+                {/* Manual token input for Tauri when deep links don't work */}
+                {isTauri() && (
+                  <div className="mt-3">
+                    <button
+                      className="flex w-full items-center justify-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                      onClick={() => setShowTokenInput(!showTokenInput)}
+                      type="button"
+                    >
+                      <Key className="h-3 w-3" />
+                      <span>Paste auth token manually</span>
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${showTokenInput ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {showTokenInput && (
+                        <motion.div
+                          animate={{ height: "auto", opacity: 1 }}
+                          className="overflow-hidden"
+                          exit={{ height: 0, opacity: 0 }}
+                          initial={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <div className="mt-2 space-y-2">
+                            <p className="text-[10px] text-muted-foreground">
+                              After signing in via browser, copy the token from
+                              the callback page and paste it here.
+                            </p>
+                            <div className="flex gap-1.5">
+                              <Input
+                                className="h-7 flex-1 font-mono text-xs"
+                                onChange={(e) => setManualToken(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleManualTokenExchange();
+                                  }
+                                }}
+                                placeholder="Paste token here..."
+                                value={manualToken}
+                              />
+                              <Button
+                                className="h-7 px-3"
+                                disabled={
+                                  isExchangingToken || !manualToken.trim()
+                                }
+                                onClick={handleManualTokenExchange}
+                                size="sm"
+                                variant="outline"
+                              >
+                                {isExchangingToken ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  "Submit"
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

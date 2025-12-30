@@ -3,6 +3,7 @@
 import { Wifi, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
+import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 
 export function ConnectionStatusIndicator() {
   const [isOnline, setIsOnline] = useState(true);
@@ -20,6 +21,8 @@ export function ConnectionStatusIndicator() {
     currentWorkspace?.isShared === true ||
     !!shareUrl ||
     !!currentWorkspace?.shareToken;
+
+  const titlebarOffset = useNativeTitlebarOffset();
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -68,7 +71,10 @@ export function ConnectionStatusIndicator() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg border bg-background px-4 py-2 shadow-lg">
+    <div
+      className="fixed right-4 z-50 flex items-center gap-2 rounded-lg border bg-background px-4 py-2 shadow-lg"
+      style={{ top: `${16 + titlebarOffset}px` }}
+    >
       {isOnline ? (
         <>
           <Wifi className="h-4 w-4 text-green-500" />

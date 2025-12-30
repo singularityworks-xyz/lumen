@@ -42,18 +42,6 @@ export function getColorForUser(userId: string): string {
   return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
 }
 
-export function toHeaders(
-  elysiaHeaders: Record<string, string | undefined>
-): Headers {
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(elysiaHeaders)) {
-    if (value !== undefined) {
-      headers.set(key, value);
-    }
-  }
-  return headers;
-}
-
 export async function getCollaborator(
   workspaceId: string,
   userId: string

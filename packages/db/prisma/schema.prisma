@@ -82,6 +82,18 @@ model Verification {
   @@map("verification")
 }
 
+model OneTimeAuthToken {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  sessionToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("one_time_auth_token")
+}
+
 model Workspace {
   id          String   @id @default(cuid())
   name        String
