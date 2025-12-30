@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -16,9 +16,48 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
 });
 
+const APP_NAME = "Lumen";
+const APP_DESCRIPTION = "Shedding light on the singularity";
+
 export const metadata: Metadata = {
-  title: "Lumen — Work, illuminated",
-  description: "Shedding light on the singularity",
+  applicationName: APP_NAME,
+  title: {
+    default: "Lumen — Work, illuminated",
+    template: "%s — Lumen",
+  },
+  description: APP_DESCRIPTION,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: APP_NAME,
+    title: {
+      default: APP_NAME,
+      template: "%s — Lumen",
+    },
+    description: APP_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0c0c" },
+  ],
 };
 
 export default function RootLayout({

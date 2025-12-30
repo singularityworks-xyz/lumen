@@ -268,6 +268,12 @@ export function CollaborationProvider({
         return;
       }
 
+      if (!navigator.onLine) {
+        logger.info("Offline - skipping connection", { workspaceId });
+        setConnectionState("disconnected");
+        return;
+      }
+
       cleanup();
       workspaceIdRef.current = workspaceId;
 
