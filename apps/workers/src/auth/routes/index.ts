@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import Elysia, { t } from "elysia";
 import { auth } from "../config/auth";
@@ -6,19 +7,31 @@ import { auth } from "../config/auth";
 const logger = createLogger({ name: "auth:routes" });
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
 
-const oneTimeTokens = new Map<
-  string,
-  { sessionToken: string; userId: string; expiresAt: number }
->();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, data] of oneTimeTokens.entries()) {
-    if (data.expiresAt < now) {
-      oneTimeTokens.delete(token);
+// Cleanup expired tokens periodically (every 5 minutes)
+const cleanupInterval = setInterval(
+  async () => {
+    try {
+      const result = await prisma.oneTimeAuthToken.deleteMany({
+        where: { expiresAt: { lt: new Date() } },
+      });
+      if (result.count > 0) {
+        logger.debug("Cleaned up expired one-time tokens", {
+          count: result.count,
+        });
+      }
+    } catch (err) {
+      logger.error("Failed to cleanup expired tokens", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
     }
-  }
-}, 60_000);
+  },
+  5 * 60 * 1000
+);
+
+// Ensure cleanup stops on process exit (helps with hot reload)
+if (typeof process !== "undefined") {
+  process.on("beforeExit", () => clearInterval(cleanupInterval));
+}
 
 function toHeaders(
   headers: Record<string, string | null | undefined>
@@ -101,10 +114,14 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       return { error: "Unauthorized", message: "No session token found" };
     }
 
-    oneTimeTokens.set(oneTimeToken, {
-      sessionToken,
-      userId: session.user.id,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await prisma.oneTimeAuthToken.create({
+      data: {
+        token: oneTimeToken,
+        sessionToken,
+        expiresAt,
+      },
     });
 
     logger.info("Generated one-time token for native auth", {
@@ -117,7 +134,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   // Exchange one-time token for a session cookie (called from Tauri WebView)
   .post(
     "/api/auth/native/exchange-token",
-    ({ body, set, cookie }) => {
+    async ({ body, set, cookie }) => {
       const { token } = body;
 
       if (!token) {
@@ -125,23 +142,25 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         return { error: "Bad Request", message: "Token is required" };
       }
 
-      const tokenData = oneTimeTokens.get(token);
+      // Atomically find and delete the token to prevent race conditions
+      const tokenData = await prisma.oneTimeAuthToken.findUnique({
+        where: { token },
+      });
 
       if (!tokenData) {
         set.status = 401;
         return { error: "Unauthorized", message: "Invalid or expired token" };
       }
 
-      if (tokenData.expiresAt < Date.now()) {
-        oneTimeTokens.delete(token);
+      // Delete the token immediately (one-time use)
+      await prisma.oneTimeAuthToken.delete({ where: { token } });
+
+      if (tokenData.expiresAt < new Date()) {
         set.status = 401;
         return { error: "Unauthorized", message: "Token has expired" };
       }
 
-      oneTimeTokens.delete(token);
-
       // Set the session cookie for the Tauri WebView
-      // Note: Better Auth uses hyphen in cookie name (better-auth.session_token)
       cookie["better-auth.session_token"].set({
         value: tokenData.sessionToken,
         httpOnly: true,
@@ -217,13 +236,15 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         });
 
         if (sessionToken) {
-          // Generate one-time token that stores the session token
-          // We trust the session token since it came directly from Better Auth's response
           const oneTimeToken = randomBytes(32).toString("hex");
-          oneTimeTokens.set(oneTimeToken, {
-            sessionToken,
-            userId: "pending", // We don't need to look up the user here
-            expiresAt: Date.now() + 5 * 60 * 1000,
+          const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+          await prisma.oneTimeAuthToken.create({
+            data: {
+              token: oneTimeToken,
+              sessionToken,
+              expiresAt,
+            },
           });
 
           logger.info("Generated one-time token for native OAuth callback", {

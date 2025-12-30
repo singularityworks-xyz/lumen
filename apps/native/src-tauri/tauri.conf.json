@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:3002 ws://localhost:3002 https://* wss://*; img-src 'self' asset: https://*; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {

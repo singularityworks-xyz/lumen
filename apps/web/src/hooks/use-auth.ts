@@ -138,9 +138,15 @@ export function useAuth(): UseAuthReturn {
       });
     });
 
-    const unsubscribe = onAuthDeepLink((url) => {
-      logger.info("Received auth deep link via native-bridge", { url });
-      handleDeepLinkCallback(url);
+    const unsubscribe = onAuthDeepLink(async (url) => {
+      try {
+        logger.info("Received auth deep link via native-bridge", { url });
+        await handleDeepLinkCallback(url);
+      } catch (err) {
+        logger.error("Error in deep link listener", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
     });
 
     logger.info("Native auth deep link listener initialized");

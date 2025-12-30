@@ -1,4 +1,7 @@
+import { createLogger } from "@lumen/logger";
 import { isTauri } from "./platform";
+
+const logger = createLogger({ name: "native-bridge:store" });
 
 type StoreInstance = {
   get: <T>(key: string) => Promise<T | null>;
@@ -49,7 +52,9 @@ export async function getStore(
 
     return storeInstance;
   } catch (error) {
-    console.warn("Failed to initialize Tauri store, using no-op store:", error);
+    logger.warn("Failed to initialize Tauri store, using no-op store", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     storeInstance = createNoOpStore();
     return storeInstance;
   }
