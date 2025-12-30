@@ -32,6 +32,7 @@ import {
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
+import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 
 const logger = createLogger({ name: "profile-modal" });
 
@@ -96,6 +97,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     null
   );
   const [showOtherShared, setShowOtherShared] = useState(false);
+  const titlebarOffset = useNativeTitlebarOffset();
 
   useEffect(() => {
     if (!open) {
@@ -302,9 +304,10 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="fixed top-4 left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            className="fixed left-1/2 z-50 w-100 -translate-x-1/2 overflow-hidden rounded-xl border-2 border-border/50 bg-card p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
             exit={{ opacity: 0, y: -8 }}
             initial={{ opacity: 0, y: -12 }}
+            style={{ top: `${16 + titlebarOffset}px` }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
             <button

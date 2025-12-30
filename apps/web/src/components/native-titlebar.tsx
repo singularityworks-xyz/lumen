@@ -119,17 +119,3 @@ export function NativeTitlebar() {
     </div>
   );
 }
-
-export function NativeTitlebarSpacer() {
-  const [isNative, setIsNative] = useState(false);
-
-  useEffect(() => {
-    setIsNative(isTauri());
-  }, []);
-
-  if (!isNative) {
-    return null;
-  }
-
-  return <div className="h-10" />;
-}

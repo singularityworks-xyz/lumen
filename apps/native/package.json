@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "dev:linux": "GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 bun tauri dev"
+    "dev:linux": "__GL_MaxFramesAllowed=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_HARDWARE_ACCELERATION_POLICY=always bun tauri dev"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",
