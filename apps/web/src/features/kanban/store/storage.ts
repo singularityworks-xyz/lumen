@@ -18,6 +18,10 @@ type VersionedData<T> = {
   timestamp: number;
 };
 
+// Migration lock to prevent concurrent migration attempts
+let migrationInProgress: Promise<void> | null = null;
+let migrationCompleted = false;
+
 function serializeError(error: unknown): {
   message: string;
   name?: string;
@@ -49,6 +53,48 @@ function transformStorageKey(name: string): string {
   return name;
 }
 
+async function performLegacyMigration(
+  key: string,
+  name: string
+): Promise<VersionedData<unknown> | null> {
+  if (migrationCompleted) {
+    return null;
+  }
+
+  if (migrationInProgress) {
+    await migrationInProgress;
+    return (await get<VersionedData<unknown>>(key)) ?? null;
+  }
+
+  migrationInProgress = (async () => {
+    try {
+      if (name !== STORAGE_KEY || key === STORAGE_KEY) {
+        return;
+      }
+
+      const legacyData =
+        (await get<VersionedData<unknown>>(STORAGE_KEY)) ?? null;
+      if (legacyData) {
+        logger.info(
+          "Found legacy data, migrating to environment-scoped storage"
+        );
+        await set(key, legacyData);
+      }
+      migrationCompleted = true;
+    } catch (error) {
+      logger.error(
+        { error: serializeError(error) },
+        "Error during legacy migration"
+      );
+    } finally {
+      migrationInProgress = null;
+    }
+  })();
+
+  await migrationInProgress;
+  return (await get<VersionedData<unknown>>(key)) ?? null;
+}
+
 export const indexedDBStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === "undefined") {
@@ -58,20 +104,9 @@ export const indexedDBStorage: StateStorage = {
     const key = transformStorageKey(name);
 
     try {
-      // First try the environment-scoped key
-      let stored = await get<VersionedData<unknown>>(key);
-
-      // If not found and this is the kanban store, check for legacy data
+      let stored = (await get<VersionedData<unknown>>(key)) ?? null;
       if (!stored && name === STORAGE_KEY && key !== STORAGE_KEY) {
-        const legacyData = await get<VersionedData<unknown>>(STORAGE_KEY);
-        if (legacyData) {
-          logger.info(
-            "Found legacy data, migrating to environment-scoped storage"
-          );
-          // Migrate to new key
-          await set(key, legacyData);
-          stored = legacyData;
-        }
+        stored = await performLegacyMigration(key, name);
       }
 
       if (!stored) {
@@ -167,11 +202,16 @@ export function isIndexedDBAvailable(): boolean {
 // Should be called once on app startup
 export async function runStorageMigration(): Promise<void> {
   try {
+    // Mark migration as completed to prevent inline migration attempts
+    migrationCompleted = true;
+
     const migrated = await migrateFromLegacyStorage();
     if (migrated) {
       logger.info("Successfully migrated from legacy storage");
     }
   } catch (error) {
     logger.error({ error: serializeError(error) }, "Storage migration failed");
+    // Reset flag on failure to allow retry
+    migrationCompleted = false;
   }
 }

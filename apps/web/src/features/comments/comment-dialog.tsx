@@ -99,21 +99,28 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
     : null;
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: skip
     // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
-    // biome-ignore lint/a11y/noStaticElementInteractions: skip
     <div
+      aria-modal="true"
       className="fade-in zoom-in-95 nodrag nopan nowheel absolute z-50 w-64 animate-in cursor-default rounded-lg bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] duration-200 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          if (comment.content === "") {
+            removeComment(comment.id);
+          }
+          onClose();
+        }
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
-      onPointerUp={(e) => e.stopPropagation()}
+      role="dialog"
       style={{
         top: "100%",
         left: "50%",
         transform: "translateX(-50%) translateY(8px)",
       }}
+      tabIndex={-1}
     >
       <div
         className={cn(
@@ -196,9 +203,8 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
           </>
         ) : (
           <div className="relative p-2.5 pr-8">
-            {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: skip */}
-            {/** biome-ignore lint/a11y/useKeyWithClickEvents: skip */}
+            {/** biome-ignore lint/a11y/noStaticElementInteractions: skip */}
+            {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
             <div
               className={cn(
                 "whitespace-pre-wrap text-sm",
@@ -211,6 +217,15 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
                   setIsEditing(true);
                 }
               }}
+              onKeyDown={(e) => {
+                if (isAuthor && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }
+              }}
+              role={isAuthor ? "button" : undefined}
+              tabIndex={isAuthor ? 0 : undefined}
             >
               {comment.content}
             </div>
