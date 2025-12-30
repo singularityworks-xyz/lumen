@@ -11,6 +11,7 @@ import {
   ColumnDialogSchema,
   ColumnQuickActionsSchema,
   ColumnSchema,
+  CommentSchema,
   ConnectionDialogSchema,
   CreateTaskModalSchema,
   TaskDetailModalSchema,
@@ -27,6 +28,7 @@ import type {
   BoardPosition,
   BoardQuickActionsState,
   Column,
+  Comment,
   CreateTaskModalState,
   Task,
   TaskDetailModalState,
@@ -194,6 +196,12 @@ export const areaDragOriginSync = createEntitySync<{
   entityName: "areaDragOrigin",
 });
 
+export const commentSync = createEntitySync<Comment>({
+  mapName: YJS_MAP_NAMES.COMMENTS,
+  schema: CommentSchema,
+  entityName: "comment",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -213,4 +221,5 @@ export const allSyncs = {
   taskQuickActions: taskQuickActionsSync,
   taskDetailModals: taskDetailModalSync,
   areaDragOrigins: areaDragOriginSync,
+  comments: commentSync,
 } as const;

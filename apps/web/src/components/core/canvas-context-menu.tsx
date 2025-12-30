@@ -1,7 +1,9 @@
 "use client";
 
-import { Command, Plus } from "lucide-react";
+import { useReactFlow } from "@xyflow/react";
+import { MessageCircle, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
+import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
 
 type ContextMenuProps = {
@@ -11,9 +13,11 @@ type ContextMenuProps = {
 };
 
 const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
-  const setShowCommandPalette = useKanbanStore(
-    (state) => state.setShowCommandPalette
-  );
+  const { screenToFlowPosition } = useReactFlow();
+  const { localUser } = useCollaboration();
+  // const setShowCommandPalette = useKanbanStore(
+  //   (state) => state.setShowCommandPalette
+  // );
 
   const handleNewBoard = useCallback(() => {
     const defaultWidth = 800;
@@ -30,10 +34,24 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
     onClose();
   }, [x, y, onClose]);
 
-  const handleSearch = useCallback(() => {
-    setShowCommandPalette(true);
+  const handleAddComment = useCallback(() => {
+    if (!localUser) {
+      return;
+    }
+
+    const position = screenToFlowPosition({ x, y });
+    useKanbanStore.getState().addComment(position, "", {
+      id: localUser.id,
+      name: localUser.name,
+      image: localUser.image ?? undefined,
+    });
     onClose();
-  }, [setShowCommandPalette, onClose]);
+  }, [x, y, onClose, screenToFlowPosition, localUser]);
+
+  // const handleSearch = useCallback(() => {
+  //   setShowCommandPalette(true);
+  //   onClose();
+  // }, [setShowCommandPalette, onClose]);
 
   return (
     <div
@@ -50,12 +68,20 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       </button>
       <button
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+        onClick={handleAddComment}
+        type="button"
+      >
+        <MessageCircle className="h-3.5 w-3.5 scale-x-[-1]" />
+        Add Comment
+      </button>
+      {/* <button
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
         onClick={handleSearch}
         type="button"
       >
         <Command className="h-3.5 w-3.5" />
         Search
-      </button>
+      </button> */}
     </div>
   );
 });

@@ -44,19 +44,110 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (workspaceId === null || state.workspaces.byId[workspaceId]) {
         const oldWorkspaceId = state.currentWorkspaceId;
+        // Save current dialog state to the OLD workspace before switching
         if (oldWorkspaceId && state.workspaces.byId[oldWorkspaceId]) {
           state.workspaces.byId[oldWorkspaceId].lastViewport = {
             ...state.canvas.viewport,
           };
           state.workspaces.byId[oldWorkspaceId].showMiniMap = state.showMiniMap;
+          // Save all dialog/modal state to the old workspace
+          state.workspaces.byId[oldWorkspaceId].savedDialogState = {
+            taskDetailModals: { ...state.taskDetailModals },
+            createTaskModals: { ...state.createTaskModals },
+            boardQuickActions: { ...state.boardQuickActions },
+            boardDialogs: { ...state.boardDialogs },
+            columnQuickActions: { ...state.columnQuickActions },
+            columnDialogs: { ...state.columnDialogs },
+            taskQuickActions: { ...state.taskQuickActions },
+            connectionDialog: state.connectionDialog
+              ? { ...state.connectionDialog }
+              : null,
+            areaDialogs: { ...state.areaDialogs },
+            dialogFocusStack: [...state.dialogFocusStack],
+            selectedTaskIds: [...state.selectedTaskIds],
+            selectedBoardId: state.selectedBoardId,
+            selectedBoardIds: [...state.selectedBoardIds],
+          };
         }
+
         state.currentWorkspaceId = workspaceId;
-        state.selectedBoardId = null;
-        state.selectedBoardIds = [];
+
+        // Restore dialog state from the NEW workspace (or reset to empty)
         if (workspaceId && state.workspaces.byId[workspaceId]) {
+          const savedState =
+            state.workspaces.byId[workspaceId].savedDialogState;
+          const workspace = state.workspaces.byId[workspaceId];
+          const shareUrl = state.workspaceShareUrls[workspaceId];
+          // Check if workspace is shared/collaborative
+          // In collaborative mode, task modals are managed by Yjs sync, not local state
+          const isSharedWorkspace =
+            workspace.isShared === true || !!shareUrl || !!workspace.shareToken;
+          if (savedState) {
+            // Restore exactly as the user left it
+            // IMPORTANT: Create shallow copies to avoid reference sharing between
+            // active state and savedDialogState. This prevents modifications to
+            // active state from inadvertently affecting the saved state.
+            // IMPORTANT: Skip task modals in collaborative workspaces - they're managed by Yjs
+            if (isSharedWorkspace) {
+              // In collaborative mode, reset modals - Yjs will restore them if needed
+              state.taskDetailModals = {};
+              state.createTaskModals = {};
+            } else {
+              state.taskDetailModals = { ...savedState.taskDetailModals };
+              state.createTaskModals = { ...savedState.createTaskModals };
+            }
+            state.boardQuickActions = { ...savedState.boardQuickActions };
+            state.boardDialogs = { ...savedState.boardDialogs };
+            state.columnQuickActions = { ...savedState.columnQuickActions };
+            state.columnDialogs = { ...savedState.columnDialogs };
+            state.taskQuickActions = { ...savedState.taskQuickActions };
+            state.connectionDialog = savedState.connectionDialog
+              ? { ...savedState.connectionDialog }
+              : null;
+            state.areaDialogs = { ...savedState.areaDialogs };
+            state.dialogFocusStack = [...savedState.dialogFocusStack];
+            state.selectedTaskIds = [...savedState.selectedTaskIds];
+            state.selectedBoardId = savedState.selectedBoardId;
+            state.selectedBoardIds = [...savedState.selectedBoardIds];
+          } else {
+            // No saved state - reset to defaults
+            state.taskDetailModals = {};
+            state.createTaskModals = {};
+            state.boardQuickActions = {};
+            state.boardDialogs = {};
+            state.columnQuickActions = {};
+            state.columnDialogs = {};
+            state.taskQuickActions = {};
+            state.connectionDialog = null;
+            state.areaDialogs = {};
+            state.dialogFocusStack = [];
+            state.selectedTaskIds = [];
+            state.selectedBoardId = null;
+            state.selectedBoardIds = [];
+          }
           state.showMiniMap =
             state.workspaces.byId[workspaceId].showMiniMap ?? false;
+        } else {
+          // Switching to null workspace - clear everything
+          state.taskDetailModals = {};
+          state.createTaskModals = {};
+          state.boardQuickActions = {};
+          state.boardDialogs = {};
+          state.columnQuickActions = {};
+          state.columnDialogs = {};
+          state.taskQuickActions = {};
+          state.connectionDialog = null;
+          state.areaDialogs = {};
+          state.dialogFocusStack = [];
+          state.selectedTaskIds = [];
+          state.selectedBoardId = null;
+          state.selectedBoardIds = [];
         }
+        // These are always reset when switching workspaces
+        state.workspaceQuickActions = null;
+        state.workspaceDialog = null;
+        state.shakingTaskDetailModalId = null;
+        state.draggedTaskId = null;
       }
     }),
 

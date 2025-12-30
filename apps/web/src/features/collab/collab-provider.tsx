@@ -17,6 +17,7 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
+import { StorageKeys } from "@/src/lib/storage-manager";
 
 const logger = createLogger({ name: "collab:provider" });
 const MESSAGE_SYNC = 0;
@@ -240,9 +241,6 @@ export function CollaborationProvider({
           ? state.draggingColumn
           : existing?.draggingColumn;
 
-        // TODO: Also might want to merge other meaningful presence overrides here
-        // Fixed: Now properly handles null (clear) vs undefined (preserve) for drag states
-
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
           name: state.user.name || "Anonymous",
@@ -306,7 +304,7 @@ export function CollaborationProvider({
       awareness.on("change", handleAwarenessUpdate);
 
       const persistence = new IndexeddbPersistence(
-        `lumen-collab-${workspaceId}`,
+        StorageKeys.collabPersistence(workspaceId),
         doc
       );
       persistenceRef.current = persistence;

@@ -19,6 +19,7 @@ import {
   columnDialogSync,
   columnQuickActionsSync,
   columnSync,
+  commentSync,
   connectionDialogSync,
   createTaskModalSync,
   taskQuickActionsSync,
@@ -38,6 +39,13 @@ export function applyYjsToState(
   currentState?: Partial<KanbanState>,
   currentWorkspaceId?: string | null
 ): Partial<KanbanState> {
+  // CRITICAL: If no workspace ID is provided, don't apply any changes
+  // This prevents local workspace data from being affected by stale Yjs state
+  if (!currentWorkspaceId) {
+    logger.debug("Skipping Yjs sync - no workspace ID provided");
+    return {};
+  }
+
   const syncedWorkspaces = workspaceSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.WORKSPACE)
   );
@@ -86,7 +94,6 @@ export function applyYjsToState(
   const boardsYjsMap = doc.getMap(YJS_MAP_NAMES.BOARDS);
   const columnsYjsMap = doc.getMap(YJS_MAP_NAMES.COLUMNS);
   const tasksYjsMap = doc.getMap(YJS_MAP_NAMES.TASKS);
-
   const syncedBoards = boardSync.applyFromYjs(boardsYjsMap);
   const syncedColumns = columnSync.applyFromYjs(columnsYjsMap);
   const syncedTasks = taskSync.applyFromYjs(tasksYjsMap);
@@ -99,6 +106,9 @@ export function applyYjsToState(
   const syncedAreas = areaSync.applyFromYjs(doc.getMap(YJS_MAP_NAMES.AREAS));
   const syncedAreaPositions = areaPositionSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS)
+  );
+  const syncedComments = commentSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.COMMENTS)
   );
 
   // Helper to merge entity maps, handling additions, updates, AND deletions
@@ -169,10 +179,9 @@ export function applyYjsToState(
     return merged;
   };
 
-  // Filter functions to only include entities belonging to the current workspace
-  // NOTE: Be permissive - if board exists in local state, don't filter it out
-  // This prevents boards from disappearing during sync
-  const boardBelongsToWorkspace = (board: {
+  // FILTER FUNCTION: Used when adding items from Yjs to merged state
+  // Be permissive - include local boards to preserve them
+  const boardFilterFn = (board: {
     workspace_id?: string;
     id?: string;
   }): boolean => {
@@ -204,6 +213,17 @@ export function applyYjsToState(
     return false;
   };
 
+  // BELONGS TO WORKSPACE FUNCTION: Used for deletion logic
+  // STRICT - only return true for items that ACTUALLY belong to the synced workspace
+  // This prevents local workspace items from being considered for deletion
+  const boardBelongsToSyncedWorkspace = (board: {
+    workspace_id?: string;
+  }): boolean => {
+    // Only return true if this board belongs to the workspace we're syncing
+    // This is a STRICT check - local boards should NOT be considered
+    return board.workspace_id === currentWorkspaceId;
+  };
+
   // Get the set of board IDs that belong to current workspace (for filtering columns/tasks)
   // Be permissive - include boards that are already in local state
   const workspaceBoardIds = new Set(
@@ -217,7 +237,7 @@ export function applyYjsToState(
         return true;
       }
       // Otherwise use workspace filter
-      return boardBelongsToWorkspace(board);
+      return boardBelongsToSyncedWorkspace(board);
     })
   );
 
@@ -238,62 +258,67 @@ export function applyYjsToState(
   );
 
   const boards = mergeEntityMaps(currentState?.boards, syncedBoards, {
-    filterFn: boardBelongsToWorkspace,
-    belongsToWorkspaceFn: boardBelongsToWorkspace,
+    filterFn: boardFilterFn,
+    belongsToWorkspaceFn: boardBelongsToSyncedWorkspace,
     rawYjsMap: boardsYjsMap,
   });
 
-  // Update workspaceBoardIds to include both synced AND remaining local boards
-  // (needed for column/task filtering after some boards might have been removed)
-  const activeBoardIds = new Set(boards.allIds);
-
-  const entityBelongsToActiveBoard = (entity: {
+  // STRICT: Check if an entity's board belongs to the SYNCED workspace
+  // This is used for deletion logic - only consider deleting items whose parent board
+  // is in the synced workspace
+  const entityBelongsToSyncedWorkspaceBoard = (entity: {
     board_id?: string;
   }): boolean => {
-    // If no current workspace filter, include all
-    if (!currentWorkspaceId) {
-      return true;
-    }
-
     if (!entity.board_id) {
       return false;
     }
-
-    // CRITICAL FIX: If this board has an open task detail modal, treat it as active
-    // This ensures tasks on this board (like the one in the modal!) aren't filtered out
-    // checking tasks specifically against active boards
-    if (currentState?.taskDetailModals) {
-      const hasOpenModal = Object.values(currentState.taskDetailModals).some(
-        (modal) => modal?.boardId === entity.board_id
-      );
-      if (hasOpenModal) {
-        return true;
-      }
-    }
-
-    return activeBoardIds.has(entity.board_id);
+    const board = boards.byId[entity.board_id];
+    return board?.workspace_id === currentWorkspaceId;
   };
 
   const columns = mergeEntityMaps(currentState?.columns, syncedColumns, {
     filterFn: entityBelongsToWorkspaceBoard,
-    belongsToWorkspaceFn: entityBelongsToActiveBoard,
+    belongsToWorkspaceFn: entityBelongsToSyncedWorkspaceBoard,
     rawYjsMap: columnsYjsMap,
   });
   const tasks = mergeEntityMaps(currentState?.tasks, syncedTasks, {
     filterFn: entityBelongsToWorkspaceBoard,
-    belongsToWorkspaceFn: entityBelongsToActiveBoard,
+    belongsToWorkspaceFn: entityBelongsToSyncedWorkspaceBoard,
     rawYjsMap: tasksYjsMap,
   });
+
+  // Helper: Check if a board position belongs to synced workspace
+  const boardPositionBelongsToSyncedWorkspace = (pos: {
+    id: string;
+  }): boolean => {
+    const board = boards.byId[pos.id];
+    return board?.workspace_id === currentWorkspaceId;
+  };
+
   const boardPositions = mergeEntityMaps(
     currentState?.boardPositions,
     syncedBoardPositions,
     {
       filterFn: (pos): boolean =>
         !currentWorkspaceId || workspaceBoardIds.has(pos.id),
-      belongsToWorkspaceFn: (pos): boolean => activeBoardIds.has(pos.id),
+      belongsToWorkspaceFn: boardPositionBelongsToSyncedWorkspace,
       rawYjsMap: boardPositionsYjsMap,
     }
   );
+
+  // Helper: Check if a connection belongs to synced workspace
+  const connectionBelongsToSyncedWorkspace = (conn: {
+    source_board_id: string;
+    target_board_id: string;
+  }): boolean => {
+    const sourceBoard = boards.byId[conn.source_board_id];
+    const targetBoard = boards.byId[conn.target_board_id];
+    return (
+      sourceBoard?.workspace_id === currentWorkspaceId &&
+      targetBoard?.workspace_id === currentWorkspaceId
+    );
+  };
+
   const boardConnections = mergeEntityMaps(
     currentState?.boardConnections,
     syncedBoardConnections,
@@ -306,32 +331,43 @@ export function applyYjsToState(
             conn.target_board_id &&
             workspaceBoardIds.has(conn.target_board_id)
         ),
-      belongsToWorkspaceFn: (conn): boolean =>
-        activeBoardIds.has(conn.source_board_id) &&
-        activeBoardIds.has(conn.target_board_id),
+      belongsToWorkspaceFn: connectionBelongsToSyncedWorkspace,
     }
   );
 
-  // Update workspaceAreaIds similarly
-  const activeAreaIds = new Set(
-    syncedAreas.allIds.filter((id) => {
-      const area = syncedAreas.byId[id];
-      return area && areaBelongsToWorkspace(area);
-    })
-  );
+  // STRICT: Area belongs to synced workspace
+  const areaBelongsToSyncedWorkspace = (area: {
+    workspace_id?: string;
+  }): boolean => area.workspace_id === currentWorkspaceId;
 
   const areas = mergeEntityMaps(currentState?.areas, syncedAreas, {
     filterFn: areaBelongsToWorkspace,
-    belongsToWorkspaceFn: areaBelongsToWorkspace,
+    belongsToWorkspaceFn: areaBelongsToSyncedWorkspace,
   });
+
+  // Helper: Area position belongs to synced workspace
+  const areaPositionBelongsToSyncedWorkspace = (pos: {
+    id: string;
+  }): boolean => {
+    const area = areas.byId[pos.id];
+    return area?.workspace_id === currentWorkspaceId;
+  };
+
   const areaPositions = mergeEntityMaps(
     currentState?.areaPositions,
     syncedAreaPositions,
     {
       filterFn: (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
-      belongsToWorkspaceFn: (pos) => activeAreaIds.has(pos.id),
+      belongsToWorkspaceFn: areaPositionBelongsToSyncedWorkspace,
     }
   );
+
+  const comments = mergeEntityMaps(currentState?.comments, syncedComments, {
+    filterFn: (comment) =>
+      !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+    belongsToWorkspaceFn: (comment) =>
+      !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+  });
 
   // Sync dialogs - these don't need workspace filtering (ephemeral UI state)
   const syncedBoardQuickActions = boardQuickActionsSync.applyFromYjs(
@@ -579,6 +615,7 @@ export function applyYjsToState(
     boardConnections,
     areas,
     areaPositions,
+    comments,
     areaDragOrigins,
     areaDialogs,
     boardQuickActions,
@@ -651,6 +688,7 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
   boardConnectionSync.initializeYjs(doc, state.boardConnections);
   areaSync.initializeYjs(doc, state.areas);
   areaPositionSync.initializeYjs(doc, state.areaPositions);
+  commentSync.initializeYjs(doc, state.comments);
 
   logger.info("Initialized Yjs from Zustand state");
 }
@@ -827,6 +865,24 @@ export function initializeYjsForWorkspace(
     });
   }
 
+  const workspaceComments = state.comments.allIds
+    .map((id) => state.comments.byId[id])
+    .filter((comment) => comment && comment.workspaceId === workspaceId);
+
+  const commentsMap = doc.getMap(YJS_MAP_NAMES.COMMENTS);
+  if (commentsMap.size === 0 && workspaceComments.length > 0) {
+    doc.transact(() => {
+      for (const comment of workspaceComments) {
+        if (comment) {
+          commentsMap.set(comment.id, comment);
+        }
+      }
+    });
+    logger.debug("Initialized comments in Yjs", {
+      count: workspaceComments.length,
+    });
+  }
+
   logger.info("Initialized Yjs for workspace", {
     workspaceId,
     boards: workspaceBoards.length,
@@ -858,6 +914,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.COLUMN_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS),
+    doc.getMap(YJS_MAP_NAMES.COMMENTS),
   ];
 
   for (const map of maps) {

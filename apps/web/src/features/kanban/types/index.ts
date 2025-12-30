@@ -48,6 +48,22 @@ export type Column = {
   icon?: string;
 };
 
+export type Comment = {
+  id: string;
+  x: number;
+  y: number;
+  content: string;
+  authorId: string;
+  authorName?: string;
+  authorImage?: string;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastEditedById?: string;
+  lastEditorName?: string;
+  lastEditorImage?: string;
+};
+
 export type Board = {
   id: string;
   name: string;
@@ -72,6 +88,75 @@ export type BoardConnection = {
   created_at: string;
 };
 
+export type WorkspaceDialogState = {
+  taskDetailModals: Record<string, TaskDetailModalState>;
+  createTaskModals: Record<string, CreateTaskModalState>;
+  boardQuickActions: Record<
+    string,
+    { boardId: string; position: { x: number; y: number } }
+  >;
+  boardDialogs: Record<string, BoardDialogState>;
+  columnQuickActions: Record<
+    string,
+    {
+      columnId: string;
+      boardId: string;
+      showAddTask: boolean;
+      position: { x: number; y: number };
+    }
+  >;
+  columnDialogs: Record<
+    string,
+    {
+      id: string;
+      type: "rename" | "delete" | "move";
+      columnId: string;
+      columnName: string;
+      columnDescription?: string;
+      boardId: string;
+      boardName: string;
+      inputValue?: string;
+      descriptionValue?: string;
+      position: { x: number; y: number };
+    }
+  >;
+  taskQuickActions: Record<
+    string,
+    {
+      taskId: string;
+      boardId: string;
+      columnId: string;
+      position: { x: number; y: number };
+    }
+  >;
+  connectionDialog: {
+    boardId: string;
+    position: { x: number; y: number };
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
+  } | null;
+  areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  >;
+  dialogFocusStack: string[];
+  selectedTaskIds: string[];
+  selectedBoardId: string | null;
+  selectedBoardIds: string[];
+};
+
 export type Workspace = {
   id: string;
   name: string;
@@ -90,6 +175,7 @@ export type Workspace = {
   ownerName?: string;
   ownerImage?: string;
   shareToken?: string;
+  savedDialogState?: WorkspaceDialogState;
 };
 
 export type EntityMap<T> = {
@@ -257,6 +343,7 @@ export type PersistedState = {
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
+  comments: EntityMap<Comment>;
   boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
