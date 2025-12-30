@@ -8,6 +8,12 @@ import { auth } from "../config/auth";
 const logger = createLogger({ name: "auth:routes" });
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
 
+const parseCookieName = (cookieString: string): string => {
+  // biome-ignore lint/performance/useTopLevelRegex: does not hurt here
+  const match = cookieString.match(/^([^=]+)=/);
+  return match?.[1]?.trim() || "unknown";
+};
+
 // Cleanup expired tokens periodically (every 5 minutes)
 const cleanupInterval = setInterval(
   async () => {
@@ -205,7 +211,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
 
         logger.debug("Extracting session from cookies", {
           cookieCount: setCookies.length,
-          cookies: setCookies.map((c) => `${c.substring(0, 50)}...`),
+          cookieNames: setCookies.map(parseCookieName),
         });
 
         let sessionToken: string | null = null;
