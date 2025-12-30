@@ -137,19 +137,34 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         return { error: "Bad Request", message: "Token is required" };
       }
 
-      // Atomically find and delete the token to prevent race conditions
-      const tokenData = await prisma.oneTimeAuthToken.findUnique({
-        where: { token },
-      });
+      // Atomically delete the token and get it back in one operation
+      // This prevents race conditions where multiple requests could use the same token
+      // Thankyou Prisma for making this easy!
+      let tokenData: { sessionToken: string; expiresAt: Date } | null = null;
 
-      if (!tokenData) {
-        set.status = 401;
-        return { error: "Unauthorized", message: "Invalid or expired token" };
+      try {
+        // Prisma delete returns the deleted record, throws P2025 if not found
+        tokenData = await prisma.oneTimeAuthToken.delete({
+          where: { token },
+          select: { sessionToken: true, expiresAt: true },
+        });
+      } catch (err) {
+        // P2025 = Record not found (already used or never existed)
+        if (
+          err instanceof Error &&
+          "code" in err &&
+          (err as { code: string }).code === "P2025"
+        ) {
+          set.status = 401;
+          return {
+            error: "Unauthorized",
+            message: "Invalid or expired token",
+          };
+        }
+        throw err;
       }
 
-      // Delete the token immediately (one-time use)
-      await prisma.oneTimeAuthToken.delete({ where: { token } });
-
+      // Check if the token was expired (we still deleted it to clean up)
       if (tokenData.expiresAt < new Date()) {
         set.status = 401;
         return { error: "Unauthorized", message: "Token has expired" };
