@@ -323,7 +323,6 @@ export function useYjsSync(
       }
       for (const id of areaPosDiff.removed) {
         delete lastAreaPosSyncRef.current[id];
-        delete lastAreaPosSyncRef.current[id];
         areaPositionSync.deleteFromYjs(doc, id);
       }
 
