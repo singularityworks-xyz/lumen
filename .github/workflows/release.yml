@@ -108,7 +108,7 @@ jobs:
           projectPath: apps/native
           tauriScript: bun tauri
           args: ${{ matrix.args }}
-          tagName: ${{ steps.commit.outputs.sha_full }}
+          tagName: v${{ steps.commit.outputs.sha_short }}
           releaseName: ${{ steps.commit.outputs.message }}
           releaseBody: |
             ## Release from commit `${{ steps.commit.outputs.sha_short }}`
