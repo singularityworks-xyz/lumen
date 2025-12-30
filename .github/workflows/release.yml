@@ -11,66 +11,55 @@ concurrency:
 
 env:
   NEXT_PUBLIC_API_URL: https://lumkers.itssingularity.com
+  IS_TAURI_BUILD: "true"
 
 jobs:
-  build-web:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build web app
-        run: bun run --filter @lumen/web build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
-          IS_TAURI_BUILD: "true"
-
-      - name: Upload web build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: apps/web/out
-          retention-days: 1
-
+  # Build and release Tauri app for all platforms
   build-tauri:
-    needs: build-web
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
+          # macOS ARM
           - platform: "macos-latest"
+            container: ""
             args: "--target aarch64-apple-darwin"
             rust-targets: "aarch64-apple-darwin"
+          # macOS Intel
           - platform: "macos-latest"
+            container: ""
             args: "--target x86_64-apple-darwin"
             rust-targets: "x86_64-apple-darwin"
+          # Linux x86_64 (Ubuntu)
           - platform: "ubuntu-22.04"
+            container: ""
             args: ""
             rust-targets: ""
+          # Linux (Arch)
+          - platform: "ubuntu-latest"
+            container: "archlinux:latest"
+            args: ""
+            rust-targets: ""
+          # Windows x86_64
           - platform: "windows-latest"
+            container: ""
             args: ""
             rust-targets: ""
 
     runs-on: ${{ matrix.platform }}
+    container: ${{ matrix.container }}
+
     steps:
+      - name: Install Arch Basic Deps
+        if: matrix.container == 'archlinux:latest'
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg webkit2gtk-4.1 unzip patchelf
+
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Download web build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: apps/web/out
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -114,6 +103,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          IS_TAURI_BUILD: ${{ env.IS_TAURI_BUILD }}
         with:
           projectPath: apps/native
           tauriScript: bun tauri
