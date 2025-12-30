@@ -4,17 +4,19 @@
   "version": "0.0.1",
   "identifier": "com.itssingularity.lumen",
   "build": {
-    "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build",
-    "frontendDist": "../dist"
+    "beforeDevCommand": "cd ../web && bun run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "cd ../web && bun run build",
+    "frontendDist": "../web/out"
   },
   "app": {
     "windows": [
       {
         "title": "Lumen by Singularity Works",
-        "width": 800,
-        "height": 600
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
       }
     ],
     "security": {
