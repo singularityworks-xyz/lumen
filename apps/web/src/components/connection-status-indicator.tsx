@@ -1,24 +1,50 @@
 "use client";
 
 import { Wifi, WifiOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useKanbanStore } from "@/src/features/kanban/store";
 
 export function ConnectionStatusIndicator() {
   const [isOnline, setIsOnline] = useState(true);
   const [showIndicator, setShowIndicator] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentWorkspace = useKanbanStore((s) =>
+    s.currentWorkspaceId ? s.workspaces.byId[s.currentWorkspaceId] : null
+  );
+  const shareUrl = useKanbanStore((s) =>
+    s.currentWorkspaceId ? s.workspaceShareUrls[s.currentWorkspaceId] : null
+  );
+
+  const isSharedWorkspace =
+    currentWorkspace?.isShared === true ||
+    !!shareUrl ||
+    !!currentWorkspace?.shareToken;
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
 
     const handleOnline = () => {
       setIsOnline(true);
-      setShowIndicator(true);
-      setTimeout(() => setShowIndicator(false), 3000);
+      if (isSharedWorkspace) {
+        setShowIndicator(true);
+
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
+          setShowIndicator(false);
+          timeoutRef.current = null;
+        }, 3000);
+      }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      setShowIndicator(true);
+      if (isSharedWorkspace) {
+        setShowIndicator(true);
+      }
     };
 
     window.addEventListener("online", handleOnline);
@@ -27,8 +53,15 @@ export function ConnectionStatusIndicator() {
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, []);
+  }, [isSharedWorkspace]);
+
+  if (!isSharedWorkspace) {
+    return null;
+  }
 
   if (!showIndicator) {
     return null;
