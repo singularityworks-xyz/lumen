@@ -19,11 +19,17 @@ const withSerwist = withSerwistInit({
   scope: "/",
 });
 
+const isTauriBuild = process.env.IS_TAURI_BUILD === "true";
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   cacheComponents: true,
   typedRoutes: true,
   turbopack: {},
+  ...(isTauriBuild && {
+    output: "export",
+    distDir: "out",
+  }),
   experimental: {
     cssChunking: true,
   },

@@ -1,0 +1,140 @@
+name: "Release Native App"
+
+on:
+  push:
+    branches:
+      - origin
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_PUBLIC_API_URL: https://lumkers.itssingularity.com
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web app
+        run: bun run --filter @lumen/web build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          IS_TAURI_BUILD: "true"
+
+      - name: Upload web build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: apps/web/out
+          retention-days: 1
+
+  build-tauri:
+    needs: build-web
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            rust-targets: "aarch64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+            rust-targets: "x86_64-apple-darwin"
+          - platform: "ubuntu-22.04"
+            args: ""
+            rust-targets: ""
+          - platform: "windows-latest"
+            args: ""
+            rust-targets: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download web build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: apps/web/out
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./apps/native/src-tauri -> target"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Get commit info
+        id: commit
+        shell: bash
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_full=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+        with:
+          projectPath: apps/native
+          tauriScript: bun tauri
+          args: ${{ matrix.args }}
+          tagName: ${{ steps.commit.outputs.sha_full }}
+          releaseName: ${{ steps.commit.outputs.message }}
+          releaseBody: |
+            ## Release from commit `${{ steps.commit.outputs.sha_short }}`
+
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ steps.commit.outputs.sha_full }}
+            **Message:** ${{ steps.commit.outputs.message }}
+
+            ---
+
+            ### Downloads
+            - **Windows:** `.msi` or `.exe` installer
+            - **macOS Intel:** `x64.dmg` or `.app`
+            - **macOS Apple Silicon:** `aarch64.dmg` or `.app`
+            - **Linux:** `.deb`, `.rpm`, or `.AppImage`
+          releaseDraft: false
+          prerelease: false
+          includeDebug: false
+          includeUpdaterJson: true
