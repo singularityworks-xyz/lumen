@@ -32,14 +32,9 @@ jobs:
             container: ""
             args: "--target x86_64-apple-darwin"
             rust-targets: "x86_64-apple-darwin"
-          # Linux x86_64 (Ubuntu)
+          # Linux x86_64
           - platform: "ubuntu-22.04"
             container: ""
-            args: ""
-            rust-targets: ""
-          # Linux (Arch)
-          - platform: "ubuntu-latest"
-            container: "archlinux:latest"
             args: ""
             rust-targets: ""
           # Windows x86_64
@@ -52,12 +47,6 @@ jobs:
     container: ${{ matrix.container }}
 
     steps:
-      - name: Install Arch Basic Deps
-        if: matrix.container == 'archlinux:latest'
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg webkit2gtk-4.1 unzip patchelf xdg-utils
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
