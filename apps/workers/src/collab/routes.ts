@@ -2,6 +2,7 @@ import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { Elysia, t } from "elysia";
 import { auth } from "../auth/config/auth";
+import { toHeaders } from "../utils/headers";
 import {
   addCollaborator,
   checkWorkspaceExistence,
@@ -12,7 +13,6 @@ import {
   getShareInfo,
   getWorkspaceCollaboratorCount,
   getWorkspaceName,
-  toHeaders,
 } from "./helpers";
 import { type CollaboratorInfo, roomManager } from "./room-manager";
 
