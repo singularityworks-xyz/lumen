@@ -72,6 +72,7 @@ import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
 import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
+import { TaskConnectionLayer } from "./task-connection-layer";
 
 type ColumnDragContextType = {
   activeColumnData: {
@@ -1648,7 +1649,7 @@ export function KanbanCanvas() {
             <div
               className="pointer-events-none fixed inset-0"
               id="board-connector-layer"
-              style={{ zIndex: 0 }}
+              style={{ zIndex: 1500 }}
             />
             <Background
               className="opacity-30"
@@ -1656,6 +1657,7 @@ export function KanbanCanvas() {
               gap={20}
               variant={BackgroundVariant.Dots}
             />
+            <TaskConnectionLayer />
             <CustomControls />
             {showMiniMap && (
               <MiniMap
