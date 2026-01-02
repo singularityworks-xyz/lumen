@@ -236,56 +236,67 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       return false;
     }
 
-    // Get current user ID from auth session
-    const sessionResult = await authClient.getSession();
-    const currentUserId = sessionResult.data?.user?.id ?? null;
-
-    // Determine if user is the owner of this workspace by comparing ownerId
-    // For legacy workspaces (missing ownerId), treat current user as owner
-    const isOwner = workspace.ownerId
-      ? workspace.ownerId === currentUserId
-      : true;
+    const shareUrl = state.workspaceShareUrls[workspaceId];
+    const isSharedWorkspace =
+      workspace.isShared === true || !!shareUrl || !!workspace.shareToken;
 
     logger.info(
       {
         workspaceId,
-        isOwner,
-        workspaceOwnerId: workspace.ownerId,
-        currentUserId,
+        isShared: isSharedWorkspace,
+        ownerId: workspace.ownerId,
       },
       "Deleting workspace"
     );
 
-    if (isOwner) {
-      // Owner deletes: Call server API which will notify all editors
-      try {
-        const response = await fetch(
-          `${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`,
-          {
-            method: "DELETE",
-            credentials: "include",
-          }
-        );
+    if (isSharedWorkspace) {
+      const sessionResult = await authClient.getSession();
+      const currentUserId = sessionResult.data?.user?.id ?? null;
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          logger.error(
-            { workspaceId, status: response.status, error: errorData },
-            "Server rejected workspace delete"
+      const isOwner = workspace.ownerId
+        ? workspace.ownerId === currentUserId
+        : true;
+
+      logger.info(
+        {
+          workspaceId,
+          isOwner,
+          workspaceOwnerId: workspace.ownerId,
+          currentUserId,
+        },
+        "Shared workspace - checking ownership"
+      );
+
+      if (isOwner) {
+        try {
+          const response = await fetch(
+            `${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`,
+            {
+              method: "DELETE",
+              credentials: "include",
+            }
           );
-          // Don't clean up local state if server rejected
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            logger.error(
+              { workspaceId, status: response.status, error: errorData },
+              "Server rejected workspace delete"
+            );
+            return false;
+          }
+
+          logger.info({ workspaceId }, "Server confirmed workspace deletion");
+        } catch (err) {
+          logger.error(
+            { workspaceId, err },
+            "Failed to delete workspace on server"
+          );
           return false;
         }
-
-        logger.info({ workspaceId }, "Server confirmed workspace deletion");
-      } catch (err) {
-        logger.error(
-          { workspaceId, err },
-          "Failed to delete workspace on server"
-        );
-        // Don't clean up local state on network error
-        return false;
       }
+    } else {
+      logger.info({ workspaceId }, "Local workspace - skipping server call");
     }
 
     // Now clean up local state (only reached if server call succeeded or user is not owner)
