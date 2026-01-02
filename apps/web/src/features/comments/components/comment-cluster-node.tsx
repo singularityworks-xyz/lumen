@@ -7,7 +7,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
-import type { Comment } from "../kanban/types";
+import type { Comment } from "../../kanban/types";
 import { CommentClusterDialog } from "./comment-cluster-dialog";
 
 type CommentClusterNodeData = {
@@ -238,7 +238,7 @@ export const CommentClusterNode = memo(
               const pos = secondaryPositions[index];
 
               if (!pos) {
-                  return null;
+                return null;
               }
 
               return (

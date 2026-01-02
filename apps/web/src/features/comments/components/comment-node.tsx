@@ -7,7 +7,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
-import type { Comment } from "../kanban/types";
+import type { Comment } from "../../kanban/types";
 import { CommentDialog } from "./comment-dialog";
 
 type CommentNodeData = {
