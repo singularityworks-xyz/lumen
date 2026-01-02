@@ -1,5 +1,6 @@
 import { Send, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Textarea } from "@/src/components/ui/textarea";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
@@ -9,14 +10,20 @@ import { cn } from "@/src/lib/utils";
 type CommentDialogProps = {
   comment: Comment;
   onClose: () => void;
+  anchorRect: DOMRect | null;
 };
 
-export function CommentDialog({ comment, onClose }: CommentDialogProps) {
+export function CommentDialog({
+  comment,
+  onClose,
+  anchorRect,
+}: CommentDialogProps) {
   const [content, setContent] = useState(comment.content);
   const [isEditing, setIsEditing] = useState(comment.content === "");
   const updateComment = useKanbanStore((state) => state.updateComment);
   const removeComment = useKanbanStore((state) => state.removeComment);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mounted, setMounted] = useState(false);
   const { localUser, collaborators } = useCollaboration();
   const isAuthor = localUser?.id === comment.authorId;
 
@@ -28,10 +35,8 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
     ? undefined
     : (onlineAuthor?.color ?? "#6e6e6e");
 
-  // Use stored author info as fallback
   const authorName = onlineAuthor?.name ?? comment.authorName ?? "Unknown";
 
-  // Get last editor info with fallback
   const onlineEditor = comment.lastEditedById
     ? comment.lastEditedById === localUser?.id
       ? localUser
@@ -40,6 +45,10 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
   const editorName = onlineEditor?.name ?? comment.lastEditorName;
   const wasEditedBySomeoneElse =
     comment.lastEditedById && comment.lastEditedById !== comment.authorId;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -98,11 +107,18 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
     ? getDisplayName(comment.lastEditedById, editorName)
     : null;
 
-  return (
+  if (!(mounted && anchorRect)) {
+    return null;
+  }
+
+  const dialogLeft = anchorRect.left + anchorRect.width / 2;
+  const dialogTop = anchorRect.bottom + 8;
+
+  const dialogContent = (
     // biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip
     <div
       aria-modal="true"
-      className="fade-in zoom-in-95 nodrag nopan nowheel absolute z-50 w-64 animate-in cursor-default rounded-lg bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] duration-200 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+      className="fade-in zoom-in-95 nodrag nopan nowheel fixed w-64 animate-in cursor-default rounded-lg bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] duration-200 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
@@ -116,9 +132,10 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
       onPointerDown={(e) => e.stopPropagation()}
       role="dialog"
       style={{
-        top: "100%",
-        left: "50%",
-        transform: "translateX(-50%) translateY(8px)",
+        top: dialogTop,
+        left: dialogLeft,
+        transform: "translateX(-50%)",
+        zIndex: 9999,
       }}
       tabIndex={-1}
     >
@@ -271,4 +288,6 @@ export function CommentDialog({ comment, onClose }: CommentDialogProps) {
       </div>
     </div>
   );
+
+  return createPortal(dialogContent, document.body);
 }
