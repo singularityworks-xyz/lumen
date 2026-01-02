@@ -4,21 +4,26 @@ import { useNodes, useReactFlow, useViewport } from "@xyflow/react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useKanbanStore } from "@/src/features/kanban/store";
+import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 
 export const TaskConnectionLayer = memo(() => {
   const { flowToScreenPosition } = useReactFlow();
   const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
   const nodes = useNodes();
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [connectorLayerTarget, setConnectorLayerTarget] =
+    useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setPortalTarget(document.getElementById("board-connector-layer"));
+    setMounted(true);
+    setConnectorLayerTarget(document.getElementById("board-connector-layer"));
   }, []);
 
   const taskDetailModals = useKanbanStore((state) => state.taskDetailModals);
   const tasks = useKanbanStore((state) => state.tasks);
   const columns = useKanbanStore((state) => state.columns);
   const boardPositions = useKanbanStore((state) => state.boardPositions);
+  const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
 
   const connections = useMemo(() => {
     const _vp = { vpX, vpY, vpZoom };
@@ -31,6 +36,8 @@ export const TaskConnectionLayer = memo(() => {
       endX: number;
       endY: number;
       color: string | undefined;
+      zIndex: number;
+      isTopmost: boolean;
     }> = [];
 
     for (const modal of Object.values(taskDetailModals)) {
@@ -106,6 +113,13 @@ export const TaskConnectionLayer = memo(() => {
         continue;
       }
 
+      const dialogId = `task-detail-modal-${modal.id}`;
+      const isTopmost = dialogFocusStack.at(-1) === dialogId;
+
+      // Z-index for focused state (rendered to document.body)
+      const connectorZIndex =
+        Z_INDEX_BASE.DIALOGS + dialogFocusStack.length * 10 + 5;
+
       result.push({
         id: modal.id,
         startX: taskScreenPos.x,
@@ -113,6 +127,8 @@ export const TaskConnectionLayer = memo(() => {
         endX: modalScreenPos.x,
         endY: modalScreenPos.y,
         color: accentColor,
+        zIndex: connectorZIndex,
+        isTopmost,
       });
     }
 
@@ -127,42 +143,59 @@ export const TaskConnectionLayer = memo(() => {
     vpX,
     vpY,
     vpZoom,
+    dialogFocusStack,
   ]);
 
-  if (connections.length === 0 || !portalTarget) {
+  if (!mounted || connections.length === 0) {
     return null;
   }
 
-  return createPortal(
-    <svg
-      className="pointer-events-none fixed top-0 left-0"
-      height="100vh"
-      style={{ zIndex: 1500 }}
-      width="100vw"
-    >
-      <title>Connection lines between tasks and their detail modals</title>
-      {connections.map((conn) => {
-        const dx = Math.abs(conn.endX - conn.startX);
-        const controlOffset = Math.min(dx * 0.4, 60);
-        const controlX1 = conn.startX + controlOffset;
-        const controlX2 = conn.endX - controlOffset;
-        const path = `M ${conn.startX} ${conn.startY} C ${controlX1} ${conn.startY}, ${controlX2} ${conn.endY}, ${conn.endX} ${conn.endY}`;
+  const focusedConnections = connections.filter((c) => c.isTopmost);
+  const unfocusedConnections = connections.filter((c) => !c.isTopmost);
 
-        return (
-          <path
-            className={conn.color ? undefined : "stroke-primary"}
-            d={path}
-            fill="none"
-            key={conn.id}
-            stroke={conn.color}
-            strokeLinecap="round"
-            strokeOpacity={0.7}
-            strokeWidth={2}
-          />
-        );
-      })}
-    </svg>,
-    portalTarget
+  const renderConnection = (conn: (typeof connections)[0]) => {
+    const dx = Math.abs(conn.endX - conn.startX);
+    const controlOffset = Math.min(dx * 0.4, 60);
+    const controlX1 = conn.startX + controlOffset;
+    const controlX2 = conn.endX - controlOffset;
+    const path = `M ${conn.startX} ${conn.startY} C ${controlX1} ${conn.startY}, ${controlX2} ${conn.endY}, ${conn.endX} ${conn.endY}`;
+
+    return (
+      <svg
+        className="pointer-events-none fixed top-0 left-0"
+        height="100vh"
+        key={conn.id}
+        style={{ zIndex: conn.isTopmost ? conn.zIndex : 0 }}
+        width="100vw"
+      >
+        <title>Connection to task detail modal</title>
+        <path
+          className={conn.color ? undefined : "stroke-primary"}
+          d={path}
+          fill="none"
+          stroke={conn.color}
+          strokeLinecap="round"
+          strokeOpacity={conn.isTopmost ? 0.7 : 0.4}
+          strokeWidth={2}
+        />
+      </svg>
+    );
+  };
+
+  return (
+    <>
+      {/* Focused connections: portal to document.body for high z-index */}
+      {focusedConnections.length > 0 &&
+        createPortal(focusedConnections.map(renderConnection), document.body)}
+
+      {/* Unfocused connections: portal to board-connector-layer (inside React Flow, lower z-index) */}
+      {unfocusedConnections.length > 0 &&
+        connectorLayerTarget &&
+        createPortal(
+          unfocusedConnections.map(renderConnection),
+          connectorLayerTarget
+        )}
+    </>
   );
 });
 

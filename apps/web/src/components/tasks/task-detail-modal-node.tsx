@@ -119,6 +119,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
         >
           <div
             className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            onPointerDown={handleMouseDown}
             style={
               column?.accentColor
                 ? {

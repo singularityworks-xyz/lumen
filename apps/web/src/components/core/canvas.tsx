@@ -1649,7 +1649,7 @@ export function KanbanCanvas() {
             <div
               className="pointer-events-none fixed inset-0"
               id="board-connector-layer"
-              style={{ zIndex: 1500 }}
+              style={{ zIndex: 0 }}
             />
             <Background
               className="opacity-30"
