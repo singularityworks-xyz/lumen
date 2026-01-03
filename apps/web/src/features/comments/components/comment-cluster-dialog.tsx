@@ -55,6 +55,8 @@ type CommentCardProps = {
   isClosing: boolean;
   isVisible: boolean;
   onDragOut: (commentId: string) => void;
+  isFocused: boolean;
+  onBringToFront: () => void;
 };
 
 function CommentCard({
@@ -64,6 +66,8 @@ function CommentCard({
   isClosing,
   isVisible,
   onDragOut,
+  isFocused,
+  onBringToFront,
 }: CommentCardProps) {
   const [content, setContent] = useState(comment.content);
   const [isEditing, setIsEditing] = useState(comment.content === "");
@@ -118,20 +122,49 @@ function CommentCard({
     onDragOut(comment.id);
   }, [comment.id, onDragOut]);
 
-  // Dynamic radius based on comment count:
-  // - 1-2 comments: closer (120px base)
-  // - 6+ comments: farther apart (260px max)
-  // Linear interpolation between these values
-  const minRadius = 120;
-  const maxRadius = 260;
-  const minCount = 1;
-  const maxCount = 6;
-  const clampedCount = Math.min(Math.max(totalCount, minCount), maxCount);
-  const t = (clampedCount - minCount) / (maxCount - minCount);
-  const radius = minRadius + t * (maxRadius - minRadius);
+  // Two-ring layout for 9+ comments:
+  // - Inner ring: first 8 comments
+  // - Outer ring: remaining comments
+  const RING_THRESHOLD = 8;
+  const usesTwoRings = totalCount > RING_THRESHOLD;
 
-  const angleStep = (Math.PI * 2) / totalCount;
-  const angle = index * angleStep - Math.PI / 2;
+  let radius: number;
+  let angleStep: number;
+  let angle: number;
+
+  if (usesTwoRings) {
+    // Two-ring mode
+    const innerRingCount = RING_THRESHOLD;
+    const outerRingCount = totalCount - RING_THRESHOLD;
+    const isInnerRing = index < innerRingCount;
+
+    if (isInnerRing) {
+      // Inner ring - closer to center
+      radius = 180;
+      angleStep = (Math.PI * 2) / innerRingCount;
+      angle = index * angleStep - Math.PI / 2;
+    } else {
+      // Outer ring - farther from center
+      radius = 320;
+      const outerIndex = index - innerRingCount;
+      angleStep = (Math.PI * 2) / outerRingCount;
+      // Offset by half a step to stagger with inner ring
+      angle = outerIndex * angleStep - Math.PI / 2 + angleStep / 2;
+    }
+  } else {
+    // Single ring mode - dynamic radius based on count
+    const minRadius = 120;
+    const maxRadius = 220;
+    const minCount = 1;
+    const maxCount = 6;
+    const clampedCount = Math.min(Math.max(totalCount, minCount), maxCount);
+    const t = (clampedCount - minCount) / (maxCount - minCount);
+    radius = minRadius + t * (maxRadius - minRadius);
+
+    angleStep = (Math.PI * 2) / totalCount;
+    angle = index * angleStep - Math.PI / 2;
+  }
+
   const offsetX = Math.cos(angle) * radius;
   const offsetY = Math.sin(angle) * radius;
   const delay = index * 50;
@@ -141,22 +174,27 @@ function CommentCard({
   const currentY = isVisible ? targetY : 0;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: it's needed to prevent hydration issues
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's needed to prevent hydration issues
+    // biome-ignore lint/a11y/useKeyWithClickEvents: it's needed to prevent hydration issues
     <div
       className={cn(
-        "cubic-bezier(0.34, 1.56, 0.64, 1) absolute w-64 rounded-lg border-2 bg-card transition-all duration-500",
+        "cubic-bezier(0.34, 1.56, 0.64, 1) absolute w-64 rounded-lg border-2 bg-card text-left transition-all duration-500",
         "text-card-foreground shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
         "dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]",
         !isVisible || isClosing ? "scale-0 opacity-0" : "scale-100 opacity-100",
         isDragging && "scale-105 shadow-2xl",
         isAuthor && "border-border/50"
       )}
+      onClick={onBringToFront}
       style={{
         transform: `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px))`,
         transitionDelay: isClosing
           ? `${(totalCount - index - 1) * 30}ms`
           : `${delay}ms`,
         borderColor: authorColor ?? undefined,
-        zIndex: isDragging ? 100 : totalCount - index,
+        // z-index: focused card is on top, then dragging, then by index
+        zIndex: isFocused ? 200 : isDragging ? 100 : totalCount - index,
       }}
     >
       <div
@@ -273,6 +311,7 @@ export function CommentClusterDialog({
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const updateComment = useKanbanStore((state) => state.updateComment);
 
@@ -389,8 +428,10 @@ export function CommentClusterDialog({
                 comment={comment}
                 index={index}
                 isClosing={isClosing}
+                isFocused={focusedIndex === index}
                 isVisible={isVisible}
                 key={comment.id}
+                onBringToFront={() => setFocusedIndex(index)}
                 onDragOut={handleDragOut}
                 totalCount={comments.length}
               />
