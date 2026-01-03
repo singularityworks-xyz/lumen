@@ -8,9 +8,10 @@ import {
   startDragging,
   toggleMaximize,
 } from "@lumen/native-bridge";
-import { Minus, Square, X } from "lucide-react";
+import { Minus, Square } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
+import { XIcon } from "./animated/icons/x";
 
 export function NativeTitlebar() {
   const [isNative, setIsNative] = useState(false);
@@ -113,7 +114,7 @@ export function NativeTitlebar() {
           title="Close"
           type="button"
         >
-          <X size={10} strokeWidth={5} />
+          <XIcon size={10} />
         </button>
       </div>
     </div>

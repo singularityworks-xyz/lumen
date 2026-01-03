@@ -2,11 +2,7 @@
 
 import {
   // Command, // Disabled: Search functionality temporarily disabled
-  Hand,
-  Moon,
   MousePointer2,
-  Plus,
-  Sun,
   WifiOff,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -25,6 +21,10 @@ import {
   useCurrentWorkspace,
   useShowWelcomeScreen,
 } from "../features/kanban/store/selectors";
+import { HandIcon } from "./animated/icons/hand";
+import { MoonIcon } from "./animated/icons/moon";
+import { PlusIcon } from "./animated/icons/plus";
+import { SunIcon } from "./animated/icons/sun";
 import { SyncStatusIndicator } from "./sync-status-indicator";
 
 const MotionButton = motion.create(Button);
@@ -71,7 +71,7 @@ export const FloatingNavbar = memo(() => {
         title="New Board"
         variant="ghost"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <PlusIcon size={14} />
         <span className="hidden text-[11px] sm:inline">New</span>
       </Button>
 
@@ -106,7 +106,7 @@ export const FloatingNavbar = memo(() => {
         variant="ghost"
       >
         {interactionMode === "drag" ? (
-          <Hand className="h-3.5 w-3.5" />
+          <HandIcon size={14} />
         ) : (
           <MousePointer2 className="h-3.5 w-3.5" />
         )}
@@ -143,11 +143,7 @@ export const FloatingNavbar = memo(() => {
         variant="ghost"
         whileTap={{ scale: 0.85 }}
       >
-        {theme === "dark" ? (
-          <Sun className="h-3.5 w-3.5" />
-        ) : (
-          <Moon className="h-3.5 w-3.5" />
-        )}
+        {theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
       </MotionButton>
     </div>
   );

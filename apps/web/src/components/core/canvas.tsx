@@ -335,26 +335,30 @@ export function KanbanCanvas() {
           taskCount: column?.task_ids.length ?? 0,
         });
 
-        if (
-          event.activatorEvent instanceof MouseEvent ||
-          event.activatorEvent instanceof PointerEvent ||
-          event.activatorEvent instanceof TouchEvent
-        ) {
+        const activator = event.activatorEvent;
+        const isTouchEvent =
+          typeof TouchEvent !== "undefined" && activator instanceof TouchEvent;
+        const isMouseEvent =
+          typeof MouseEvent !== "undefined" && activator instanceof MouseEvent;
+        const isPointerEvent =
+          typeof PointerEvent !== "undefined" &&
+          activator instanceof PointerEvent;
+
+        if (isMouseEvent || isPointerEvent || isTouchEvent) {
           let clientX = 0;
           let clientY = 0;
           if (
-            event.activatorEvent instanceof TouchEvent &&
-            event.activatorEvent.touches.length > 0 &&
-            event.activatorEvent.touches[0]
+            isTouchEvent &&
+            (activator as TouchEvent).touches.length > 0 &&
+            (activator as TouchEvent).touches[0]
           ) {
-            clientX = event.activatorEvent.touches[0].clientX;
-            clientY = event.activatorEvent.touches[0].clientY;
-          } else if (
-            event.activatorEvent instanceof MouseEvent ||
-            event.activatorEvent instanceof PointerEvent
-          ) {
-            clientX = event.activatorEvent.clientX;
-            clientY = event.activatorEvent.clientY;
+            // @ts-expect-error
+            clientX = (activator as TouchEvent).touches[0].clientX;
+            // @ts-expect-error
+            clientY = (activator as TouchEvent).touches[0].clientY;
+          } else if (isMouseEvent || isPointerEvent) {
+            clientX = (activator as MouseEvent | PointerEvent).clientX;
+            clientY = (activator as MouseEvent | PointerEvent).clientY;
           }
           startColumnDrag(data.columnId, data.boardId, clientX, clientY);
         }

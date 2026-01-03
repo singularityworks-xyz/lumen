@@ -1,9 +1,12 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { GripVertical, Layers, Send, Shell, Trash2, X } from "lucide-react";
+import { Layers, Send, Shell } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { DeleteIcon } from "@/src/components/animated/icons/delete";
+import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical";
+import { XIcon } from "@/src/components/animated/icons/x";
 import {
   Avatar,
   AvatarFallback,
@@ -88,7 +91,7 @@ function SplitButton({
           type="button"
         >
           <div className="flex h-full w-full items-center bg-linear-to-b from-muted to-muted/80 text-muted-foreground shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.08)] hover:from-destructive/20 hover:to-destructive/10 hover:text-destructive dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_-1px_2px_rgba(255,255,255,0.05)]">
-            <X className="ml-2 h-4 w-4" />
+            <XIcon className="ml-2" size={14} />
           </div>
         </button>
 
@@ -353,7 +356,7 @@ function CommentCard({
             title="Drag to separate from group"
             type="button"
           >
-            <GripVertical className="h-3 w-3" />
+            <GripVerticalIcon size={12} />
           </button>
         )}
 
@@ -385,7 +388,7 @@ function CommentCard({
             onClick={() => removeComment(comment.id)}
             type="button"
           >
-            <Trash2 className="h-2.5 w-2.5" />
+            <DeleteIcon size={8} />
           </button>
         )}
       </div>

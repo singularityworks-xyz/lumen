@@ -1,11 +1,15 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { Maximize, Maximize2Icon, Minimize, Minus, Plus } from "lucide-react";
+import { Minus } from "lucide-react";
 import { motion } from "motion/react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useShowWelcomeScreen } from "../features/kanban/store/selectors";
+import { EyeIcon } from "./animated/icons/eye";
+import { MaximizeIcon } from "./animated/icons/maximize";
+import { MinimizeIcon } from "./animated/icons/minimize";
+import { PlusIcon } from "./animated/icons/plus";
 
 const MotionButton = motion.create(Button);
 
@@ -69,7 +73,7 @@ export const CustomControls = memo(() => {
         variant="ghost"
         whileTap={{ scale: 0.85 }}
       >
-        <Plus className="h-3.5 w-3.5" />
+        <PlusIcon size={14} />
       </MotionButton>
 
       <div className="h-4 w-px bg-border/60" />
@@ -83,7 +87,7 @@ export const CustomControls = memo(() => {
         variant="ghost"
         whileTap={{ scale: 0.85 }}
       >
-        <Maximize2Icon className="h-3.5 w-3.5" />
+        <EyeIcon size={14} />
       </MotionButton>
 
       <MotionButton
@@ -95,11 +99,7 @@ export const CustomControls = memo(() => {
         variant="ghost"
         whileTap={{ scale: 0.85 }}
       >
-        {isFullscreen ? (
-          <Minimize className="h-4 w-4" />
-        ) : (
-          <Maximize className="h-4 w-4" />
-        )}
+        {isFullscreen ? <MinimizeIcon size={16} /> : <MaximizeIcon size={16} />}
       </MotionButton>
     </div>
   );
