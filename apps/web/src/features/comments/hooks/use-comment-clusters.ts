@@ -11,6 +11,19 @@ export type CommentCluster = {
 
 const CLUSTER_RADIUS = 80;
 
+function hash(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    // biome-ignore lint/suspicious/noBitwiseOperators: Hash function requires bitwise operations
+    h = (h << 5) - h + char;
+    // Convert to 32bit integer
+    // biome-ignore lint/suspicious/noBitwiseOperators: Hash function requires bitwise operations
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
 export function useCommentClusters(): CommentCluster[] {
   const comments = useKanbanStore((state) => state.comments);
   const currentWorkspaceId = useKanbanStore(
@@ -81,7 +94,12 @@ export function useCommentClusters(): CommentCluster[] {
       );
 
       clusters.push({
-        id: `cluster-${clusterComments.map((c) => c.id).join("-")}`,
+        id: `cluster-${hash(
+          clusterComments
+            .map((c) => c.id)
+            .sort()
+            .join(",")
+        )}`,
         comments: clusterComments,
         centroid,
         isSingle: clusterComments.length === 1,

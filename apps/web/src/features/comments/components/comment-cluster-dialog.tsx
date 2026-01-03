@@ -1,5 +1,6 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import { GripVertical, Layers, Send, Shell, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -455,6 +456,7 @@ export function CommentClusterDialog({
   );
   const dialogRef = useRef<HTMLDivElement>(null);
   const updateComment = useKanbanStore((state) => state.updateComment);
+  const { screenToFlowPosition } = useReactFlow();
 
   // Sort comments by creation time for stacked view
   const sortedComments = [...comments].sort(
@@ -526,16 +528,27 @@ export function CommentClusterDialog({
         return;
       }
 
+      // The dialog is positioned by screenPosition, which is derived from the centroid.
+      // We convert it back to flow coordinates to ensure the comment lands where the dialog was.
+      const flowPos = screenToFlowPosition(screenPosition);
+
       const angle = Math.random() * Math.PI * 2;
-      const distance = 150;
+      const distance = 150 / zoom;
       updateComment(commentId, {
-        x: comment.x + Math.cos(angle) * distance,
-        y: comment.y + Math.sin(angle) * distance,
+        x: flowPos.x + Math.cos(angle) * distance,
+        y: flowPos.y + Math.sin(angle) * distance,
       });
 
       onClose();
     },
-    [comments, updateComment, onClose]
+    [
+      comments,
+      updateComment,
+      onClose,
+      screenPosition,
+      zoom,
+      screenToFlowPosition,
+    ]
   );
 
   if (!mounted) {

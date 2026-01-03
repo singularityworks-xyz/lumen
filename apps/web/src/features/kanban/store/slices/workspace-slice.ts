@@ -253,9 +253,11 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       const sessionResult = await authClient.getSession();
       const currentUserId = sessionResult.data?.user?.id ?? null;
 
+      // For shared workspaces, only allow deletion if ownerId is present and matches.
+      // Defaulting to `true` for legacy shared workspaces is risky.
       const isOwner = workspace.ownerId
         ? workspace.ownerId === currentUserId
-        : true;
+        : false;
 
       logger.info(
         {
