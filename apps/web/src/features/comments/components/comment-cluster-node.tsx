@@ -1,5 +1,12 @@
-import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { memo, useEffect, useRef, useState } from "react";
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  useReactFlow,
+  useViewport,
+} from "@xyflow/react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -18,51 +25,53 @@ type CommentClusterNodeData = {
 
 export const CommentClusterNode = memo(
   ({ data, selected }: NodeProps<Node<CommentClusterNodeData>>) => {
-    const { comments, isSingle } = data;
+    const { comments, centroid, isSingle } = data;
     const [isOpen, setIsOpen] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
-    const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
     const { collaborators, localUser } = useCollaboration();
+    const { zoom, x: vpX, y: vpY } = useViewport();
+    const { flowToScreenPosition } = useReactFlow();
     const displayComments = comments.slice(0, 5);
-    const hasEmptyComment = comments.some((c) => c.content === "");
+
+    // Convert centroid flow position to screen position
+    // This updates when viewport changes (pan/zoom), keeping dialog anchored to canvas
+    // Offset depends on whether it's a single comment or cluster:
+    // - Single: Avatar is h-8 w-8 (32px) with p-0.5, so center is ~16px
+    // - Cluster: Container is 48x48, so center is 24px
+    const centerOffset = isSingle ? 16 : 24;
+    const screenPosition = useMemo(() => {
+      // Using viewport values to trigger recalculation on pan/zoom
+      const _viewport = { vpX, vpY, zoom };
+      const pos = flowToScreenPosition({
+        x: centroid.x + centerOffset,
+        y: centroid.y + centerOffset,
+      });
+      return pos;
+    }, [
+      flowToScreenPosition,
+      centroid.x,
+      centroid.y,
+      vpX,
+      vpY,
+      zoom,
+      centerOffset,
+    ]);
+
+    // Only auto-open for empty comments created by the local user
+    // This prevents the dialog opening when a collaborator creates a new comment
+    const hasOwnEmptyComment = comments.some(
+      (c) => c.content === "" && c.authorId === localUser?.id
+    );
 
     useEffect(() => {
-      if (hasEmptyComment && !isOpen) {
-        if (buttonRef.current) {
-          setButtonRect(buttonRef.current.getBoundingClientRect());
-        }
+      if (hasOwnEmptyComment && !isOpen) {
         setIsOpen(true);
       }
-    }, [hasEmptyComment, isOpen]);
+    }, [hasOwnEmptyComment, isOpen]);
 
     const handleToggle = () => {
-      if (!isOpen && buttonRef.current) {
-        setButtonRect(buttonRef.current.getBoundingClientRect());
-      }
       setIsOpen(!isOpen);
     };
-
-    useEffect(() => {
-      if (!(isOpen && buttonRef.current)) {
-        return;
-      }
-
-      const updateRect = () => {
-        if (buttonRef.current) {
-          setButtonRect(buttonRef.current.getBoundingClientRect());
-        }
-      };
-
-      window.addEventListener("scroll", updateRect, true);
-      window.addEventListener("resize", updateRect);
-
-      updateRect();
-
-      return () => {
-        window.removeEventListener("scroll", updateRect, true);
-        window.removeEventListener("resize", updateRect);
-      };
-    }, [isOpen]);
 
     const getAuthorInfo = (comment: Comment) => {
       const isOwnComment = localUser?.id === comment.authorId;
@@ -147,9 +156,10 @@ export const CommentClusterNode = memo(
           </button>
           {isOpen && (
             <CommentClusterDialog
-              anchorRect={buttonRect}
               comments={comments}
               onClose={() => setIsOpen(false)}
+              screenPosition={screenPosition}
+              zoom={zoom}
             />
           )}
         </div>
@@ -301,9 +311,10 @@ export const CommentClusterNode = memo(
 
         {isOpen && (
           <CommentClusterDialog
-            anchorRect={buttonRect}
             comments={comments}
             onClose={() => setIsOpen(false)}
+            screenPosition={screenPosition}
+            zoom={zoom}
           />
         )}
       </div>

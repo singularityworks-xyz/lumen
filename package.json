@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "postinstall": "bun run db:gen",
     "dev": "turbo run dev",
+    "dev:web": "concurrently --names \"web,workers\" --prefix-colors \"blue,red\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\"",
     "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
     "check": "ultracite fix",
     "check-types": "turbo run check-types",

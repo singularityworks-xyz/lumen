@@ -17,7 +17,8 @@ import { cn } from "@/src/lib/utils";
 type CommentClusterDialogProps = {
   comments: Comment[];
   onClose: () => void;
-  anchorRect: DOMRect | null;
+  screenPosition: { x: number; y: number };
+  zoom: number;
 };
 
 function formatRelativeTime(dateString: string): string {
@@ -117,7 +118,18 @@ function CommentCard({
     onDragOut(comment.id);
   }, [comment.id, onDragOut]);
 
-  const radius = 220;
+  // Dynamic radius based on comment count:
+  // - 1-2 comments: closer (120px base)
+  // - 6+ comments: farther apart (260px max)
+  // Linear interpolation between these values
+  const minRadius = 120;
+  const maxRadius = 260;
+  const minCount = 1;
+  const maxCount = 6;
+  const clampedCount = Math.min(Math.max(totalCount, minCount), maxCount);
+  const t = (clampedCount - minCount) / (maxCount - minCount);
+  const radius = minRadius + t * (maxRadius - minRadius);
+
   const angleStep = (Math.PI * 2) / totalCount;
   const angle = index * angleStep - Math.PI / 2;
   const offsetX = Math.cos(angle) * radius;
@@ -255,7 +267,8 @@ function CommentCard({
 export function CommentClusterDialog({
   comments,
   onClose,
-  anchorRect,
+  screenPosition,
+  zoom,
 }: CommentClusterDialogProps) {
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -325,12 +338,13 @@ export function CommentClusterDialog({
     [comments, updateComment, onClose]
   );
 
-  if (!(mounted && anchorRect)) {
+  if (!mounted) {
     return null;
   }
 
-  const centerX = anchorRect.left + anchorRect.width / 2;
-  const centerY = anchorRect.top + anchorRect.height / 2;
+  // screenPosition is already in screen coordinates from flowToScreenPosition
+  const centerX = screenPosition.x;
+  const centerY = screenPosition.y;
   const containerSize = 800;
 
   const dialogContent = (
@@ -338,12 +352,15 @@ export function CommentClusterDialog({
       className="pointer-events-none fixed"
       ref={dialogRef}
       style={{
-        top: centerY - containerSize / 2,
-        left: centerX - containerSize / 2,
+        top: centerY,
+        left: centerX,
         width: containerSize,
         height: containerSize,
         zIndex: 9999,
         pointerEvents: "none",
+        // Translate to center, then scale - order matters!
+        transform: `translate(-50%, -50%) scale(${zoom})`,
+        transformOrigin: "center center",
       }}
     >
       <button
