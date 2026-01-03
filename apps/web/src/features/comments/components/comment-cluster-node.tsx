@@ -35,27 +35,16 @@ export const CommentClusterNode = memo(
 
     // Convert centroid flow position to screen position
     // This updates when viewport changes (pan/zoom), keeping dialog anchored to canvas
-    // Offset depends on whether it's a single comment or cluster:
-    // - Single: Avatar is h-8 w-8 (32px) with p-0.5, so center is ~16px
-    // - Cluster: Container is 48x48, so center is 24px
-    const centerOffset = isSingle ? 16 : 24;
+    // Center offset is no longer needed as we center the visuals on the node itself
     const screenPosition = useMemo(() => {
       // Using viewport values to trigger recalculation on pan/zoom
       const _viewport = { vpX, vpY, zoom };
       const pos = flowToScreenPosition({
-        x: centroid.x + centerOffset,
-        y: centroid.y + centerOffset,
+        x: centroid.x,
+        y: centroid.y,
       });
       return pos;
-    }, [
-      flowToScreenPosition,
-      centroid.x,
-      centroid.y,
-      vpX,
-      vpY,
-      zoom,
-      centerOffset,
-    ]);
+    }, [flowToScreenPosition, centroid.x, centroid.y, vpX, vpY, zoom]);
 
     // Only auto-open for empty comments created by the local user
     // This prevents the dialog opening when a collaborator creates a new comment
@@ -193,7 +182,7 @@ export const CommentClusterNode = memo(
           aria-expanded={isOpen}
           aria-label={`View ${comments.length} comments`}
           className={cn(
-            "relative cursor-grab transition-all duration-200 hover:scale-105 active:cursor-grabbing",
+            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-grab transition-all duration-200 hover:scale-105 active:cursor-grabbing",
             selected &&
               "ring-2 ring-primary ring-offset-2 ring-offset-background",
             isOpen && "pointer-events-none opacity-0"

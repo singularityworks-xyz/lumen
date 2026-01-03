@@ -210,6 +210,10 @@ export function KanbanCanvas() {
     (state) => state.updateTaskDetailModalPosition
   );
   const updateComment = useKanbanStore((state) => state.updateComment);
+  const finalizeCommentsDrag = useKanbanStore(
+    (state) => state.finalizeCommentsDrag
+  );
+  const updateComments = useKanbanStore((state) => state.updateComments);
   const commentClusters = useCommentClusters();
   const moveColumn = useKanbanStore((state) => state.moveColumn);
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
@@ -627,6 +631,8 @@ export function KanbanCanvas() {
         isSingle: cluster.isSingle,
       },
       style: { zIndex: Z_INDEX_BASE.DIALOGS },
+      width: 1,
+      height: 1,
       draggable: true,
     }));
 
@@ -1111,12 +1117,15 @@ export function KanbanCanvas() {
               if (cluster) {
                 const deltaX = change.position.x - cluster.centroid.x;
                 const deltaY = change.position.y - cluster.centroid.y;
-                for (const comment of cluster.comments) {
-                  updateComment(comment.id, {
+
+                const updates = cluster.comments.map((comment) => ({
+                  id: comment.id,
+                  changes: {
                     x: comment.x + deltaX,
                     y: comment.y + deltaY,
-                  });
-                }
+                  },
+                }));
+                updateComments(updates);
               }
             } else {
               updateBoardPosition(change.id, absolutePosition);
@@ -1463,8 +1472,15 @@ export function KanbanCanvas() {
       else if (node.id.startsWith("board_")) {
         finalizeBoardDrag(node.id);
       }
+      // If a comment cluster was dragged, finalize all comments in it
+      else if (node.id.startsWith("cluster-")) {
+        const cluster = commentClusters.find((c) => c.id === node.id);
+        if (cluster) {
+          finalizeCommentsDrag(cluster.comments.map((c) => c.id));
+        }
+      }
     },
-    [finalizeAreaDrag, finalizeBoardDrag]
+    [finalizeAreaDrag, finalizeBoardDrag, finalizeCommentsDrag, commentClusters]
   );
 
   // Navigate to a collaborator's cursor position (when clicking edge indicator)

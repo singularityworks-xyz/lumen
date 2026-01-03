@@ -97,6 +97,7 @@ export function useYjsSync(
 
   // Track last sync times for throttling position updates
   const lastAreaPosSyncRef = useRef<Record<string, number>>({});
+  const lastCommentPosSyncRef = useRef<Record<string, number>>({});
 
   const applyYjsChanges = useCallback(() => {
     if (!doc || isUpdatingFromYjsRef.current) {
@@ -326,15 +327,44 @@ export function useYjsSync(
         areaPositionSync.deleteFromYjs(doc, id);
       }
 
-      // Diff and sync comments
+      // Diff and sync comments - with throttling for position-only updates
       const commentDiff = diffEntityMaps(
         prevState.comments.byId,
         state.comments.byId
       );
+
+      const commentsToSync: Comment[] = [];
+
       for (const comment of [...commentDiff.added, ...commentDiff.changed]) {
-        commentSync.setInYjs(doc, comment);
+        const prevComment = prevState.comments.byId[comment.id];
+        // Check if only position changed (no content change)
+        const isPositionOnlyChange =
+          prevComment &&
+          prevComment.content === comment.content &&
+          (prevComment.x !== comment.x || prevComment.y !== comment.y);
+
+        let shouldSync = true;
+        if (isPositionOnlyChange) {
+          // Throttle position-only updates for smooth dragging
+          const lastSync = lastCommentPosSyncRef.current[comment.id] || 0;
+          if (now - lastSync >= POSITION_THROTTLE_MS) {
+            lastCommentPosSyncRef.current[comment.id] = now;
+          } else {
+            shouldSync = false;
+          }
+        }
+
+        if (shouldSync) {
+          commentsToSync.push(comment);
+        }
       }
+
+      if (commentsToSync.length > 0) {
+        commentSync.batchSetInYjs(doc, commentsToSync);
+      }
+
       for (const id of commentDiff.removed) {
+        delete lastCommentPosSyncRef.current[id];
         commentSync.deleteFromYjs(doc, id);
       }
 
