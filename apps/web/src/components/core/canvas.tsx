@@ -1040,7 +1040,7 @@ export function KanbanCanvas() {
     return () => clearTimeout(timeoutId);
   }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: it's intenional - ps. onNodesChange is stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: req
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -1222,6 +1222,7 @@ export function KanbanCanvas() {
       updateConnectionDialogPosition,
       updateColumnDialogPosition,
       updateComment,
+      updateComments,
       commentClusters,
       areas,
       areaPositions,
