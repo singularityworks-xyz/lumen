@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, Send, Trash2, X } from "lucide-react";
+import { GripVertical, Layers, Send, Shell, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -14,12 +14,129 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
 import { cn } from "@/src/lib/utils";
 
+type ViewMode = "sprawled" | "stacked";
+
 type CommentClusterDialogProps = {
   comments: Comment[];
   onClose: () => void;
   screenPosition: { x: number; y: number };
   zoom: number;
 };
+
+// Helper to get/set view mode preference per cluster
+// Uses the first comment ID as a stable identifier since cluster IDs change when comments are added/removed
+function getClusterViewMode(clusterId: string): ViewMode {
+  if (typeof window === "undefined") {
+    return "sprawled";
+  }
+  const stored = localStorage.getItem(`cluster-view-${clusterId}`);
+  return stored === "stacked" ? "stacked" : "sprawled";
+}
+
+function setClusterViewMode(clusterId: string, mode: ViewMode) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(`cluster-view-${clusterId}`, mode);
+}
+
+function getStableClusterId(comments: Comment[]): string {
+  // Use the oldest comment's ID as a stable identifier
+  const sorted = [...comments].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  return sorted[0]?.id ?? "unknown";
+}
+
+type SplitButtonProps = {
+  viewMode: ViewMode;
+  onViewToggle: () => void;
+  onClose: () => void;
+  isVisible: boolean;
+  isClosing: boolean;
+  transitionDelay: string;
+};
+
+function SplitButton({
+  viewMode,
+  onViewToggle,
+  onClose,
+  isVisible,
+  isClosing,
+  transitionDelay,
+}: SplitButtonProps) {
+  return (
+    <div
+      className={cn(
+        "cubic-bezier(0.34, 1.56, 0.64, 1) pointer-events-auto absolute top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
+        (!isVisible || isClosing) && "rotate-90 scale-0 opacity-0"
+      )}
+      style={{ transitionDelay }}
+    >
+      <div className="relative h-14 w-14 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2),inset_0_2px_4px_rgba(0,0,0,0.15),inset_0_-1px_2px_rgba(255,255,255,0.1)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4),inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.05)]">
+        <button
+          className={cn(
+            "absolute inset-0 overflow-hidden rounded-full transition-all duration-200",
+            "active:scale-95"
+          )}
+          onClick={onClose}
+          style={{
+            clipPath: "polygon(0 0, 50% 0, 50% 100%, 0 100%)",
+          }}
+          title="Close"
+          type="button"
+        >
+          <div className="flex h-full w-full items-center bg-linear-to-b from-muted to-muted/80 text-muted-foreground shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.08)] hover:from-destructive/20 hover:to-destructive/10 hover:text-destructive dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_-1px_2px_rgba(255,255,255,0.05)]">
+            <X className="ml-2 h-4 w-4" />
+          </div>
+        </button>
+
+        <button
+          className={cn(
+            "absolute inset-0 overflow-hidden rounded-full transition-all duration-200",
+            "active:scale-95"
+          )}
+          onClick={onViewToggle}
+          style={{
+            clipPath: "polygon(50% 0, 100% 0, 100% 100%, 50% 100%)",
+          }}
+          title={
+            viewMode === "sprawled"
+              ? "Switch to stacked view"
+              : "Switch to sprawled view"
+          }
+          type="button"
+        >
+          <div className="flex h-full w-full items-center justify-end bg-linear-to-b from-muted to-muted/80 text-muted-foreground shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.08)] hover:from-primary/20 hover:to-primary/10 hover:text-primary dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_-1px_2px_rgba(255,255,255,0.05)]">
+            <div className="relative mr-2 h-4 w-4">
+              <Shell
+                className={cn(
+                  "absolute inset-0 h-4 w-4 transition-all duration-300",
+                  viewMode === "sprawled"
+                    ? "scale-100 opacity-100"
+                    : "rotate-180 scale-0 opacity-0"
+                )}
+              />
+              <Layers
+                className={cn(
+                  "absolute inset-0 h-4 w-4 transition-all duration-300",
+                  viewMode === "stacked"
+                    ? "scale-100 opacity-100"
+                    : "-rotate-180 scale-0 opacity-0"
+                )}
+              />
+            </div>
+          </div>
+        </button>
+
+        <div className="pointer-events-none absolute top-1.5 bottom-1.5 left-1/2 flex -translate-x-1/2">
+          <div className="w-px bg-black/10 dark:bg-black/30" />
+          <div className="w-px bg-white/20 dark:bg-white/10" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -57,6 +174,8 @@ type CommentCardProps = {
   onDragOut: (commentId: string) => void;
   isFocused: boolean;
   onBringToFront: () => void;
+  viewMode: ViewMode;
+  stackColumn?: "left" | "right";
 };
 
 function CommentCard({
@@ -68,6 +187,8 @@ function CommentCard({
   onDragOut,
   isFocused,
   onBringToFront,
+  viewMode,
+  stackColumn,
 }: CommentCardProps) {
   const [content, setContent] = useState(comment.content);
   const [isEditing, setIsEditing] = useState(comment.content === "");
@@ -131,8 +252,22 @@ function CommentCard({
   let radius: number;
   let angleStep: number;
   let angle: number;
+  let offsetX: number;
+  let offsetY: number;
 
-  if (usesTwoRings) {
+  if (viewMode === "stacked") {
+    // Stacked layout: two columns, sorted by time
+    const cardHeight = 100; // Approximate card height + gap
+    const columnOffset = 150; // Distance from center for each column
+
+    if (stackColumn === "left") {
+      offsetX = -columnOffset;
+      offsetY = index * cardHeight - ((totalCount - 1) * cardHeight) / 2;
+    } else {
+      offsetX = columnOffset;
+      offsetY = index * cardHeight - ((totalCount - 1) * cardHeight) / 2;
+    }
+  } else if (usesTwoRings) {
     // Two-ring mode
     const innerRingCount = RING_THRESHOLD;
     const outerRingCount = totalCount - RING_THRESHOLD;
@@ -151,6 +286,8 @@ function CommentCard({
       // Offset by half a step to stagger with inner ring
       angle = outerIndex * angleStep - Math.PI / 2 + angleStep / 2;
     }
+    offsetX = Math.cos(angle) * radius;
+    offsetY = Math.sin(angle) * radius;
   } else {
     // Single ring mode - dynamic radius based on count
     const minRadius = 120;
@@ -163,10 +300,10 @@ function CommentCard({
 
     angleStep = (Math.PI * 2) / totalCount;
     angle = index * angleStep - Math.PI / 2;
+    offsetX = Math.cos(angle) * radius;
+    offsetY = Math.sin(angle) * radius;
   }
 
-  const offsetX = Math.cos(angle) * radius;
-  const offsetY = Math.sin(angle) * radius;
   const delay = index * 50;
   const targetX = isClosing ? 0 : offsetX;
   const targetY = isClosing ? 0 : offsetY;
@@ -308,12 +445,36 @@ export function CommentClusterDialog({
   screenPosition,
   zoom,
 }: CommentClusterDialogProps) {
+  const clusterId = getStableClusterId(comments);
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    getClusterViewMode(clusterId)
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const updateComment = useKanbanStore((state) => state.updateComment);
+
+  // Sort comments by creation time for stacked view
+  const sortedComments = [...comments].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  // Split into left and right columns for stacked view
+  const leftColumnComments = sortedComments.filter((_, i) => i % 2 === 0);
+  const rightColumnComments = sortedComments.filter((_, i) => i % 2 === 1);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    setClusterViewMode(clusterId, mode);
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The callback only needs clusterId which is stable
+  const handleViewToggle = useCallback(() => {
+    const nextMode = viewMode === "sprawled" ? "stacked" : "sprawled";
+    handleViewModeChange(nextMode);
+  }, [viewMode, clusterId]);
 
   useEffect(() => {
     setMounted(true);
@@ -402,42 +563,80 @@ export function CommentClusterDialog({
         transformOrigin: "center center",
       }}
     >
-      <button
-        className={cn(
-          "cubic-bezier(0.34, 1.56, 0.64, 1) pointer-events-auto absolute z-50 flex h-12 w-12 items-center justify-center rounded-full bg-linear-to-b from-muted to-muted/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.15)] transition-all duration-500",
-          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-          "hover:scale-105 hover:brightness-105 active:scale-95 active:brightness-95",
-          (!isVisible || isClosing) && "rotate-90 scale-0 opacity-0"
-        )}
-        onClick={handleClose}
-        style={{
-          transitionDelay: isClosing
-            ? "0ms"
-            : `${comments.length * 50 + 100}ms`,
-        }}
-        type="button"
-      >
-        <X className="h-6 w-6" />
-      </button>
+      <SplitButton
+        isClosing={isClosing}
+        isVisible={isVisible}
+        onClose={handleClose}
+        onViewToggle={handleViewToggle}
+        transitionDelay={isClosing ? "0ms" : `${comments.length * 50 + 100}ms`}
+        viewMode={viewMode}
+      />
 
       <div className="relative h-full w-full">
-        <div className="absolute top-1/2 left-1/2">
-          {comments.map((comment, index) => (
-            <div className="pointer-events-auto" key={comment.id}>
-              <CommentCard
-                comment={comment}
-                index={index}
-                isClosing={isClosing}
-                isFocused={focusedIndex === index}
-                isVisible={isVisible}
-                key={comment.id}
-                onBringToFront={() => setFocusedIndex(index)}
-                onDragOut={handleDragOut}
-                totalCount={comments.length}
-              />
+        {viewMode === "sprawled" ? (
+          <div className="absolute top-1/2 left-1/2">
+            {comments.map((comment, index) => (
+              <div className="pointer-events-auto" key={comment.id}>
+                <CommentCard
+                  comment={comment}
+                  index={index}
+                  isClosing={isClosing}
+                  isFocused={focusedIndex === index}
+                  isVisible={isVisible}
+                  onBringToFront={() => setFocusedIndex(index)}
+                  onDragOut={handleDragOut}
+                  totalCount={comments.length}
+                  viewMode={viewMode}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="absolute top-1/2 left-1/2">
+              {leftColumnComments.map((comment, index) => {
+                const originalIndex = sortedComments.indexOf(comment);
+                return (
+                  <div className="pointer-events-auto" key={comment.id}>
+                    <CommentCard
+                      comment={comment}
+                      index={index}
+                      isClosing={isClosing}
+                      isFocused={focusedIndex === originalIndex}
+                      isVisible={isVisible}
+                      onBringToFront={() => setFocusedIndex(originalIndex)}
+                      onDragOut={handleDragOut}
+                      stackColumn="left"
+                      totalCount={leftColumnComments.length}
+                      viewMode={viewMode}
+                    />
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+            <div className="absolute top-1/2 left-1/2">
+              {rightColumnComments.map((comment, index) => {
+                const originalIndex = sortedComments.indexOf(comment);
+                return (
+                  <div className="pointer-events-auto" key={comment.id}>
+                    <CommentCard
+                      comment={comment}
+                      index={index}
+                      isClosing={isClosing}
+                      isFocused={focusedIndex === originalIndex}
+                      isVisible={isVisible}
+                      onBringToFront={() => setFocusedIndex(originalIndex)}
+                      onDragOut={handleDragOut}
+                      stackColumn="right"
+                      totalCount={rightColumnComments.length}
+                      viewMode={viewMode}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

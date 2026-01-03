@@ -78,7 +78,7 @@ export const CommentClusterNode = memo(
     if (isSingle) {
       const comment = comments[0];
       if (!comment) {
-        return null; // Should not happen if isSingle is true, but satisfies TS
+        return null;
       }
       const author = getAuthorInfo(comment);
       const fallback = author.name.slice(0, 2).toUpperCase();
