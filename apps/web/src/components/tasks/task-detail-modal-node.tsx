@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { ArrowLeft, Columns, GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
@@ -25,11 +20,7 @@ type TaskDetailModalNodeProps = NodeProps<Node<TaskDetailModalNodeData>>;
 const MODAL_WIDTH = 400;
 
 export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
-  ({ data, selected, positionAbsoluteX, positionAbsoluteY }) => {
-    const { screenToFlowPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
-    const [mounted, setMounted] = useState(false);
-
+  ({ data, selected }) => {
     const modalState = useKanbanStore(
       (state) => state.taskDetailModals[data.modalId]
     );
@@ -70,115 +61,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
       (state) => state.shakingTaskDetailModalId
     );
 
-    const boardPosition = useKanbanStore((state) =>
-      modalState?.boardId ? state.boardPositions.byId[modalState.boardId] : null
-    );
-
     const column = task ? columns.byId[task.column_id] : null;
-
-    useEffect(() => {
-      setMounted(true);
-    }, []);
-
-    const [updateTrigger, forceUpdate] = useState(0);
-
-    useEffect(() => {
-      const handleViewportChange = () => {
-        forceUpdate((n) => n + 1);
-      };
-
-      const reactFlowPane = document.querySelector(".react-flow__pane");
-
-      if (reactFlowPane) {
-        reactFlowPane.addEventListener("wheel", handleViewportChange, {
-          passive: true,
-        });
-        reactFlowPane.addEventListener("mousedown", handleViewportChange);
-        reactFlowPane.addEventListener("mousemove", handleViewportChange, {
-          passive: true,
-        });
-      }
-
-      window.addEventListener("resize", handleViewportChange);
-
-      return () => {
-        if (reactFlowPane) {
-          reactFlowPane.removeEventListener("wheel", handleViewportChange);
-          reactFlowPane.removeEventListener("mousedown", handleViewportChange);
-          reactFlowPane.removeEventListener("mousemove", handleViewportChange);
-        }
-        window.removeEventListener("resize", handleViewportChange);
-      };
-    }, []);
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: False positive
-    const connectorState = useMemo(() => {
-      // Access viewport values to ensure re-calculation on transform changes
-      const _vp = { vpX, vpY, vpZoom };
-      // Access boardPosition to trigger recalc when board moves
-      const _bp = boardPosition;
-
-      if (!modalState?.sourceTaskId) {
-        return null;
-      }
-
-      // Use React Flow's position props which update synchronously during drag
-      // This eliminates the lag/flicker that occurs when using store position
-      const modalPosX = positionAbsoluteX;
-      const modalPosY = positionAbsoluteY;
-
-      if (!(Number.isFinite(modalPosX) && Number.isFinite(modalPosY))) {
-        return null;
-      }
-
-      // Find source task element via data attribute
-      const sourceTaskElement = document.querySelector(
-        `[data-task-id="${modalState.sourceTaskId}"]`
-      );
-
-      if (!sourceTaskElement) {
-        return null;
-      }
-
-      const sourceRect = sourceTaskElement.getBoundingClientRect();
-
-      // Validate we have valid source rect dimensions
-      if (sourceRect.width === 0 || sourceRect.height === 0) {
-        return null;
-      }
-
-      // Convert task card's screen position to canvas position
-      const taskCanvasPos = screenToFlowPosition({
-        x: sourceRect.right,
-        y: sourceRect.top + sourceRect.height / 2,
-      });
-
-      // Validate calculated positions are valid numbers
-      if (
-        !(Number.isFinite(taskCanvasPos.x) && Number.isFinite(taskCanvasPos.y))
-      ) {
-        return null;
-      }
-
-      // Calculate offset from modal's top-left corner (where the SVG will be anchored)
-      // The line goes FROM the task TO the modal's left edge
-      const startX = taskCanvasPos.x - modalPosX;
-      const startY = taskCanvasPos.y - modalPosY;
-      const endX = 0;
-      const endY = 24;
-
-      return { startX, startY, endX, endY };
-    }, [
-      modalState?.sourceTaskId,
-      positionAbsoluteX,
-      positionAbsoluteY,
-      boardPosition,
-      screenToFlowPosition,
-      vpX,
-      vpY,
-      vpZoom,
-      updateTrigger,
-    ]);
 
     const isShaking = shakingModalId === data.modalId;
 
@@ -205,159 +88,119 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
       return null;
     }
 
-    const renderConnectorLine = () => {
-      if (modalState?.openedFromQuickActions) {
-        return null;
-      }
-      if (!(mounted && connectorState)) {
-        return null;
-      }
-
-      const { startX, startY, endX, endY } = connectorState;
-      const dx = Math.abs(endX - startX);
-      const controlOffset = Math.min(dx * 0.4, 60);
-      const controlX1 = startX + controlOffset;
-      const controlX2 = endX - controlOffset;
-
-      return (
-        <svg
-          className="pointer-events-none absolute overflow-visible"
-          style={{
-            left: 0,
-            top: 0,
-            width: 1,
-            height: 1,
-          }}
-        >
-          <title>Connector line</title>
-          <path
-            className={column?.accentColor ? undefined : "stroke-primary"}
-            d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
-            fill="none"
-            stroke={column?.accentColor}
-            strokeLinecap="round"
-            strokeOpacity="0.7"
-            strokeWidth={2 / vpZoom}
-          />
-        </svg>
-      );
-    };
-
     return (
-      <>
-        {renderConnectorLine()}
+      <div
+        className="relative rounded-lg"
+        style={{
+          width: MODAL_WIDTH,
+        }}
+      >
+        {dialogCollaborator && (
+          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
+        )}
+        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Node wrapper needs mouse handler */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler */}
         <div
-          className="relative rounded-lg"
-          style={{
-            width: MODAL_WIDTH,
-          }}
-        >
-          {dialogCollaborator && (
-            <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
+          className={cn(
+            "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
+            selected || isFocused || isTopmost
+              ? "shadow-xl ring-2 ring-primary/50"
+              : "shadow-lg ring-1 ring-border/50",
+            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]",
+            isShaking && "animate-shake"
           )}
-          {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Node wrapper needs mouse handler */}
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler */}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setIsFocused(false);
+            }
+          }}
+          onFocus={() => setIsFocused(true)}
+          onMouseDown={handleMouseDown}
+        >
           <div
-            className={cn(
-              "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
-              selected || isFocused || isTopmost
-                ? "shadow-xl ring-2 ring-primary/50"
-                : "shadow-lg ring-1 ring-border/50",
-              "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]",
-              isShaking && "animate-shake"
-            )}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget)) {
-                setIsFocused(false);
-              }
-            }}
-            onFocus={() => setIsFocused(true)}
-            onMouseDown={handleMouseDown}
-          >
-            <div
-              className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-              style={
-                column?.accentColor
-                  ? {
-                      background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
-                    }
-                  : {}
-              }
-            >
-              <div className="flex items-center gap-2">
-                {isEditing ? (
-                  <button
-                    className="nodrag flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-primary/20 hover:text-primary dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                    onClick={handleBackToView}
-                    type="button"
-                  >
-                    <ArrowLeft className="h-3 w-3" />
-                  </button>
-                ) : (
-                  <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-                <span
-                  className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded font-medium text-[10px]",
-                    !column?.accentColor &&
-                      "bg-violet-500/20 text-violet-600 dark:text-violet-400"
-                  )}
-                  style={
-                    column?.accentColor
-                      ? {
-                          backgroundColor: `${column.accentColor}25`,
-                          color: column.accentColor,
-                        }
-                      : {}
+            className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+            onPointerDown={handleMouseDown}
+            style={
+              column?.accentColor
+                ? {
+                    background: `linear-gradient(to right, ${column.accentColor}15, ${column.accentColor}08, transparent)`,
                   }
-                >
-                  {(() => {
-                    const IconComponent = column?.icon
-                      ? ICON_MAP[column.icon]
-                      : null;
-                    if (IconComponent) {
-                      return <IconComponent className="h-3 w-3" />;
-                    }
-                    return <Columns className="h-3 w-3" />;
-                  })()}
-                </span>
-                <span
-                  className="max-w-32 truncate font-semibold text-xs"
-                  title={task.title}
-                >
-                  {task.title}
-                </span>
-              </div>
-              <button
-                className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                onClick={() => closeTaskDetailModal(data.modalId)}
-                type="button"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-
-            <div className="nodrag nowheel nopan max-h-[70vh] overflow-y-auto">
+                : {}
+            }
+          >
+            <div className="flex items-center gap-2">
               {isEditing ? (
-                <TaskDetailForm
-                  boardId={modalState.boardId}
-                  modalId={data.modalId}
-                  onCancel={handleBackToView}
-                  onSaved={handleBackToView}
-                  task={task}
-                />
+                <button
+                  className="nodrag flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-primary/20 hover:text-primary dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                  onClick={handleBackToView}
+                  type="button"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                </button>
               ) : (
-                <TaskViewForm
-                  boardId={modalState.boardId}
-                  modalId={data.modalId}
-                  onEdit={handleStartEditing}
-                  task={task}
-                />
+                <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
               )}
+              <span
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded font-medium text-[10px]",
+                  !column?.accentColor &&
+                    "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+                )}
+                style={
+                  column?.accentColor
+                    ? {
+                        backgroundColor: `${column.accentColor}25`,
+                        color: column.accentColor,
+                      }
+                    : {}
+                }
+              >
+                {(() => {
+                  const IconComponent = column?.icon
+                    ? ICON_MAP[column.icon]
+                    : null;
+                  if (IconComponent) {
+                    return <IconComponent className="h-3 w-3" />;
+                  }
+                  return <Columns className="h-3 w-3" />;
+                })()}
+              </span>
+              <span
+                className="max-w-32 truncate font-semibold text-xs"
+                title={task.title}
+              >
+                {task.title}
+              </span>
             </div>
+            <button
+              className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+              onClick={() => closeTaskDetailModal(data.modalId)}
+              type="button"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
+          <div className="nodrag nowheel nopan max-h-[70vh] overflow-y-auto">
+            {isEditing ? (
+              <TaskDetailForm
+                boardId={modalState.boardId}
+                modalId={data.modalId}
+                onCancel={handleBackToView}
+                onSaved={handleBackToView}
+                task={task}
+              />
+            ) : (
+              <TaskViewForm
+                boardId={modalState.boardId}
+                modalId={data.modalId}
+                onEdit={handleStartEditing}
+                task={task}
+              />
+            )}
           </div>
         </div>
-      </>
+      </div>
     );
   }
 );

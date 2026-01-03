@@ -13,6 +13,7 @@ import {
   JoinWorkspaceHandler,
   useCollaboration,
 } from "@/src/features/collab";
+import { useWorkspaceSync } from "@/src/features/collab/hooks/use-workspace-sync";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type {
@@ -22,7 +23,6 @@ import type {
   Task,
 } from "@/src/features/kanban/types";
 import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
-import { useWorkspaceSync } from "@/src/hooks/use-workspace-sync";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 
 function KanbanPageContent() {

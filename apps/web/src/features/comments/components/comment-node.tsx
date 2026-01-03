@@ -1,5 +1,5 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -7,7 +7,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
-import type { Comment } from "../kanban/types";
+import type { Comment } from "../../kanban/types";
 import { CommentDialog } from "./comment-dialog";
 
 type CommentNodeData = {
@@ -19,6 +19,9 @@ export const CommentNode = memo(
     const { comment } = data;
     const [isOpen, setIsOpen] = useState(false);
     const { collaborators, localUser } = useCollaboration();
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
+
     const isOwnComment = localUser?.id === comment.authorId;
     const onlineAuthor = isOwnComment
       ? localUser
@@ -31,8 +34,33 @@ export const CommentNode = memo(
     const fallback = authorName.slice(0, 2).toUpperCase();
 
     const handleToggle = () => {
+      if (!isOpen && buttonRef.current) {
+        setButtonRect(buttonRef.current.getBoundingClientRect());
+      }
       setIsOpen(!isOpen);
     };
+
+    useEffect(() => {
+      if (!(isOpen && buttonRef.current)) {
+        return;
+      }
+
+      const updateRect = () => {
+        if (buttonRef.current) {
+          setButtonRect(buttonRef.current.getBoundingClientRect());
+        }
+      };
+
+      window.addEventListener("scroll", updateRect, true);
+      window.addEventListener("resize", updateRect);
+
+      updateRect();
+
+      return () => {
+        window.removeEventListener("scroll", updateRect, true);
+        window.removeEventListener("resize", updateRect);
+      };
+    }, [isOpen]);
 
     return (
       <div className="group relative">
@@ -48,6 +76,7 @@ export const CommentNode = memo(
             "hover:shadow-[0_4px_12px_rgba(0,0,0,0.2),inset_0_1px_3px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(255,255,255,0.1)]"
           )}
           onClick={handleToggle}
+          ref={buttonRef}
           style={
             {
               "--tw-ring-color":
@@ -94,7 +123,11 @@ export const CommentNode = memo(
           />
         </button>
         {(isOpen || comment.content === "") && (
-          <CommentDialog comment={comment} onClose={() => setIsOpen(false)} />
+          <CommentDialog
+            anchorRect={buttonRect}
+            comment={comment}
+            onClose={() => setIsOpen(false)}
+          />
         )}
       </div>
     );

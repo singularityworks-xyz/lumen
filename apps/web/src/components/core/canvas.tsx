@@ -52,7 +52,8 @@ import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
 import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
-import { CommentNode } from "@/src/features/comments/comment-node";
+import { CommentClusterNode } from "@/src/features/comments/components/comment-cluster-node";
+import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/components/collaborator-selection-overlay-screen";
@@ -72,6 +73,7 @@ import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
 import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
+import { TaskConnectionLayer } from "./task-connection-layer";
 
 type ColumnDragContextType = {
   activeColumnData: {
@@ -145,7 +147,14 @@ type CanvasNode =
   | BoardDialogNode
   | ConnectionDialogNode
   | ColumnDialogNode
-  | Node<{ comment: unknown }, "comment">;
+  | Node<
+      {
+        comments: unknown[];
+        centroid: { x: number; y: number };
+        isSingle: boolean;
+      },
+      "commentCluster"
+    >;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore(
@@ -200,8 +209,12 @@ export function KanbanCanvas() {
   const updateTaskDetailModalPosition = useKanbanStore(
     (state) => state.updateTaskDetailModalPosition
   );
-  const comments = useKanbanStore((state) => state.comments);
   const updateComment = useKanbanStore((state) => state.updateComment);
+  const finalizeCommentsDrag = useKanbanStore(
+    (state) => state.finalizeCommentsDrag
+  );
+  const updateComments = useKanbanStore((state) => state.updateComments);
+  const commentClusters = useCommentClusters();
   const moveColumn = useKanbanStore((state) => state.moveColumn);
   const moveColumnToBoard = useKanbanStore((state) => state.moveColumnToBoard);
   const columns = useKanbanStore((state) => state.columns);
@@ -608,43 +621,20 @@ export function KanbanCanvas() {
       })
       .filter((node): node is TaskModalNode => node !== null);
 
-    const commentNodes = comments.allIds
-      .map(
-        (
-          id
-        ): Node<
-          { comment: (typeof comments.byId)[string] },
-          "comment"
-        > | null => {
-          const comment = comments.byId[id];
-          if (!comment) {
-            return null;
-          }
-          // Filter by current workspace
-          if (
-            currentWorkspaceId &&
-            comment.workspaceId !== currentWorkspaceId
-          ) {
-            return null;
-          }
-          return {
-            id: `comment-${comment.id}`,
-            type: "comment",
-            position: { x: comment.x, y: comment.y },
-            data: { comment },
-            style: { zIndex: Z_INDEX_BASE.DIALOGS },
-            draggable: true,
-          };
-        }
-      )
-      .filter(
-        (
-          node
-        ): node is Node<
-          { comment: (typeof comments.byId)[string] },
-          "comment"
-        > => node !== null
-      );
+    const commentClusterNodes = commentClusters.map((cluster) => ({
+      id: cluster.id,
+      type: "commentCluster" as const,
+      position: { x: cluster.centroid.x, y: cluster.centroid.y },
+      data: {
+        comments: cluster.comments,
+        centroid: cluster.centroid,
+        isSingle: cluster.isSingle,
+      },
+      style: { zIndex: Z_INDEX_BASE.DIALOGS },
+      width: 1,
+      height: 1,
+      draggable: true,
+    }));
 
     const taskDetailModalNodes: TaskDetailModalNode[] = taskDetailModalIds
       .map((id) => {
@@ -856,14 +846,14 @@ export function KanbanCanvas() {
       ...connectionDialogNodes,
       ...columnDialogNodes,
       ...areaDialogNodes,
-      ...commentNodes,
+      ...commentClusterNodes,
     ];
   }, [
     areas,
     areaPositions,
     boards,
     boardPositions,
-    comments,
+    commentClusters,
     currentWorkspaceId,
     workspaces,
     selectedBoardId,
@@ -1050,7 +1040,7 @@ export function KanbanCanvas() {
     return () => clearTimeout(timeoutId);
   }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: it's intenional - ps. onNodesChange is stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: req
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -1122,12 +1112,21 @@ export function KanbanCanvas() {
             } else if (change.id.startsWith("area-dialog-")) {
               const dialogId = change.id.replace("area-dialog-", "");
               updateAreaDialogPosition(dialogId, change.position);
-            } else if (change.id.startsWith("comment-")) {
-              const commentId = change.id.replace("comment-", "");
-              updateComment(commentId, {
-                x: change.position.x,
-                y: change.position.y,
-              });
+            } else if (change.id.startsWith("cluster-")) {
+              const cluster = commentClusters.find((c) => c.id === change.id);
+              if (cluster) {
+                const deltaX = change.position.x - cluster.centroid.x;
+                const deltaY = change.position.y - cluster.centroid.y;
+
+                const updates = cluster.comments.map((comment) => ({
+                  id: comment.id,
+                  changes: {
+                    x: comment.x + deltaX,
+                    y: comment.y + deltaY,
+                  },
+                }));
+                updateComments(updates);
+              }
             } else {
               updateBoardPosition(change.id, absolutePosition);
             }
@@ -1223,6 +1222,8 @@ export function KanbanCanvas() {
       updateConnectionDialogPosition,
       updateColumnDialogPosition,
       updateComment,
+      updateComments,
+      commentClusters,
       areas,
       areaPositions,
       boardPositions,
@@ -1472,8 +1473,15 @@ export function KanbanCanvas() {
       else if (node.id.startsWith("board_")) {
         finalizeBoardDrag(node.id);
       }
+      // If a comment cluster was dragged, finalize all comments in it
+      else if (node.id.startsWith("cluster-")) {
+        const cluster = commentClusters.find((c) => c.id === node.id);
+        if (cluster) {
+          finalizeCommentsDrag(cluster.comments.map((c) => c.id));
+        }
+      }
     },
-    [finalizeAreaDrag, finalizeBoardDrag]
+    [finalizeAreaDrag, finalizeBoardDrag, finalizeCommentsDrag, commentClusters]
   );
 
   // Navigate to a collaborator's cursor position (when clicking edge indicator)
@@ -1623,7 +1631,7 @@ export function KanbanCanvas() {
               !showWelcomeScreen && interactionMode === "select"
             }
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
-            nodeTypes={{ ...nodeTypes, comment: CommentNode }}
+            nodeTypes={{ ...nodeTypes, commentCluster: CommentClusterNode }}
             onConnect={handleConnect}
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
@@ -1656,6 +1664,7 @@ export function KanbanCanvas() {
               gap={20}
               variant={BackgroundVariant.Dots}
             />
+            <TaskConnectionLayer />
             <CustomControls />
             {showMiniMap && (
               <MiniMap

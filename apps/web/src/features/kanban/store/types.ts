@@ -522,7 +522,24 @@ export type KanbanActions = {
       >
     >
   ) => void;
+  updateComments: (
+    updates: {
+      id: string;
+      changes: Partial<
+        Pick<
+          Comment,
+          | "content"
+          | "x"
+          | "y"
+          | "lastEditedById"
+          | "lastEditorName"
+          | "lastEditorImage"
+        >
+      >;
+    }[]
+  ) => void;
   removeComment: (id: string) => void;
+  finalizeCommentsDrag: (commentIds: string[]) => void;
 
   // Z-index management
   bringDialogToFront: (dialogId: string) => void;

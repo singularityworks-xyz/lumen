@@ -14,7 +14,7 @@ type ContextMenuProps = {
 
 const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   const { screenToFlowPosition } = useReactFlow();
-  const { localUser } = useCollaboration();
+  const { localUser, isCollaborating } = useCollaboration();
   // const setShowCommandPalette = useKanbanStore(
   //   (state) => state.setShowCommandPalette
   // );
@@ -66,14 +66,16 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
         <Plus className="h-3.5 w-3.5" />
         New Board
       </button>
-      <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-        onClick={handleAddComment}
-        type="button"
-      >
-        <MessageCircle className="h-3.5 w-3.5 scale-x-[-1]" />
-        Add Comment
-      </button>
+      {isCollaborating && (
+        <button
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+          onClick={handleAddComment}
+          type="button"
+        >
+          <MessageCircle className="h-3.5 w-3.5 scale-x-[-1]" />
+          Add Comment
+        </button>
+      )}
       {/* <button
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
         onClick={handleSearch}
