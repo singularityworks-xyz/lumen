@@ -6,6 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createAreaSlice } from "./slices/area-slice";
 import { createBoardSlice } from "./slices/board-slice";
+import { createChatSlice } from "./slices/chat-slice";
 import { createColumnSlice } from "./slices/column-slice";
 import { createCommentSlice } from "./slices/comment-slice";
 import { createConnectionSlice } from "./slices/connection-slice";
@@ -31,6 +32,7 @@ const storeCreator: StateCreator<
   ...createBoardSlice(set, get),
   ...createColumnSlice(set, get),
   ...createCommentSlice(set, get),
+  ...createChatSlice(set, get),
   ...createTaskSlice(set, get),
   ...createConnectionSlice(set, get),
   ...createModalSlice(set, get),
@@ -79,6 +81,7 @@ export const useKanbanStore = create<KanbanStore>()(
           boards: state.boards,
           columns: state.columns,
           comments: state.comments,
+          chatMessages: state.chatMessages,
           tasks: state.tasks,
           boardPositions: state.boardPositions,
           boardConnections: state.boardConnections,
@@ -95,6 +98,7 @@ export const useKanbanStore = create<KanbanStore>()(
           connectionDialog: state.connectionDialog,
           taskQuickActions: state.taskQuickActions,
           columnUi: state.columnUi,
+          lastActiveDrawerTab: state.lastActiveDrawerTab,
           areas: state.areas,
           areaPositions: state.areaPositions,
           areaDialogs: state.areaDialogs,

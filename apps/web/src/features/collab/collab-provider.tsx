@@ -90,6 +90,7 @@ export type Collaborator = {
   openDialogs?: OpenDialog[];
   draggingTask?: DraggingTaskState;
   draggingColumn?: DraggingColumnState;
+  isTyping?: boolean;
 };
 
 export type ConnectionState =
@@ -110,6 +111,7 @@ export type CollaborationContextType = {
   updateCursor: (position: CursorPosition | null) => void;
   updateSelection: (selectedIds: string[]) => void;
   updateOpenDialogs: (dialogs: OpenDialog[]) => void;
+  updateIsTyping: (isTyping: boolean) => void;
 };
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -253,6 +255,7 @@ export function CollaborationProvider({
           openDialogs: state.openDialogs,
           draggingTask,
           draggingColumn,
+          isTyping: state.isTyping,
         });
       }
     });
@@ -577,6 +580,15 @@ export function CollaborationProvider({
     awareness.setLocalStateField("openDialogs", dialogs);
   }, []);
 
+  const updateIsTyping = useCallback((isTyping: boolean) => {
+    const awareness = awarenessRef.current;
+    if (!awareness) {
+      return;
+    }
+
+    awareness.setLocalStateField("isTyping", isTyping);
+  }, []);
+
   useEffect(() => cleanup, [cleanup]);
 
   return (
@@ -593,6 +605,7 @@ export function CollaborationProvider({
         updateCursor,
         updateSelection,
         updateOpenDialogs,
+        updateIsTyping,
       }}
     >
       {children}

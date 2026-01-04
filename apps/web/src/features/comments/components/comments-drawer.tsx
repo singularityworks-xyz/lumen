@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, LayoutGrid, MessageCircle } from "lucide-react";
+import { ChevronLeft, LayoutGrid, MessageCircle, Users } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +13,7 @@ import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
 import { cn } from "@/src/lib/utils";
+import { DiscussionTab } from "./discussion-tab";
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -250,10 +251,13 @@ const FloatingIndicator = memo(
   )
 );
 
+type DrawerTab = "comments" | "discussion";
+
 type CommentsDrawerContentProps = {
   comments: Comment[];
   onClose: () => void;
   localUserId?: string;
+  workspaceId: string;
   onSwitchToBoards?: () => void;
   boardCount?: number;
   onCommentClick?: (comment: Comment) => void;
@@ -264,12 +268,40 @@ const CommentsDrawerContent = memo(
     comments,
     onClose,
     localUserId,
+    workspaceId,
     onSwitchToBoards,
     boardCount = 0,
     onCommentClick,
   }: CommentsDrawerContentProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const { collaborators, localUser } = useCollaboration();
+
+    const lastActiveDrawerTab = useKanbanStore(
+      (state) => state.lastActiveDrawerTab
+    );
+    const setLastActiveDrawerTab = useKanbanStore(
+      (state) => state.setLastActiveDrawerTab
+    );
+    const [activeTab, setActiveTabState] = useState<DrawerTab>(
+      lastActiveDrawerTab ?? "comments"
+    );
+
+    const setActiveTab = useCallback(
+      (tab: DrawerTab) => {
+        setActiveTabState(tab);
+        setLastActiveDrawerTab(tab);
+      },
+      [setLastActiveDrawerTab]
+    );
+
+    const chatMessages = useKanbanStore((state) => state.chatMessages);
+    const discussionCount = useMemo(
+      () =>
+        chatMessages.allIds.filter(
+          (id) => chatMessages.byId[id]?.workspaceId === workspaceId
+        ).length,
+      [chatMessages, workspaceId]
+    );
 
     const topLevelComments = useMemo(
       () =>
@@ -342,164 +374,255 @@ const CommentsDrawerContent = memo(
         >
           <div
             className={cn(
-              "flex items-center justify-between px-4 py-3",
+              "flex flex-col",
               "border-border/50 border-b",
               "bg-linear-to-b from-muted/50 to-transparent"
             )}
           >
-            <div className="flex items-center gap-2.5">
-              <div
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-lg",
-                  "bg-primary/10 text-primary",
-                  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]"
-                )}
-              >
-                <MessageCircle className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">
-                  Comments
-                </h3>
-                <p className="text-[10px] text-muted-foreground">
-                  {comments.length}{" "}
-                  {comments.length === 1 ? "comment" : "comments"} in workspace
-                </p>
+            <div className="flex items-center justify-between px-4 pt-3 pb-2">
+              <h3 className="font-semibold text-foreground text-sm">
+                Workspace Chat
+              </h3>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center -space-x-1.5 transition-all duration-300 hover:space-x-0.5">
+                  {collaborators
+                    .filter((c) => c.id !== localUser?.id)
+                    .map((user) => (
+                      <div
+                        className="group relative transition-all duration-300 hover:z-10 hover:scale-110"
+                        key={user.id}
+                        title={`${user.name} (Online)`}
+                      >
+                        <Avatar className="h-5 w-5 border border-background shadow-sm ring-1 ring-background/50">
+                          <AvatarImage src={user.image ?? undefined} />
+                          <AvatarFallback className="bg-primary/10 font-medium text-[6px] text-primary">
+                            {user.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="absolute right-0 bottom-0 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-background" />
+                      </div>
+                    ))}
+                  {collaborators.length > 5 && (
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted font-medium text-[8px] text-muted-foreground ring-1 ring-background/50">
+                      +{collaborators.length - 5}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  aria-label="Close"
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-lg",
+                    "text-muted-foreground hover:text-foreground",
+                    "hover:bg-muted/80 active:bg-muted",
+                    "transition-all duration-200",
+                    "shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]",
+                    "hover:shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]"
+                  )}
+                  onClick={onClose}
+                  type="button"
+                >
+                  <ChevronLeft className="h-4 w-4 rotate-180" />
+                </button>
               </div>
             </div>
-            <button
-              aria-label="Close comments"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-lg",
-                "text-muted-foreground hover:text-foreground",
-                "hover:bg-muted/80 active:bg-muted",
-                "transition-all duration-200",
-                "shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]",
-                "hover:shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]"
-              )}
-              onClick={onClose}
-              type="button"
-            >
-              <ChevronLeft className="h-4 w-4 rotate-180" />
-            </button>
+
+            <div className="flex gap-1 px-3 pb-0">
+              <button
+                className={cn(
+                  "relative flex flex-1 items-center justify-center gap-2 rounded-t-lg px-3 py-2",
+                  "font-medium text-sm transition-colors",
+                  activeTab === "comments"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setActiveTab("comments")}
+                type="button"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>Comments</span>
+                {comments.length > 0 && (
+                  <span
+                    className={cn(
+                      "ml-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
+                      "font-bold text-[10px]",
+                      activeTab === "comments"
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {comments.length > 99 ? "99+" : comments.length}
+                  </span>
+                )}
+                {activeTab === "comments" && (
+                  <motion.div
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
+                    layoutId="drawer-tab-indicator"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+              </button>
+
+              <button
+                className={cn(
+                  "relative flex flex-1 items-center justify-center gap-2 rounded-t-lg px-3 py-2",
+                  "font-medium text-sm transition-colors",
+                  activeTab === "discussion"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setActiveTab("discussion")}
+                type="button"
+              >
+                <Users className="h-4 w-4" />
+                <span>Discussion</span>
+                {discussionCount > 0 && (
+                  <span
+                    className={cn(
+                      "ml-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
+                      "font-bold text-[10px]",
+                      activeTab === "discussion"
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {discussionCount > 99 ? "99+" : discussionCount}
+                  </span>
+                )}
+                {activeTab === "discussion" && (
+                  <motion.div
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
+                    layoutId="drawer-tab-indicator"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+              </button>
+            </div>
           </div>
 
-          <div
-            className={cn(
-              "flex-1 overflow-y-auto overflow-x-hidden",
-              "space-y-4 px-4 py-4",
-              "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
-            )}
-            ref={scrollRef}
-          >
-            {topLevelComments.length === 0 ? (
-              <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="flex h-full flex-col items-center justify-center py-12 text-center"
-                initial={{ opacity: 0, y: 10 }}
+          {activeTab === "comments" ? (
+            <>
+              <div
+                className={cn(
+                  "flex-1 overflow-y-auto overflow-x-hidden",
+                  "space-y-4 px-4 py-4",
+                  "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+                )}
+                ref={scrollRef}
               >
-                <div
-                  className={cn(
-                    "mb-4 h-16 w-16 rounded-2xl",
-                    "flex items-center justify-center",
-                    "bg-muted/50",
-                    "shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.05)]",
-                    "dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.03)]"
-                  )}
-                >
-                  <MessageCircle className="h-7 w-7 text-muted-foreground/50" />
-                </div>
-                <p className="font-medium text-muted-foreground text-sm">
-                  No comments yet
-                </p>
-                <p className="mt-1 text-muted-foreground/60 text-xs">
-                  Comments from the workspace will appear here
-                </p>
-              </motion.div>
-            ) : (
-              <AnimatePresence mode="popLayout">
-                {topLevelComments.map((comment, index) => {
-                  const { isOwn, authorColor, authorName, authorImage } =
-                    getAuthorInfo(comment);
-                  const replies = getReplies(comment.id);
-                  const replyCount = comment.replyCount ?? replies.length;
-                  const visibleReplies = replies.slice(-2);
-                  const hiddenReplyCount =
-                    replies.length - visibleReplies.length;
-
-                  return (
-                    <div className="space-y-2" key={comment.id}>
-                      <CommentBubble
-                        authorColor={authorColor}
-                        authorImage={authorImage}
-                        authorName={authorName}
-                        comment={comment}
-                        index={index}
-                        isOwn={isOwn}
-                        onClick={
-                          onCommentClick
-                            ? () => onCommentClick(comment)
-                            : undefined
-                        }
-                        replyCount={replyCount}
-                      />
-                      {hiddenReplyCount > 0 && (
-                        <button
-                          className={cn(
-                            "ml-10 flex items-center gap-1.5 rounded-full px-2.5 py-1",
-                            "bg-muted/50 text-muted-foreground/70",
-                            "font-medium text-[10px]",
-                            "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
-                            "transition-colors hover:bg-muted hover:text-muted-foreground"
-                          )}
-                          onClick={() => onCommentClick?.(comment)}
-                          type="button"
-                        >
-                          <MessageCircle className="h-2.5 w-2.5" />+
-                          {hiddenReplyCount} more{" "}
-                          {hiddenReplyCount === 1 ? "reply" : "replies"}
-                        </button>
+                {topLevelComments.length === 0 ? (
+                  <motion.div
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex h-full flex-col items-center justify-center py-12 text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                  >
+                    <div
+                      className={cn(
+                        "mb-4 h-16 w-16 rounded-2xl",
+                        "flex items-center justify-center",
+                        "bg-muted/50",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.05)]",
+                        "dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.03)]"
                       )}
-                      {visibleReplies.map((reply, replyIndex) => {
-                        const replyAuthorInfo = getAuthorInfo(reply);
-                        return (
+                    >
+                      <MessageCircle className="h-7 w-7 text-muted-foreground/50" />
+                    </div>
+                    <p className="font-medium text-muted-foreground text-sm">
+                      No comments yet
+                    </p>
+                    <p className="mt-1 text-muted-foreground/60 text-xs">
+                      Comments from the workspace will appear here
+                    </p>
+                  </motion.div>
+                ) : (
+                  <AnimatePresence mode="popLayout">
+                    {topLevelComments.map((comment, index) => {
+                      const { isOwn, authorColor, authorName, authorImage } =
+                        getAuthorInfo(comment);
+                      const replies = getReplies(comment.id);
+                      const replyCount = comment.replyCount ?? replies.length;
+                      const visibleReplies = replies.slice(-2);
+                      const hiddenReplyCount =
+                        replies.length - visibleReplies.length;
+
+                      return (
+                        <div className="space-y-2" key={comment.id}>
                           <CommentBubble
-                            authorColor={replyAuthorInfo.authorColor}
-                            authorImage={replyAuthorInfo.authorImage}
-                            authorName={replyAuthorInfo.authorName}
-                            comment={reply}
-                            index={replyIndex}
-                            isOwn={replyAuthorInfo.isOwn}
-                            isReply
-                            key={reply.id}
+                            authorColor={authorColor}
+                            authorImage={authorImage}
+                            authorName={authorName}
+                            comment={comment}
+                            index={index}
+                            isOwn={isOwn}
                             onClick={
                               onCommentClick
                                 ? () => onCommentClick(comment)
                                 : undefined
                             }
+                            replyCount={replyCount}
                           />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </AnimatePresence>
-            )}
-          </div>
+                          {hiddenReplyCount > 0 && (
+                            <button
+                              className={cn(
+                                "ml-10 flex items-center gap-1.5 rounded-full px-2.5 py-1",
+                                "bg-muted/50 text-muted-foreground/70",
+                                "font-medium text-[10px]",
+                                "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                                "transition-colors hover:bg-muted hover:text-muted-foreground"
+                              )}
+                              onClick={() => onCommentClick?.(comment)}
+                              type="button"
+                            >
+                              <MessageCircle className="h-2.5 w-2.5" />+
+                              {hiddenReplyCount} more{" "}
+                              {hiddenReplyCount === 1 ? "reply" : "replies"}
+                            </button>
+                          )}
+                          {visibleReplies.map((reply, replyIndex) => {
+                            const replyAuthorInfo = getAuthorInfo(reply);
+                            return (
+                              <CommentBubble
+                                authorColor={replyAuthorInfo.authorColor}
+                                authorImage={replyAuthorInfo.authorImage}
+                                authorName={replyAuthorInfo.authorName}
+                                comment={reply}
+                                index={replyIndex}
+                                isOwn={replyAuthorInfo.isOwn}
+                                isReply
+                                key={reply.id}
+                                onClick={
+                                  onCommentClick
+                                    ? () => onCommentClick(comment)
+                                    : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </AnimatePresence>
+                )}
+              </div>
 
-          <div
-            className={cn(
-              "pointer-events-none relative z-10 -mt-6 h-6",
-              "bg-linear-to-t from-card to-transparent"
-            )}
-          />
+              <div
+                className={cn(
+                  "pointer-events-none relative z-10 -mt-6 h-6",
+                  "bg-linear-to-t from-card to-transparent"
+                )}
+              />
 
-          <div
-            className={cn(
-              "h-1 w-full",
-              "bg-linear-to-r from-transparent via-primary/20 to-transparent"
-            )}
-          />
+              <div
+                className={cn(
+                  "h-1 w-full",
+                  "bg-linear-to-r from-transparent via-primary/20 to-transparent"
+                )}
+              />
+            </>
+          ) : (
+            <DiscussionTab workspaceId={workspaceId} />
+          )}
         </div>
 
         {onSwitchToBoards && (
@@ -637,6 +760,7 @@ export const CommentsDrawer = memo(
                 onClose={handleClose}
                 onCommentClick={onCommentClick}
                 onSwitchToBoards={onSwitchToBoards}
+                workspaceId={currentWorkspaceId ?? ""}
               />
             </>
           )}

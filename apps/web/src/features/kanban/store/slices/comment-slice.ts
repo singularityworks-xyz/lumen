@@ -49,10 +49,10 @@ export type CommentSlice = {
     }[]
   ) => void;
   removeComment: (id: string) => void;
-  // Touch comments to bypass sync throttling and ensure final positions are synced
   finalizeCommentsDrag: (commentIds: string[]) => void;
-  // Get replies for a comment
   getRepliesForComment: (parentId: string) => Comment[];
+  lastActiveDrawerTab: "comments" | "discussion";
+  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
 };
 
 type SliceCreator = (
@@ -64,6 +64,12 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
   comments: {
     byId: {},
     allIds: [],
+  },
+  lastActiveDrawerTab: "comments",
+  setLastActiveDrawerTab: (tab) => {
+    set((state) => {
+      state.lastActiveDrawerTab = tab;
+    });
   },
   addComment: (position, content, author) => {
     const currentState = get();

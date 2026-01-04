@@ -18,6 +18,7 @@ import {
   boardPositionSync,
   boardQuickActionsSync,
   boardSync,
+  chatMessageSync,
   columnDialogSync,
   columnQuickActionsSync,
   columnSync,
@@ -35,6 +36,7 @@ import type {
   Board,
   BoardConnection,
   BoardPosition,
+  ChatMessage,
   Column,
   Comment,
   Task,
@@ -82,6 +84,10 @@ export type YjsSyncActions = {
   syncComment: (comment: Comment) => void;
   // Delete a comment from Yjs
   deleteComment: (id: string) => void;
+  // Sync a chat message to Yjs
+  syncChatMessage: (message: ChatMessage) => void;
+  // Delete a chat message from Yjs
+  deleteChatMessage: (id: string) => void;
 };
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
@@ -754,6 +760,18 @@ export function useYjsSync(
           lastAreaPosSyncRef.current[id] = Date.now();
         }
       }
+
+      // Diff and sync chat messages
+      const chatDiff = diffEntityMaps(
+        prevState.chatMessages.byId,
+        state.chatMessages.byId
+      );
+      for (const message of [...chatDiff.added, ...chatDiff.changed]) {
+        chatMessageSync.setInYjs(doc, message);
+      }
+      for (const id of chatDiff.removed) {
+        chatMessageSync.deleteFromYjs(doc, id);
+      }
     });
 
     return unsubscribe;
@@ -922,6 +940,24 @@ export function useYjsSync(
     [doc, isConnected]
   );
 
+  const syncChatMessage = useCallback(
+    (message: ChatMessage) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        chatMessageSync.setInYjs(doc, message);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const deleteChatMessage = useCallback(
+    (id: string) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        chatMessageSync.deleteFromYjs(doc, id);
+      }
+    },
+    [doc, isConnected]
+  );
+
   return {
     syncBoard,
     deleteBoard,
@@ -941,5 +977,7 @@ export function useYjsSync(
     deleteWorkspace,
     syncComment,
     deleteComment,
+    syncChatMessage,
+    deleteChatMessage,
   };
 }
