@@ -72,6 +72,40 @@ export function CommentDialog({
 
   const hasReplies = allReplies.length > 0;
 
+  const replyAuthors = useMemo(() => {
+    const uniqueAuthors = new Map();
+    for (const r of allReplies) {
+      if (uniqueAuthors.has(r.authorId)) {
+        continue;
+      }
+
+      const isOwn = localUser?.id === r.authorId;
+      const user = isOwn
+        ? localUser
+        : collaborators.find((c) => c.id === r.authorId);
+
+      if (user) {
+        uniqueAuthors.set(r.authorId, {
+          id: r.authorId,
+          name: user.name,
+          image: user.image,
+          color: isOwn ? undefined : user.color,
+          isOwn,
+        });
+      } else {
+        // Fallback to stored info on reply for offline users
+        uniqueAuthors.set(r.authorId, {
+          id: r.authorId,
+          name: r.authorName ?? "Unknown",
+          image: r.authorImage,
+          color: "#6e6e6e",
+          isOwn: false,
+        });
+      }
+    }
+    return Array.from(uniqueAuthors.values());
+  }, [allReplies, collaborators, localUser]);
+
   const onlineAuthor = isAuthor
     ? localUser
     : collaborators.find((c) => c.id === comment.authorId);
@@ -200,9 +234,35 @@ export function CommentDialog({
         {isEditing ? (
           <>
             <div className="flex items-center justify-between border-border border-b bg-muted/95 px-2.5 py-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
-              <span className="font-medium text-[11px] text-muted-foreground">
-                Comment
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-[11px] text-muted-foreground">
+                  Comment
+                </span>
+                {replyAuthors.length > 0 && (
+                  <div className="flex items-center gap-0.5 rounded-full border border-border/50 bg-muted/50 px-1 py-0.5">
+                    <Reply className="h-2 w-2 text-muted-foreground" />
+                    <div className="flex -space-x-1">
+                      {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                        <Avatar
+                          className="h-3 w-3 border border-background ring-1 ring-border/10"
+                          key={replyAuthor.id}
+                          style={{ zIndex: 10 - i }}
+                        >
+                          <AvatarImage src={replyAuthor.image ?? undefined} />
+                          <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                            {replyAuthor.name.slice(0, 1).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {replyAuthors.length > 3 && (
+                        <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
+                          +{replyAuthors.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-0.5">
                 {isAuthor && comment.content && (
                   <button

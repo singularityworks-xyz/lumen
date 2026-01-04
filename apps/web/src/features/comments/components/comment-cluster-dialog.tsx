@@ -1,7 +1,14 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { Layers, MessageCircle, Reply, Send, Shell } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Reply,
+  Send,
+  Shell,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DeleteIcon } from "@/src/components/animated/icons/delete";
@@ -201,6 +208,7 @@ function CommentCard({
   const [isDragging, setIsDragging] = useState(false);
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyContent, setReplyContent] = useState("");
+  const [isRepliesExpanded, setIsRepliesExpanded] = useState(false);
 
   const updateComment = useKanbanStore((state) => state.updateComment);
   const removeComment = useKanbanStore((state) => state.removeComment);
@@ -222,6 +230,40 @@ function CommentCard({
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
   const { localUser, collaborators } = useCollaboration();
   const isAuthor = localUser?.id === comment.authorId;
+
+  const replyAuthors = useMemo(() => {
+    const uniqueAuthors = new Map();
+    for (const r of replies) {
+      if (uniqueAuthors.has(r.authorId)) {
+        continue;
+      }
+
+      const isOwn = localUser?.id === r.authorId;
+      const user = isOwn
+        ? localUser
+        : collaborators.find((c) => c.id === r.authorId);
+
+      if (user) {
+        uniqueAuthors.set(r.authorId, {
+          id: r.authorId,
+          name: user.name,
+          image: user.image,
+          color: isOwn ? undefined : user.color,
+          isOwn,
+        });
+      } else {
+        // Fallback to stored info on reply for offline users
+        uniqueAuthors.set(r.authorId, {
+          id: r.authorId,
+          name: r.authorName ?? "Unknown",
+          image: r.authorImage,
+          color: "#6e6e6e",
+          isOwn: false,
+        });
+      }
+    }
+    return Array.from(uniqueAuthors.values());
+  }, [replies, collaborators, localUser]);
 
   const onlineAuthor = isAuthor
     ? localUser
@@ -336,19 +378,19 @@ function CommentCard({
     if (usesTwoRings) {
       if (index < RING_THRESHOLD) {
         // Inner ring
-        radius = 160;
+        radius = 220;
         angleStep = (2 * Math.PI) / RING_THRESHOLD;
         angle = index * angleStep - Math.PI / 2;
       } else {
         // Outer ring
-        radius = 260; // Larger radius for second ring
+        radius = 340; // Larger radius for second ring
         const outerCount = totalCount - RING_THRESHOLD;
         angleStep = (2 * Math.PI) / outerCount;
         angle = (index - RING_THRESHOLD) * angleStep - Math.PI / 2;
       }
     } else {
       // Single ring for fewer comments
-      radius = Math.max(140, totalCount * 15);
+      radius = Math.max(200, totalCount * 20);
       angleStep = (2 * Math.PI) / totalCount;
       angle = index * angleStep - Math.PI / 2;
     }
@@ -449,21 +491,33 @@ function CommentCard({
         <span className="text-[10px] text-muted-foreground">
           {formatRelativeTime(comment.createdAt)}
         </span>
-        {replies.length > 0 && (
-          <span
-            className={cn(
-              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
-              "bg-primary/10 text-primary",
-              "font-semibold text-[9px]"
-            )}
-          >
-            <MessageCircle className="h-2 w-2" />
-            {replies.length}
-          </span>
+        {replyAuthors.length > 0 && (
+          <div className="flex items-center gap-0.5 rounded-full border border-border/50 bg-muted/50 px-1 py-0.5">
+            <Reply className="h-2 w-2 text-muted-foreground" />
+            <div className="flex -space-x-1">
+              {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                <Avatar
+                  className="h-3 w-3 border border-background ring-1 ring-border/10"
+                  key={replyAuthor.id}
+                  style={{ zIndex: 10 - i }}
+                >
+                  <AvatarImage src={replyAuthor.image ?? undefined} />
+                  <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                    {replyAuthor.name.slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {replyAuthors.length > 3 && (
+                <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
+                  +{replyAuthors.length - 3}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         <div className="flex items-center gap-1">
-          {!isEditing && (
+          {!isEditing && replies.length === 0 && (
             <button
               className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
               onClick={(e) => {
@@ -549,67 +603,196 @@ function CommentCard({
         )}
       </div>
 
-      {replies.length > 0 && (
-        <div className="max-h-40 space-y-2 overflow-y-auto border-border/50 border-t bg-muted/20 p-2.5">
-          {replies.map((reply) => {
-            const isReplyAuthor = localUser?.id === reply.authorId;
-            const replyAuthorInfo = isReplyAuthor
-              ? localUser
-              : collaborators.find((c) => c.id === reply.authorId);
+      {replies.length > 0 && !isRepliesExpanded && (
+        <button
+          className="flex w-full items-center justify-between border-border/50 border-t bg-muted/10 px-2.5 py-1.5 transition-colors hover:bg-muted/20"
+          onClick={() => setIsRepliesExpanded(true)}
+          type="button"
+        >
+          <div className="flex items-center gap-1.5">
+            <Reply className="h-2.5 w-2.5 text-muted-foreground" />
+            <span className="font-medium text-[9px] text-muted-foreground">
+              {replies.length} {replies.length === 1 ? "reply" : "replies"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="flex -space-x-1">
+              {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                <Avatar
+                  className="h-3 w-3 border border-background ring-1 ring-border/10"
+                  key={replyAuthor.id}
+                  style={{ zIndex: 10 - i }}
+                >
+                  <AvatarImage src={replyAuthor.image ?? undefined} />
+                  <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                    {replyAuthor.name.slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            <ChevronDown className="h-2.5 w-2.5 text-muted-foreground/50" />
+          </div>
+        </button>
+      )}
 
-            return (
-              <div className="flex gap-2" key={reply.id}>
-                <div className="h-full pt-1">
-                  <div className="mx-auto h-full w-px bg-border/50" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="h-3 w-3">
-                      <AvatarImage src={replyAuthorInfo?.image ?? undefined} />
-                      <AvatarFallback className="text-[6px]">
-                        {(replyAuthorInfo?.name ?? "?").slice(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-[9px] text-muted-foreground">
-                      {isReplyAuthor ? "You" : replyAuthorInfo?.name}
-                    </span>
-                    <span className="text-[8px] text-muted-foreground/50">
-                      {formatRelativeTime(reply.createdAt)}
-                    </span>
+      {replies.length > 0 && isRepliesExpanded && (
+        <div className="border-border/50 border-t">
+          <button
+            className="flex w-full items-center gap-1.5 bg-muted/10 px-2.5 py-1 transition-colors hover:bg-muted/20"
+            onClick={() => setIsRepliesExpanded(false)}
+            type="button"
+          >
+            <ChevronUp className="h-2.5 w-2.5 text-muted-foreground/50" />
+            <span className="font-medium text-[8px] text-muted-foreground">
+              Hide replies
+            </span>
+          </button>
+          <div className="max-h-32 space-y-2 overflow-y-auto bg-muted/20 p-2">
+            {replies.map((reply) => {
+              const isReplyAuthor = localUser?.id === reply.authorId;
+              const replyOnlineAuthor = isReplyAuthor
+                ? localUser
+                : collaborators.find((c) => c.id === reply.authorId);
+
+              // Use online author info if available, otherwise fall back to stored info on the reply
+              const replyAuthorName =
+                replyOnlineAuthor?.name ?? reply.authorName ?? "Unknown";
+              const replyAuthorImage =
+                replyOnlineAuthor?.image ?? reply.authorImage;
+              const replyAuthorColor = isReplyAuthor
+                ? undefined
+                : (replyOnlineAuthor?.color ?? "#6e6e6e");
+
+              return (
+                <div
+                  className={cn(
+                    "flex gap-2",
+                    isReplyAuthor && "flex-row-reverse"
+                  )}
+                  key={reply.id}
+                >
+                  <Avatar
+                    className="h-4 w-4 shrink-0 border"
+                    style={
+                      replyAuthorColor
+                        ? { borderColor: replyAuthorColor }
+                        : undefined
+                    }
+                  >
+                    <AvatarImage src={replyAuthorImage ?? undefined} />
+                    <AvatarFallback
+                      className="text-[6px]"
+                      style={
+                        replyAuthorColor
+                          ? {
+                              backgroundColor: `${replyAuthorColor}20`,
+                              color: replyAuthorColor,
+                            }
+                          : undefined
+                      }
+                    >
+                      {replyAuthorName.slice(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div
+                    className={cn(
+                      "flex max-w-[80%] flex-col gap-0.5",
+                      isReplyAuthor ? "items-end" : "items-start"
+                    )}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={cn(
+                          "font-medium text-[9px]",
+                          isReplyAuthor
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {isReplyAuthor ? "You" : replyAuthorName}
+                      </span>
+                      <span className="text-[8px] text-muted-foreground/50">
+                        {formatRelativeTime(reply.createdAt)}
+                      </span>
+                    </div>
+                    <div
+                      className={cn(
+                        "wrap-break-word rounded-lg px-2 py-1 text-[10px]",
+                        isReplyAuthor
+                          ? "rounded-br-sm bg-primary/10 text-foreground"
+                          : "rounded-bl-sm bg-muted text-foreground/80"
+                      )}
+                      style={
+                        !isReplyAuthor && replyAuthorColor
+                          ? {
+                              background: `linear-gradient(135deg, ${replyAuthorColor}10, ${replyAuthorColor}05)`,
+                              borderLeft: `2px solid ${replyAuthorColor}30`,
+                            }
+                          : undefined
+                      }
+                    >
+                      {reply.content}
+                    </div>
                   </div>
-                  <div className="wrap-break-word text-[10px] text-foreground/80">
-                    {reply.content}
-                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <div className="bg-muted/20 px-1.5 py-1">
+            <div className="flex items-center gap-1">
+              <Textarea
+                className="max-h-12 min-h-5 flex-1 resize-none rounded border-border/30 bg-background/50 px-1.5 py-1 text-[8px]! leading-tight shadow-[inset_0_1px_3px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.05)] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/30 dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_1px_rgba(255,255,255,0.03)]"
+                onChange={(e) => setReplyContent(e.target.value)}
+                onKeyDown={handleReplyKeyDown}
+                placeholder="Reply..."
+                ref={replyInputRef}
+                rows={1}
+                value={replyContent}
+              />
+              <button
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded transition-all",
+                  "shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]",
+                  replyContent.trim()
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted/50 text-muted-foreground/30"
+                )}
+                disabled={!replyContent.trim()}
+                onClick={handleSendReply}
+                type="button"
+              >
+                <Send className="h-2 w-2" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {showReplyInput && (
-        <div className="border-border/50 border-t bg-muted/30 p-2">
-          <div className="relative">
+      {replies.length === 0 && showReplyInput && (
+        <div className="border-border/50 border-t bg-muted/20 px-1.5 py-1">
+          <div className="flex items-center gap-1">
             <Textarea
-              className="min-h-8 resize-none py-1.5 pr-8 text-[10px]"
+              className="max-h-12 min-h-5 flex-1 resize-none rounded border-border/30 bg-background/50 px-1.5 py-1 text-[8px]! leading-tight shadow-[inset_0_1px_3px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.05)] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/30 dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_1px_rgba(255,255,255,0.03)]"
               onChange={(e) => setReplyContent(e.target.value)}
               onKeyDown={handleReplyKeyDown}
               placeholder="Reply..."
               ref={replyInputRef}
+              rows={1}
               value={replyContent}
             />
             <button
               className={cn(
-                "absolute right-1 bottom-1 flex h-6 w-6 items-center justify-center rounded-md transition-all",
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded transition-all",
+                "shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]",
                 replyContent.trim()
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground/40"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted/50 text-muted-foreground/30"
               )}
               disabled={!replyContent.trim()}
               onClick={handleSendReply}
               type="button"
             >
-              <Send className="h-3 w-3" />
+              <Send className="h-2 w-2" />
             </button>
           </div>
         </div>

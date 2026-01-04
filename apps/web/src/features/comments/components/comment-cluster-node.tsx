@@ -6,7 +6,7 @@ import {
   useReactFlow,
   useViewport,
 } from "@xyflow/react";
-import { MessageCircle, Reply } from "lucide-react";
+import { Reply } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
@@ -68,16 +68,19 @@ export const CommentClusterNode = memo(
       (c) => c.content === "" && c.authorId === localUser?.id
     );
 
-    // Subscribe to all comments to derive replies for single comment view
+    // Subscribe to all comments to derive replies for both single and cluster views
     const allComments = useKanbanStore((state) => state.comments.byId);
-    const parentId = isSingle ? comments[0]?.id : null;
+    const commentIds = useMemo(() => comments.map((c) => c.id), [comments]);
 
     const replies = useMemo(() => {
-      if (!(parentId && allComments)) {
+      if (!allComments) {
         return [];
       }
-      return Object.values(allComments).filter((c) => c.parentId === parentId);
-    }, [allComments, parentId]);
+      // Get all replies for all comments in this cluster
+      return Object.values(allComments).filter(
+        (c) => c.parentId && commentIds.includes(c.parentId)
+      );
+    }, [allComments, commentIds]);
 
     const replyAuthors = useMemo(() => {
       const uniqueAuthors = new Map();
@@ -100,11 +103,11 @@ export const CommentClusterNode = memo(
             color: isOwn ? undefined : user.color,
             isOwn,
           });
-        } else if (r.authorName) {
-          // Fallback to cached author info on comment if user not online
+        } else {
+          // Fallback to stored info on reply for offline users
           uniqueAuthors.set(r.authorId, {
             id: r.authorId,
-            name: r.authorName,
+            name: r.authorName ?? "Unknown",
             image: r.authorImage,
             color: "#6e6e6e",
             isOwn: false,
@@ -207,23 +210,23 @@ export const CommentClusterNode = memo(
           </button>
 
           {replyAuthors.length > 0 && (
-            <div className="pointer-events-none absolute -top-2 -right-3 flex items-center gap-1.5 rounded-full border border-border/50 bg-muted px-1.5 py-0.5 shadow-xs">
-              <Reply className="h-2.5 w-2.5 text-muted-foreground" />
-              <div className="flex -space-x-1.5">
+            <div className="pointer-events-none absolute -top-1 left-full z-10 ml-0.5 flex items-center gap-0.5 rounded-full border border-border/50 bg-muted px-1 py-0.5 opacity-100 shadow-xs transition-opacity duration-200 group-hover:opacity-0">
+              <Reply className="h-2 w-2 text-muted-foreground" />
+              <div className="flex -space-x-1">
                 {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
                   <Avatar
-                    className="h-3.5 w-3.5 border border-background ring-1 ring-border/10"
+                    className="h-3 w-3 border border-background ring-1 ring-border/10"
                     key={replyAuthor.id}
                     style={{ zIndex: 10 - i }}
                   >
                     <AvatarImage src={replyAuthor.image ?? undefined} />
-                    <AvatarFallback className="bg-background text-[5px] text-muted-foreground">
+                    <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
                       {replyAuthor.name.slice(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 ))}
                 {replyAuthors.length > 3 && (
-                  <div className="z-0 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-background bg-background font-bold text-[6px] text-muted-foreground ring-1 ring-border/10">
+                  <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
                     +{replyAuthors.length - 3}
                   </div>
                 )}
@@ -244,10 +247,6 @@ export const CommentClusterNode = memo(
 
     const mainComment = displayComments[0];
     const secondaryComments = displayComments.slice(1, 5);
-    const totalReplies = comments.reduce(
-      (sum, c) => sum + (c.replyCount ?? 0),
-      0
-    );
 
     const secondaryPositions = [
       { x: -14, y: 8, z: 4 }, // bottom-left
@@ -375,14 +374,32 @@ export const CommentClusterNode = memo(
             }}
           >
             <span>{comments.length}</span>
-            {totalReplies > 0 && (
+            {replyAuthors.length > 0 && (
               <>
                 <span className="font-light text-[8px] text-muted-foreground/30">
                   |
                 </span>
-                <div className="flex items-center gap-0.5 text-[9px]">
-                  <span className="text-muted-foreground">{totalReplies}</span>
-                  <MessageCircle className="h-1.5 w-1.5 opacity-70" />
+                <div className="flex items-center gap-0.5">
+                  <Reply className="h-2 w-2 text-muted-foreground" />
+                  <div className="flex -space-x-1">
+                    {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                      <Avatar
+                        className="h-3 w-3 border border-background ring-1 ring-border/10"
+                        key={replyAuthor.id}
+                        style={{ zIndex: 10 - i }}
+                      >
+                        <AvatarImage src={replyAuthor.image ?? undefined} />
+                        <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                          {replyAuthor.name.slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {replyAuthors.length > 3 && (
+                      <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
+                        +{replyAuthors.length - 3}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
