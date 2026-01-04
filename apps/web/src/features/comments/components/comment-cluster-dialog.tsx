@@ -12,7 +12,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DeleteIcon } from "@/src/components/animated/icons/delete";
-import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical";
 import { XIcon } from "@/src/components/animated/icons/x";
 import {
   Avatar,
@@ -206,9 +205,11 @@ function CommentCard({
   const [content, setContent] = useState(comment.content);
   const [isEditing, setIsEditing] = useState(comment.content === "");
   const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [isRepliesExpanded, setIsRepliesExpanded] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const updateComment = useKanbanStore((state) => state.updateComment);
   const removeComment = useKanbanStore((state) => state.removeComment);
@@ -352,14 +353,62 @@ function CommentCard({
     }
   };
 
-  const handleDragStart = useCallback(() => {
-    setIsDragging(true);
-  }, []);
+  const EXTRACT_THRESHOLD = 80;
+
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      if (totalCount <= 1) {
+        return;
+      }
+      e.preventDefault();
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+      setDragOffset({ x: 0, y: 0 });
+    },
+    [totalCount]
+  );
+
+  const handleDragMove = useCallback(
+    (e: MouseEvent) => {
+      if (!(isDragging && dragStartRef.current)) {
+        return;
+      }
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      setDragOffset({ x: dx, y: dy });
+    },
+    [isDragging]
+  );
 
   const handleDragEnd = useCallback(() => {
+    if (!isDragging) {
+      return;
+    }
+
+    const distance = Math.sqrt(dragOffset.x ** 2 + dragOffset.y ** 2);
+    if (distance >= EXTRACT_THRESHOLD) {
+      onDragOut(comment.id);
+    }
+
     setIsDragging(false);
-    onDragOut(comment.id);
-  }, [comment.id, onDragOut]);
+    setDragOffset({ x: 0, y: 0 });
+    dragStartRef.current = null;
+  }, [isDragging, dragOffset, comment.id, onDragOut]);
+
+  // Global mouse listeners for drag
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleDragMove);
+      window.addEventListener("mouseup", handleDragEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleDragMove);
+        window.removeEventListener("mouseup", handleDragEnd);
+      };
+    }
+  }, [isDragging, handleDragMove, handleDragEnd]);
+
+  const dragDistance = Math.sqrt(dragOffset.x ** 2 + dragOffset.y ** 2);
+  const isNearExtract = dragDistance >= EXTRACT_THRESHOLD * 0.6;
 
   // Two-ring layout for 9+ comments:
   // - Inner ring: first 8 comments
@@ -433,22 +482,29 @@ function CommentCard({
         "text-card-foreground shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
         "dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]",
         !isVisible || isClosing ? "scale-0 opacity-0" : "scale-100 opacity-100",
-        isDragging && "scale-105 shadow-2xl",
+        isDragging && "scale-105 shadow-2xl transition-none",
+        isDragging && isNearExtract && "ring-2 ring-primary/50",
         isAuthor && "border-border/50"
       )}
       onClick={onBringToFront}
       style={{
-        transform: `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px))`,
+        transform: `translate(calc(-50% + ${currentX + dragOffset.x}px), calc(-50% + ${currentY + dragOffset.y}px))`,
         transitionDelay: isClosing
           ? `${(totalCount - index - 1) * 30}ms`
           : `${delay}ms`,
         borderColor: authorColor ?? undefined,
         // z-index: focused card is on top, then dragging, then by index
-        zIndex: isFocused ? 200 : isDragging ? 100 : totalCount - index,
+        zIndex: isFocused ? 200 : isDragging ? 300 : totalCount - index,
       }}
     >
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: skip */}
+      {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
       <div
-        className="flex items-center gap-2 border-border border-b px-2.5 py-1.5"
+        className={cn(
+          "flex items-center gap-2 border-border border-b px-2.5 py-1.5",
+          totalCount > 1 && "cursor-grab active:cursor-grabbing"
+        )}
+        onMouseDown={totalCount > 1 ? handleDragStart : undefined}
         style={
           authorColor
             ? {
@@ -457,18 +513,6 @@ function CommentCard({
             : undefined
         }
       >
-        {totalCount > 1 && (
-          <button
-            className="flex h-4 w-4 cursor-grab items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-accent hover:text-muted-foreground active:cursor-grabbing"
-            onMouseDown={handleDragStart}
-            onMouseUp={handleDragEnd}
-            title="Drag to separate from group"
-            type="button"
-          >
-            <GripVerticalIcon size={12} />
-          </button>
-        )}
-
         <Avatar
           className="h-5 w-5 border"
           style={authorColor ? { borderColor: authorColor } : undefined}
@@ -893,8 +937,13 @@ export function CommentClusterDialog({
       // We convert it back to flow coordinates to ensure the comment lands where the dialog was.
       const flowPos = screenToFlowPosition(screenPosition);
 
+      // Move the comment far enough away from the cluster centroid to avoid re-clustering
+      // CLUSTER_RADIUS is 80px in the clustering algorithm, so we need to move at least that far
+      // We use a minimum of 150px to ensure clear separation at any zoom level
       const angle = Math.random() * Math.PI * 2;
-      const distance = 150 / zoom;
+      const minDistance = 150;
+      const distance = Math.max(minDistance, 200 / zoom);
+
       updateComment(commentId, {
         x: flowPos.x + Math.cos(angle) * distance,
         y: flowPos.y + Math.sin(angle) * distance,
