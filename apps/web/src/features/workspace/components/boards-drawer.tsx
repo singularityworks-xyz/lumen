@@ -28,7 +28,7 @@ type BoardCardProps = {
   index: number;
 };
 
-const BoardCard = memo(({ stats, index }: BoardCardProps) => {
+const BoardCard = memo(({ stats }: BoardCardProps) => {
   const { board, totalTasks, completedTasks, connections } = stats;
   const completionPercent =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -36,8 +36,7 @@ const BoardCard = memo(({ stats, index }: BoardCardProps) => {
   const accentColor = board.accentColor || "#6e6e6e";
 
   return (
-    <motion.div
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+    <div
       className={cn(
         "group relative rounded-xl p-3",
         "bg-muted/40 hover:bg-muted/60",
@@ -48,14 +47,6 @@ const BoardCard = memo(({ stats, index }: BoardCardProps) => {
         "dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
         "cursor-pointer transition-all duration-200"
       )}
-      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-      initial={{ opacity: 0, y: 15, scale: 0.95 }}
-      transition={{
-        type: "spring",
-        stiffness: 400,
-        damping: 25,
-        delay: index * 0.04,
-      }}
     >
       <div
         className="absolute top-3 bottom-3 left-0 w-1 rounded-full opacity-60 transition-opacity group-hover:opacity-100"
@@ -146,7 +137,7 @@ const BoardCard = memo(({ stats, index }: BoardCardProps) => {
           </span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });
 
@@ -171,10 +162,10 @@ const FloatingIndicator = memo(
         "w-10 rounded-l-xl py-4",
         "bg-card/95 backdrop-blur-md",
         "border-2 border-border/50 border-r-0",
-        "shadow-[0_4px_20px_rgba(0,0,0,0.15),-4px_0_12px_rgba(0,0,0,0.08),inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
-        "dark:shadow-[0_4px_20px_rgba(0,0,0,0.4),-4px_0_12px_rgba(0,0,0,0.2),inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.05)]",
-        "hover:bg-card hover:shadow-[0_4px_24px_rgba(0,0,0,0.2),-6px_0_16px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_-1px_2px_rgba(255,255,255,0.08)]",
-        "dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.5),-6px_0_16px_rgba(0,0,0,0.25),inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_-1px_2px_rgba(255,255,255,0.05)]",
+        "shadow-[0_4px_20px_rgba(0,0,0,0.15),-4px_0_12px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.25),inset_0_-2px_6px_rgba(255,255,255,0.08),inset_1px_0_4px_rgba(0,0,0,0.15)]",
+        "dark:shadow-[0_4px_20px_rgba(0,0,0,0.6),-4px_0_12px_rgba(0,0,0,0.3),inset_0_3px_12px_rgba(255,255,255,0.12),inset_0_-3px_10px_rgba(0,0,0,0.5),inset_1px_0_6px_rgba(0,0,0,0.3)]",
+        "hover:bg-card hover:shadow-[0_4px_24px_rgba(0,0,0,0.2),-6px_0_16px_rgba(0,0,0,0.12),inset_0_3px_12px_rgba(0,0,0,0.3),inset_0_-2px_8px_rgba(255,255,255,0.1),inset_1px_0_5px_rgba(0,0,0,0.18)]",
+        "dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.7),-6px_0_16px_rgba(0,0,0,0.35),inset_0_3px_14px_rgba(255,255,255,0.15),inset_0_-3px_12px_rgba(0,0,0,0.55),inset_1px_0_7px_rgba(0,0,0,0.35)]",
         "group cursor-pointer transition-shadow duration-300"
       )}
       initial={{ x: 100, opacity: 0 }}
@@ -387,7 +378,7 @@ const BoardsDrawerContent = memo(
 
         {onSwitchToComments && (
           <motion.button
-            animate={{ x: 0, opacity: 1 }}
+            animate={{ opacity: 1 }}
             aria-label="Switch to Comments"
             className={cn(
               "absolute top-1/2 left-0 -translate-x-full -translate-y-1/2",
@@ -395,18 +386,19 @@ const BoardsDrawerContent = memo(
               "w-9 rounded-l-xl py-3",
               "bg-card/95 backdrop-blur-md",
               "border-2 border-border/50 border-r-0",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.12),-4px_0_8px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(255,255,255,0.06)]",
-              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),-4px_0_8px_rgba(0,0,0,0.15),inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.04)]",
-              "hover:bg-muted/80",
-              "group cursor-pointer transition-colors duration-200"
+              "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
+              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.5),-4px_0_10px_rgba(0,0,0,0.25),inset_0_3px_12px_rgba(255,255,255,0.1),inset_0_-3px_10px_rgba(0,0,0,0.45),inset_1px_0_5px_rgba(0,0,0,0.25)]",
+              "hover:bg-muted/80 hover:shadow-[0_4px_20px_rgba(0,0,0,0.18),-5px_0_12px_rgba(0,0,0,0.1),inset_0_3px_12px_rgba(0,0,0,0.26),inset_0_-2px_8px_rgba(255,255,255,0.09),inset_1px_0_5px_rgba(0,0,0,0.15)]",
+              "dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.6),-5px_0_12px_rgba(0,0,0,0.3),inset_0_3px_14px_rgba(255,255,255,0.12),inset_0_-3px_12px_rgba(0,0,0,0.5),inset_1px_0_6px_rgba(0,0,0,0.3)]",
+              "group cursor-pointer transition-all duration-200"
             )}
-            initial={{ x: -20, opacity: 0 }}
+            initial={{ opacity: 0 }}
             onClick={onSwitchToComments}
             transition={{
-              type: "spring",
-              stiffness: 400,
-              damping: 30,
-              delay: 0.2,
+              type: "tween",
+              ease: "easeOut",
+              duration: 0.25,
+              delay: 0.15,
             }}
             type="button"
           >
@@ -437,18 +429,19 @@ const BoardsDrawerContent = memo(
 );
 
 export type BoardsDrawerProps = {
-  defaultOpen?: boolean;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onSwitchToComments?: () => void;
   commentCount?: number;
 };
 
 export const BoardsDrawer = memo(
   ({
-    defaultOpen = false,
+    isOpen,
+    onOpenChange,
     onSwitchToComments,
     commentCount = 0,
   }: BoardsDrawerProps) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
     const [mounted, setMounted] = useState(false);
     const boards = useKanbanStore((state) => state.boards);
     const columns = useKanbanStore((state) => state.columns);
@@ -527,19 +520,19 @@ export const BoardsDrawer = memo(
       setMounted(true);
     }, []);
 
-    const handleOpen = useCallback(() => setIsOpen(true), []);
-    const handleClose = useCallback(() => setIsOpen(false), []);
+    const handleOpen = useCallback(() => onOpenChange(true), [onOpenChange]);
+    const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape" && isOpen) {
-          handleClose();
+          onOpenChange(false);
         }
       };
 
       document.addEventListener("keydown", handleKeyDown);
       return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, handleClose]);
+    }, [isOpen, onOpenChange]);
 
     if (!mounted || typeof document === "undefined") {
       return null;

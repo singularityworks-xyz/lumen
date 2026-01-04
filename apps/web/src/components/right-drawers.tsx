@@ -44,18 +44,26 @@ export const RightDrawers = memo(() => {
     setActiveDrawer("boards");
   }, []);
 
+  const handleCommentsOpenChange = useCallback((open: boolean) => {
+    setActiveDrawer(open ? "comments" : "none");
+  }, []);
+
+  const handleBoardsOpenChange = useCallback((open: boolean) => {
+    setActiveDrawer(open ? "boards" : "none");
+  }, []);
+
   return (
     <>
       <CommentsDrawer
         boardCount={boardCount}
-        defaultOpen={activeDrawer === "comments"}
-        key={`comments-${activeDrawer}`}
+        isOpen={activeDrawer === "comments"}
+        onOpenChange={handleCommentsOpenChange}
         onSwitchToBoards={handleSwitchToBoards}
       />
       <BoardsDrawer
         commentCount={commentCount}
-        defaultOpen={activeDrawer === "boards"}
-        key={`boards-${activeDrawer}`}
+        isOpen={activeDrawer === "boards"}
+        onOpenChange={handleBoardsOpenChange}
         onSwitchToComments={handleSwitchToComments}
       />
     </>
