@@ -1,6 +1,7 @@
+/** biome-ignore-all lint/complexity/noForEach: TODO: Change this someday */
 "use client";
 
-import { Reply, Send, Tag } from "lucide-react";
+import { Reply, Send, Tag, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -8,7 +9,11 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/src/components/ui/avatar";
-import { useCollaboration } from "@/src/features/collab";
+import {
+  type Collaborator,
+  getColorForUser,
+  useCollaboration,
+} from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { ChatMessage } from "@/src/features/kanban/types";
 import { cn } from "@/src/lib/utils";
@@ -48,11 +53,54 @@ type ChatBubbleProps = {
   index: number;
   onReply: (message: ChatMessage) => void;
   onReplyClick: (replyId: string) => void;
+  knownUserColors: Map<string, string>;
+  onDelete: (messageId: string) => void;
 };
 
 const ChatBubble = memo(
-  ({ message, isOwn, index, onReply, onReplyClick }: ChatBubbleProps) => {
+  ({
+    message,
+    isOwn,
+    index,
+    onReply,
+    onReplyClick,
+
+    knownUserColors,
+    onDelete,
+  }: ChatBubbleProps) => {
     const { collaborators, localUser } = useCollaboration();
+
+    const contentElements = useMemo(() => {
+      if (!knownUserColors || knownUserColors.size === 0) {
+        return message.content;
+      }
+
+      const names = Array.from(knownUserColors.keys()).sort(
+        (a, b) => b.length - a.length
+      );
+      const pattern = new RegExp(
+        `@(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+        "g"
+      );
+
+      const parts = message.content.split(pattern);
+
+      return parts.map((part, i) => {
+        const color = knownUserColors.get(part);
+        if (color) {
+          return (
+            <span
+              className="font-medium underline underline-offset-2"
+              key={`${i}-${part}`}
+              style={{ color, textDecorationColor: color }}
+            >
+              {part}
+            </span>
+          );
+        }
+        return part;
+      });
+    }, [message.content, knownUserColors]);
 
     const onlineAuthor = collaborators.find((c) => c.id === message.authorId);
     const authorName = onlineAuthor?.name ?? message.authorName ?? "Unknown";
@@ -167,25 +215,45 @@ const ChatBubble = memo(
             }
           >
             <p className="wrap-break-word whitespace-pre-wrap">
-              {message.content}
+              {contentElements}
             </p>
           </div>
-          <button
+          <div
             className={cn(
               "absolute right-0 -bottom-5 z-10",
+              "flex items-center gap-1",
               "opacity-0 transition-all delay-500 duration-200 group-hover:opacity-100 group-hover:delay-0",
-              "pointer-events-none group-hover:pointer-events-auto",
-              "flex items-center gap-1.5 rounded-md px-2 py-1",
-              "font-medium text-[10px] text-muted-foreground",
-              "border border-border/50 bg-background/95 shadow-sm backdrop-blur-sm",
-              "hover:bg-accent hover:text-accent-foreground"
+              "pointer-events-none group-hover:pointer-events-auto"
             )}
-            onClick={() => onReply(message)}
-            type="button"
           >
-            <Reply className="h-3 w-3" />
-            Reply
-          </button>
+            <button
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-1",
+                "border border-border/50 bg-background/95 shadow-sm backdrop-blur-sm",
+                "font-medium text-[10px] text-muted-foreground",
+                "hover:bg-accent hover:text-accent-foreground"
+              )}
+              onClick={() => onReply(message)}
+              type="button"
+            >
+              <Reply className="h-3 w-3" />
+              Reply
+            </button>
+            {isOwn && (
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2 py-1",
+                  "border border-border/50 bg-background/95 shadow-sm backdrop-blur-sm",
+                  "font-medium text-[10px] text-destructive",
+                  "hover:border-destructive/20 hover:bg-destructive/10"
+                )}
+                onClick={() => onDelete(message.id)}
+                type="button"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     );
@@ -205,10 +273,13 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
   const { localUser, collaborators, updateIsTyping } = useCollaboration();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sendChatMessage = useKanbanStore((state) => state.sendChatMessage);
+  const deleteChatMessage = useKanbanStore((state) => state.deleteChatMessage);
   const chatMessages = useKanbanStore((state) => state.chatMessages);
+  const comments = useKanbanStore((state) => state.comments);
 
   const messages = useMemo(
     () =>
@@ -230,11 +301,51 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
     }
   }, [messages.length]);
 
+  const allKnownCollaborators = useMemo(() => {
+    const knownUsersMap = new Map<string, Collaborator>();
+
+    if (localUser) {
+      knownUsersMap.set(localUser.id, localUser);
+    }
+
+    // Add online collaborators
+    for (const c of collaborators) {
+      knownUsersMap.set(c.id, c);
+    }
+
+    // Add authors from messages
+    for (const m of messages) {
+      if (!knownUsersMap.has(m.authorId)) {
+        knownUsersMap.set(m.authorId, {
+          id: m.authorId,
+          name: m.authorName || "Unknown",
+          color: getColorForUser(m.authorId),
+          role: "viewer",
+          image: m.authorImage,
+        });
+      }
+    }
+
+    // Add authors from comments
+    for (const c of Object.values(comments.byId)) {
+      if (c.workspaceId === workspaceId && !knownUsersMap.has(c.authorId)) {
+        knownUsersMap.set(c.authorId, {
+          id: c.authorId,
+          name: c.authorName || "Unknown",
+          color: getColorForUser(c.authorId),
+          role: "viewer",
+          image: c.authorImage,
+        });
+      }
+    }
+
+    return Array.from(knownUsersMap.values());
+  }, [collaborators, localUser, messages, comments, workspaceId]);
+
   const filteredCollaborators = useMemo(() => {
-    const allUsers = [
-      ...(localUser ? [localUser] : []),
-      ...collaborators,
-    ].filter((u) => u.id !== localUser?.id);
+    const allUsers = allKnownCollaborators.filter(
+      (u) => u.id !== localUser?.id
+    );
 
     if (!mentionSearch) {
       return allUsers.slice(0, 5);
@@ -242,7 +353,29 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
     return allUsers
       .filter((u) => u.name.toLowerCase().includes(mentionSearch.toLowerCase()))
       .slice(0, 5);
-  }, [collaborators, localUser, mentionSearch]);
+  }, [allKnownCollaborators, localUser, mentionSearch]);
+
+  const knownUserColors = useMemo(() => {
+    const map = new Map<string, string>();
+    allKnownCollaborators.forEach((u) => {
+      if (u.color) {
+        map.set(u.name, u.color);
+      }
+    });
+    return map;
+  }, [allKnownCollaborators]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filteredCollaborators only needs to reset on its own change
+  useEffect(() => {
+    setMentionSelectedIndex(0);
+  }, [filteredCollaborators]);
+
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      deleteChatMessage(messageId);
+    },
+    [deleteChatMessage]
+  );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -340,6 +473,33 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (showMentionDropdown && filteredCollaborators.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setMentionSelectedIndex(
+            (prev) => (prev + 1) % filteredCollaborators.length
+          );
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setMentionSelectedIndex(
+            (prev) =>
+              (prev - 1 + filteredCollaborators.length) %
+              filteredCollaborators.length
+          );
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          const selectedUser = filteredCollaborators[mentionSelectedIndex];
+          if (selectedUser) {
+            handleMentionSelect(selectedUser);
+          }
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -349,7 +509,13 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
         setReplyTo(null);
       }
     },
-    [handleSend]
+    [
+      handleSend,
+      showMentionDropdown,
+      filteredCollaborators,
+      mentionSelectedIndex,
+      handleMentionSelect,
+    ]
   );
 
   const handleReplyClick = useCallback((replyId: string) => {
@@ -418,14 +584,23 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
         ) : (
           <AnimatePresence mode="popLayout">
             {messages.map((message, index) => (
-              <ChatBubble
-                index={index}
-                isOwn={message.authorId === localUser?.id}
+              <motion.div
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 key={message.id}
-                message={message}
-                onReply={setReplyTo}
-                onReplyClick={handleReplyClick}
-              />
+                layout
+              >
+                <ChatBubble
+                  index={index}
+                  isOwn={message.authorId === localUser?.id}
+                  knownUserColors={knownUserColors}
+                  message={message}
+                  onDelete={handleDeleteMessage}
+                  onReply={setReplyTo}
+                  onReplyClick={handleReplyClick}
+                />
+              </motion.div>
             ))}
           </AnimatePresence>
         )}
@@ -514,15 +689,17 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
               initial={{ opacity: 0, y: 8 }}
             >
               <div className="p-1">
-                {filteredCollaborators.map((user) => (
+                {filteredCollaborators.map((user, index) => (
                   <button
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5",
-                      "text-foreground text-sm",
-                      "transition-colors hover:bg-muted/80"
+                      "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors",
+                      index === mentionSelectedIndex
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50 hover:text-accent-foreground"
                     )}
                     key={user.id}
                     onClick={() => handleMentionSelect(user)}
+                    onMouseEnter={() => setMentionSelectedIndex(index)}
                     type="button"
                   >
                     <Avatar className="h-5 w-5">

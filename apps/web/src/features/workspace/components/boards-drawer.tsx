@@ -1,5 +1,6 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import {
   CheckCircle2,
   Layout,
@@ -26,9 +27,10 @@ type BoardStats = {
 type BoardCardProps = {
   stats: BoardStats;
   index: number;
+  onClick: () => void;
 };
 
-const BoardCard = memo(({ stats }: BoardCardProps) => {
+const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
   const { board, totalTasks, completedTasks, connections } = stats;
   const completionPercent =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -36,6 +38,9 @@ const BoardCard = memo(({ stats }: BoardCardProps) => {
   const accentColor = board.accentColor || "#6e6e6e";
 
   return (
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: mega ignore
+    // biome-ignore lint/a11y/noStaticElementInteractions: mega ignore
+    // biome-ignore lint/a11y/useKeyWithClickEvents: mega ignore
     <div
       className={cn(
         "group relative rounded-xl p-3",
@@ -47,13 +52,9 @@ const BoardCard = memo(({ stats }: BoardCardProps) => {
         "dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
         "cursor-pointer transition-all duration-200"
       )}
+      onClick={onClick}
     >
-      <div
-        className="absolute top-3 bottom-3 left-0 w-1 rounded-full opacity-60 transition-opacity group-hover:opacity-100"
-        style={{ backgroundColor: accentColor }}
-      />
-
-      <div className="flex items-start gap-3 pl-2">
+      <div className="flex items-center gap-3 pl-2">
         <div
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
@@ -254,6 +255,7 @@ type BoardsDrawerContentProps = {
   onClose: () => void;
   onSwitchToComments?: () => void;
   commentCount?: number;
+  onBoardClick: (boardId: string) => void;
 };
 
 const BoardsDrawerContent = memo(
@@ -262,6 +264,7 @@ const BoardsDrawerContent = memo(
     onClose,
     onSwitchToComments,
     commentCount = 0,
+    onBoardClick,
   }: BoardsDrawerContentProps) => {
     const totalTasks = boardStats.reduce((sum, s) => sum + s.totalTasks, 0);
     const totalCompleted = boardStats.reduce(
@@ -382,7 +385,12 @@ const BoardsDrawerContent = memo(
             ) : (
               <AnimatePresence mode="popLayout">
                 {boardStats.map((stats, index) => (
-                  <BoardCard index={index} key={stats.board.id} stats={stats} />
+                  <BoardCard
+                    index={index}
+                    key={stats.board.id}
+                    onClick={() => onBoardClick(stats.board.id)}
+                    stats={stats}
+                  />
                 ))}
               </AnimatePresence>
             )}
@@ -500,6 +508,21 @@ export const BoardsDrawer = memo(
       (state) => state.currentWorkspaceId
     );
     const workspaces = useKanbanStore((state) => state.workspaces);
+    const boardPositions = useKanbanStore((state) => state.boardPositions);
+    const { setCenter } = useReactFlow();
+
+    const handleBoardClick = useCallback(
+      (boardId: string) => {
+        const position = boardPositions.byId[boardId];
+        if (position) {
+          const centerX = position.x + (position.width ?? 400) / 2;
+          const centerY = position.y + (position.height ?? 300) / 2;
+          setCenter(centerX, centerY, { zoom: 1, duration: 800 });
+          onOpenChange(false);
+        }
+      },
+      [boardPositions, setCenter, onOpenChange]
+    );
 
     const boardStats = useMemo((): BoardStats[] => {
       if (!currentWorkspaceId) {
@@ -610,6 +633,7 @@ export const BoardsDrawer = memo(
               <BoardsDrawerContent
                 boardStats={boardStats}
                 commentCount={commentCount}
+                onBoardClick={handleBoardClick}
                 onClose={handleClose}
                 onSwitchToComments={onSwitchToComments}
               />

@@ -121,7 +121,7 @@ const CollaborationContext = createContext<CollaborationContextType | null>(
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16_000, 30_000];
 const CURSOR_THROTTLE_MS = 16; // ~60fps for smooth cursor updates - will turn it down if needed
 
-const CURSOR_COLORS = [
+export const CURSOR_COLORS = [
   "#ef4444", // red
   "#f97316", // orange
   "#eab308", // yellow
@@ -134,7 +134,7 @@ const CURSOR_COLORS = [
   "#06b6d4", // cyan
 ];
 
-function getColorForUser(userId: string): string {
+export function getColorForUser(userId: string): string {
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     const char = userId.charCodeAt(i);
