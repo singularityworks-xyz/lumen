@@ -46,121 +46,151 @@ type ChatBubbleProps = {
   message: ChatMessage;
   isOwn: boolean;
   index: number;
+  onReply: (message: ChatMessage) => void;
+  onReplyClick: (replyId: string) => void;
 };
 
-const ChatBubble = memo(({ message, isOwn, index }: ChatBubbleProps) => {
-  const { collaborators } = useCollaboration();
+const ChatBubble = memo(
+  ({ message, isOwn, index, onReply, onReplyClick }: ChatBubbleProps) => {
+    const { collaborators, localUser } = useCollaboration();
 
-  const onlineAuthor = collaborators.find((c) => c.id === message.authorId);
-  const authorName = onlineAuthor?.name ?? message.authorName ?? "Unknown";
-  const authorImage = onlineAuthor?.image ?? message.authorImage;
-  const authorColor = isOwn ? undefined : (onlineAuthor?.color ?? "#6e6e6e");
-  const fallback = authorName.slice(0, 2).toUpperCase();
+    const onlineAuthor = collaborators.find((c) => c.id === message.authorId);
+    const authorName = onlineAuthor?.name ?? message.authorName ?? "Unknown";
+    const authorImage = onlineAuthor?.image ?? message.authorImage;
+    const authorColor = isOwn ? undefined : (onlineAuthor?.color ?? "#6e6e6e");
+    const fallback = authorName.slice(0, 2).toUpperCase();
 
-  return (
-    <motion.div
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      className={cn(
-        "flex max-w-[85%] gap-2.5",
-        isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
-      )}
-      exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
-      initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
-      transition={{
-        type: "spring",
-        stiffness: 400,
-        damping: 25,
-        delay: index * 0.03,
-      }}
-    >
-      <Avatar
+    return (
+      <motion.div
+        animate={{ opacity: 1, x: 0, scale: 1 }}
         className={cn(
-          "h-7 w-7 shrink-0 border-2 shadow-sm",
-          isOwn ? "border-primary/30" : "border-border"
+          "group flex max-w-[85%] gap-2.5",
+          isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
         )}
-        style={!isOwn && authorColor ? { borderColor: authorColor } : undefined}
+        exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
+        id={`message-${message.id}`}
+        initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 25,
+          delay: index * 0.03,
+        }}
       >
-        <AvatarImage src={authorImage ?? undefined} />
-        <AvatarFallback
-          className="font-medium text-[10px]"
+        <Avatar
+          className={cn(
+            "h-7 w-7 shrink-0 border-2 shadow-sm",
+            isOwn ? "border-primary/30" : "border-border"
+          )}
           style={
-            !isOwn && authorColor
-              ? { backgroundColor: `${authorColor}20`, color: authorColor }
-              : undefined
+            !isOwn && authorColor ? { borderColor: authorColor } : undefined
           }
         >
-          {fallback}
-        </AvatarFallback>
-      </Avatar>
-
-      <div
-        className={cn(
-          "flex flex-col gap-0.5",
-          isOwn ? "items-end" : "items-start"
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "max-w-20 truncate font-medium text-[10px]",
-              isOwn ? "text-primary" : "text-muted-foreground"
-            )}
-            title={isOwn ? undefined : authorName}
+          <AvatarImage src={authorImage ?? undefined} />
+          <AvatarFallback
+            className="font-medium text-[10px]"
+            style={
+              !isOwn && authorColor
+                ? { backgroundColor: `${authorColor}20`, color: authorColor }
+                : undefined
+            }
           >
-            {isOwn ? "You" : authorName}
-          </span>
-          <span className="text-[9px] text-muted-foreground/60">
-            {formatRelativeTime(message.createdAt)}
-          </span>
-          {message.isEdited && (
-            <span className="text-[8px] text-muted-foreground/40 italic">
-              edited
-            </span>
-          )}
-        </div>
-
-        {message.replyToId && message.replyToContent && (
-          <div
-            className={cn(
-              "mb-0.5 flex items-center gap-1 rounded px-2 py-0.5",
-              "bg-muted/50 text-muted-foreground/70",
-              "text-[9px]"
-            )}
-          >
-            <Reply className="h-2 w-2" />
-            <span className="max-w-32 truncate font-medium">
-              {message.replyToAuthorName}:
-            </span>
-            <span className="max-w-40 truncate">{message.replyToContent}</span>
-          </div>
-        )}
+            {fallback}
+          </AvatarFallback>
+        </Avatar>
 
         <div
           className={cn(
-            "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
-            "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
-            isOwn
-              ? "rounded-br-md bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)]"
-              : "rounded-bl-md bg-muted/80 text-foreground"
+            "relative flex flex-col gap-0.5",
+            isOwn ? "items-end" : "items-start"
           )}
-          style={
-            !isOwn && authorColor
-              ? {
-                  background: `linear-gradient(135deg, ${authorColor}08, ${authorColor}03)`,
-                  borderLeft: `2px solid ${authorColor}40`,
-                }
-              : undefined
-          }
         >
-          <p className="wrap-break-word whitespace-pre-wrap">
-            {message.content}
-          </p>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "max-w-20 truncate font-medium text-[10px]",
+                isOwn ? "text-primary" : "text-muted-foreground"
+              )}
+              title={isOwn ? undefined : authorName}
+            >
+              {isOwn ? "You" : authorName}
+            </span>
+            <span className="text-[9px] text-muted-foreground/60">
+              {formatRelativeTime(message.createdAt)}
+            </span>
+            {message.isEdited && (
+              <span className="text-[8px] text-muted-foreground/40 italic">
+                edited
+              </span>
+            )}
+          </div>
+
+          {message.replyToId && message.replyToContent && (
+            <button
+              className={cn(
+                "mb-0.5 flex max-w-full items-center gap-1 rounded px-2 py-0.5",
+                "bg-muted/50 text-muted-foreground/70",
+                "text-[9px] transition-colors hover:bg-muted/80 hover:text-foreground",
+                "cursor-pointer text-left"
+              )}
+              // biome-ignore lint/style/noNonNullAssertion: there would be no replyToId without replyToContent
+              onClick={() => onReplyClick(message.replyToId!)}
+              type="button"
+            >
+              <Reply className="h-2 w-2 shrink-0" />
+              <span className="max-w-20 shrink-0 truncate font-medium">
+                {message.replyToAuthorName === localUser?.name
+                  ? "You"
+                  : message.replyToAuthorName}
+                :
+              </span>
+              <span className="truncate">{message.replyToContent}</span>
+            </button>
+          )}
+
+          <div
+            className={cn(
+              "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+              "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
+              "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
+              isOwn
+                ? "rounded-br-md bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)]"
+                : "rounded-bl-md bg-muted/80 text-foreground"
+            )}
+            style={
+              !isOwn && authorColor
+                ? {
+                    background: `linear-gradient(135deg, ${authorColor}08, ${authorColor}03)`,
+                    borderLeft: `2px solid ${authorColor}40`,
+                  }
+                : undefined
+            }
+          >
+            <p className="wrap-break-word whitespace-pre-wrap">
+              {message.content}
+            </p>
+          </div>
+          <button
+            className={cn(
+              "absolute right-0 -bottom-5 z-10",
+              "opacity-0 transition-all delay-500 duration-200 group-hover:opacity-100 group-hover:delay-0",
+              "pointer-events-none group-hover:pointer-events-auto",
+              "flex items-center gap-1.5 rounded-md px-2 py-1",
+              "font-medium text-[10px] text-muted-foreground",
+              "border border-border/50 bg-background/95 shadow-sm backdrop-blur-sm",
+              "hover:bg-accent hover:text-accent-foreground"
+            )}
+            onClick={() => onReply(message)}
+            type="button"
+          >
+            <Reply className="h-3 w-3" />
+            Reply
+          </button>
         </div>
-      </div>
-    </motion.div>
-  );
-});
+      </motion.div>
+    );
+  }
+);
 
 ChatBubble.displayName = "ChatBubble";
 
@@ -322,6 +352,22 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
     [handleSend]
   );
 
+  const handleReplyClick = useCallback((replyId: string) => {
+    // Wait for the DOM to update (in case we just switched tabs, though likely already mounted)
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`message-${replyId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Add a temporary highlight
+        element.style.transition = "transform 0.3s ease";
+        element.style.transform = "scale(1.05)";
+        setTimeout(() => {
+          element.style.transform = "scale(1)";
+        }, 300);
+      }
+    });
+  }, []);
+
   const getTypingText = () => {
     if (typingUsers.length === 0) {
       return null;
@@ -336,7 +382,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div
         className={cn(
           "flex-1 overflow-y-auto overflow-x-hidden",
@@ -377,6 +423,8 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
                 isOwn={message.authorId === localUser?.id}
                 key={message.id}
                 message={message}
+                onReply={setReplyTo}
+                onReplyClick={handleReplyClick}
               />
             ))}
           </AnimatePresence>
@@ -400,7 +448,10 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
           <div className="flex items-center gap-2">
             <Reply className="h-3 w-3" />
             <span className="font-medium">
-              Replying to {replyTo.authorName}
+              Replying to{" "}
+              {replyTo.authorId === localUser?.id
+                ? "your own message"
+                : replyTo.authorName}
             </span>
             <span className="max-w-40 truncate opacity-70">
               {replyTo.content}
@@ -418,7 +469,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
 
       <div
         className={cn(
-          "relative border-border/50 border-t px-3 py-3",
+          "relative border-border/50 border-t px-3 pt-3 pb-5",
           "bg-linear-to-t from-muted/30 to-transparent"
         )}
       >
