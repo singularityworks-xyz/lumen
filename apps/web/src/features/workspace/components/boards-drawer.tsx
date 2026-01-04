@@ -105,36 +105,85 @@ const BoardCard = memo(({ stats }: BoardCardProps) => {
           </div>
         </div>
 
-        <div className="relative h-9 w-9 shrink-0">
+        <div
+          className="relative h-11 w-11 shrink-0"
+          style={{
+            filter:
+              totalTasks > 0
+                ? `drop-shadow(0 2px 4px ${accentColor}30)`
+                : undefined,
+          }}
+        >
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              boxShadow: `
+                inset 0 2px 4px rgba(0,0,0,0.15),
+                inset 0 -1px 2px rgba(255,255,255,0.1),
+                0 1px 3px rgba(0,0,0,0.1)
+              `,
+            }}
+          />
           {/** biome-ignore lint/a11y/noSvgWithoutTitle: skipy */}
-          <svg className="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
+          <svg className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
             <circle
-              className="stroke-muted/50"
-              cx="18"
-              cy="18"
+              className="text-muted/30 dark:text-muted/40"
+              cx="22"
+              cy="22"
               fill="none"
-              r="14"
-              strokeWidth="3"
+              r="18"
+              stroke="currentColor"
+              strokeWidth="4"
             />
             <circle
-              className="transition-all duration-500"
-              cx="18"
-              cy="18"
+              className="text-border/50"
+              cx="22"
+              cy="22"
               fill="none"
-              r="14"
+              r="18"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
+            <circle
+              className="transition-all duration-700 ease-out"
+              cx="22"
+              cy="22"
+              fill="none"
+              r="18"
               stroke={accentColor}
-              strokeDasharray={`${completionPercent * 0.88} 88`}
+              strokeDasharray={`${completionPercent * 1.13} 113`}
               strokeLinecap="round"
-              strokeWidth="3"
-              style={{ opacity: totalTasks > 0 ? 1 : 0.3 }}
+              strokeWidth="4"
+              style={{
+                opacity: totalTasks > 0 ? 1 : 0.2,
+                filter:
+                  totalTasks > 0
+                    ? `drop-shadow(0 0 3px ${accentColor}60)`
+                    : undefined,
+              }}
             />
           </svg>
-          <span
-            className="absolute inset-0 flex items-center justify-center font-semibold text-[9px]"
-            style={{ color: accentColor }}
-          >
-            {completionPercent}%
-          </span>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-full"
+              style={{
+                backgroundColor:
+                  totalTasks > 0 ? `${accentColor}12` : "transparent",
+              }}
+            >
+              <span
+                className="font-bold text-[10px] tracking-tight"
+                style={{
+                  color: accentColor,
+                  opacity: totalTasks > 0 ? 1 : 0.5,
+                  textShadow:
+                    totalTasks > 0 ? `0 1px 2px ${accentColor}20` : undefined,
+                }}
+              >
+                {completionPercent}%
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

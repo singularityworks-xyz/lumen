@@ -18,6 +18,12 @@ export const RightDrawers = memo(() => {
   const workspaces = useKanbanStore((state) => state.workspaces);
   const boards = useKanbanStore((state) => state.boards);
 
+  const currentWorkspace = currentWorkspaceId
+    ? workspaces.byId[currentWorkspaceId]
+    : null;
+  const isSharedWorkspace =
+    currentWorkspace?.isShared === true || !!currentWorkspace?.shareToken;
+
   const commentCount = useMemo(
     () =>
       comments.allIds
@@ -54,17 +60,21 @@ export const RightDrawers = memo(() => {
 
   return (
     <>
-      <CommentsDrawer
-        boardCount={boardCount}
-        isOpen={activeDrawer === "comments"}
-        onOpenChange={handleCommentsOpenChange}
-        onSwitchToBoards={handleSwitchToBoards}
-      />
+      {isSharedWorkspace && (
+        <CommentsDrawer
+          boardCount={boardCount}
+          isOpen={activeDrawer === "comments"}
+          onOpenChange={handleCommentsOpenChange}
+          onSwitchToBoards={handleSwitchToBoards}
+        />
+      )}
       <BoardsDrawer
-        commentCount={commentCount}
+        commentCount={isSharedWorkspace ? commentCount : 0}
         isOpen={activeDrawer === "boards"}
         onOpenChange={handleBoardsOpenChange}
-        onSwitchToComments={handleSwitchToComments}
+        onSwitchToComments={
+          isSharedWorkspace ? handleSwitchToComments : undefined
+        }
       />
     </>
   );
