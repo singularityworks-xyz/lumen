@@ -346,6 +346,8 @@ export const CommentSchema = z.object({
   lastEditedById: z.string().optional(),
   lastEditorName: z.string().optional(),
   lastEditorImage: z.string().optional(),
+  parentId: z.string().optional(),
+  replyCount: z.number().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;

@@ -33,7 +33,10 @@ export function useCommentClusters(): CommentCluster[] {
   return useMemo(() => {
     const workspaceComments = comments.allIds
       .map((id) => comments.byId[id])
-      .filter((c): c is Comment => !!c && c.workspaceId === currentWorkspaceId);
+      .filter(
+        (c): c is Comment =>
+          !!c && c.workspaceId === currentWorkspaceId && !c.parentId
+      );
 
     if (workspaceComments.length === 0) {
       return [];

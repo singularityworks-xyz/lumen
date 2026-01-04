@@ -1,8 +1,8 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { Layers, Send, Shell } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Layers, MessageCircle, Reply, Send, Shell } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DeleteIcon } from "@/src/components/animated/icons/delete";
 import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical";
@@ -180,6 +180,7 @@ type CommentCardProps = {
   onBringToFront: () => void;
   viewMode: ViewMode;
   stackColumn?: "left" | "right";
+  onClose?: () => void;
 };
 
 function CommentCard({
@@ -193,13 +194,32 @@ function CommentCard({
   onBringToFront,
   viewMode,
   stackColumn,
+  onClose,
 }: CommentCardProps) {
   const [content, setContent] = useState(comment.content);
   const [isEditing, setIsEditing] = useState(comment.content === "");
   const [isDragging, setIsDragging] = useState(false);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+
   const updateComment = useKanbanStore((state) => state.updateComment);
   const removeComment = useKanbanStore((state) => state.removeComment);
+  const addReply = useKanbanStore((state) => state.addReply);
+  const commentsMap = useKanbanStore((state) => state.comments.byId);
+
+  const replies = useMemo(
+    () =>
+      Object.values(commentsMap)
+        .filter((c) => c.parentId === comment.id)
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        ),
+    [commentsMap, comment.id]
+  );
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const replyInputRef = useRef<HTMLTextAreaElement>(null);
   const { localUser, collaborators } = useCollaboration();
   const isAuthor = localUser?.id === comment.authorId;
 
@@ -217,6 +237,12 @@ function CommentCard({
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    if (showReplyInput && replyInputRef.current) {
+      replyInputRef.current.focus();
+    }
+  }, [showReplyInput]);
+
   const handleSave = () => {
     if (content.trim()) {
       updateComment(comment.id, {
@@ -228,13 +254,59 @@ function CommentCard({
       setIsEditing(false);
     } else {
       removeComment(comment.id);
+      if (onClose) {
+        onClose();
+      }
     }
+  };
+
+  const handleSendReply = () => {
+    if (!(replyContent.trim() && localUser)) {
+      return;
+    }
+
+    addReply(comment.id, replyContent.trim(), {
+      id: localUser.id,
+      name: localUser.name,
+      image: localUser.image ?? undefined,
+    });
+
+    setReplyContent("");
+    setShowReplyInput(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSave();
+    }
+    if (e.key === "Escape") {
+      if (isEditing) {
+        // If editing and empty, cancel/delete
+        if (content.trim()) {
+          // If editing existing content, just cancel edit
+          setIsEditing(false);
+          setContent(comment.content);
+        } else {
+          removeComment(comment.id);
+          if (onClose) {
+            onClose();
+          }
+        }
+      } else if (onClose) {
+        // If viewing, close dialog
+        onClose();
+      }
+    }
+  };
+
+  const handleReplyKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendReply();
+    }
+    if (e.key === "Escape") {
+      setShowReplyInput(false);
     }
   };
 
@@ -259,60 +331,55 @@ function CommentCard({
   let offsetX: number;
   let offsetY: number;
 
-  if (viewMode === "stacked") {
-    // Stacked layout: two columns, sorted by time
-    const cardHeight = 100; // Approximate card height + gap
-    const columnOffset = 150; // Distance from center for each column
-
-    if (stackColumn === "left") {
-      offsetX = -columnOffset;
-      offsetY = index * cardHeight - ((totalCount - 1) * cardHeight) / 2;
+  if (viewMode === "sprawled") {
+    // Sprawled view logic...
+    if (usesTwoRings) {
+      if (index < RING_THRESHOLD) {
+        // Inner ring
+        radius = 160;
+        angleStep = (2 * Math.PI) / RING_THRESHOLD;
+        angle = index * angleStep - Math.PI / 2;
+      } else {
+        // Outer ring
+        radius = 260; // Larger radius for second ring
+        const outerCount = totalCount - RING_THRESHOLD;
+        angleStep = (2 * Math.PI) / outerCount;
+        angle = (index - RING_THRESHOLD) * angleStep - Math.PI / 2;
+      }
     } else {
-      offsetX = columnOffset;
-      offsetY = index * cardHeight - ((totalCount - 1) * cardHeight) / 2;
-    }
-  } else if (usesTwoRings) {
-    // Two-ring mode
-    const innerRingCount = RING_THRESHOLD;
-    const outerRingCount = totalCount - RING_THRESHOLD;
-    const isInnerRing = index < innerRingCount;
-
-    if (isInnerRing) {
-      // Inner ring - closer to center
-      radius = 180;
-      angleStep = (Math.PI * 2) / innerRingCount;
+      // Single ring for fewer comments
+      radius = Math.max(140, totalCount * 15);
+      angleStep = (2 * Math.PI) / totalCount;
       angle = index * angleStep - Math.PI / 2;
-    } else {
-      // Outer ring - farther from center
-      radius = 320;
-      const outerIndex = index - innerRingCount;
-      angleStep = (Math.PI * 2) / outerRingCount;
-      // Offset by half a step to stagger with inner ring
-      angle = outerIndex * angleStep - Math.PI / 2 + angleStep / 2;
     }
+
     offsetX = Math.cos(angle) * radius;
     offsetY = Math.sin(angle) * radius;
   } else {
-    // Single ring mode - dynamic radius based on count
-    const minRadius = 120;
-    const maxRadius = 220;
-    const minCount = 1;
-    const maxCount = 6;
-    const clampedCount = Math.min(Math.max(totalCount, minCount), maxCount);
-    const t = (clampedCount - minCount) / (maxCount - minCount);
-    radius = minRadius + t * (maxRadius - minRadius);
+    // Stacked view logic
+    const VERTICAL_SPACING = 160;
+    const COLUMN_WIDTH = 280;
 
-    angleStep = (Math.PI * 2) / totalCount;
-    angle = index * angleStep - Math.PI / 2;
-    offsetX = Math.cos(angle) * radius;
-    offsetY = Math.sin(angle) * radius;
+    if (stackColumn === "left") {
+      offsetX = -COLUMN_WIDTH / 2 - 20;
+    } else {
+      offsetX = COLUMN_WIDTH / 2 + 20;
+    }
+
+    // Calculate vertical position in the column
+    // The parent determines which items go in which column,
+    // so we assume index is relative to the start of the column or we use a simpler stack approach.
+    // Actually, let's just use the index directly but centered vertically
+    // We need to know the index WITHIN the column to center it properly
+    // For simplicity in this specialized tailored view, let's just stack casually
+    offsetY = (index - (totalCount - 1) / 2) * VERTICAL_SPACING;
   }
 
+  const currentX = offsetX;
+  const currentY = offsetY;
+
+  // Staggered entrance delay
   const delay = index * 50;
-  const targetX = isClosing ? 0 : offsetX;
-  const targetY = isClosing ? 0 : offsetY;
-  const currentX = isVisible ? targetX : 0;
-  const currentY = isVisible ? targetY : 0;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: it's needed to prevent hydration issues
@@ -382,15 +449,57 @@ function CommentCard({
         <span className="text-[10px] text-muted-foreground">
           {formatRelativeTime(comment.createdAt)}
         </span>
-        {isAuthor && (
-          <button
-            className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-destructive/20 hover:text-destructive"
-            onClick={() => removeComment(comment.id)}
-            type="button"
+        {replies.length > 0 && (
+          <span
+            className={cn(
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
+              "bg-primary/10 text-primary",
+              "font-semibold text-[9px]"
+            )}
           >
-            <DeleteIcon size={8} />
-          </button>
+            <MessageCircle className="h-2 w-2" />
+            {replies.length}
+          </span>
         )}
+
+        <div className="flex items-center gap-1">
+          {!isEditing && (
+            <button
+              className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReplyInput(!showReplyInput);
+              }}
+              title="Reply"
+              type="button"
+            >
+              <Reply size={8} />
+            </button>
+          )}
+
+          {isAuthor && (
+            <button
+              className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-destructive/20 hover:text-destructive"
+              onClick={() => removeComment(comment.id)}
+              type="button"
+            >
+              <DeleteIcon size={8} />
+            </button>
+          )}
+
+          {onClose && (
+            <button
+              className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              type="button"
+            >
+              <XIcon size={8} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="p-2.5">
@@ -439,6 +548,72 @@ function CommentCard({
           <div className="whitespace-pre-wrap text-xs">{comment.content}</div>
         )}
       </div>
+
+      {replies.length > 0 && (
+        <div className="max-h-40 space-y-2 overflow-y-auto border-border/50 border-t bg-muted/20 p-2.5">
+          {replies.map((reply) => {
+            const isReplyAuthor = localUser?.id === reply.authorId;
+            const replyAuthorInfo = isReplyAuthor
+              ? localUser
+              : collaborators.find((c) => c.id === reply.authorId);
+
+            return (
+              <div className="flex gap-2" key={reply.id}>
+                <div className="h-full pt-1">
+                  <div className="mx-auto h-full w-px bg-border/50" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-3 w-3">
+                      <AvatarImage src={replyAuthorInfo?.image ?? undefined} />
+                      <AvatarFallback className="text-[6px]">
+                        {(replyAuthorInfo?.name ?? "?").slice(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-[9px] text-muted-foreground">
+                      {isReplyAuthor ? "You" : replyAuthorInfo?.name}
+                    </span>
+                    <span className="text-[8px] text-muted-foreground/50">
+                      {formatRelativeTime(reply.createdAt)}
+                    </span>
+                  </div>
+                  <div className="wrap-break-word text-[10px] text-foreground/80">
+                    {reply.content}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showReplyInput && (
+        <div className="border-border/50 border-t bg-muted/30 p-2">
+          <div className="relative">
+            <Textarea
+              className="min-h-8 resize-none py-1.5 pr-8 text-[10px]"
+              onChange={(e) => setReplyContent(e.target.value)}
+              onKeyDown={handleReplyKeyDown}
+              placeholder="Reply..."
+              ref={replyInputRef}
+              value={replyContent}
+            />
+            <button
+              className={cn(
+                "absolute right-1 bottom-1 flex h-6 w-6 items-center justify-center rounded-md transition-all",
+                replyContent.trim()
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground/40"
+              )}
+              disabled={!replyContent.trim()}
+              onClick={handleSendReply}
+              type="button"
+            >
+              <Send className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -562,6 +737,7 @@ export function CommentClusterDialog({
   const centerX = screenPosition.x;
   const centerY = screenPosition.y;
   const containerSize = 800;
+  const isSingle = comments.length === 1;
 
   const dialogContent = (
     <div
@@ -579,14 +755,18 @@ export function CommentClusterDialog({
         transformOrigin: "center center",
       }}
     >
-      <SplitButton
-        isClosing={isClosing}
-        isVisible={isVisible}
-        onClose={handleClose}
-        onViewToggle={handleViewToggle}
-        transitionDelay={isClosing ? "0ms" : `${comments.length * 50 + 100}ms`}
-        viewMode={viewMode}
-      />
+      {!isSingle && (
+        <SplitButton
+          isClosing={isClosing}
+          isVisible={isVisible}
+          onClose={handleClose}
+          onViewToggle={handleViewToggle}
+          transitionDelay={
+            isClosing ? "0ms" : `${comments.length * 50 + 100}ms`
+          }
+          viewMode={viewMode}
+        />
+      )}
 
       <div className="relative h-full w-full">
         {viewMode === "sprawled" ? (
@@ -600,6 +780,7 @@ export function CommentClusterDialog({
                   isFocused={focusedIndex === index}
                   isVisible={isVisible}
                   onBringToFront={() => setFocusedIndex(index)}
+                  onClose={isSingle ? handleClose : undefined}
                   onDragOut={handleDragOut}
                   totalCount={comments.length}
                   viewMode={viewMode}
@@ -621,6 +802,7 @@ export function CommentClusterDialog({
                       isFocused={focusedIndex === originalIndex}
                       isVisible={isVisible}
                       onBringToFront={() => setFocusedIndex(originalIndex)}
+                      onClose={isSingle ? handleClose : undefined}
                       onDragOut={handleDragOut}
                       stackColumn="left"
                       totalCount={leftColumnComments.length}
@@ -642,6 +824,7 @@ export function CommentClusterDialog({
                       isFocused={focusedIndex === originalIndex}
                       isVisible={isVisible}
                       onBringToFront={() => setFocusedIndex(originalIndex)}
+                      onClose={isSingle ? handleClose : undefined}
                       onDragOut={handleDragOut}
                       stackColumn="right"
                       totalCount={rightColumnComments.length}

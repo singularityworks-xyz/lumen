@@ -508,6 +508,11 @@ export type KanbanActions = {
     content: string,
     author: { id: string; name?: string; image?: string }
   ) => void;
+  addReply: (
+    parentId: string,
+    content: string,
+    author: { id: string; name?: string; image?: string }
+  ) => void;
   updateComment: (
     id: string,
     updates: Partial<
@@ -519,6 +524,7 @@ export type KanbanActions = {
         | "lastEditedById"
         | "lastEditorName"
         | "lastEditorImage"
+        | "replyCount"
       >
     >
   ) => void;
@@ -534,12 +540,14 @@ export type KanbanActions = {
           | "lastEditedById"
           | "lastEditorName"
           | "lastEditorImage"
+          | "replyCount"
         >
       >;
     }[]
   ) => void;
   removeComment: (id: string) => void;
   finalizeCommentsDrag: (commentIds: string[]) => void;
+  getRepliesForComment: (parentId: string) => Comment[];
 
   // Z-index management
   bringDialogToFront: (dialogId: string) => void;
