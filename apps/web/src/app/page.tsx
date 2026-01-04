@@ -8,6 +8,7 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightControls } from "@/src/components/right-controls";
+import { RightDrawers } from "@/src/components/right-drawers";
 import {
   type JoinSuccessData,
   JoinWorkspaceHandler,
@@ -173,6 +174,7 @@ function KanbanPageContent() {
           <RightControls />
           <CommandPalette />
           <BulkActionsBar />
+          <RightDrawers />
         </>
       ) : null}
     </div>
