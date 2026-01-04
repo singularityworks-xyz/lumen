@@ -48,6 +48,9 @@ type CommentBubbleProps = {
   authorName: string;
   authorImage?: string | null;
   index: number;
+  replyCount?: number;
+  isReply?: boolean;
+  onClick?: () => void;
 };
 
 const CommentBubble = memo(
@@ -58,28 +61,37 @@ const CommentBubble = memo(
     authorName,
     authorImage,
     index,
+    replyCount = 0,
+    isReply = false,
+    onClick,
   }: CommentBubbleProps) => {
     const fallback = authorName.slice(0, 2).toUpperCase();
 
     return (
-      <motion.div
+      <motion.button
         animate={{ opacity: 1, x: 0, scale: 1 }}
         className={cn(
-          "flex max-w-[85%] gap-2.5",
-          isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
+          "flex max-w-[85%] gap-2.5 text-left",
+          isOwn ? "ml-auto flex-row-reverse" : "mr-auto",
+          isReply && "ml-8 max-w-[75%]",
+          onClick &&
+            "cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
         )}
         exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
+        onClick={onClick}
         transition={{
           type: "spring",
           stiffness: 400,
           damping: 25,
           delay: index * 0.03,
         }}
+        type="button"
       >
         <Avatar
           className={cn(
-            "h-7 w-7 shrink-0 border-2 shadow-sm",
+            "shrink-0 border-2 shadow-sm",
+            isReply ? "h-5 w-5" : "h-7 w-7",
             isOwn ? "border-primary/30" : "border-border"
           )}
           style={
@@ -88,7 +100,10 @@ const CommentBubble = memo(
         >
           <AvatarImage src={authorImage ?? undefined} />
           <AvatarFallback
-            className="font-medium text-[10px]"
+            className={cn(
+              "font-medium",
+              isReply ? "text-[8px]" : "text-[10px]"
+            )}
             style={
               !isOwn && authorColor
                 ? { backgroundColor: `${authorColor}20`, color: authorColor }
@@ -108,20 +123,42 @@ const CommentBubble = memo(
           <div className="flex items-center gap-2">
             <span
               className={cn(
-                "font-medium text-[10px]",
+                "font-medium",
+                isReply ? "text-[9px]" : "text-[10px]",
                 isOwn ? "text-primary" : "text-muted-foreground"
               )}
             >
               {isOwn ? "You" : authorName}
             </span>
-            <span className="text-[9px] text-muted-foreground/60">
+            <span
+              className={cn(
+                "text-muted-foreground/60",
+                isReply ? "text-[8px]" : "text-[9px]"
+              )}
+            >
               {formatRelativeTime(comment.createdAt)}
             </span>
+            {replyCount > 0 && (
+              <span
+                className={cn(
+                  "flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
+                  "bg-primary/10 text-primary",
+                  "font-semibold text-[8px]",
+                  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]"
+                )}
+              >
+                <MessageCircle className="h-2 w-2" />
+                {replyCount}
+              </span>
+            )}
           </div>
 
           <div
             className={cn(
-              "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+              "relative rounded-2xl leading-relaxed",
+              isReply
+                ? "px-2.5 py-1.5 text-[11px]"
+                : "px-3.5 py-2.5 text-[13px]",
               "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
               "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
               isOwn
@@ -129,7 +166,9 @@ const CommentBubble = memo(
                 : "rounded-bl-md bg-muted/80 text-foreground",
               isOwn
                 ? "shadow-[0_2px_8px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)]"
-                : ""
+                : "",
+              onClick &&
+                "hover:shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.15)]"
             )}
             style={
               !isOwn && authorColor
@@ -145,10 +184,12 @@ const CommentBubble = memo(
             </p>
           </div>
         </div>
-      </motion.div>
+      </motion.button>
     );
   }
 );
+
+CommentBubble.displayName = "CommentBubble";
 
 type FloatingIndicatorProps = {
   onClick: () => void;
@@ -215,6 +256,7 @@ type CommentsDrawerContentProps = {
   localUserId?: string;
   onSwitchToBoards?: () => void;
   boardCount?: number;
+  onCommentClick?: (comment: Comment) => void;
 };
 
 const CommentsDrawerContent = memo(
@@ -224,16 +266,30 @@ const CommentsDrawerContent = memo(
     localUserId,
     onSwitchToBoards,
     boardCount = 0,
+    onCommentClick,
   }: CommentsDrawerContentProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const { collaborators, localUser } = useCollaboration();
 
-    const sortedComments = useMemo(
+    const topLevelComments = useMemo(
       () =>
-        [...comments].sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        ),
+        [...comments]
+          .filter((c) => !c.parentId)
+          .sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ),
+      [comments]
+    );
+
+    const getReplies = useCallback(
+      (parentId: string) =>
+        comments
+          .filter((c) => c.parentId === parentId)
+          .sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ),
       [comments]
     );
 
@@ -242,7 +298,7 @@ const CommentsDrawerContent = memo(
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
-    }, [sortedComments.length]);
+    }, [topLevelComments.length]);
 
     const getAuthorInfo = useCallback(
       (comment: Comment) => {
@@ -336,7 +392,7 @@ const CommentsDrawerContent = memo(
             )}
             ref={scrollRef}
           >
-            {sortedComments.length === 0 ? (
+            {topLevelComments.length === 0 ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
                 className="flex h-full flex-col items-center justify-center py-12 text-center"
@@ -362,19 +418,69 @@ const CommentsDrawerContent = memo(
               </motion.div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {sortedComments.map((comment, index) => {
+                {topLevelComments.map((comment, index) => {
                   const { isOwn, authorColor, authorName, authorImage } =
                     getAuthorInfo(comment);
+                  const replies = getReplies(comment.id);
+                  const replyCount = comment.replyCount ?? replies.length;
+                  const visibleReplies = replies.slice(-2);
+                  const hiddenReplyCount =
+                    replies.length - visibleReplies.length;
+
                   return (
-                    <CommentBubble
-                      authorColor={authorColor}
-                      authorImage={authorImage}
-                      authorName={authorName}
-                      comment={comment}
-                      index={index}
-                      isOwn={isOwn}
-                      key={comment.id}
-                    />
+                    <div className="space-y-2" key={comment.id}>
+                      <CommentBubble
+                        authorColor={authorColor}
+                        authorImage={authorImage}
+                        authorName={authorName}
+                        comment={comment}
+                        index={index}
+                        isOwn={isOwn}
+                        onClick={
+                          onCommentClick
+                            ? () => onCommentClick(comment)
+                            : undefined
+                        }
+                        replyCount={replyCount}
+                      />
+                      {hiddenReplyCount > 0 && (
+                        <button
+                          className={cn(
+                            "ml-10 flex items-center gap-1.5 rounded-full px-2.5 py-1",
+                            "bg-muted/50 text-muted-foreground/70",
+                            "font-medium text-[10px]",
+                            "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                            "transition-colors hover:bg-muted hover:text-muted-foreground"
+                          )}
+                          onClick={() => onCommentClick?.(comment)}
+                          type="button"
+                        >
+                          <MessageCircle className="h-2.5 w-2.5" />+
+                          {hiddenReplyCount} more{" "}
+                          {hiddenReplyCount === 1 ? "reply" : "replies"}
+                        </button>
+                      )}
+                      {visibleReplies.map((reply, replyIndex) => {
+                        const replyAuthorInfo = getAuthorInfo(reply);
+                        return (
+                          <CommentBubble
+                            authorColor={replyAuthorInfo.authorColor}
+                            authorImage={replyAuthorInfo.authorImage}
+                            authorName={replyAuthorInfo.authorName}
+                            comment={reply}
+                            index={replyIndex}
+                            isOwn={replyAuthorInfo.isOwn}
+                            isReply
+                            key={reply.id}
+                            onClick={
+                              onCommentClick
+                                ? () => onCommentClick(comment)
+                                : undefined
+                            }
+                          />
+                        );
+                      })}
+                    </div>
                   );
                 })}
               </AnimatePresence>
@@ -453,6 +559,7 @@ export type CommentsDrawerProps = {
   onOpenChange: (open: boolean) => void;
   onSwitchToBoards?: () => void;
   boardCount?: number;
+  onCommentClick?: (comment: Comment) => void;
 };
 
 export const CommentsDrawer = memo(
@@ -461,6 +568,7 @@ export const CommentsDrawer = memo(
     onOpenChange,
     onSwitchToBoards,
     boardCount = 0,
+    onCommentClick,
   }: CommentsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const { localUser } = useCollaboration();
@@ -505,7 +613,7 @@ export const CommentsDrawer = memo(
     return createPortal(
       <>
         <FloatingIndicator
-          commentCount={workspaceComments.length}
+          commentCount={workspaceComments.filter((c) => !c.parentId).length}
           isOpen={isOpen}
           onClick={handleOpen}
         />
@@ -527,6 +635,7 @@ export const CommentsDrawer = memo(
                 comments={workspaceComments}
                 localUserId={localUser?.id}
                 onClose={handleClose}
+                onCommentClick={onCommentClick}
                 onSwitchToBoards={onSwitchToBoards}
               />
             </>

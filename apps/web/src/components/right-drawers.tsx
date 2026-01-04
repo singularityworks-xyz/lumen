@@ -1,7 +1,10 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { CommentsDrawer } from "@/src/features/comments/components/comments-drawer";
+import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
+import { useCommentUIStore } from "@/src/features/comments/stores/comment-ui-store";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
 import { BoardsDrawer } from "@/src/features/workspace/components/boards-drawer";
@@ -10,6 +13,8 @@ type ActiveDrawer = "none" | "comments" | "boards";
 
 export const RightDrawers = memo(() => {
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>("none");
+  const { setCenter, getZoom } = useReactFlow();
+  const clusters = useCommentClusters();
 
   const comments = useKanbanStore((state) => state.comments);
   const currentWorkspaceId = useKanbanStore(
@@ -29,7 +34,8 @@ export const RightDrawers = memo(() => {
       comments.allIds
         .map((id) => comments.byId[id])
         .filter(
-          (c): c is Comment => !!c && c.workspaceId === currentWorkspaceId
+          (c): c is Comment =>
+            !!c && c.workspaceId === currentWorkspaceId && !c.parentId
         ).length,
     [comments, currentWorkspaceId]
   );
@@ -58,12 +64,43 @@ export const RightDrawers = memo(() => {
     setActiveDrawer(open ? "boards" : "none");
   }, []);
 
+  const openCluster = useCommentUIStore((state) => state.openCluster);
+  const handleCommentClick = useCallback(
+    (comment: Comment) => {
+      const cluster = clusters.find((c) =>
+        c.comments.some((cc) => cc.id === comment.id)
+      );
+
+      const targetX =
+        cluster && !cluster.isSingle ? cluster.centroid.x : comment.x;
+      const targetY =
+        cluster && !cluster.isSingle ? cluster.centroid.y : comment.y;
+
+      setActiveDrawer("none");
+
+      setTimeout(() => {
+        setCenter(targetX, targetY, {
+          zoom: Math.max(getZoom(), 1.2),
+          duration: 800,
+        });
+
+        if (cluster && !cluster.isSingle) {
+          setTimeout(() => {
+            openCluster(cluster.id, comment.id);
+          }, 850);
+        }
+      }, 300);
+    },
+    [clusters, setCenter, getZoom, openCluster]
+  );
+
   return (
     <>
       {isSharedWorkspace && (
         <CommentsDrawer
           boardCount={boardCount}
           isOpen={activeDrawer === "comments"}
+          onCommentClick={handleCommentClick}
           onOpenChange={handleCommentsOpenChange}
           onSwitchToBoards={handleSwitchToBoards}
         />

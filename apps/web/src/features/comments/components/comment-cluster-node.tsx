@@ -15,6 +15,7 @@ import {
 import { useCollaboration } from "@/src/features/collab";
 import { cn } from "@/src/lib/utils";
 import type { Comment } from "../../kanban/types";
+import { useCommentUIStore } from "../stores/comment-ui-store";
 import { CommentClusterDialog } from "./comment-cluster-dialog";
 
 type CommentClusterNodeData = {
@@ -24,7 +25,7 @@ type CommentClusterNodeData = {
 };
 
 export const CommentClusterNode = memo(
-  ({ data, selected }: NodeProps<Node<CommentClusterNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<CommentClusterNodeData>>) => {
     const { comments, centroid, isSingle } = data;
     const [isOpen, setIsOpen] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -32,6 +33,20 @@ export const CommentClusterNode = memo(
     const { zoom, x: vpX, y: vpY } = useViewport();
     const { flowToScreenPosition } = useReactFlow();
     const displayComments = comments.slice(0, 5);
+
+    // Listen for external open requests from drawer navigation
+    const openClusterId = useCommentUIStore((state) => state.openClusterId);
+    const clearOpenCluster = useCommentUIStore(
+      (state) => state.clearOpenCluster
+    );
+
+    // Auto-open when this cluster is requested to open from drawer
+    useEffect(() => {
+      if (openClusterId && openClusterId === id && !isOpen) {
+        setIsOpen(true);
+        clearOpenCluster();
+      }
+    }, [openClusterId, id, isOpen, clearOpenCluster]);
 
     // Convert centroid flow position to screen position
     // This updates when viewport changes (pan/zoom), keeping dialog anchored to canvas

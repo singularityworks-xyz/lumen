@@ -62,6 +62,8 @@ export type Comment = {
   lastEditedById?: string;
   lastEditorName?: string;
   lastEditorImage?: string;
+  parentId?: string;
+  replyCount?: number;
 };
 
 export type Board = {
