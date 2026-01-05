@@ -7,7 +7,7 @@
 import type { Variants } from "motion/react";
 import { motion, useAnimation } from "motion/react";
 import type { HTMLAttributes, RefObject } from "react";
-import { useCallback, useImperativeHandle, useRef } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
 export type GripVerticalIconHandle = {
@@ -81,10 +81,13 @@ const GripVerticalIcon = ({
     isAnimatingRef.current = false;
   }, [controls]);
 
-  useImperativeHandle(ref, () => {
-    isControlledRef.current = true;
-    return { startAnimation, stopAnimation };
-  });
+  useEffect(() => {
+    if (ref) {
+      isControlledRef.current = true;
+    }
+  }, [ref]);
+
+  useImperativeHandle(ref, () => ({ startAnimation, stopAnimation }));
 
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

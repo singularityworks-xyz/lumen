@@ -7,7 +7,7 @@
 import type { Transition } from "motion/react";
 import { motion, useAnimation } from "motion/react";
 import type { HTMLAttributes, RefObject } from "react";
-import { useCallback, useImperativeHandle, useRef } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
 export type MaximizeIconHandle = {
@@ -36,13 +36,16 @@ const MaximizeIcon = ({
   const controls = useAnimation();
   const isControlledRef = useRef(false);
 
-  useImperativeHandle(ref, () => {
-    isControlledRef.current = true;
-    return {
-      startAnimation: () => controls.start("animate"),
-      stopAnimation: () => controls.start("normal"),
-    };
-  });
+  useEffect(() => {
+    if (ref) {
+      isControlledRef.current = true;
+    }
+  }, [ref]);
+
+  useImperativeHandle(ref, () => ({
+    startAnimation: () => controls.start("animate"),
+    stopAnimation: () => controls.start("normal"),
+  }));
 
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

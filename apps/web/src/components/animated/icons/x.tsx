@@ -6,7 +6,7 @@
 
 import type { Variants } from "motion/react";
 import { motion, useAnimation } from "motion/react";
-import type { HTMLAttributes, RefObject } from "react";
+import type { HTMLAttributes, Ref } from "react";
 import { useCallback, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
@@ -37,12 +37,14 @@ const XIcon = ({
   size = 28,
   ref,
   ...props
-}: XIconProps & { ref?: RefObject<XIconHandle | null> }) => {
+}: XIconProps & { ref?: Ref<XIconHandle> }) => {
   const controls = useAnimation();
   const isControlledRef = useRef(false);
 
   useImperativeHandle(ref, () => {
-    isControlledRef.current = true;
+    if (ref) {
+      isControlledRef.current = true;
+    }
 
     return {
       startAnimation: () => controls.start("animate"),
