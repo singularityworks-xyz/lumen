@@ -541,7 +541,12 @@ function CommentCard({
           </div>
         )}
 
-        <div className="flex items-center gap-1">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: prevents drag when clicking buttons */}
+        {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
+        <div
+          className="flex items-center gap-1"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {!isEditing && replies.length === 0 && (
             <button
               className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"

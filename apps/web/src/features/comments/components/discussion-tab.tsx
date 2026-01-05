@@ -46,6 +46,12 @@ const ChatBubble = memo(
   }: ChatBubbleProps) => {
     const { collaborators, localUser } = useCollaboration();
     const messageRef = useRef<HTMLDivElement>(null);
+    const chatMessagesById = useKanbanStore((state) => state.chatMessages.byId);
+
+    // Check if the replied-to message still exists
+    const replyToMessageExists = message.replyToId
+      ? !!chatMessagesById[message.replyToId]
+      : false;
 
     // Scroll into view when highlighted
     useEffect(() => {
@@ -170,21 +176,35 @@ const ChatBubble = memo(
               className={cn(
                 "mb-0.5 flex max-w-full items-center gap-1 rounded px-2 py-0.5",
                 "bg-muted/50 text-muted-foreground/70",
-                "text-[9px] transition-colors hover:bg-muted/80 hover:text-foreground",
-                "cursor-pointer text-left"
+                "text-[9px] transition-colors",
+                replyToMessageExists
+                  ? "cursor-pointer hover:bg-muted/80 hover:text-foreground"
+                  : "cursor-default",
+                "text-left"
               )}
-              // biome-ignore lint/style/noNonNullAssertion: there would be no replyToId without replyToContent
-              onClick={() => onReplyClick(message.replyToId!)}
+              onClick={
+                replyToMessageExists
+                  ? () => onReplyClick(message.replyToId as string)
+                  : undefined
+              }
               type="button"
             >
               <Reply className="h-2 w-2 shrink-0" />
-              <span className="max-w-20 shrink-0 truncate font-medium">
-                {message.replyToAuthorName === localUser?.name
-                  ? "You"
-                  : message.replyToAuthorName}
-                :
-              </span>
-              <span className="truncate">{message.replyToContent}</span>
+              {replyToMessageExists ? (
+                <>
+                  <span className="max-w-20 shrink-0 truncate font-medium">
+                    {message.replyToAuthorName === localUser?.name
+                      ? "You"
+                      : message.replyToAuthorName}
+                    :
+                  </span>
+                  <span className="truncate">{message.replyToContent}</span>
+                </>
+              ) : (
+                <span className="truncate text-muted-foreground/50 italic">
+                  deleted message
+                </span>
+              )}
             </button>
           )}
 
