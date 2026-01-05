@@ -11,6 +11,11 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 1024
+  resource:
+    attributes:
+      - key: service_name
+        from_attribute: service.name
+        action: upsert
 
 exporters:
   # Traces to Tempo via OTLP
@@ -39,15 +44,15 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [resource, batch]
       exporters: [otlp/tempo]
-    
+
     metrics:
       receivers: [otlp]
-      processors: [batch]
+      processors: [resource, batch]
       exporters: [prometheusremotewrite]
-    
+
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [resource, batch]
       exporters: [otlphttp/loki]

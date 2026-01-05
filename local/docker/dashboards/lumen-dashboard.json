@@ -1061,14 +1061,25 @@
       "targets": [
         {
           "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "limit": 20,
-          "query": "",
-          "queryType": "traceqlMetrics",
-          "refId": "A",
-          "tableType": "spans"
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{service=~\"lumen-.+\"}[5m])) by (le, service))",
+          "legendFormat": "{{service}} P95",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum(rate(traces_spanmetrics_latency_bucket{service=~\"lumen-.+\"}[5m])) by (le, service))",
+          "legendFormat": "{{service}} P50",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Trace Duration",
@@ -1153,13 +1164,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "limit": 20,
-          "queryType": "traceqlMetrics",
-          "refId": "A",
-          "tableType": "spans"
+          "editorMode": "code",
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"lumen-.+\"}[5m])) by (service)",
+          "legendFormat": "{{service}}",
+          "range": true,
+          "refId": "A"
         }
       ],
       "title": "Spans per Service",
@@ -1194,7 +1206,8 @@
             "uid": "tempo"
           },
           "limit": 20,
-          "queryType": "traceqlSearch",
+          "query": "{resource.service.name=~\"lumen-.+\"}",
+          "queryType": "traceql",
           "refId": "A"
         }
       ],
@@ -1243,7 +1256,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{service_name=~\".+\"}",
+          "expr": "{service_name=~\"lumen-.+\"}",
           "queryType": "range",
           "refId": "A"
         }
