@@ -138,6 +138,7 @@ export const YJS_MAP_NAMES = {
   TASK_DETAIL_MODALS: "taskDetailModals",
   AREA_DRAG_ORIGINS: "areaDragOrigins",
   COMMENTS: "comments",
+  CHAT_MESSAGES: "chatMessages",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];

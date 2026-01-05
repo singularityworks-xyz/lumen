@@ -8,6 +8,7 @@ import {
   BoardPositionSchema,
   BoardQuickActionsSchema,
   BoardSchema,
+  ChatMessageSchema,
   ColumnDialogSchema,
   ColumnQuickActionsSchema,
   ColumnSchema,
@@ -27,6 +28,7 @@ import type {
   BoardDialogState,
   BoardPosition,
   BoardQuickActionsState,
+  ChatMessage,
   Column,
   Comment,
   CreateTaskModalState,
@@ -202,6 +204,12 @@ export const commentSync = createEntitySync<Comment>({
   entityName: "comment",
 });
 
+export const chatMessageSync = createEntitySync<ChatMessage>({
+  mapName: YJS_MAP_NAMES.CHAT_MESSAGES,
+  schema: ChatMessageSchema,
+  entityName: "chatMessage",
+});
+
 export const allSyncs = {
   boards: boardSync,
   columns: columnSync,
@@ -222,4 +230,5 @@ export const allSyncs = {
   taskDetailModals: taskDetailModalSync,
   areaDragOrigins: areaDragOriginSync,
   comments: commentSync,
+  chatMessages: chatMessageSync,
 } as const;

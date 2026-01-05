@@ -90,6 +90,7 @@ export type Collaborator = {
   openDialogs?: OpenDialog[];
   draggingTask?: DraggingTaskState;
   draggingColumn?: DraggingColumnState;
+  isTyping?: boolean;
 };
 
 export type ConnectionState =
@@ -110,6 +111,7 @@ export type CollaborationContextType = {
   updateCursor: (position: CursorPosition | null) => void;
   updateSelection: (selectedIds: string[]) => void;
   updateOpenDialogs: (dialogs: OpenDialog[]) => void;
+  updateIsTyping: (isTyping: boolean) => void;
 };
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -119,7 +121,7 @@ const CollaborationContext = createContext<CollaborationContextType | null>(
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16_000, 30_000];
 const CURSOR_THROTTLE_MS = 16; // ~60fps for smooth cursor updates - will turn it down if needed
 
-const CURSOR_COLORS = [
+export const CURSOR_COLORS = [
   "#ef4444", // red
   "#f97316", // orange
   "#eab308", // yellow
@@ -132,7 +134,7 @@ const CURSOR_COLORS = [
   "#06b6d4", // cyan
 ];
 
-function getColorForUser(userId: string): string {
+export function getColorForUser(userId: string): string {
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     const char = userId.charCodeAt(i);
@@ -253,6 +255,7 @@ export function CollaborationProvider({
           openDialogs: state.openDialogs,
           draggingTask,
           draggingColumn,
+          isTyping: state.isTyping,
         });
       }
     });
@@ -577,6 +580,15 @@ export function CollaborationProvider({
     awareness.setLocalStateField("openDialogs", dialogs);
   }, []);
 
+  const updateIsTyping = useCallback((isTyping: boolean) => {
+    const awareness = awarenessRef.current;
+    if (!awareness) {
+      return;
+    }
+
+    awareness.setLocalStateField("isTyping", isTyping);
+  }, []);
+
   useEffect(() => cleanup, [cleanup]);
 
   return (
@@ -593,6 +605,7 @@ export function CollaborationProvider({
         updateCursor,
         updateSelection,
         updateOpenDialogs,
+        updateIsTyping,
       }}
     >
       {children}

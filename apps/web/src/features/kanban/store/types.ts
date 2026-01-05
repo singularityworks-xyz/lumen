@@ -7,6 +7,7 @@ import type {
   BoardDialogType,
   BoardPosition,
   CanvasState,
+  ChatMessage,
   Column,
   Comment,
   CreateTaskModalFormData,
@@ -30,6 +31,7 @@ export type KanbanState = {
   columns: EntityMap<Column>;
   tasks: EntityMap<Task>;
   comments: EntityMap<Comment>;
+  chatMessages: EntityMap<ChatMessage>;
   boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
   areas: EntityMap<Area>;
@@ -131,6 +133,7 @@ export type KanbanState = {
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
   // Track drag origins for areas - used to offset contained boards during drag
   areaDragOrigins: Record<string, { originX: number; originY: number }>;
+  lastActiveDrawerTab: "comments" | "discussion";
 };
 
 export type KanbanActions = {
@@ -508,6 +511,11 @@ export type KanbanActions = {
     content: string,
     author: { id: string; name?: string; image?: string }
   ) => void;
+  addReply: (
+    parentId: string,
+    content: string,
+    author: { id: string; name?: string; image?: string }
+  ) => void;
   updateComment: (
     id: string,
     updates: Partial<
@@ -519,6 +527,7 @@ export type KanbanActions = {
         | "lastEditedById"
         | "lastEditorName"
         | "lastEditorImage"
+        | "replyCount"
       >
     >
   ) => void;
@@ -534,18 +543,50 @@ export type KanbanActions = {
           | "lastEditedById"
           | "lastEditorName"
           | "lastEditorImage"
+          | "replyCount"
         >
       >;
     }[]
   ) => void;
   removeComment: (id: string) => void;
   finalizeCommentsDrag: (commentIds: string[]) => void;
+  getRepliesForComment: (parentId: string) => Comment[];
 
   // Z-index management
   bringDialogToFront: (dialogId: string) => void;
   registerDialog: (dialogId: string) => void;
   unregisterDialog: (dialogId: string) => void;
   getDialogZIndex: (dialogId: string) => number;
+
+  // Chat actions (workspace discussion)
+  sendChatMessage: (
+    content: string,
+    author: { id: string; name: string; image?: string },
+    options?: {
+      replyToId?: string;
+      replyToContent?: string;
+      replyToAuthorName?: string;
+      mentions?: Array<{
+        userId: string;
+        userName: string;
+        startIndex: number;
+        endIndex: number;
+      }>;
+    }
+  ) => void;
+  editChatMessage: (
+    id: string,
+    content: string,
+    mentions?: Array<{
+      userId: string;
+      userName: string;
+      startIndex: number;
+      endIndex: number;
+    }>
+  ) => void;
+  deleteChatMessage: (id: string) => void;
+  getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
+  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
 };
 
 export type KanbanStore = KanbanState & KanbanActions;

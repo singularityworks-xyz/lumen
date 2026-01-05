@@ -8,9 +8,13 @@ import {
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
-import { CheckCircle2, GripVertical, Plus, SquarePen, X } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
+import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical";
+import { PlusIcon } from "@/src/components/animated/icons/plus";
+import { SquarePenIcon } from "@/src/components/animated/icons/square-pen";
+import { XIcon } from "@/src/components/animated/icons/x";
 import { Button } from "@/src/components/ui/button";
 import {
   Popover,
@@ -629,7 +633,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             }
           >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <GripVerticalIcon
+                className="shrink-0 text-muted-foreground"
+                size={14}
+              />
               <div className="flex min-w-0 items-center gap-1">
                 {board.icon && (
                   <span
@@ -726,7 +733,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                   title="Edit board"
                   type="button"
                 >
-                  <SquarePen className="h-3 w-3 text-muted-foreground" />
+                  <SquarePenIcon className="text-muted-foreground" size={10} />
                 </button>
               </div>
             </div>
@@ -742,7 +749,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 size="sm"
                 variant="ghost"
               >
-                <Plus className="h-3 w-3" />
+                <PlusIcon size={16} />
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
               <Popover
@@ -755,7 +762,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                     onClick={handleRemove}
                     type="button"
                   >
-                    <X className="h-3 w-3" />
+                    <XIcon size={14} />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -773,7 +780,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                       onClick={handleConfirmDelete}
                       type="button"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <XIcon size={14} />
                     </button>
                   </div>
                 </PopoverContent>

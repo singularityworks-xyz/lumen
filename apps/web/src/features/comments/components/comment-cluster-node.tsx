@@ -6,6 +6,7 @@ import {
   useReactFlow,
   useViewport,
 } from "@xyflow/react";
+import { Reply } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
@@ -13,8 +14,10 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { useCollaboration } from "@/src/features/collab";
+import { useKanbanStore } from "@/src/features/kanban/store";
 import { cn } from "@/src/lib/utils";
 import type { Comment } from "../../kanban/types";
+import { useCommentUIStore } from "../stores/comment-ui-store";
 import { CommentClusterDialog } from "./comment-cluster-dialog";
 
 type CommentClusterNodeData = {
@@ -24,7 +27,7 @@ type CommentClusterNodeData = {
 };
 
 export const CommentClusterNode = memo(
-  ({ data, selected }: NodeProps<Node<CommentClusterNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<CommentClusterNodeData>>) => {
     const { comments, centroid, isSingle } = data;
     const [isOpen, setIsOpen] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -32,6 +35,19 @@ export const CommentClusterNode = memo(
     const { zoom, x: vpX, y: vpY } = useViewport();
     const { flowToScreenPosition } = useReactFlow();
     const displayComments = comments.slice(0, 5);
+
+    const openClusterId = useCommentUIStore((state) => state.openClusterId);
+    const clearOpenCluster = useCommentUIStore(
+      (state) => state.clearOpenCluster
+    );
+
+    // Auto-open when this cluster is requested to open from drawer
+    useEffect(() => {
+      if (openClusterId && openClusterId === id && !isOpen) {
+        setIsOpen(true);
+        clearOpenCluster();
+      }
+    }, [openClusterId, id, isOpen, clearOpenCluster]);
 
     // Convert centroid flow position to screen position
     // This updates when viewport changes (pan/zoom), keeping dialog anchored to canvas
@@ -51,6 +67,55 @@ export const CommentClusterNode = memo(
     const hasOwnEmptyComment = comments.some(
       (c) => c.content === "" && c.authorId === localUser?.id
     );
+
+    // Subscribe to all comments to derive replies for both single and cluster views
+    const allComments = useKanbanStore((state) => state.comments.byId);
+    const commentIds = useMemo(() => comments.map((c) => c.id), [comments]);
+
+    const replies = useMemo(() => {
+      if (!allComments) {
+        return [];
+      }
+      // Get all replies for all comments in this cluster
+      return Object.values(allComments).filter(
+        (c) => c.parentId && commentIds.includes(c.parentId)
+      );
+    }, [allComments, commentIds]);
+
+    const replyAuthors = useMemo(() => {
+      const uniqueAuthors = new Map();
+      // Iterate replies to find unique authors
+      for (const r of replies) {
+        if (uniqueAuthors.has(r.authorId)) {
+          continue;
+        }
+
+        const isOwn = localUser?.id === r.authorId;
+        const user = isOwn
+          ? localUser
+          : collaborators.find((c) => c.id === r.authorId);
+
+        if (user) {
+          uniqueAuthors.set(r.authorId, {
+            id: r.authorId,
+            name: user.name,
+            image: user.image,
+            color: isOwn ? undefined : user.color,
+            isOwn,
+          });
+        } else {
+          // Fallback to stored info on reply for offline users
+          uniqueAuthors.set(r.authorId, {
+            id: r.authorId,
+            name: r.authorName ?? "Unknown",
+            image: r.authorImage,
+            color: "#6e6e6e",
+            isOwn: false,
+          });
+        }
+      }
+      return Array.from(uniqueAuthors.values());
+    }, [replies, collaborators, localUser]);
 
     useEffect(() => {
       if (hasOwnEmptyComment && !isOpen) {
@@ -143,6 +208,31 @@ export const CommentClusterNode = memo(
               type="source"
             />
           </button>
+
+          {replyAuthors.length > 0 && (
+            <div className="pointer-events-none absolute -top-1 left-full z-10 ml-0.5 flex items-center gap-0.5 rounded-full border border-border/50 bg-muted px-1 py-0.5 opacity-100 shadow-xs transition-opacity duration-200 group-hover:opacity-0">
+              <Reply className="h-2 w-2 text-muted-foreground" />
+              <div className="flex -space-x-1">
+                {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                  <Avatar
+                    className="h-3 w-3 border border-background ring-1 ring-border/10"
+                    key={replyAuthor.id}
+                    style={{ zIndex: 10 - i }}
+                  >
+                    <AvatarImage src={replyAuthor.image ?? undefined} />
+                    <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                      {replyAuthor.name.slice(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {replyAuthors.length > 3 && (
+                  <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
+                    +{replyAuthors.length - 3}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {isOpen && (
             <CommentClusterDialog
               comments={comments}
@@ -277,13 +367,42 @@ export const CommentClusterNode = memo(
           </div>
 
           <div
-            className="absolute flex h-5 min-w-5 items-center justify-center rounded-full bg-linear-to-b from-muted to-muted/80 px-1.5 font-bold text-[10px] text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.15)] dark:from-muted/90 dark:to-muted/70 dark:shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_3px_rgba(0,0,0,0.3),inset_0_-1px_1px_rgba(255,255,255,0.08)]"
+            className="absolute flex h-5 min-w-5 items-center justify-center gap-1 rounded-full bg-linear-to-b from-muted to-muted/80 px-1.5 font-bold text-[10px] text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.15)] dark:from-muted/90 dark:to-muted/70 dark:shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_3px_rgba(0,0,0,0.3),inset_0_-1px_1px_rgba(255,255,255,0.08)]"
             style={{
               top: -8,
               right: -10,
             }}
           >
-            {comments.length}
+            <span>{comments.length}</span>
+            {replyAuthors.length > 0 && (
+              <>
+                <span className="font-light text-[8px] text-muted-foreground/30">
+                  |
+                </span>
+                <div className="flex items-center gap-0.5">
+                  <Reply className="h-2 w-2 text-muted-foreground" />
+                  <div className="flex -space-x-1">
+                    {replyAuthors.slice(0, 3).map((replyAuthor, i) => (
+                      <Avatar
+                        className="h-3 w-3 border border-background ring-1 ring-border/10"
+                        key={replyAuthor.id}
+                        style={{ zIndex: 10 - i }}
+                      >
+                        <AvatarImage src={replyAuthor.image ?? undefined} />
+                        <AvatarFallback className="bg-background text-[4px] text-muted-foreground">
+                          {replyAuthor.name.slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {replyAuthors.length > 3 && (
+                      <div className="z-0 flex h-3 w-3 items-center justify-center rounded-full border border-background bg-background font-bold text-[5px] text-muted-foreground ring-1 ring-border/10">
+                        +{replyAuthors.length - 3}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <Handle

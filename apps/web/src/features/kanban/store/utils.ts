@@ -39,6 +39,7 @@ export function createInitialState(): KanbanState {
     columns: { byId: {}, allIds: [] },
     tasks: { byId: {}, allIds: [] },
     comments: { byId: {}, allIds: [] },
+    chatMessages: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
     boardConnections: { byId: {}, allIds: [] },
     areas: { byId: {}, allIds: [] },
@@ -76,5 +77,6 @@ export function createInitialState(): KanbanState {
     isProfileModalOpen: false,
     lastTaskModalPositions: {},
     areaDragOrigins: {},
+    lastActiveDrawerTab: "comments",
   };
 }

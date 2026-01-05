@@ -13,9 +13,11 @@ export const BoardPresenceIndicator = memo<BoardPresenceIndicatorProps>(
         style={{
           borderColor: activeCollaborator.color,
           boxShadow: `
-              0 0 0 1px rgba(0,0,0,0.05),
-              0 4px 12px -2px ${activeCollaborator.color}40,
-              inset 0 1px 4px rgba(255,255,255,0.1)
+              0 0 0 1px rgba(0,0,0,0.08),
+              0 4px 16px -2px ${activeCollaborator.color}50,
+              0 8px 24px -4px rgba(0,0,0,0.15),
+              inset 0 2px 8px rgba(255,255,255,0.15),
+              inset 0 -2px 6px rgba(0,0,0,0.2)
             `,
         }}
       />
@@ -27,10 +29,18 @@ export const BoardPresenceIndicator = memo<BoardPresenceIndicatorProps>(
         }}
       >
         <div
-          className="truncate rounded-md border border-white/20 px-2.5 py-1 font-bold text-[10px] text-white shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)] backdrop-blur-sm"
+          className="truncate rounded-md border border-white/25 px-2.5 py-1 font-bold text-[10px] text-white backdrop-blur-sm"
           style={{
             backgroundColor: activeCollaborator.color,
-            textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+            textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+            boxShadow: `
+              0 4px 12px rgba(0,0,0,0.25),
+              0 2px 6px rgba(0,0,0,0.15),
+              inset 0 2px 4px rgba(255,255,255,0.35),
+              inset 0 -2px 6px rgba(0,0,0,0.25),
+              inset 1px 0 2px rgba(255,255,255,0.1),
+              inset -1px 0 2px rgba(0,0,0,0.15)
+            `,
           }}
         >
           {activeCollaborator.name}

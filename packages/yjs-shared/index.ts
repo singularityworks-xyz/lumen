@@ -20,6 +20,7 @@ export const YJS_MAP_NAMES = {
   TASK_QUICK_ACTIONS: "taskQuickActions",
   TASK_DETAIL_MODALS: "taskDetailModals",
   COMMENTS: "comments",
+  CHAT_MESSAGES: "chatMessages",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
@@ -346,6 +347,35 @@ export const CommentSchema = z.object({
   lastEditedById: z.string().optional(),
   lastEditorName: z.string().optional(),
   lastEditorImage: z.string().optional(),
+  parentId: z.string().optional(),
+  replyCount: z.number().optional(),
+});
+
+// Chat message schema for workspace discussion
+export const ChatMessageSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  authorId: z.string(),
+  authorName: z.string(),
+  authorImage: z.string().optional(),
+  workspaceId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  replyToId: z.string().optional(),
+  replyToContent: z.string().optional(),
+  replyToAuthorName: z.string().optional(),
+  mentions: z
+    .array(
+      z.object({
+        userId: z.string(),
+        userName: z.string(),
+        startIndex: z.number(),
+        endIndex: z.number(),
+      })
+    )
+    .optional(),
+  isEdited: z.boolean().optional(),
+  lastEditedAt: z.string().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
@@ -369,6 +399,7 @@ export type CreateTaskModalFormData = z.infer<
 export type TaskQuickActionsState = z.infer<typeof TaskQuickActionsSchema>;
 export type TaskDetailModalState = z.infer<typeof TaskDetailModalSchema>;
 export type Comment = z.infer<typeof CommentSchema>;
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type AreaDialogState = z.infer<typeof AreaDialogSchema>;
 
 export type ValidationResult<T> =

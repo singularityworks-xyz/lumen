@@ -1,4 +1,4 @@
-export type { BoardQuickActionsState } from "@lumen/yjs-shared";
+export type { BoardQuickActionsState, ChatMessage } from "@lumen/yjs-shared";
 
 export type Profile = {
   id: string;
@@ -62,6 +62,8 @@ export type Comment = {
   lastEditedById?: string;
   lastEditorName?: string;
   lastEditorImage?: string;
+  parentId?: string;
+  replyCount?: number;
 };
 
 export type Board = {

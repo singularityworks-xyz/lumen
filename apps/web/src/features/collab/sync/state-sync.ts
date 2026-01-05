@@ -16,6 +16,7 @@ import {
   boardPositionSync,
   boardQuickActionsSync,
   boardSync,
+  chatMessageSync,
   columnDialogSync,
   columnQuickActionsSync,
   columnSync,
@@ -109,6 +110,9 @@ export function applyYjsToState(
   );
   const syncedComments = commentSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.COMMENTS)
+  );
+  const syncedChatMessages = chatMessageSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.CHAT_MESSAGES)
   );
 
   // Helper to merge entity maps, handling additions, updates, AND deletions
@@ -369,6 +373,17 @@ export function applyYjsToState(
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
   });
 
+  const chatMessages = mergeEntityMaps(
+    currentState?.chatMessages,
+    syncedChatMessages,
+    {
+      filterFn: (msg) =>
+        !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
+      belongsToWorkspaceFn: (msg) =>
+        !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
+    }
+  );
+
   // Sync dialogs - these don't need workspace filtering (ephemeral UI state)
   const syncedBoardQuickActions = boardQuickActionsSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.BOARD_QUICK_ACTIONS)
@@ -616,6 +631,7 @@ export function applyYjsToState(
     areas,
     areaPositions,
     comments,
+    chatMessages,
     areaDragOrigins,
     areaDialogs,
     boardQuickActions,
@@ -883,6 +899,25 @@ export function initializeYjsForWorkspace(
     });
   }
 
+  const workspaceChatMessages =
+    state.chatMessages?.allIds
+      ?.map((id) => state.chatMessages.byId[id])
+      ?.filter((msg) => msg && msg.workspaceId === workspaceId) ?? [];
+
+  const chatMessagesMap = doc.getMap(YJS_MAP_NAMES.CHAT_MESSAGES);
+  if (chatMessagesMap.size === 0 && workspaceChatMessages.length > 0) {
+    doc.transact(() => {
+      for (const msg of workspaceChatMessages) {
+        if (msg) {
+          chatMessagesMap.set(msg.id, msg);
+        }
+      }
+    });
+    logger.debug("Initialized chat messages in Yjs", {
+      count: workspaceChatMessages.length,
+    });
+  }
+
   logger.info("Initialized Yjs for workspace", {
     workspaceId,
     boards: workspaceBoards.length,
@@ -915,6 +950,7 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.TASK_QUICK_ACTIONS),
     doc.getMap(YJS_MAP_NAMES.AREA_DIALOGS),
     doc.getMap(YJS_MAP_NAMES.COMMENTS),
+    doc.getMap(YJS_MAP_NAMES.CHAT_MESSAGES),
   ];
 
   for (const map of maps) {

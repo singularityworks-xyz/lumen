@@ -11,6 +11,11 @@ export type CommentSlice = {
     content: string,
     author: { id: string; name?: string; image?: string }
   ) => void;
+  addReply: (
+    parentId: string,
+    content: string,
+    author: { id: string; name?: string; image?: string }
+  ) => void;
   updateComment: (
     id: string,
     updates: Partial<
@@ -22,6 +27,7 @@ export type CommentSlice = {
         | "lastEditedById"
         | "lastEditorName"
         | "lastEditorImage"
+        | "replyCount"
       >
     >
   ) => void;
@@ -37,13 +43,16 @@ export type CommentSlice = {
           | "lastEditedById"
           | "lastEditorName"
           | "lastEditorImage"
+          | "replyCount"
         >
       >;
     }[]
   ) => void;
   removeComment: (id: string) => void;
-  // Touch comments to bypass sync throttling and ensure final positions are synced
   finalizeCommentsDrag: (commentIds: string[]) => void;
+  getRepliesForComment: (parentId: string) => Comment[];
+  lastActiveDrawerTab: "comments" | "discussion";
+  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
 };
 
 type SliceCreator = (
@@ -55,6 +64,12 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
   comments: {
     byId: {},
     allIds: [],
+  },
+  lastActiveDrawerTab: "comments",
+  setLastActiveDrawerTab: (tab) => {
+    set((state) => {
+      state.lastActiveDrawerTab = tab;
+    });
   },
   addComment: (position, content, author) => {
     const currentState = get();
@@ -73,11 +88,44 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
       workspaceId: currentState.currentWorkspaceId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      replyCount: 0,
     };
 
     set((state) => {
       state.comments.byId[newComment.id] = newComment;
       state.comments.allIds.push(newComment.id);
+    });
+  },
+  addReply: (parentId, content, author) => {
+    const currentState = get();
+    const parentComment = currentState.comments.byId[parentId];
+    if (!(parentComment && currentState.currentWorkspaceId)) {
+      return;
+    }
+
+    const newReply: Comment = {
+      id: crypto.randomUUID(),
+      x: parentComment.x,
+      y: parentComment.y,
+      content,
+      authorId: author.id,
+      authorName: author.name,
+      authorImage: author.image,
+      workspaceId: currentState.currentWorkspaceId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      parentId,
+      replyCount: 0,
+    };
+
+    set((state) => {
+      state.comments.byId[newReply.id] = newReply;
+      state.comments.allIds.push(newReply.id);
+      const parent = state.comments.byId[parentId];
+      if (parent) {
+        parent.replyCount = (parent.replyCount ?? 0) + 1;
+        parent.updatedAt = new Date().toISOString();
+      }
     });
   },
   updateComment: (id, updates) => {
@@ -101,6 +149,9 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
         }
         if (updates.lastEditorImage !== undefined) {
           comment.lastEditorImage = updates.lastEditorImage;
+        }
+        if (updates.replyCount !== undefined) {
+          comment.replyCount = updates.replyCount;
         }
         comment.updatedAt = new Date().toISOString();
       }
@@ -130,6 +181,9 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
           if (changes.lastEditorImage !== undefined) {
             comment.lastEditorImage = changes.lastEditorImage;
           }
+          if (changes.replyCount !== undefined) {
+            comment.replyCount = changes.replyCount;
+          }
           comment.updatedAt = now;
         }
       }
@@ -137,9 +191,45 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
   },
   removeComment: (id) => {
     set((state) => {
-      delete state.comments.byId[id];
+      const comment = state.comments.byId[id];
+      if (!comment) {
+        return;
+      }
+
+      // Track all IDs to remove (for efficient allIds filtering at the end)
+      const idsToRemove = new Set<string>();
+
+      // Recursive helper to collect all descendant IDs
+      const collectDescendants = (parentId: string) => {
+        idsToRemove.add(parentId);
+        for (const cid of state.comments.allIds) {
+          const c = state.comments.byId[cid];
+          if (c?.parentId === parentId && !idsToRemove.has(cid)) {
+            collectDescendants(cid);
+          }
+        }
+      };
+
+      // Update parent's reply count if the deleted comment is a reply
+      if (comment.parentId) {
+        const parent = state.comments.byId[comment.parentId];
+        if (parent && (parent.replyCount ?? 0) > 0) {
+          parent.replyCount = (parent.replyCount ?? 1) - 1;
+          parent.updatedAt = new Date().toISOString();
+        }
+      }
+
+      // Collect the comment and all its descendants
+      collectDescendants(id);
+
+      // Delete all collected comments from byId
+      for (const removeId of idsToRemove) {
+        delete state.comments.byId[removeId];
+      }
+
+      // Filter out all removed IDs from allIds
       state.comments.allIds = state.comments.allIds.filter(
-        (commentId) => commentId !== id
+        (commentId) => !idsToRemove.has(commentId)
       );
     });
   },
@@ -154,5 +244,15 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
         }
       }
     });
+  },
+  getRepliesForComment: (parentId) => {
+    const state = get();
+    return state.comments.allIds
+      .map((id) => state.comments.byId[id])
+      .filter((c): c is Comment => !!c && c.parentId === parentId)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
   },
 });
