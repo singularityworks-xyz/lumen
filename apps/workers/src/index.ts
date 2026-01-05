@@ -1,9 +1,14 @@
 import { cors } from "@elysiajs/cors";
+import { opentelemetry } from "@elysiajs/opentelemetry";
 import { createLogger } from "@lumen/logger";
+import { initOtel, shutdownOtel } from "@lumen/logger/server";
 import { Elysia } from "elysia";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
+import { otelMetrics } from "./middleware/otel-metrics";
+
+initOtel("lumen-workers");
 
 const logger = createLogger({ name: "workers:main" });
 
@@ -17,6 +22,8 @@ const origins =
   allowedOrigins.length > 0 ? allowedOrigins : ["http://localhost:3000"];
 
 const app = new Elysia()
+  .use(opentelemetry())
+  .use(otelMetrics)
   .use(
     cors({
       origin: origins,
@@ -94,3 +101,18 @@ logger.info("Server started successfully", {
   port: app.server?.port,
   url: `http://${app.server?.hostname}:${app.server?.port}`,
 });
+
+// Graceful shutdown
+let isShuttingDown = false;
+const shutdown = async () => {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+  logger.info("Shutting down...");
+  await shutdownOtel();
+  process.exit(0);
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
