@@ -9,7 +9,7 @@ export const env = createEnv({
       .transform((v) => v !== "false")
       .default(true),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_SERVICE_NAME: z.string().default("lumen-logger"),
+    OTEL_SERVICE_NAME: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

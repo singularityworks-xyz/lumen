@@ -1,6 +1,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { withSpanAsync } from "@lumen/logger/tracer";
 import { User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
@@ -51,7 +52,7 @@ export function useJoinWorkspace({
 
   const apiUrl = env.NEXT_PUBLIC_API_URL;
 
-  const validateToken = useCallback(async () => {
+  const validateToken = useCallback(() => {
     if (!shareToken) {
       return;
     }
@@ -59,34 +60,44 @@ export function useJoinWorkspace({
     setJoinState("validating");
     setError(null);
 
-    try {
-      const response = await fetch(`${apiUrl}/api/share/${shareToken}`);
-      const data = await response.json();
+    return withSpanAsync("share.validateToken", async (span) => {
+      span.setAttribute("share.token", `${shareToken.substring(0, 8)}...`);
 
-      if (!response.ok) {
-        setError(data.error || "Invalid share link");
+      try {
+        const response = await fetch(`${apiUrl}/api/share/${shareToken}`);
+        const data = await response.json();
+
+        span.setAttribute("http.status_code", response.status);
+
+        if (!response.ok) {
+          setError(data.error || "Invalid share link");
+          setJoinState("error");
+          span.setAttribute("share.validate.success", false);
+          onJoinError?.(data.error || "Invalid share link");
+          return;
+        }
+
+        setWorkspaceInfo({
+          workspaceId: data.workspaceId,
+          workspaceName: data.workspaceName,
+          owner: data.owner,
+        });
+        span.setAttribute("share.validate.success", true);
+        span.setAttribute("workspace.id", data.workspaceId);
+        logger.info("Share token validated", { workspaceId: data.workspaceId });
+        // Stay in "validating" state - the useEffect will trigger join if authenticated
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to validate share link";
+        setError(message);
         setJoinState("error");
-        onJoinError?.(data.error || "Invalid share link");
-        return;
+        onJoinError?.(message);
+        throw err;
       }
-
-      setWorkspaceInfo({
-        workspaceId: data.workspaceId,
-        workspaceName: data.workspaceName,
-        owner: data.owner,
-      });
-      logger.info("Share token validated", { workspaceId: data.workspaceId });
-      // Stay in "validating" state - the useEffect will trigger join if authenticated
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to validate share link";
-      setError(message);
-      setJoinState("error");
-      onJoinError?.(message);
-    }
+    });
   }, [shareToken, apiUrl, onJoinError]);
 
-  const joinWorkspace = useCallback(async () => {
+  const joinWorkspace = useCallback(() => {
     if (!(shareToken && isAuthenticated && workspaceInfo)) {
       return;
     }
@@ -94,43 +105,53 @@ export function useJoinWorkspace({
     setJoinState("joining");
     setError(null);
 
-    try {
-      const response = await fetch(`${apiUrl}/api/share/${shareToken}/join`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    return withSpanAsync("share.joinWorkspace", async (span) => {
+      span.setAttribute("workspace.id", workspaceInfo.workspaceId);
 
-      const data = await response.json();
+      try {
+        const response = await fetch(`${apiUrl}/api/share/${shareToken}/join`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-      if (!response.ok) {
-        setError(data.error || "Failed to join workspace");
+        const data = await response.json();
+
+        span.setAttribute("http.status_code", response.status);
+
+        if (!response.ok) {
+          setError(data.error || "Failed to join workspace");
+          setJoinState("error");
+          span.setAttribute("share.join.success", false);
+          onJoinError?.(data.error || "Failed to join workspace");
+          return;
+        }
+
+        setJoinState("success");
+        span.setAttribute("share.join.success", true);
+        span.setAttribute("share.join.role", data.role);
+        logger.info("Successfully joined workspace", {
+          workspaceId: data.workspaceId,
+          role: data.role,
+        });
+
+        onJoinSuccess?.({
+          workspaceId: data.workspaceId,
+          role: data.role,
+          workspaceName: data.workspaceName,
+          owner: data.owner,
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to join workspace";
+        setError(message);
         setJoinState("error");
-        onJoinError?.(data.error || "Failed to join workspace");
-        return;
+        onJoinError?.(message);
+        throw err;
       }
-
-      setJoinState("success");
-      logger.info("Successfully joined workspace", {
-        workspaceId: data.workspaceId,
-        role: data.role,
-      });
-
-      onJoinSuccess?.({
-        workspaceId: data.workspaceId,
-        role: data.role,
-        workspaceName: data.workspaceName,
-        owner: data.owner,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to join workspace";
-      setError(message);
-      setJoinState("error");
-      onJoinError?.(message);
-    }
+    });
   }, [
     shareToken,
     isAuthenticated,

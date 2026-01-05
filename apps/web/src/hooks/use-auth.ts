@@ -1,6 +1,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { withSpanAsync } from "@lumen/logger/tracer";
 import {
   initializeNativeAuth,
   isTauri,
@@ -45,40 +46,49 @@ export type UseAuthReturn = {
   exchangeManualToken: (token: string) => Promise<boolean>;
 };
 
-async function exchangeTokenForSession(token: string): Promise<boolean> {
-  try {
-    const apiBaseUrl = env.NEXT_PUBLIC_API_URL;
+function exchangeTokenForSession(token: string): Promise<boolean> {
+  return withSpanAsync("auth.exchangeToken", async (span) => {
+    try {
+      const apiBaseUrl = env.NEXT_PUBLIC_API_URL;
 
-    const response = await fetch(
-      `${apiBaseUrl}/api/auth/native/exchange-token`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
+      const response = await fetch(
+        `${apiBaseUrl}/api/auth/native/exchange-token`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        }
+      );
+
+      span.setAttribute("http.status_code", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        logger.error("Token exchange failed", {
+          status: response.status,
+          error: errorData.message,
+        });
+        span.setAttribute("auth.exchange.success", false);
+        return false;
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      logger.error("Token exchange failed", {
-        status: response.status,
-        error: errorData.message,
+      const data = await response.json();
+      logger.info("Token exchange successful", { userId: data.user?.id });
+      span.setAttribute("auth.exchange.success", true);
+      if (data.user?.id) {
+        span.setAttribute("user.id", data.user.id);
+      }
+      return true;
+    } catch (error) {
+      logger.error("Token exchange error", {
+        error: error instanceof Error ? error.message : "Unknown error",
       });
-      return false;
+      throw error;
     }
-
-    const data = await response.json();
-    logger.info("Token exchange successful", { userId: data.user?.id });
-    return true;
-  } catch (error) {
-    logger.error("Token exchange error", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return false;
-  }
+  });
 }
 
 export function useAuth(): UseAuthReturn {
@@ -156,81 +166,97 @@ export function useAuth(): UseAuthReturn {
     };
   }, [handleDeepLinkCallback]);
 
-  const signInWithGitHub = async (callbackURL = "/") => {
-    try {
-      logger.info("Initiating GitHub sign in", {
-        callbackURL,
-        isTauri: isTauri(),
-      });
+  const signInWithGitHub = (callbackURL = "/") => {
+    return withSpanAsync("auth.signInWithGitHub", async (span) => {
+      const isNative = isTauri();
+      span.setAttribute("auth.provider", "github");
+      span.setAttribute("auth.isNative", isNative);
 
-      if (isTauri()) {
-        const webUrl =
-          typeof window !== "undefined"
-            ? window.location.origin
-            : "http://localhost:3000";
-
-        // Build the URL to the OAuth launcher page
-        // This page runs in the external browser and calls signIn.social there,
-        // ensuring the OAuth state cookie is set in the same browser context
-        const launcherUrl = new URL(`${webUrl}/auth/native-signin`);
-        launcherUrl.searchParams.set("provider", "github");
-        launcherUrl.searchParams.set("callbackURL", "/auth/native-callback");
-
-        logger.info("Opening external browser for OAuth", {
-          launcherUrl: launcherUrl.toString(),
+      try {
+        logger.info("Initiating GitHub sign in", {
+          callbackURL,
+          isTauri: isNative,
         });
 
-        await openExternalBrowser(launcherUrl.toString());
-        logger.info("External browser opened for GitHub sign in");
-        return;
+        if (isNative) {
+          const webUrl =
+            typeof window !== "undefined"
+              ? window.location.origin
+              : "http://localhost:3000";
+
+          // Build the URL to the OAuth launcher page
+          // This page runs in the external browser and calls signIn.social there,
+          // ensuring the OAuth state cookie is set in the same browser context
+          const launcherUrl = new URL(`${webUrl}/auth/native-signin`);
+          launcherUrl.searchParams.set("provider", "github");
+          launcherUrl.searchParams.set("callbackURL", "/auth/native-callback");
+
+          logger.info("Opening external browser for OAuth", {
+            launcherUrl: launcherUrl.toString(),
+          });
+
+          await openExternalBrowser(launcherUrl.toString());
+          logger.info("External browser opened for GitHub sign in");
+          span.setAttribute("auth.signIn.method", "external_browser");
+          return;
+        }
+
+        const absoluteCallbackURL = callbackURL.startsWith("http")
+          ? callbackURL
+          : `${window.location.origin}${callbackURL}`;
+
+        await signIn.social({
+          provider: "github",
+          callbackURL: absoluteCallbackURL,
+        });
+
+        logger.info("GitHub sign in initiated successfully");
+        span.setAttribute("auth.signIn.method", "web_redirect");
+      } catch (err) {
+        logger.error("Failed to sign in with GitHub", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+        throw err;
+      }
+    });
+  };
+
+  const signOutUser = async () =>
+    withSpanAsync("auth.signOut", async (span) => {
+      if (data?.user?.id) {
+        span.setAttribute("user.id", data.user.id);
       }
 
-      const absoluteCallbackURL = callbackURL.startsWith("http")
-        ? callbackURL
-        : `${window.location.origin}${callbackURL}`;
+      try {
+        logger.info("Initiating sign out", {
+          userId: data?.user?.id,
+        });
 
-      await signIn.social({
-        provider: "github",
-        callbackURL: absoluteCallbackURL,
-      });
+        await signOut();
 
-      logger.info("GitHub sign in initiated successfully");
-    } catch (err) {
-      logger.error("Failed to sign in with GitHub", {
-        error: err instanceof Error ? err.message : "Unknown error",
-      });
-      throw err;
-    }
-  };
-
-  const signOutUser = async () => {
-    try {
-      logger.info("Initiating sign out", {
-        userId: data?.user?.id,
-      });
-
-      await signOut();
-
-      logger.info("Sign out successful");
-    } catch (err) {
-      logger.error("Failed to sign out", {
-        error: err instanceof Error ? err.message : "Unknown error",
-      });
-      throw err;
-    }
-  };
+        logger.info("Sign out successful");
+        span.setAttribute("auth.signOut.success", true);
+      } catch (err) {
+        logger.error("Failed to sign out", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+        throw err;
+      }
+    });
 
   // Manual token exchange for when deep links don't work (e.g., Linux development)
   // It's always linux, every time it's linux
-  const exchangeManualToken = async (token: string): Promise<boolean> => {
-    logger.info("Manual token exchange initiated");
-    const success = await exchangeTokenForSession(token);
-    if (success) {
-      logger.info("Manual token exchange successful, refreshing session");
-      await refetch();
-    }
-    return success;
-  };
+  const exchangeManualToken = async (token: string): Promise<boolean> =>
+    withSpanAsync("auth.exchangeManualToken", async (span) => {
+      logger.info("Manual token exchange initiated");
+      const success = await exchangeTokenForSession(token);
+      span.setAttribute("auth.exchange.success", success);
+      if (success) {
+        logger.info("Manual token exchange successful, refreshing session");
+        await refetch();
+      }
+      return success;
+    });
 
   return {
     user: data?.user || null,

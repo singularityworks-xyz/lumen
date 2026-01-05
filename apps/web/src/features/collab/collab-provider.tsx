@@ -2,6 +2,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { withSpanAsync } from "@lumen/logger/tracer";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import {
@@ -542,10 +543,18 @@ export function CollaborationProvider({
     [enabled, apiUrl, cleanup, handleAwarenessUpdate]
   );
 
-  const disconnect = useCallback(() => {
-    logger.info("Disconnecting", { workspaceId: workspaceIdRef.current });
-    cleanup();
-  }, [cleanup]);
+  const disconnect = useCallback(
+    () =>
+      withSpanAsync("ws.disconnect", async (span) => {
+        const workspaceId = workspaceIdRef.current;
+        if (workspaceId) {
+          span.setAttribute("workspace.id", workspaceId);
+        }
+        await logger.info("Disconnecting", { workspaceId });
+        cleanup();
+      }),
+    [cleanup]
+  );
 
   const updateCursor = useCallback((position: CursorPosition | null) => {
     const awareness = awarenessRef.current;

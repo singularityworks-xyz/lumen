@@ -6,8 +6,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./logger": "./src/logger.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./tracer": "./src/tracer.ts"
   },
+
   "devDependencies": {
     "@lumen/configs": "workspace:^",
     "@types/node": "^25.0.3",
