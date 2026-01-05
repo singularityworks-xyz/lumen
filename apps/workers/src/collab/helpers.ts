@@ -1,5 +1,10 @@
 import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
+import {
+  recordSpanError,
+  setSpanAttributes,
+  withSpanAsync,
+} from "@lumen/logger/server";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import { roomManager } from "./room-manager";
 
@@ -42,83 +47,94 @@ export function getColorForUser(userId: string): string {
   return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
 }
 
-export async function getCollaborator(
+export function getCollaborator(
   workspaceId: string,
   userId: string
 ): Promise<{ role: Role } | null> {
-  try {
-    const collab = await prisma.workspaceCollaborator.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
-    });
-    if (!collab) {
+  return withSpanAsync("db.getCollaborator", async (span) => {
+    setSpanAttributes({ workspaceId, userId });
+
+    try {
+      const collab = await prisma.workspaceCollaborator.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId } },
+      });
+      if (!collab) {
+        return null;
+      }
+      setSpanAttributes({ role: collab.role });
+      return { role: collab.role };
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to get collaborator", {
+        workspaceId,
+        userId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
       return null;
     }
-    return { role: collab.role };
-  } catch (error) {
-    logger.error("Failed to get collaborator", {
-      workspaceId,
-      userId,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  }
+  });
 }
 
-export async function addCollaborator(
+export function addCollaborator(
   workspaceId: string,
   userId: string,
   role: Role
 ): Promise<void> {
-  try {
-    // Ensure workspace exists before adding collaborator (handles race conditions)
-    if (role === "OWNER") {
-      const workspaceExists = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-        select: { id: true },
-      });
+  return withSpanAsync("db.addCollaborator", async (span) => {
+    setSpanAttributes({ workspaceId, userId, role });
 
-      if (!workspaceExists) {
-        logger.info(
-          { workspaceId, userId },
-          "Lazily creating workspace record for new owner"
-        );
-        // Try to get name from active room first
-        const room = roomManager.getRoom(workspaceId);
-        let initialName = "Untitled Workspace";
-        if (room) {
-          const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
-          const workspaceData = workspaceMap.get(workspaceId) as
-            | { name: string }
-            | undefined;
-          if (workspaceData?.name) {
-            initialName = workspaceData.name;
-          }
-        }
-
-        await prisma.workspace.create({
-          data: {
-            id: workspaceId,
-            name: initialName,
-            ownerId: userId,
-          },
+    try {
+      // Ensure workspace exists before adding collaborator (handles race conditions)
+      if (role === "OWNER") {
+        const workspaceExists = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+          select: { id: true },
         });
-      }
-    }
 
-    await prisma.workspaceCollaborator.upsert({
-      where: { workspaceId_userId: { workspaceId, userId } },
-      update: { role },
-      create: { workspaceId, userId, role },
-    });
-  } catch (error) {
-    logger.error("Failed to add collaborator", {
-      workspaceId,
-      userId,
-      role,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    throw error;
-  }
+        if (!workspaceExists) {
+          logger.info(
+            { workspaceId, userId },
+            "Lazily creating workspace record for new owner"
+          );
+          // Try to get name from active room first
+          const room = roomManager.getRoom(workspaceId);
+          let initialName = "Untitled Workspace";
+          if (room) {
+            const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+            const workspaceData = workspaceMap.get(workspaceId) as
+              | { name: string }
+              | undefined;
+            if (workspaceData?.name) {
+              initialName = workspaceData.name;
+            }
+          }
+
+          await prisma.workspace.create({
+            data: {
+              id: workspaceId,
+              name: initialName,
+              ownerId: userId,
+            },
+          });
+        }
+      }
+
+      await prisma.workspaceCollaborator.upsert({
+        where: { workspaceId_userId: { workspaceId, userId } },
+        update: { role },
+        create: { workspaceId, userId, role },
+      });
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to add collaborator", {
+        workspaceId,
+        userId,
+        role,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  });
 }
 
 /**
@@ -128,151 +144,167 @@ export async function addCollaborator(
  * 2. At least one collaborator (was shared with someone), OR
  * 3. A share link (was explicitly shared)
  */
-export async function checkWorkspaceExistence(
-  idToCheck: string
-): Promise<boolean> {
-  try {
-    const workspaceRecord = await prisma.workspace.findUnique({
-      where: { id: idToCheck },
-      select: { id: true },
-    });
-    if (workspaceRecord) {
-      return true;
-    }
+export function checkWorkspaceExistence(idToCheck: string): Promise<boolean> {
+  return withSpanAsync("db.checkWorkspaceExists", async (span) => {
+    setSpanAttributes({ workspaceId: idToCheck });
 
-    const state = await prisma.workspaceState.findUnique({
-      where: { workspaceId: idToCheck },
-      select: { id: true },
-    });
-    if (state) {
-      return true;
-    }
+    try {
+      const workspaceRecord = await prisma.workspace.findUnique({
+        where: { id: idToCheck },
+        select: { id: true },
+      });
+      if (workspaceRecord) {
+        return true;
+      }
 
-    const collabCount = await prisma.workspaceCollaborator.count({
-      where: { workspaceId: idToCheck },
-    });
-    if (collabCount > 0) {
-      return true;
-    }
+      const state = await prisma.workspaceState.findUnique({
+        where: { workspaceId: idToCheck },
+        select: { id: true },
+      });
+      if (state) {
+        return true;
+      }
 
-    const shareCount = await prisma.workspaceShare.count({
-      where: { workspaceId: idToCheck },
-    });
-    if (shareCount > 0) {
-      return true;
-    }
+      const collabCount = await prisma.workspaceCollaborator.count({
+        where: { workspaceId: idToCheck },
+      });
+      if (collabCount > 0) {
+        return true;
+      }
 
-    return false;
-  } catch (error) {
-    logger.error("Failed to check workspace existence", {
-      workspaceId: idToCheck,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return false;
-  }
+      const shareCount = await prisma.workspaceShare.count({
+        where: { workspaceId: idToCheck },
+      });
+      if (shareCount > 0) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to check workspace existence", {
+        workspaceId: idToCheck,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return false;
+    }
+  });
 }
 
-export async function createShareToken(
+export function createShareToken(
   workspaceId: string,
   createdBy: string,
   expiresAt?: Date
 ): Promise<string> {
-  const token = generateId(16);
-  try {
-    await prisma.workspaceShare.create({
-      data: {
+  return withSpanAsync("db.createShareToken", async (span) => {
+    const token = generateId(16);
+    setSpanAttributes({ workspaceId, createdBy });
+
+    try {
+      await prisma.workspaceShare.create({
+        data: {
+          workspaceId,
+          token,
+          createdBy,
+          expiresAt,
+        },
+      });
+      return token;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to create share token", {
         workspaceId,
-        token,
         createdBy,
-        expiresAt,
-      },
-    });
-    return token;
-  } catch (error) {
-    logger.error("Failed to create share token", {
-      workspaceId,
-      createdBy,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    throw error;
-  }
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  });
 }
 
-export async function getUserInfo(userId: string): Promise<{
+export function getUserInfo(userId: string): Promise<{
   id: string;
   name: string | null;
   image: string | null;
   email: string;
 } | null> {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, image: true, email: true },
-    });
-    return user;
-  } catch (error) {
-    logger.error("Failed to get user info", {
-      userId,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  }
+  return withSpanAsync("db.getUserInfo", async (span) => {
+    setSpanAttributes({ userId });
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, image: true, email: true },
+      });
+      return user;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to get user info", {
+        userId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return null;
+    }
+  });
 }
 
-export async function getWorkspaceName(
-  workspaceId: string
-): Promise<string | null> {
-  try {
-    // Try to get from Workspace table first (authoritative source)
-    const record = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { name: true },
-    });
-    if (record) {
-      return record.name;
+export function getWorkspaceName(workspaceId: string): Promise<string | null> {
+  return withSpanAsync("db.getWorkspaceName", async (span) => {
+    setSpanAttributes({ workspaceId });
+
+    try {
+      // Try to get from Workspace table first (authoritative source)
+      const record = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { name: true },
+      });
+      if (record) {
+        return record.name;
+      }
+
+      // Fallback: Try to get from active room
+      const room = roomManager.getRoom(workspaceId);
+      if (room) {
+        const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+        // Assuming workspace map keys are workspace IDs
+        const workspace = workspaceMap.get(workspaceId) as
+          | { name: string }
+          | undefined;
+        return workspace?.name || null;
+      }
+
+      // Fallback to database
+      const stored = await prisma.workspaceState.findUnique({
+        where: { workspaceId },
+      });
+
+      if (stored?.yjsState) {
+        // Create temp room to parse name
+        // Note: This parses the whole doc which is heavy, but we need the name
+        const tempRoom = roomManager.getOrCreateRoom(workspaceId);
+        const workspaceMap = tempRoom.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+        const workspace = workspaceMap.get(workspaceId) as
+          | { name: string }
+          | undefined;
+        // We don't explicit destroy here as roomManager manages cache,
+        // but if we created it just for this, it stays in memory which is fine for now
+        return workspace?.name || null;
+      }
+
+      return null;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to get workspace name", {
+        workspaceId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return null;
     }
-
-    // Fallback: Try to get from active room
-    const room = roomManager.getRoom(workspaceId);
-    if (room) {
-      const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
-      // Assuming workspace map keys are workspace IDs
-      const workspace = workspaceMap.get(workspaceId) as
-        | { name: string }
-        | undefined;
-      return workspace?.name || null;
-    }
-
-    // Fallback to database
-    const stored = await prisma.workspaceState.findUnique({
-      where: { workspaceId },
-    });
-
-    if (stored?.yjsState) {
-      // Create temp room to parse name
-      // Note: This parses the whole doc which is heavy, but we need the name
-      const tempRoom = roomManager.getOrCreateRoom(workspaceId);
-      const workspaceMap = tempRoom.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
-      const workspace = workspaceMap.get(workspaceId) as
-        | { name: string }
-        | undefined;
-      // We don't explicit destroy here as roomManager manages cache,
-      // but if we created it just for this, it stays in memory which is fine for now
-      return workspace?.name || null;
-    }
-
-    return null;
-  } catch (error) {
-    logger.error("Failed to get workspace name", {
-      workspaceId,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  }
+  });
 }
 
 // Get share link info including owner and workspace name
-export async function getShareInfo(token: string): Promise<{
+export function getShareInfo(token: string): Promise<{
   workspaceId: string;
   createdBy: string;
   expiresAt: Date | null;
@@ -284,45 +316,57 @@ export async function getShareInfo(token: string): Promise<{
     email: string;
   };
 } | null> {
-  try {
-    const share = await prisma.workspaceShare.findUnique({
-      where: { token },
-    });
-    if (!share) {
+  return withSpanAsync("db.getShareInfo", async (span) => {
+    setSpanAttributes({ token });
+
+    try {
+      const share = await prisma.workspaceShare.findUnique({
+        where: { token },
+      });
+      if (!share) {
+        return null;
+      }
+      const owner = await getUserInfo(share.createdBy);
+      const workspaceName = await getWorkspaceName(share.workspaceId);
+
+      return {
+        workspaceId: share.workspaceId,
+        createdBy: share.createdBy,
+        expiresAt: share.expiresAt,
+        workspaceName,
+        owner: owner || undefined,
+      };
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to get share info", {
+        token,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
       return null;
     }
-    const owner = await getUserInfo(share.createdBy);
-    const workspaceName = await getWorkspaceName(share.workspaceId);
-
-    return {
-      workspaceId: share.workspaceId,
-      createdBy: share.createdBy,
-      expiresAt: share.expiresAt,
-      workspaceName,
-      owner: owner || undefined,
-    };
-  } catch (error) {
-    logger.error("Failed to get share info", {
-      token,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  }
+  });
 }
 
 // Get the count of collaborators on a workspace
-export async function getWorkspaceCollaboratorCount(
+export function getWorkspaceCollaboratorCount(
   workspaceId: string
 ): Promise<number> {
-  try {
-    return await prisma.workspaceCollaborator.count({
-      where: { workspaceId },
-    });
-  } catch (error) {
-    logger.error("Failed to count workspace collaborators", {
-      workspaceId,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return 0;
-  }
+  return withSpanAsync("db.countCollaborators", async (span) => {
+    setSpanAttributes({ workspaceId });
+
+    try {
+      const count = await prisma.workspaceCollaborator.count({
+        where: { workspaceId },
+      });
+      setSpanAttributes({ count });
+      return count;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to count workspace collaborators", {
+        workspaceId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return 0;
+    }
+  });
 }

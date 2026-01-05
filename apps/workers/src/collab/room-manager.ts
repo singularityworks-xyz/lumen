@@ -1,6 +1,12 @@
 /** biome-ignore-all lint/performance/noNamespaceImport: usecase */
 import { prisma, type Role } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
+import {
+  recordSpanError,
+  setSpanAttributes,
+  withSpan,
+  withSpanAsync,
+} from "@lumen/logger/server";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
@@ -59,64 +65,70 @@ class RoomManager {
   }
 
   getOrCreateRoom(workspaceId: string): Room {
-    // Don't recreate rooms for recently deleted workspaces
-    if (this.deletedWorkspaces.has(workspaceId)) {
-      logger.warn("Attempt to create room for deleted workspace", {
-        workspaceId,
-      });
-      throw new Error("Workspace has been deleted");
-    }
+    return withSpan("room.getOrCreate", () => {
+      setSpanAttributes({ workspaceId });
 
-    let room = this.rooms.get(workspaceId);
+      // Don't recreate rooms for recently deleted workspaces
+      if (this.deletedWorkspaces.has(workspaceId)) {
+        logger.warn("Attempt to create room for deleted workspace", {
+          workspaceId,
+        });
+        throw new Error("Workspace has been deleted");
+      }
 
-    if (!room) {
-      logger.info("Creating new room", { workspaceId });
+      let room = this.rooms.get(workspaceId);
+      const isNew = !room;
 
-      const doc = new Y.Doc();
-      const awareness = new awarenessProtocol.Awareness(doc);
+      if (!room) {
+        logger.info("Creating new room", { workspaceId });
 
-      doc.getMap(YJS_MAP_NAMES.BOARDS);
-      doc.getMap(YJS_MAP_NAMES.COLUMNS);
-      doc.getMap(YJS_MAP_NAMES.TASKS);
-      doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS);
-      doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS);
-      doc.getMap(YJS_MAP_NAMES.AREAS);
-      doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS);
-      doc.getMap(YJS_MAP_NAMES.WORKSPACE);
-      doc.getMap(YJS_MAP_NAMES.COMMENTS);
+        const doc = new Y.Doc();
+        const awareness = new awarenessProtocol.Awareness(doc);
 
-      room = {
-        workspaceId,
-        doc,
-        awareness,
-        connections: new Map(),
-        persistenceTimeout: null,
-        cleanupTimeout: null,
-        lastModified: Date.now(),
-      };
+        doc.getMap(YJS_MAP_NAMES.BOARDS);
+        doc.getMap(YJS_MAP_NAMES.COLUMNS);
+        doc.getMap(YJS_MAP_NAMES.TASKS);
+        doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS);
+        doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS);
+        doc.getMap(YJS_MAP_NAMES.AREAS);
+        doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS);
+        doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+        doc.getMap(YJS_MAP_NAMES.COMMENTS);
 
-      // Cleanup awareness when connection leaves
-      awareness.on("change", (_changes: unknown, origin: unknown) => {
-        // Only broadcast if the change didn't originate from a client message
-        // (which is already broadcasted efficiently in handleAwarenessMessage)
-        if (origin !== "client-update") {
-          this.broadcastAwareness(workspaceId);
-        }
-      });
+        room = {
+          workspaceId,
+          doc,
+          awareness,
+          connections: new Map(),
+          persistenceTimeout: null,
+          cleanupTimeout: null,
+          lastModified: Date.now(),
+        };
 
-      // Schedule persistence on doc updates
-      doc.on("update", () => {
-        const currentRoom = this.rooms.get(workspaceId);
-        if (currentRoom) {
-          currentRoom.lastModified = Date.now();
-        }
-        this.schedulePersistence(workspaceId);
-      });
+        // Cleanup awareness when connection leaves
+        awareness.on("change", (_changes: unknown, origin: unknown) => {
+          // Only broadcast if the change didn't originate from a client message
+          // (which is already broadcasted efficiently in handleAwarenessMessage)
+          if (origin !== "client-update") {
+            this.broadcastAwareness(workspaceId);
+          }
+        });
 
-      this.rooms.set(workspaceId, room);
-    }
+        // Schedule persistence on doc updates
+        doc.on("update", () => {
+          const currentRoom = this.rooms.get(workspaceId);
+          if (currentRoom) {
+            currentRoom.lastModified = Date.now();
+          }
+          this.schedulePersistence(workspaceId);
+        });
 
-    return room;
+        this.rooms.set(workspaceId, room);
+      }
+
+      setSpanAttributes({ "room.isNew": isNew });
+      return room;
+    });
   }
 
   // Idempotent join - returns existing connection if same client reconnects
@@ -127,145 +139,175 @@ class RoomManager {
     workspaceId: string;
     initialStateVector?: Uint8Array;
   }): WsConnection {
-    const { connectionId, ws, user, workspaceId, initialStateVector } = options;
-    // Check for existing connection with same connectionId (reconnect scenario)
-    const existingRoomId = this.connectionToRoom.get(connectionId);
-    if (existingRoomId) {
-      const existingRoom = this.rooms.get(existingRoomId);
-      const existingConn = existingRoom?.connections.get(connectionId);
-      if (existingConn) {
-        logger.info("Reusing existing connection", {
-          connectionId,
-          workspaceId,
-        });
-        existingConn.ws = ws;
-        return existingConn;
+    return withSpan("room.join", () => {
+      const { connectionId, ws, user, workspaceId, initialStateVector } =
+        options;
+      setSpanAttributes({
+        connectionId,
+        workspaceId,
+        userId: user.id,
+        role: user.role,
+      });
+
+      // Check for existing connection with same connectionId (reconnect scenario)
+      const existingRoomId = this.connectionToRoom.get(connectionId);
+      if (existingRoomId) {
+        const existingRoom = this.rooms.get(existingRoomId);
+        const existingConn = existingRoom?.connections.get(connectionId);
+        if (existingConn) {
+          logger.info("Reusing existing connection", {
+            connectionId,
+            workspaceId,
+          });
+          existingConn.ws = ws;
+          setSpanAttributes({ "room.reused": true });
+          return existingConn;
+        }
       }
-    }
 
-    // Role check: viewers can connect and receive, but writes blocked elsewhere
-    logger.info("Client joining room", {
-      connectionId,
-      workspaceId,
-      userId: user.id,
-      role: user.role,
+      // Role check: viewers can connect and receive, but writes blocked elsewhere
+      logger.info("Client joining room", {
+        connectionId,
+        workspaceId,
+        userId: user.id,
+        role: user.role,
+      });
+
+      const room = this.getOrCreateRoom(workspaceId);
+
+      // Generate unique awareness client ID
+      const awarenessClientId = Math.floor(
+        Math.random() * Number.MAX_SAFE_INTEGER
+      );
+
+      const connection: WsConnection = {
+        id: connectionId,
+        ws,
+        user,
+        workspaceId,
+        awarenessClientId,
+      };
+
+      // Cancel any scheduled cleanup since room is now active
+      if (room.cleanupTimeout) {
+        clearTimeout(room.cleanupTimeout);
+        room.cleanupTimeout = null;
+      }
+
+      room.connections.set(connectionId, connection);
+      this.connectionToRoom.set(connectionId, workspaceId);
+
+      // NOTE: We don't set awareness state on the server-side anymore.
+      // The server acts as a relay - clients send their own awareness states.
+      // Setting awareness here would use the server's clientID which is wrong.
+      // Each client manages their own awareness state with their unique clientID.
+      // Send initial sync (document state + existing awareness states)
+      this.sendSyncStep1(connection, room, initialStateVector);
+      // Broadcast awareness update to ALL clients (excluding the new one since they got it in step 1)
+      // so everyone can see everyone else's cursor immediately
+      this.broadcastAwareness(workspaceId);
+
+      setSpanAttributes({
+        "room.connections": room.connections.size,
+        "room.reused": false,
+      });
+      logger.info("Client joined room", {
+        connectionId,
+        workspaceId,
+        totalConnections: room.connections.size,
+      });
+
+      return connection;
     });
-
-    const room = this.getOrCreateRoom(workspaceId);
-
-    // Generate unique awareness client ID
-    const awarenessClientId = Math.floor(
-      Math.random() * Number.MAX_SAFE_INTEGER
-    );
-
-    const connection: WsConnection = {
-      id: connectionId,
-      ws,
-      user,
-      workspaceId,
-      awarenessClientId,
-    };
-
-    // Cancel any scheduled cleanup since room is now active
-    if (room.cleanupTimeout) {
-      clearTimeout(room.cleanupTimeout);
-      room.cleanupTimeout = null;
-    }
-
-    room.connections.set(connectionId, connection);
-    this.connectionToRoom.set(connectionId, workspaceId);
-
-    // NOTE: We don't set awareness state on the server-side anymore.
-    // The server acts as a relay - clients send their own awareness states.
-    // Setting awareness here would use the server's clientID which is wrong.
-    // Each client manages their own awareness state with their unique clientID.
-    // Send initial sync (document state + existing awareness states)
-    this.sendSyncStep1(connection, room, initialStateVector);
-    // Broadcast awareness update to ALL clients (excluding the new one since they got it in step 1)
-    // so everyone can see everyone else's cursor immediately
-    this.broadcastAwareness(workspaceId);
-
-    logger.info("Client joined room", {
-      connectionId,
-      workspaceId,
-      totalConnections: room.connections.size,
-    });
-
-    return connection;
   }
 
   leave(connectionId: string): void {
-    const workspaceId = this.connectionToRoom.get(connectionId);
-    if (!workspaceId) {
-      return;
-    }
+    withSpan("room.leave", () => {
+      const workspaceId = this.connectionToRoom.get(connectionId);
+      if (!workspaceId) {
+        return;
+      }
 
-    const room = this.rooms.get(workspaceId);
-    if (!room) {
-      return;
-    }
+      setSpanAttributes({ connectionId, workspaceId });
 
-    const connection = room.connections.get(connectionId);
-    if (connection) {
-      awarenessProtocol.removeAwarenessStates(
-        room.awareness,
-        [connection.awarenessClientId],
-        "client left"
-      );
-    }
+      const room = this.rooms.get(workspaceId);
+      if (!room) {
+        return;
+      }
 
-    room.connections.delete(connectionId);
-    this.connectionToRoom.delete(connectionId);
+      const connection = room.connections.get(connectionId);
+      if (connection) {
+        awarenessProtocol.removeAwarenessStates(
+          room.awareness,
+          [connection.awarenessClientId],
+          "client left"
+        );
+      }
 
-    logger.info("Client left room", {
-      connectionId,
-      workspaceId,
-      remainingConnections: room.connections.size,
+      room.connections.delete(connectionId);
+      this.connectionToRoom.delete(connectionId);
+
+      setSpanAttributes({ "room.remainingConnections": room.connections.size });
+      logger.info("Client left room", {
+        connectionId,
+        workspaceId,
+        remainingConnections: room.connections.size,
+      });
+
+      if (room.connections.size === 0) {
+        this.scheduleRoomCleanup(workspaceId);
+      }
     });
-
-    if (room.connections.size === 0) {
-      this.scheduleRoomCleanup(workspaceId);
-    }
   }
 
   handleMessage(connectionId: string, message: Uint8Array): boolean {
-    const workspaceId = this.connectionToRoom.get(connectionId);
-    if (!workspaceId) {
-      return false;
-    }
-
-    const room = this.rooms.get(workspaceId);
-    if (!room) {
-      return false;
-    }
-
-    const connection = room.connections.get(connectionId);
-    if (!connection) {
-      return false;
-    }
-
-    try {
-      const decoder = decoding.createDecoder(message);
-      const messageType = decoding.readVarUint(decoder);
-
-      switch (messageType) {
-        case MESSAGE_SYNC:
-          return this.handleSyncMessage(connection, room, decoder, message);
-        case MESSAGE_AWARENESS:
-          return this.handleAwarenessMessage(connection, room, decoder);
-        default:
-          logger.warn("Unknown message type", { messageType, connectionId });
-          return false;
+    return withSpan("room.handleMessage", (span) => {
+      const workspaceId = this.connectionToRoom.get(connectionId);
+      if (!workspaceId) {
+        return false;
       }
-    } catch (error) {
-      logger.error("Failed to handle message", {
+
+      const room = this.rooms.get(workspaceId);
+      if (!room) {
+        return false;
+      }
+
+      const connection = room.connections.get(connectionId);
+      if (!connection) {
+        return false;
+      }
+
+      setSpanAttributes({
         connectionId,
         workspaceId,
-        error: error instanceof Error ? error.message : "Unknown error",
-        messageLength: message.byteLength,
+        messageSize: message.byteLength,
       });
-      return false;
-    }
+
+      try {
+        const decoder = decoding.createDecoder(message);
+        const messageType = decoding.readVarUint(decoder);
+        setSpanAttributes({ messageType });
+
+        switch (messageType) {
+          case MESSAGE_SYNC:
+            return this.handleSyncMessage(connection, room, decoder, message);
+          case MESSAGE_AWARENESS:
+            return this.handleAwarenessMessage(connection, room, decoder);
+          default:
+            logger.warn("Unknown message type", { messageType, connectionId });
+            return false;
+        }
+      } catch (error) {
+        recordSpanError(span, error);
+        logger.error("Failed to handle message", {
+          connectionId,
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+          messageLength: message.byteLength,
+        });
+        return false;
+      }
+    });
   }
 
   private handleSyncMessage(
@@ -274,48 +316,55 @@ class RoomManager {
     decoder: decoding.Decoder,
     originalMessage: Uint8Array
   ): boolean {
-    // Peek at the sync message type WITHOUT consuming it
-    // The first byte after MESSAGE_SYNC is the sync protocol message type
-    const syncMsgType = decoding.peekVarUint(decoder);
+    return withSpan("room.sync", () => {
+      // Peek at the sync message type WITHOUT consuming it
+      // The first byte after MESSAGE_SYNC is the sync protocol message type
+      const syncMsgType = decoding.peekVarUint(decoder);
+      const isWrite =
+        syncMsgType === syncProtocol.messageYjsSyncStep2 ||
+        syncMsgType === syncProtocol.messageYjsUpdate;
 
-    // SyncStep2 and Update contain changes - check write permission for viewers
-    if (
-      (syncMsgType === syncProtocol.messageYjsSyncStep2 ||
-        syncMsgType === syncProtocol.messageYjsUpdate) &&
-      connection.user.role === "VIEWER"
-    ) {
-      logger.warn("Viewer attempted write operation", {
+      setSpanAttributes({
         connectionId: connection.id,
-        userId: connection.user.id,
         syncMsgType,
+        isWrite,
       });
-      return false;
-    }
 
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, MESSAGE_SYNC);
+      // SyncStep2 and Update contain changes - check write permission for viewers
+      if (isWrite && connection.user.role === "VIEWER") {
+        logger.warn("Viewer attempted write operation", {
+          connectionId: connection.id,
+          userId: connection.user.id,
+          syncMsgType,
+        });
+        return false;
+      }
 
-    // readSyncMessage will read the message type and handle the sync protocol
-    const syncMessageType = syncProtocol.readSyncMessage(
-      decoder,
-      encoder,
-      room.doc,
-      connection
-    );
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
-    if (encoding.length(encoder) > 1) {
-      connection.ws.send(encoding.toUint8Array(encoder));
-    }
+      // readSyncMessage will read the message type and handle the sync protocol
+      const syncMessageType = syncProtocol.readSyncMessage(
+        decoder,
+        encoder,
+        room.doc,
+        connection
+      );
 
-    // Broadcast updates to other clients
-    if (
-      syncMessageType === syncProtocol.messageYjsSyncStep2 ||
-      syncMessageType === syncProtocol.messageYjsUpdate
-    ) {
-      this.broadcastUpdate(room, connection.id, originalMessage);
-    }
+      if (encoding.length(encoder) > 1) {
+        connection.ws.send(encoding.toUint8Array(encoder));
+      }
 
-    return true;
+      // Broadcast updates to other clients
+      if (
+        syncMessageType === syncProtocol.messageYjsSyncStep2 ||
+        syncMessageType === syncProtocol.messageYjsUpdate
+      ) {
+        this.broadcastUpdate(room, connection.id, originalMessage);
+      }
+
+      return true;
+    });
   }
 
   private handleAwarenessMessage(
@@ -323,19 +372,23 @@ class RoomManager {
     room: Room,
     decoder: decoding.Decoder
   ): boolean {
-    const update = decoding.readVarUint8Array(decoder);
-    awarenessProtocol.applyAwarenessUpdate(
-      room.awareness,
-      update,
-      "client-update"
-    );
+    return withSpan("room.awareness", () => {
+      setSpanAttributes({ connectionId: connection.id });
 
-    // Explicitly broadcast awareness updates to other clients
-    // The awareness.on('change') listener also broadcasts, but this ensures
-    // immediate propagation of cursor updates without waiting for change processing
-    this.broadcastAwarenessToOthers(room, connection.id, update);
+      const update = decoding.readVarUint8Array(decoder);
+      awarenessProtocol.applyAwarenessUpdate(
+        room.awareness,
+        update,
+        "client-update"
+      );
 
-    return true;
+      // Explicitly broadcast awareness updates to other clients
+      // The awareness.on('change') listener also broadcasts, but this ensures
+      // immediate propagation of cursor updates without waiting for change processing
+      this.broadcastAwarenessToOthers(room, connection.id, update);
+
+      return true;
+    });
   }
 
   // Broadcast awareness update to all clients except sender
@@ -460,144 +513,178 @@ class RoomManager {
     }, this.persistenceDebounceMs);
   }
 
-  async persistRoom(workspaceId: string): Promise<void> {
-    const room = this.rooms.get(workspaceId);
-    if (!room) {
-      return;
-    }
-
-    try {
-      // First check if workspace exists in DB - don't persist if it doesn't
-      const workspaceExists = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-        select: { id: true },
-      });
-
-      if (!workspaceExists) {
-        logger.debug("Skipping persistence - workspace not in DB", {
-          workspaceId,
-        });
+  persistRoom(workspaceId: string): Promise<void> {
+    return withSpanAsync("room.persist", async (span) => {
+      const room = this.rooms.get(workspaceId);
+      if (!room) {
         return;
       }
 
-      const state = Y.encodeStateAsUpdate(room.doc);
-      const stateVector = Y.encodeStateVector(room.doc);
+      setSpanAttributes({ workspaceId });
 
-      const entityCounts = {
-        boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
-        columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
-        tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
-        boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
-        boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS).size,
-        areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
-        areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
-        comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
-      };
+      try {
+        // First check if workspace exists in DB - don't persist if it doesn't
+        const workspaceExists = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+          select: { id: true },
+        });
 
-      logger.info("Persisting room state", {
-        workspaceId,
-        stateSize: state.length,
-        stateVectorSize: stateVector.length,
-        entityCounts,
-      });
-
-      await prisma.workspaceState.upsert({
-        where: { workspaceId },
-        update: {
-          yjsState: Buffer.from(state),
-          stateVector: Buffer.from(stateVector),
-        },
-        create: {
-          workspaceId,
-          yjsState: Buffer.from(state),
-          stateVector: Buffer.from(stateVector),
-        },
-      });
-
-      // Also update the Workspace metadata table if the name is available in Yjs
-      const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
-      const workspaceData = workspaceMap.get(workspaceId) as
-        | { name: string }
-        | undefined;
-
-      if (workspaceData?.name) {
-        try {
-          await prisma.workspace.update({
-            where: { id: workspaceId },
-            data: { name: workspaceData.name },
-          });
-        } catch (err) {
-          // Ignore error if workspace doesn't exist yet (handled elsewhere) or other race conditions
-          logger.debug("Could not update workspace name metadata", {
+        if (!workspaceExists) {
+          logger.debug("Skipping persistence - workspace not in DB", {
             workspaceId,
-            error: err instanceof Error ? err.message : "unknown",
           });
+          return;
         }
-      }
 
-      logger.debug("Room state persisted successfully", { workspaceId });
-    } catch (error) {
-      logger.error("Failed to persist room state", {
-        workspaceId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
+        const state = Y.encodeStateAsUpdate(room.doc);
+        const stateVector = Y.encodeStateVector(room.doc);
+
+        const entityCounts = {
+          boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
+          columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
+          tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
+          boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
+          boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
+            .size,
+          areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
+          areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+          comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
+        };
+
+        setSpanAttributes({
+          stateSize: state.length,
+          stateVectorSize: stateVector.length,
+          "room.entityCounts.boards": entityCounts.boards,
+          "room.entityCounts.columns": entityCounts.columns,
+          "room.entityCounts.tasks": entityCounts.tasks,
+        });
+
+        logger.info("Persisting room state", {
+          workspaceId,
+          stateSize: state.length,
+          stateVectorSize: stateVector.length,
+          entityCounts,
+        });
+
+        await prisma.workspaceState.upsert({
+          where: { workspaceId },
+          update: {
+            yjsState: Buffer.from(state),
+            stateVector: Buffer.from(stateVector),
+          },
+          create: {
+            workspaceId,
+            yjsState: Buffer.from(state),
+            stateVector: Buffer.from(stateVector),
+          },
+        });
+
+        // Also update the Workspace metadata table if the name is available in Yjs
+        const workspaceMap = room.doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+        const workspaceData = workspaceMap.get(workspaceId) as
+          | { name: string }
+          | undefined;
+
+        if (workspaceData?.name) {
+          try {
+            await prisma.workspace.update({
+              where: { id: workspaceId },
+              data: { name: workspaceData.name },
+            });
+          } catch (err) {
+            // Ignore error if workspace doesn't exist yet (handled elsewhere) or other race conditions
+            logger.debug("Could not update workspace name metadata", {
+              workspaceId,
+              error: err instanceof Error ? err.message : "unknown",
+            });
+          }
+        }
+
+        logger.debug("Room state persisted successfully", { workspaceId });
+      } catch (error) {
+        recordSpanError(span, error);
+        logger.error("Failed to persist room state", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
   }
 
-  async loadRoomState(workspaceId: string): Promise<boolean> {
-    try {
-      const stored = await prisma.workspaceState.findUnique({
-        where: { workspaceId },
-      });
-      if (stored?.yjsState) {
-        if (stored.yjsState.length === 0) {
-          logger.warn("Stored Yjs state is empty", { workspaceId });
-          return false;
+  loadRoomState(workspaceId: string): Promise<boolean> {
+    return withSpanAsync("room.loadState", async (span) => {
+      setSpanAttributes({ workspaceId });
+
+      try {
+        const stored = await prisma.workspaceState.findUnique({
+          where: { workspaceId },
+        });
+        if (stored?.yjsState) {
+          if (stored.yjsState.length === 0) {
+            logger.warn("Stored Yjs state is empty", { workspaceId });
+            setSpanAttributes({
+              "room.state.loaded": false,
+              "room.state.empty": true,
+            });
+            return false;
+          }
+
+          try {
+            const room = this.getOrCreateRoom(workspaceId);
+            Y.applyUpdate(room.doc, new Uint8Array(stored.yjsState));
+
+            const entityCounts = {
+              boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
+              columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
+              tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
+              boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS)
+                .size,
+              boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
+                .size,
+              areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
+              areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
+              comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
+            };
+
+            setSpanAttributes({
+              stateSize: stored.yjsState.length,
+              "room.state.loaded": true,
+            });
+
+            logger.info("Loaded room state from database", {
+              workspaceId,
+              stateSize: stored.yjsState.length,
+              entityCounts,
+            });
+            return true;
+          } catch (error) {
+            recordSpanError(span, error);
+            logger.error("Failed to apply stored Yjs state", {
+              workspaceId,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+            // We return false here so the caller knows state loading failed.
+            // Maybe we should start with a fresh room instead?
+            // For now, let's treat it as if no state existed, so a fresh doc is used.
+            return false;
+          }
         }
 
-        try {
-          const room = this.getOrCreateRoom(workspaceId);
-          Y.applyUpdate(room.doc, new Uint8Array(stored.yjsState));
-
-          const entityCounts = {
-            boards: room.doc.getMap(YJS_MAP_NAMES.BOARDS).size,
-            columns: room.doc.getMap(YJS_MAP_NAMES.COLUMNS).size,
-            tasks: room.doc.getMap(YJS_MAP_NAMES.TASKS).size,
-            boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
-            boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
-              .size,
-            areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
-            areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
-            comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
-          };
-
-          logger.info("Loaded room state from database", {
-            workspaceId,
-            stateSize: stored.yjsState.length,
-            entityCounts,
-          });
-          return true;
-        } catch (error) {
-          logger.error("Failed to apply stored Yjs state", {
-            workspaceId,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
-          // We return false here so the caller knows state loading failed.
-          // Maybe we should start with a fresh room instead?
-          // For now, let's treat it as if no state existed, so a fresh doc is used.
-          return false;
-        }
+        setSpanAttributes({
+          "room.state.loaded": false,
+          "room.state.notFound": true,
+        });
+        logger.debug("No stored state found for workspace", { workspaceId });
+        return false;
+      } catch (error) {
+        recordSpanError(span, error);
+        logger.error("Failed to load room state", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
       }
-
-      logger.debug("No stored state found for workspace", { workspaceId });
-      return false;
-    } catch (error) {
-      logger.error("Failed to load room state", {
-        workspaceId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-      return false;
-    }
+    });
   }
 
   private scheduleRoomCleanup(workspaceId: string): void {
@@ -652,44 +739,49 @@ class RoomManager {
   }
 
   deleteRoom(workspaceId: string): void {
-    const room = this.rooms.get(workspaceId);
+    withSpan("room.delete", () => {
+      const room = this.rooms.get(workspaceId);
+      const connectionCount = room?.connections.size ?? 0;
 
-    // Mark as deleted before doing anything else to prevent race conditions
-    this.deletedWorkspaces.add(workspaceId);
-    // Clean up the tracking after 30 seconds to prevent memory leaks
-    setTimeout(() => {
-      this.deletedWorkspaces.delete(workspaceId);
-    }, 30_000);
+      setSpanAttributes({ workspaceId, connectionCount });
 
-    if (!room) {
-      logger.info("Room already deleted or never existed", { workspaceId });
-      return;
-    }
+      // Mark as deleted before doing anything else to prevent race conditions
+      this.deletedWorkspaces.add(workspaceId);
+      // Clean up the tracking after 30 seconds to prevent memory leaks
+      setTimeout(() => {
+        this.deletedWorkspaces.delete(workspaceId);
+      }, 30_000);
 
-    // Broadcast deleted message
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, MESSAGE_WORKSPACE_DELETED);
-    const message = encoding.toUint8Array(encoder);
-
-    for (const conn of room.connections.values()) {
-      try {
-        conn.ws.send(message);
-        conn.ws.close();
-      } catch (error) {
-        logger.error("Failed to notify connection of deletion", {
-          connectionId: conn.id,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
+      if (!room) {
+        logger.info("Room already deleted or never existed", { workspaceId });
+        return;
       }
-    }
 
-    if (room.persistenceTimeout) {
-      clearTimeout(room.persistenceTimeout);
-    }
-    room.doc.destroy();
-    this.rooms.delete(workspaceId);
+      // Broadcast deleted message
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, MESSAGE_WORKSPACE_DELETED);
+      const message = encoding.toUint8Array(encoder);
 
-    logger.info("Room deleted", { workspaceId });
+      for (const conn of room.connections.values()) {
+        try {
+          conn.ws.send(message);
+          conn.ws.close();
+        } catch (error) {
+          logger.error("Failed to notify connection of deletion", {
+            connectionId: conn.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      if (room.persistenceTimeout) {
+        clearTimeout(room.persistenceTimeout);
+      }
+      room.doc.destroy();
+      this.rooms.delete(workspaceId);
+
+      logger.info("Room deleted", { workspaceId });
+    });
   }
 }
 
