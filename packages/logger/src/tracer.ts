@@ -79,6 +79,24 @@ export function recordSpanError(span: Span, error: unknown): void {
   span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
 }
 
+export function recordError(
+  error: unknown,
+  attributes?: Record<string, string | number | boolean>
+): void {
+  const span = getActiveSpan();
+  if (!span) {
+    return;
+  }
+
+  const err = error instanceof Error ? error : new Error(String(error));
+  span.recordException(err);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+
+  if (attributes) {
+    span.setAttributes(attributes);
+  }
+}
+
 export function getTraceContext(): { traceId: string; spanId: string } | null {
   const span = getActiveSpan();
   if (!span) {

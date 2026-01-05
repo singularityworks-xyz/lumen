@@ -1,7 +1,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
-import { withSpanAsync } from "@lumen/logger/tracer";
+import { recordError, withSpanAsync } from "@lumen/logger/tracer";
 import {
   initializeNativeAuth,
   isTauri,
@@ -109,6 +109,8 @@ export function useAuth(): UseAuthReturn {
         const errorDesc = urlObj.searchParams.get("error_description");
 
         if (errorParam) {
+          const err = new Error(`Native auth failed: ${errorParam}`);
+          recordError(err, { description: errorDesc || "" });
           logger.error("Native auth failed", {
             error: errorParam,
             description: errorDesc,
@@ -129,6 +131,7 @@ export function useAuth(): UseAuthReturn {
           }
         }
       } catch (err) {
+        recordError(err);
         logger.error("Error handling deep link callback", {
           error: err instanceof Error ? err.message : "Unknown error",
         });
@@ -143,6 +146,7 @@ export function useAuth(): UseAuthReturn {
     }
 
     initializeNativeAuth().catch((err) => {
+      recordError(err);
       logger.error("Failed to initialize native auth", {
         error: err instanceof Error ? err.message : "Unknown error",
       });
@@ -153,6 +157,7 @@ export function useAuth(): UseAuthReturn {
         logger.info("Received auth deep link via native-bridge", { url });
         await handleDeepLinkCallback(url);
       } catch (err) {
+        recordError(err);
         logger.error("Error in deep link listener", {
           error: err instanceof Error ? err.message : "Unknown error",
         });

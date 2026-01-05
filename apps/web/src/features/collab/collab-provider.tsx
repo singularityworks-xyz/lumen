@@ -2,7 +2,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
-import { withSpanAsync } from "@lumen/logger/tracer";
+import { recordError, withSpanAsync } from "@lumen/logger/tracer";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import {
@@ -288,6 +288,8 @@ export function CollaborationProvider({
       const { getJwtToken, authClient } = await import("@/src/lib/auth-client");
       const token = await getJwtToken();
       if (!token) {
+        const err = new Error("Failed to get JWT token for WebSocket");
+        recordError(err, { "workspace.id": workspaceId });
         logger.error("Failed to get JWT token for WebSocket");
         setConnectionState("error");
         return;
@@ -451,6 +453,7 @@ export function CollaborationProvider({
               break;
           }
         } catch (error) {
+          recordError(error, { "ws.messageType": "yjs_update" });
           logger.error("Caught error while handling a Yjs update", {
             error: error instanceof Error ? error.message : "Unknown error",
           });
@@ -492,6 +495,7 @@ export function CollaborationProvider({
       };
 
       ws.onerror = (error) => {
+        recordError(new Error("WebSocket error"), { "ws.workspaceId": workspaceId });
         logger.error("WebSocket error", { error });
         setConnectionState("error");
       };

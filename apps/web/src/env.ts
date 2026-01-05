@@ -16,10 +16,10 @@ export const env = createEnv({
       .string()
       .transform((v) => v !== "false")
       .default(true),
-    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   },
   client: {
-    NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:3002"),
+    NEXT_PUBLIC_API_URL: z.url().default("http://localhost:3002"),
   },
   clientPrefix: "NEXT_PUBLIC_",
   runtimeEnv: {
