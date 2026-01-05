@@ -3,6 +3,9 @@ export function formatRelativeTime(
   options: { short?: boolean } = {}
 ): string {
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return "Invalid date";
+  }
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const absDiffMs = Math.abs(diffMs);
