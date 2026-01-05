@@ -74,6 +74,7 @@ const MaximizeIcon = ({
       {...props}
     >
       <svg
+        aria-hidden="true"
         fill="none"
         height={size}
         stroke="currentColor"

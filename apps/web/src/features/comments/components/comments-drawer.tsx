@@ -12,35 +12,9 @@ import {
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
+import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 import { DiscussionTab } from "./discussion-tab";
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) {
-    return "just now";
-  }
-  if (diffMin < 60) {
-    return `${diffMin}m ago`;
-  }
-  if (diffHour < 24) {
-    return `${diffHour}h ago`;
-  }
-  if (diffDay === 1) {
-    return "yesterday";
-  }
-  if (diffDay < 7) {
-    return `${diffDay}d ago`;
-  }
-  return date.toLocaleDateString();
-}
 
 type CommentBubbleProps = {
   comment: Comment;
@@ -303,6 +277,11 @@ const CommentsDrawerContent = memo(
       [chatMessages, workspaceId]
     );
 
+    const filteredCollaborators = useMemo(
+      () => collaborators.filter((c) => c.id !== localUser?.id),
+      [collaborators, localUser?.id]
+    );
+
     const topLevelComments = useMemo(
       () =>
         [...comments]
@@ -386,26 +365,24 @@ const CommentsDrawerContent = memo(
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center -space-x-1.5 transition-all duration-300 hover:space-x-0.5">
-                  {collaborators
-                    .filter((c) => c.id !== localUser?.id)
-                    .map((user) => (
-                      <div
-                        className="group relative transition-all duration-300 hover:z-10 hover:scale-110"
-                        key={user.id}
-                        title={`${user.name} (Online)`}
-                      >
-                        <Avatar className="h-5 w-5 border border-background shadow-sm ring-1 ring-background/50">
-                          <AvatarImage src={user.image ?? undefined} />
-                          <AvatarFallback className="bg-primary/10 font-medium text-[6px] text-primary">
-                            {user.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="absolute right-0 bottom-0 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-background" />
-                      </div>
-                    ))}
-                  {collaborators.length > 5 && (
+                  {filteredCollaborators.slice(0, 5).map((user) => (
+                    <div
+                      className="group relative transition-all duration-300 hover:z-10 hover:scale-110"
+                      key={user.id}
+                      title={`${user.name} (Online)`}
+                    >
+                      <Avatar className="h-5 w-5 border border-background shadow-sm ring-1 ring-background/50">
+                        <AvatarImage src={user.image ?? undefined} />
+                        <AvatarFallback className="bg-primary/10 font-medium text-[6px] text-primary">
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute right-0 bottom-0 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-background" />
+                    </div>
+                  ))}
+                  {filteredCollaborators.length > 5 && (
                     <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted font-medium text-[8px] text-muted-foreground ring-1 ring-background/50">
-                      +{collaborators.length - 5}
+                      +{filteredCollaborators.length - 5}
                     </div>
                   )}
                 </div>

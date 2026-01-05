@@ -69,6 +69,7 @@ const PlusIcon = ({
     >
       <motion.svg
         animate={controls}
+        aria-hidden="true"
         fill="none"
         height={size}
         stroke="currentColor"

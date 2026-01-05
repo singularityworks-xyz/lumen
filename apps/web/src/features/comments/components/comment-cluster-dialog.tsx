@@ -22,6 +22,7 @@ import { Textarea } from "@/src/components/ui/textarea";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
+import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 
 type ViewMode = "sprawled" | "stacked";
@@ -148,40 +149,16 @@ function SplitButton({
   );
 }
 
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) {
-    return "just now";
-  }
-  if (diffMin < 60) {
-    return `${diffMin}m ago`;
-  }
-  if (diffHour < 24) {
-    return `${diffHour}h ago`;
-  }
-  if (diffDay === 1) {
-    return "yesterday";
-  }
-  if (diffDay < 7) {
-    return `${diffDay}d ago`;
-  }
-  return date.toLocaleDateString();
-}
-
 type CommentCardProps = {
   comment: Comment;
   index: number;
   totalCount: number;
   isClosing: boolean;
   isVisible: boolean;
-  onDragOut: (commentId: string) => void;
+  onDragOut: (
+    commentId: string,
+    dropPosition: { x: number; y: number }
+  ) => void;
   isFocused: boolean;
   onBringToFront: () => void;
   viewMode: ViewMode;
@@ -368,6 +345,8 @@ function CommentCard({
     [totalCount]
   );
 
+  const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
+
   const handleDragMove = useCallback(
     (e: MouseEvent) => {
       if (!(isDragging && dragStartRef.current)) {
@@ -376,6 +355,7 @@ function CommentCard({
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       setDragOffset({ x: dx, y: dy });
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     },
     [isDragging]
   );
@@ -386,13 +366,14 @@ function CommentCard({
     }
 
     const distance = Math.sqrt(dragOffset.x ** 2 + dragOffset.y ** 2);
-    if (distance >= EXTRACT_THRESHOLD) {
-      onDragOut(comment.id);
+    if (distance >= EXTRACT_THRESHOLD && lastMousePosRef.current) {
+      onDragOut(comment.id, lastMousePosRef.current);
     }
 
     setIsDragging(false);
     setDragOffset({ x: 0, y: 0 });
     dragStartRef.current = null;
+    lastMousePosRef.current = null;
   }, [isDragging, dragOffset, comment.id, onDragOut]);
 
   // Global mouse listeners for drag
@@ -927,38 +908,48 @@ export function CommentClusterDialog({
   };
 
   const handleDragOut = useCallback(
-    (commentId: string) => {
+    (commentId: string, dropPosition: { x: number; y: number }) => {
       const comment = comments.find((c) => c.id === commentId);
       if (!comment) {
         return;
       }
 
-      // The dialog is positioned by screenPosition, which is derived from the centroid.
-      // We convert it back to flow coordinates to ensure the comment lands where the dialog was.
-      const flowPos = screenToFlowPosition(screenPosition);
+      // Convert the screen drop position directly to flow coordinates
+      // This places the comment exactly where the user released the mouse
+      const flowDropPos = screenToFlowPosition(dropPosition);
 
-      // Move the comment far enough away from the cluster centroid to avoid re-clustering
-      // CLUSTER_RADIUS is 80px in the clustering algorithm, so we need to move at least that far
-      // We use a minimum of 150px to ensure clear separation at any zoom level
-      const angle = Math.random() * Math.PI * 2;
-      const minDistance = 150;
-      const distance = Math.max(minDistance, 200 / zoom);
+      // Get the cluster centroid in flow coordinates to check distance
+      const clusterFlowPos = screenToFlowPosition(screenPosition);
+
+      // Calculate if the drop position is far enough from the cluster
+      // CLUSTER_RADIUS is 80px in the clustering algorithm
+      const dx = flowDropPos.x - clusterFlowPos.x;
+      const dy = flowDropPos.y - clusterFlowPos.y;
+      const distanceFromCluster = Math.sqrt(dx * dx + dy * dy);
+
+      // If too close to cluster, push it out in the same direction
+      const minDistance = 100;
+      let finalX = flowDropPos.x;
+      let finalY = flowDropPos.y;
+
+      if (distanceFromCluster < minDistance && distanceFromCluster > 0) {
+        // Normalize direction and push out to minimum distance
+        const scale = minDistance / distanceFromCluster;
+        finalX = clusterFlowPos.x + dx * scale;
+        finalY = clusterFlowPos.y + dy * scale;
+      } else if (distanceFromCluster === 0) {
+        // Edge case: dropped exactly on center, push in a default direction
+        finalX = clusterFlowPos.x + minDistance;
+      }
 
       updateComment(commentId, {
-        x: flowPos.x + Math.cos(angle) * distance,
-        y: flowPos.y + Math.sin(angle) * distance,
+        x: finalX,
+        y: finalY,
       });
 
       onClose();
     },
-    [
-      comments,
-      updateComment,
-      onClose,
-      screenPosition,
-      zoom,
-      screenToFlowPosition,
-    ]
+    [comments, updateComment, onClose, screenPosition, screenToFlowPosition]
   );
 
   if (!mounted) {

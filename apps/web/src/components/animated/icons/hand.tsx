@@ -68,6 +68,7 @@ const HandIcon = ({
     >
       <motion.svg
         animate={controls}
+        aria-hidden="true"
         fill="none"
         height={size}
         initial="normal"

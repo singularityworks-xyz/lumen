@@ -10,6 +10,7 @@ import { Textarea } from "@/src/components/ui/textarea";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
+import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 
 type CommentDialogProps = {
@@ -17,30 +18,6 @@ type CommentDialogProps = {
   onClose: () => void;
   anchorRect: DOMRect | null;
 };
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) {
-    return "just now";
-  }
-  if (diffMin < 60) {
-    return `${diffMin}m`;
-  }
-  if (diffHour < 24) {
-    return `${diffHour}h`;
-  }
-  if (diffDay < 7) {
-    return `${diffDay}d`;
-  }
-  return date.toLocaleDateString();
-}
 
 export function CommentDialog({
   comment,

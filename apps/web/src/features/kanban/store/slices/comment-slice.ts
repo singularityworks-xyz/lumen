@@ -196,6 +196,21 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
         return;
       }
 
+      // Track all IDs to remove (for efficient allIds filtering at the end)
+      const idsToRemove = new Set<string>();
+
+      // Recursive helper to collect all descendant IDs
+      const collectDescendants = (parentId: string) => {
+        idsToRemove.add(parentId);
+        for (const cid of state.comments.allIds) {
+          const c = state.comments.byId[cid];
+          if (c?.parentId === parentId && !idsToRemove.has(cid)) {
+            collectDescendants(cid);
+          }
+        }
+      };
+
+      // Update parent's reply count if the deleted comment is a reply
       if (comment.parentId) {
         const parent = state.comments.byId[comment.parentId];
         if (parent && (parent.replyCount ?? 0) > 0) {
@@ -204,17 +219,17 @@ export const createCommentSlice: SliceCreator = (set, get) => ({
         }
       }
 
-      const replyIds = state.comments.allIds.filter((cid) => {
-        const c = state.comments.byId[cid];
-        return c?.parentId === id;
-      });
-      for (const replyId of replyIds) {
-        delete state.comments.byId[replyId];
+      // Collect the comment and all its descendants
+      collectDescendants(id);
+
+      // Delete all collected comments from byId
+      for (const removeId of idsToRemove) {
+        delete state.comments.byId[removeId];
       }
 
-      delete state.comments.byId[id];
+      // Filter out all removed IDs from allIds
       state.comments.allIds = state.comments.allIds.filter(
-        (commentId) => commentId !== id && !replyIds.includes(commentId)
+        (commentId) => !idsToRemove.has(commentId)
       );
     });
   },

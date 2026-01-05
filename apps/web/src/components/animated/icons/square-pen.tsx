@@ -82,6 +82,7 @@ const SquarePenIcon = ({
       {...props}
     >
       <svg
+        aria-hidden="true"
         fill="none"
         height={size}
         stroke="currentColor"

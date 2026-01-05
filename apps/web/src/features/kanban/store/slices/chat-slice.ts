@@ -49,6 +49,11 @@ export const createChatSlice: SliceCreator = (set, get) => ({
       return;
     }
 
+    // Guard against empty or whitespace-only messages
+    if (!content.trim()) {
+      return;
+    }
+
     const now = new Date().toISOString();
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),

@@ -80,6 +80,7 @@ const DeleteIcon = ({
       {...props}
     >
       <svg
+        aria-hidden="true"
         fill="none"
         height={size}
         stroke="currentColor"

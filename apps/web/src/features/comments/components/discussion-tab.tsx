@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/complexity/noForEach: TODO: Change this someday */
 "use client";
 
+import { escapeRegExp } from "lodash-es";
 import { Reply, Send, Tag, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,36 +17,10 @@ import {
 } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { ChatMessage } from "@/src/features/kanban/types";
+import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 
-const ALPHANUMERIC_REGEX = /^[a-zA-Z0-9]*$/;
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) {
-    return "just now";
-  }
-  if (diffMin < 60) {
-    return `${diffMin}m ago`;
-  }
-  if (diffHour < 24) {
-    return `${diffHour}h ago`;
-  }
-  if (diffDay === 1) {
-    return "yesterday";
-  }
-  if (diffDay < 7) {
-    return `${diffDay}d ago`;
-  }
-  return date.toLocaleDateString();
-}
+const MENTION_SEARCH_REGEX = /^[a-zA-Z0-9]*$/;
 
 type ChatBubbleProps = {
   message: ChatMessage;
@@ -55,6 +30,7 @@ type ChatBubbleProps = {
   onReplyClick: (replyId: string) => void;
   knownUserColors: Map<string, string>;
   onDelete: (messageId: string) => void;
+  isHighlighted: boolean;
 };
 
 const ChatBubble = memo(
@@ -64,11 +40,22 @@ const ChatBubble = memo(
     index,
     onReply,
     onReplyClick,
-
     knownUserColors,
     onDelete,
+    isHighlighted,
   }: ChatBubbleProps) => {
     const { collaborators, localUser } = useCollaboration();
+    const messageRef = useRef<HTMLDivElement>(null);
+
+    // Scroll into view when highlighted
+    useEffect(() => {
+      if (isHighlighted && messageRef.current) {
+        messageRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, [isHighlighted]);
 
     const contentElements = useMemo(() => {
       if (!knownUserColors || knownUserColors.size === 0) {
@@ -79,7 +66,7 @@ const ChatBubble = memo(
         (a, b) => b.length - a.length
       );
       const pattern = new RegExp(
-        `@(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+        `@(${names.map((n) => escapeRegExp(n)).join("|")})`,
         "g"
       );
 
@@ -110,7 +97,11 @@ const ChatBubble = memo(
 
     return (
       <motion.div
-        animate={{ opacity: 1, x: 0, scale: 1 }}
+        animate={{
+          opacity: 1,
+          x: 0,
+          scale: isHighlighted ? 1.03 : 1,
+        }}
         className={cn(
           "group flex max-w-[85%] gap-2.5",
           isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
@@ -118,6 +109,7 @@ const ChatBubble = memo(
         exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         id={`message-${message.id}`}
         initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
+        ref={messageRef}
         transition={{
           type: "spring",
           stiffness: 400,
@@ -241,6 +233,7 @@ const ChatBubble = memo(
             </button>
             {isOwn && (
               <button
+                aria-label="Delete message"
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2 py-1",
                   "border border-border/50 bg-background/95 shadow-sm backdrop-blur-sm",
@@ -273,6 +266,9 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
   const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
   const { localUser, collaborators, updateIsTyping } = useCollaboration();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -385,7 +381,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
       const lastAtIndex = value.lastIndexOf("@");
       if (lastAtIndex !== -1) {
         const textAfterAt = value.slice(lastAtIndex + 1);
-        if (ALPHANUMERIC_REGEX.test(textAfterAt)) {
+        if (MENTION_SEARCH_REGEX.test(textAfterAt)) {
           setShowMentionDropdown(true);
           setMentionSearch(textAfterAt);
           return;
@@ -519,22 +515,14 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   );
 
   const handleReplyClick = useCallback((replyId: string) => {
-    // Wait for the DOM to update (in case we just switched tabs, though likely already mounted)
-    requestAnimationFrame(() => {
-      const element = document.getElementById(`message-${replyId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Add a temporary highlight
-        element.style.transition = "transform 0.3s ease";
-        element.style.transform = "scale(1.05)";
-        setTimeout(() => {
-          element.style.transform = "scale(1)";
-        }, 300);
-      }
-    });
+    setHighlightedMessageId(replyId);
+    // Clear highlight after animation completes
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 600);
   }, []);
 
-  const getTypingText = () => {
+  const getTypingText = useCallback(() => {
     if (typingUsers.length === 0) {
       return null;
     }
@@ -545,7 +533,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
       return `${typingUsers[0].name} and ${typingUsers[1].name} are typing...`;
     }
     return `${typingUsers.length} people are typing...`;
-  };
+  }, [typingUsers]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -593,6 +581,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
               >
                 <ChatBubble
                   index={index}
+                  isHighlighted={highlightedMessageId === message.id}
                   isOwn={message.authorId === localUser?.id}
                   knownUserColors={knownUserColors}
                   message={message}
@@ -633,6 +622,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
             </span>
           </div>
           <button
+            aria-label="Cancel reply"
             className="ml-2 text-muted-foreground/50 hover:text-muted-foreground"
             onClick={() => setReplyTo(null)}
             type="button"
@@ -718,6 +708,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
 
         <div className="flex items-end gap-2">
           <textarea
+            aria-label="Type a message"
             className={cn(
               "max-h-24 min-h-10 flex-1 resize-none rounded-xl border border-border/30 bg-background/80 px-4 py-2.5",
               "text-sm placeholder:text-muted-foreground/50",
@@ -734,6 +725,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
             value={messageContent}
           />
           <button
+            aria-label="Send message"
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all",
               "shadow-[0_2px_8px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]",
