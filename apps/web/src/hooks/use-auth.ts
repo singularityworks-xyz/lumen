@@ -9,6 +9,7 @@ import {
 } from "@lumen/native-bridge";
 import { useCallback, useEffect } from "react";
 import { signIn, signOut, useSession } from "@/src/lib/auth-client";
+import { env } from "../env";
 
 const logger = createLogger({ name: "use-auth" });
 
@@ -46,8 +47,7 @@ export type UseAuthReturn = {
 
 async function exchangeTokenForSession(token: string): Promise<boolean> {
   try {
-    const apiBaseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+    const apiBaseUrl = env.NEXT_PUBLIC_API_URL;
 
     const response = await fetch(
       `${apiBaseUrl}/api/auth/native/exchange-token`,

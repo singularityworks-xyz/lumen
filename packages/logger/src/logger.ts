@@ -4,6 +4,7 @@ import {
   type Logger as OtelLogger,
   SeverityNumber,
 } from "@opentelemetry/api-logs";
+import { env } from "./env";
 
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
@@ -146,12 +147,10 @@ class CustomLogger implements Logger {
   constructor(options: LoggerOptions) {
     this.name = options.name || "lumen";
     this.level =
-      options.level ||
-      (process.env.NODE_ENV === "production" ? "info" : "debug");
-    this.levelNum =
-      process.env.NODE_ENV === "production" ? 100 : levels[this.level];
-    this.base = { ...options.base, env: process.env.NODE_ENV };
-    this.pretty = options.pretty ?? process.env.NODE_ENV !== "production";
+      options.level || (env.NODE_ENV === "production" ? "info" : "debug");
+    this.levelNum = env.NODE_ENV === "production" ? 100 : levels[this.level];
+    this.base = { ...options.base, env: env.NODE_ENV };
+    this.pretty = options.pretty ?? env.NODE_ENV !== "production";
     this.isBrowser = isBrowser();
 
     // Get logger from global provider (safe for browser)

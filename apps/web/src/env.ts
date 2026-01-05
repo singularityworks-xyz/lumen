@@ -7,15 +7,29 @@ const logger = createLogger({ name: "web:env" });
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production"]).default("development"),
+    // Telemetry
     NEXT_TELEMETRY_DISABLED: z.string().default("1"),
     TURBO_TELEMETRY_DISABLED: z.string().default("1"),
     BETTER_AUTH_TELEMETRY: z.string().default("0"),
+    // OTEL
+    OTEL_ENABLED: z
+      .string()
+      .transform((v) => v !== "false")
+      .default(true),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
   },
+  client: {
+    NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:3002"),
+  },
+  clientPrefix: "NEXT_PUBLIC_",
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV ?? "development",
     NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED ?? "1",
     TURBO_TELEMETRY_DISABLED: process.env.TURBO_TELEMETRY_DISABLED ?? "1",
     BETTER_AUTH_TELEMETRY: process.env.BETTER_AUTH_TELEMETRY ?? "0",
+    OTEL_ENABLED: process.env.OTEL_ENABLED,
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   emptyStringAsUndefined: true,
   skipValidation: false,

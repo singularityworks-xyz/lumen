@@ -17,6 +17,7 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
+import { env } from "@/src/env";
 import { StorageKeys } from "@/src/lib/storage-manager";
 
 const logger = createLogger({ name: "collab:provider" });
@@ -154,7 +155,7 @@ type CollaborationProviderProps = {
 
 export function CollaborationProvider({
   children,
-  apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
+  apiUrl = env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
   enabled = true,
 }: CollaborationProviderProps) {
   const [connectionState, setConnectionState] =

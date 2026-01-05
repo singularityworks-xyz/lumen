@@ -8,6 +8,7 @@ import {
 } from "@lumen/logger/server";
 import { Elysia, t } from "elysia";
 import { auth } from "../auth/config/auth";
+import { env } from "../env";
 import { toHeaders } from "../utils/headers";
 import {
   addCollaborator,
@@ -104,8 +105,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         if (token) {
           try {
             const { createRemoteJWKSet, jwtVerify } = await import("jose");
-            const baseUrl =
-              process.env.BETTER_AUTH_URL || "http://localhost:3002";
+            const baseUrl = env.BETTER_AUTH_URL;
             const JWKS = createRemoteJWKSet(
               new URL(`${baseUrl}/api/auth/jwks`)
             );
@@ -469,7 +469,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           if (share) {
             return {
               token: share.token,
-              url: `${process.env.WEB_URL || "http://localhost:3000"}?share=${share.token}`,
+              url: `${env.WEB_URL}?share=${share.token}`,
               expiresAt: share.expiresAt,
             };
           }
@@ -618,7 +618,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
 
         return {
           token,
-          url: `${process.env.WEB_URL || "http://localhost:3000"}?share=${token}`,
+          url: `${env.WEB_URL}?share=${token}`,
         };
       });
     },

@@ -6,20 +6,17 @@ import { Elysia } from "elysia";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
+import { env } from "./env";
 import { otelMetrics } from "./middleware/otel-metrics";
 
 initOtel("lumen-workers");
 
 const logger = createLogger({ name: "workers:main" });
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-      .map((o) => o.trim())
-      .filter((o) => o.length > 0)
-  : [];
-
 const origins =
-  allowedOrigins.length > 0 ? allowedOrigins : ["http://localhost:3000"];
+  env.ALLOWED_ORIGINS && env.ALLOWED_ORIGINS.length > 0
+    ? env.ALLOWED_ORIGINS
+    : ["http://localhost:3000"];
 
 const app = new Elysia()
   .use(opentelemetry())
@@ -54,8 +51,8 @@ const app = new Elysia()
   })
   .onStart(() => {
     logger.info("Server starting", {
-      port: 3002,
-      env: process.env.NODE_ENV || "development",
+      port: env.PORT,
+      env: env.NODE_ENV,
       allowedOrigins: origins,
     });
   })
@@ -87,14 +84,14 @@ const app = new Elysia()
     return {
       error: "Internal Server Error",
       message:
-        process.env.NODE_ENV === "production"
+        env.NODE_ENV === "production"
           ? "Something went wrong"
           : error instanceof Error
             ? error.message
             : "Unknown error",
     };
   })
-  .listen(3002);
+  .listen(env.PORT);
 
 logger.info("Server started successfully", {
   hostname: app.server?.hostname,

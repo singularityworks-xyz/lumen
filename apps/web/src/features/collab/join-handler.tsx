@@ -4,6 +4,7 @@ import { createLogger } from "@lumen/logger";
 import { User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
+import { env } from "@/src/env";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useKanbanStore } from "../kanban/store";
 
@@ -48,7 +49,7 @@ export function useJoinWorkspace({
     };
   } | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+  const apiUrl = env.NEXT_PUBLIC_API_URL;
 
   const validateToken = useCallback(async () => {
     if (!shareToken) {

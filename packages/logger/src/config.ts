@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 export type OtelConfig = {
   enabled: boolean;
   endpoint: string;
@@ -10,7 +12,6 @@ function isBrowser(): boolean {
 }
 
 export function getOtelConfig(defaultServiceName: string): OtelConfig {
-  // OTEL is server-side only
   if (isBrowser()) {
     return {
       enabled: false,
@@ -20,17 +21,17 @@ export function getOtelConfig(defaultServiceName: string): OtelConfig {
     };
   }
 
-  const env = process.env.NODE_ENV || "development";
-  const enabled = process.env.OTEL_ENABLED !== "false";
+  const environment = env.NODE_ENV;
+  const enabled = env.OTEL_ENABLED;
   const endpoint =
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-    (env === "production" ? "" : "http://localhost:4318");
-  const serviceName = process.env.OTEL_SERVICE_NAME || defaultServiceName;
+    env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+    (environment === "production" ? "" : "http://localhost:4318");
+  const serviceName = env.OTEL_SERVICE_NAME || defaultServiceName;
 
   return {
     enabled: enabled && !!endpoint,
     endpoint,
     serviceName,
-    environment: env,
+    environment,
   };
 }

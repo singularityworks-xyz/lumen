@@ -1,5 +1,6 @@
 import { createLogger } from "@lumen/logger";
 import { useEffect } from "react";
+import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 
@@ -16,8 +17,7 @@ export function useWorkspaceSync() {
 
     const syncWorkspaces = async () => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+        const apiUrl = env.NEXT_PUBLIC_API_URL;
         const response = await fetch(`${apiUrl}/api/workspaces`, {
           credentials: "include",
         });

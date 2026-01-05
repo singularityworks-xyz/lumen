@@ -8,6 +8,7 @@ import {
   withSpanAsync,
 } from "@lumen/logger/server";
 import Elysia, { t } from "elysia";
+import { env } from "../../env";
 import { toHeaders } from "../../utils/headers";
 import { auth } from "../config/auth";
 
@@ -85,12 +86,12 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     return {
       error: statusCode === 401 ? "Unauthorized" : "Internal Server Error",
       message:
-        process.env.NODE_ENV === "production"
+        env.NODE_ENV === "production"
           ? "Something went wrong"
           : error instanceof Error
             ? error.message
             : "Unknown error",
-      ...(process.env.NODE_ENV === "development" && error instanceof Error
+      ...(env.NODE_ENV === "development" && error instanceof Error
         ? { stack: error.stack }
         : {}),
     };
@@ -199,8 +200,8 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         cookie["better-auth.session_token"].set({
           value: tokenData.sessionToken,
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          secure: env.NODE_ENV === "production",
+          sameSite: env.NODE_ENV === "production" ? "none" : "lax",
           path: "/",
           maxAge: 60 * 60 * 24 * 7,
         });

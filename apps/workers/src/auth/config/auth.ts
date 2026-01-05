@@ -3,6 +3,7 @@ import { createLogger } from "@lumen/logger";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { jwt } from "better-auth/plugins";
+import { env } from "../../env";
 
 const logger = createLogger({ name: "auth:config" });
 
@@ -17,9 +18,9 @@ export const auth = betterAuth({
   },
   socialProviders: {
     github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-      redirectURI: `${process.env.BETTER_AUTH_URL}/api/auth/callback/github`,
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+      redirectURI: `${env.BETTER_AUTH_URL}/api/auth/callback/github`,
     },
   },
   session: {
@@ -41,23 +42,22 @@ export const auth = betterAuth({
       },
     }),
   ],
-  secret: process.env.BETTER_AUTH_SECRET as string,
-  baseURL: process.env.BETTER_AUTH_URL as string,
-  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") || [],
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
+  trustedOrigins: env.BETTER_AUTH_TRUSTED_ORIGINS || [],
   advanced: {
-    useSecureCookies: process.env.NODE_ENV === "production",
-    cookieSameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    useSecureCookies: env.NODE_ENV === "production",
+    cookieSameSite: env.NODE_ENV === "production" ? "none" : "lax",
   },
   logger: {
-    level:
-      (process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") || "info",
+    level: env.LOG_LEVEL,
     disabled: false,
-    verboseLogging: process.env.NODE_ENV === "development",
+    verboseLogging: env.NODE_ENV === "development",
   },
 });
 
 logger.info("Better Auth initialized successfully", {
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") || [],
   sessionExpiresIn: "7 days",
   cookieStrategy: "compact",
