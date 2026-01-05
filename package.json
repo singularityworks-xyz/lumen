@@ -1,5 +1,6 @@
 {
   "name": "lumen",
+  "private": true,
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -10,6 +11,8 @@
     "dev": "turbo run dev",
     "dev:web": "concurrently --names \"web,workers\" --prefix-colors \"blue,red\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\"",
     "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
+    "otel:up": "docker compose -f local/docker/docker-compose.otel.yml up -d",
+    "otel:down": "docker compose -f local/docker/docker-compose.otel.yml down",
     "check": "ultracite fix",
     "check-types": "turbo run check-types",
     "dep:check": "bunx sherif@latest --fix .",
@@ -42,6 +45,5 @@
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
       "bun ultracite fix"
     ]
-  },
-  "private": true
+  }
 }

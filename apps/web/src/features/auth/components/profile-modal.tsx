@@ -31,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
+import { env } from "@/src/env";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
@@ -86,7 +87,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const workspaceShareUrls = useKanbanStore(
     (state) => state.workspaceShareUrls
   );
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+  const apiUrl = (env.NEXT_PUBLIC_API_URL || "http://localhost:3002") as string;
 
   const isDefaultWorkspace = currentWorkspaceId === defaultWorkspaceId;
 

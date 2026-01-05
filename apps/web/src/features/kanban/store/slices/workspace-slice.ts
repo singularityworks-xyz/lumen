@@ -1,4 +1,5 @@
 import { createLogger } from "@lumen/logger";
+import { env } from "@/src/env";
 import { authClient } from "@/src/lib/auth-client";
 import type { Workspace } from "../../types";
 import {
@@ -11,8 +12,7 @@ import type { KanbanStore } from "../types";
 import { getNextZIndex } from "../utils";
 
 const logger = createLogger({ name: "[client] kanban/workspace" });
-const NEXT_PUBLIC_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+const NEXT_PUBLIC_API_URL = env.NEXT_PUBLIC_API_URL;
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,

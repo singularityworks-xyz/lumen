@@ -25,6 +25,7 @@ import type {
 } from "@/src/features/kanban/types";
 import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
+import { env } from "../env";
 
 function KanbanPageContent() {
   const [isReady, setIsReady] = useState(false);
@@ -38,7 +39,7 @@ function KanbanPageContent() {
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+  const apiUrl = env.NEXT_PUBLIC_API_URL;
 
   const handleJoinComplete = useCallback(
     async (data: JoinSuccessData | null) => {

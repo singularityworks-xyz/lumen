@@ -2,6 +2,7 @@
 "use client";
 
 import { createLogger } from "@lumen/logger";
+import { recordError, withSpanAsync } from "@lumen/logger/tracer";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import {
@@ -17,6 +18,7 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
+import { env } from "@/src/env";
 import { StorageKeys } from "@/src/lib/storage-manager";
 
 const logger = createLogger({ name: "collab:provider" });
@@ -154,7 +156,7 @@ type CollaborationProviderProps = {
 
 export function CollaborationProvider({
   children,
-  apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
+  apiUrl = env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
   enabled = true,
 }: CollaborationProviderProps) {
   const [connectionState, setConnectionState] =
@@ -286,6 +288,8 @@ export function CollaborationProvider({
       const { getJwtToken, authClient } = await import("@/src/lib/auth-client");
       const token = await getJwtToken();
       if (!token) {
+        const err = new Error("Failed to get JWT token for WebSocket");
+        recordError(err, { "workspace.id": workspaceId });
         logger.error("Failed to get JWT token for WebSocket");
         setConnectionState("error");
         return;
@@ -449,6 +453,7 @@ export function CollaborationProvider({
               break;
           }
         } catch (error) {
+          recordError(error, { "ws.messageType": "yjs_update" });
           logger.error("Caught error while handling a Yjs update", {
             error: error instanceof Error ? error.message : "Unknown error",
           });
@@ -490,7 +495,10 @@ export function CollaborationProvider({
       };
 
       ws.onerror = (error) => {
-        logger.error("WebSocket error", { error });
+        const errObj =
+          error instanceof Error ? error : new Error(String(error));
+        recordError(errObj, { "ws.workspaceId": workspaceId });
+        logger.error("WebSocket error", { error: errObj });
         setConnectionState("error");
       };
 
@@ -541,10 +549,19 @@ export function CollaborationProvider({
     [enabled, apiUrl, cleanup, handleAwarenessUpdate]
   );
 
-  const disconnect = useCallback(() => {
-    logger.info("Disconnecting", { workspaceId: workspaceIdRef.current });
-    cleanup();
-  }, [cleanup]);
+  const disconnect = useCallback(
+    () =>
+      // biome-ignore lint/suspicious/useAwait: cleanup is sync
+      withSpanAsync("ws.disconnect", async (span) => {
+        const workspaceId = workspaceIdRef.current;
+        if (workspaceId) {
+          span.setAttribute("workspace.id", workspaceId);
+        }
+        logger.info("Disconnecting", { workspaceId });
+        cleanup();
+      }),
+    [cleanup]
+  );
 
   const updateCursor = useCallback((position: CursorPosition | null) => {
     const awareness = awarenessRef.current;

@@ -1,3 +1,11 @@
+import { context } from "@opentelemetry/api";
+import {
+  logs,
+  type Logger as OtelLogger,
+  SeverityNumber,
+} from "@opentelemetry/api-logs";
+import { env } from "./env";
+
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LoggerOptions = {
@@ -20,6 +28,15 @@ const levels: Record<LogLevel, number> = {
   fatal: 60,
 };
 
+const ansiColors: Record<string, string> = {
+  trace: "\x1b[37m",
+  debug: "\x1b[36m",
+  info: "\x1b[34m",
+  warn: "\x1b[33m",
+  error: "\x1b[31m",
+  fatal: "\x1b[35m",
+};
+
 const levelColors: Record<string, { bg: string; text: string }> = {
   trace: { bg: "#6b7280", text: "#fff" },
   debug: { bg: "#9ca3af", text: "#1f2937" },
@@ -27,15 +44,6 @@ const levelColors: Record<string, { bg: string; text: string }> = {
   warn: { bg: "#f59e0b", text: "#1f2937" },
   error: { bg: "#ef4444", text: "#fff" },
   fatal: { bg: "#7f1d1d", text: "#fff" },
-};
-
-const ansiColors: Record<string, string> = {
-  trace: "\x1b[37m", // white
-  debug: "\x1b[36m", // cyan
-  info: "\x1b[34m", // blue
-  warn: "\x1b[33m", // yellow
-  error: "\x1b[31m", // red
-  fatal: "\x1b[35m", // magenta
 };
 
 const reset = "\x1b[0m";
@@ -134,17 +142,19 @@ class CustomLogger implements Logger {
   base: Record<string, unknown>;
   pretty: boolean;
   isBrowser: boolean;
+  otelLogger: OtelLogger;
 
   constructor(options: LoggerOptions) {
     this.name = options.name || "lumen";
     this.level =
-      options.level ||
-      (process.env.NODE_ENV === "production" ? "info" : "debug");
-    this.levelNum =
-      process.env.NODE_ENV === "production" ? 100 : levels[this.level];
-    this.base = { ...options.base, env: process.env.NODE_ENV };
-    this.pretty = options.pretty ?? process.env.NODE_ENV !== "production";
+      options.level || (env.NODE_ENV === "production" ? "info" : "debug");
+    this.levelNum = env.NODE_ENV === "production" ? 100 : levels[this.level];
+    this.base = { ...options.base, env: env.NODE_ENV };
+    this.pretty = options.pretty ?? env.NODE_ENV !== "production";
     this.isBrowser = isBrowser();
+
+    // Get logger from global provider (safe for browser)
+    this.otelLogger = logs.getLogger(this.name);
   }
 
   private log(
@@ -157,17 +167,8 @@ class CustomLogger implements Logger {
 
     if (typeof arg1 === "string") {
       msg = arg1;
-      if (arg2) {
-        if (typeof arg2 === "string") {
-          // If arg1 is string and arg2 is string, perhaps arg2 is extra, but to match Pino, maybe ignore or error
-          // But for compatibility, perhaps treat as msg + arg2 or something, but let's assume arg2 is object
-          // Since the error is arg2 string, but in standard it's object, but to fix, if arg2 string, ignore or set msg = arg1 + arg2
-          // But to simple, if arg2 is string, set msg = arg1, and ignore arg2 or something
-          // Wait, in the call, it's logger.error({error}, "msg"), so arg1 object, arg2 string
-          // So handle that case.
-        } else {
-          obj = arg2;
-        }
+      if (arg2 && typeof arg2 !== "string") {
+        obj = arg2;
       }
     } else {
       obj = arg1;
@@ -197,7 +198,60 @@ class CustomLogger implements Logger {
       formatBrowserLog(logObj, level, this.name);
     } else {
       formatServerLog(logObj, level, this.name, this.pretty);
+      this.emitOtelLog(level, msg, obj);
     }
+  }
+
+  private emitOtelLog(
+    level: LogLevel,
+    msg: string,
+    attributes: Record<string, unknown>
+  ): void {
+    const severityMap: Record<LogLevel, SeverityNumber> = {
+      trace: SeverityNumber.TRACE,
+      debug: SeverityNumber.DEBUG,
+      info: SeverityNumber.INFO,
+      warn: SeverityNumber.WARN,
+      error: SeverityNumber.ERROR,
+      fatal: SeverityNumber.FATAL,
+    };
+
+    const otelAttrs: Record<string, string | number | boolean> = {
+      "logger.name": this.name,
+    };
+
+    for (const [key, value] of Object.entries(attributes)) {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        otelAttrs[key] = value;
+      } else if (value !== null && value !== undefined) {
+        otelAttrs[key] = JSON.stringify(value);
+      }
+    }
+
+    for (const [key, value] of Object.entries(this.base)) {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        otelAttrs[`base.${key}`] = value;
+      }
+    }
+
+    // Explicitly pass context (though Logs SDK likely picks it up automatically)
+    // Using context.active() is the correct way
+    this.otelLogger.emit({
+      severityNumber: severityMap[level],
+      severityText: level.toUpperCase(),
+      body: msg,
+      attributes: otelAttrs,
+      timestamp: new Date(),
+      context: context.active(),
+    });
   }
 
   trace(

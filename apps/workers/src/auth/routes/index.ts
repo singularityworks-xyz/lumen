@@ -1,7 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
+import {
+  addSpanEvent,
+  recordSpanError,
+  setSpanAttributes,
+  withSpanAsync,
+} from "@lumen/logger/server";
 import Elysia, { t } from "elysia";
+import { env } from "../../env";
 import { toHeaders } from "../../utils/headers";
 import { auth } from "../config/auth";
 
@@ -14,21 +21,31 @@ const parseCookieName = (cookieString: string): string => {
   return match?.[1]?.trim() || "unknown";
 };
 
-// Cleanup expired tokens periodically (every 5 minutes)
 const cleanupInterval = setInterval(
   async () => {
     try {
-      const result = await prisma.oneTimeAuthToken.deleteMany({
-        where: { expiresAt: { lt: new Date() } },
+      await withSpanAsync("auth.cleanupExpiredTokens", async (span) => {
+        try {
+          const result = await prisma.oneTimeAuthToken.deleteMany({
+            where: { expiresAt: { lt: new Date() } },
+          });
+          if (result.count > 0) {
+            setSpanAttributes({ "auth.tokens.deleted": result.count });
+            addSpanEvent("tokens.deleted", { count: result.count });
+            logger.debug("Cleaned up expired one-time tokens", {
+              count: result.count,
+            });
+          }
+        } catch (err) {
+          recordSpanError(span, err);
+          logger.error("Failed to cleanup expired tokens", {
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
       });
-      if (result.count > 0) {
-        logger.debug("Cleaned up expired one-time tokens", {
-          count: result.count,
-        });
-      }
-    } catch (err) {
-      logger.error("Failed to cleanup expired tokens", {
-        error: err instanceof Error ? err.message : "Unknown error",
+    } catch (outerErr) {
+      logger.error("Cleanup span failed", {
+        error: outerErr instanceof Error ? outerErr.message : "Unknown error",
       });
     }
   },
@@ -74,12 +91,12 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     return {
       error: statusCode === 401 ? "Unauthorized" : "Internal Server Error",
       message:
-        process.env.NODE_ENV === "production"
+        env.NODE_ENV === "production"
           ? "Something went wrong"
           : error instanceof Error
             ? error.message
             : "Unknown error",
-      ...(process.env.NODE_ENV === "development" && error instanceof Error
+      ...(env.NODE_ENV === "development" && error instanceof Error
         ? { stack: error.stack }
         : {}),
     };
@@ -87,104 +104,120 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
 
   // Generate a one-time token for native app authentication
   // Called from the native-callback page (in external browser) after OAuth success
-  .post("/api/auth/native/generate-token", async ({ headers, set }) => {
-    const session = await auth.api.getSession({
-      headers: toHeaders(headers),
-    });
+  .post("/api/auth/native/generate-token", async ({ headers, set }) =>
+    withSpanAsync("auth.generateNativeToken", async () => {
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
 
-    if (!session) {
-      set.status = 401;
-      return { error: "Unauthorized", message: "No active session" };
-    }
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized", message: "No active session" };
+      }
 
-    const oneTimeToken = randomBytes(32).toString("hex");
-    const cookieHeader = headers.cookie || "";
-    const sessionMatch = cookieHeader.match(SESSION_TOKEN_REGEX);
-    const sessionToken = sessionMatch
-      ? decodeURIComponent(sessionMatch[1])
-      : null;
+      setSpanAttributes({ userId: session.user.id });
 
-    if (!sessionToken) {
-      set.status = 401;
-      return { error: "Unauthorized", message: "No session token found" };
-    }
+      const oneTimeToken = randomBytes(32).toString("hex");
+      const cookieHeader = headers.cookie || "";
+      const sessionMatch = cookieHeader.match(SESSION_TOKEN_REGEX);
+      const sessionToken = sessionMatch
+        ? decodeURIComponent(sessionMatch[1])
+        : null;
 
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      if (!sessionToken) {
+        set.status = 401;
+        return { error: "Unauthorized", message: "No session token found" };
+      }
 
-    await prisma.oneTimeAuthToken.create({
-      data: {
-        token: oneTimeToken,
-        sessionToken,
-        expiresAt,
-      },
-    });
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    logger.info("Generated one-time token for native auth", {
-      userId: session.user.id,
-    });
+      await prisma.oneTimeAuthToken.create({
+        data: {
+          token: oneTimeToken,
+          sessionToken,
+          expiresAt,
+        },
+      });
 
-    return { token: oneTimeToken };
-  })
+      addSpanEvent("token.created", { expiresAt: expiresAt.toISOString() });
+      logger.info("Generated one-time token for native auth", {
+        userId: session.user.id,
+      });
+
+      return { token: oneTimeToken };
+    })
+  )
 
   // Exchange one-time token for a session cookie (called from Tauri WebView)
   .post(
     "/api/auth/native/exchange-token",
-    async ({ body, set, cookie }) => {
-      const { token } = body;
+    ({ body, set, cookie }) => {
+      return withSpanAsync("auth.exchangeToken", async (span) => {
+        const { token } = body;
 
-      if (!token) {
-        set.status = 400;
-        return { error: "Bad Request", message: "Token is required" };
-      }
-
-      // Atomically delete the token and get it back in one operation
-      // This prevents race conditions where multiple requests could use the same token
-      // Thankyou Prisma for making this easy!
-      let tokenData: { sessionToken: string; expiresAt: Date } | null = null;
-
-      try {
-        // Prisma delete returns the deleted record, throws P2025 if not found
-        tokenData = await prisma.oneTimeAuthToken.delete({
-          where: { token },
-          select: { sessionToken: true, expiresAt: true },
-        });
-      } catch (err) {
-        // P2025 = Record not found (already used or never existed)
-        if (
-          err instanceof Error &&
-          "code" in err &&
-          (err as { code: string }).code === "P2025"
-        ) {
-          set.status = 401;
-          return {
-            error: "Unauthorized",
-            message: "Invalid or expired token",
-          };
+        if (!token) {
+          set.status = 400;
+          return { error: "Bad Request", message: "Token is required" };
         }
-        throw err;
-      }
 
-      // Check if the token was expired (we still deleted it to clean up)
-      if (tokenData.expiresAt < new Date()) {
-        set.status = 401;
-        return { error: "Unauthorized", message: "Token has expired" };
-      }
+        // Atomically delete the token and get it back in one operation
+        // This prevents race conditions where multiple requests could use the same token
+        // Thankyou Prisma for making this easy!
+        let tokenData: { sessionToken: string; expiresAt: Date } | null = null;
 
-      // Set the session cookie for the Tauri WebView
-      cookie["better-auth.session_token"].set({
-        value: tokenData.sessionToken,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
+        try {
+          // Prisma delete returns the deleted record, throws P2025 if not found
+          tokenData = await prisma.oneTimeAuthToken.delete({
+            where: { token },
+            select: { sessionToken: true, expiresAt: true },
+          });
+          addSpanEvent("token.deleted", {
+            token: `${token.substring(0, 8)}...`,
+          });
+        } catch (err) {
+          // P2025 = Record not found (already used or never existed)
+          if (
+            err instanceof Error &&
+            "code" in err &&
+            (err as { code: string }).code === "P2025"
+          ) {
+            setSpanAttributes({ "auth.token.valid": false });
+            set.status = 401;
+            return {
+              error: "Unauthorized",
+              message: "Invalid or expired token",
+            };
+          }
+          recordSpanError(span, err);
+          throw err;
+        }
+
+        // Check if the token was expired (we still deleted it to clean up)
+        if (tokenData.expiresAt < new Date()) {
+          setSpanAttributes({ "auth.token.expired": true });
+          set.status = 401;
+          return { error: "Unauthorized", message: "Token has expired" };
+        }
+
+        setSpanAttributes({ "auth.token.valid": true });
+
+        // Set the session cookie for the Tauri WebView
+        cookie["better-auth.session_token"].set({
+          value: tokenData.sessionToken,
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+
+        addSpanEvent("session.cookie.set");
+        logger.info("Exchanged one-time token for session cookie");
+
+        return {
+          success: true,
+        };
       });
-
-      logger.info("Exchanged one-time token for session cookie");
-
-      return {
-        success: true,
-      };
     },
     {
       body: t.Object({
@@ -195,96 +228,111 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
 
   // Special handler for OAuth callback when redirecting to native-callback
   // This intercepts the callback, completes the OAuth flow, and adds a one-time token to the redirect URL
-  .get("/api/auth/callback/:provider", async ({ request, params, set }) => {
-    // Let Better Auth handle the callback first
-    const authResponse = await auth.handler(request);
+  .get("/api/auth/callback/:provider", ({ request, params }) => {
+    return withSpanAsync("auth.oauthCallback", async () => {
+      setSpanAttributes({ provider: params.provider });
 
-    // Check if this is a redirect to native-callback
-    if (authResponse.status >= 300 && authResponse.status < 400) {
-      const redirectUrl = authResponse.headers.get("Location");
+      // Let Better Auth handle the callback first
+      const authResponse = await auth.handler(request);
 
-      logger.debug("OAuth callback response", {
-        provider: params.provider,
-        status: authResponse.status,
-        redirectUrl,
-        isNativeCallback: redirectUrl?.includes("/auth/native-callback"),
-      });
+      // Check if this is a redirect to native-callback
+      if (authResponse.status >= 300 && authResponse.status < 400) {
+        const redirectUrl = authResponse.headers.get("Location");
 
-      if (redirectUrl?.includes("/auth/native-callback")) {
-        // Extract session token from Set-Cookie headers
-        // Use getSetCookie() which properly handles multiple Set-Cookie headers
-        const setCookies = authResponse.headers.getSetCookie?.() || [];
-
-        // Fallback: try to get from single header if getSetCookie not available
-        if (setCookies.length === 0) {
-          const singleCookie = authResponse.headers.get("Set-Cookie");
-          if (singleCookie) {
-            // biome-ignore lint/performance/useTopLevelRegex: does not hurt here
-            setCookies.push(...singleCookie.split(/,(?=\s*\w+=)/));
-          }
-        }
-
-        logger.debug("Extracting session from cookies", {
-          cookieCount: setCookies.length,
-          cookieNames: setCookies.map(parseCookieName),
+        logger.debug("OAuth callback response", {
+          provider: params.provider,
+          status: authResponse.status,
+          redirectUrl,
+          isNativeCallback: redirectUrl?.includes("/auth/native-callback"),
         });
 
-        let sessionToken: string | null = null;
-        for (const cookie of setCookies) {
-          const match = cookie.match(SESSION_TOKEN_REGEX);
-          if (match) {
-            sessionToken = decodeURIComponent(match[1]);
-            break;
+        if (redirectUrl?.includes("/auth/native-callback")) {
+          setSpanAttributes({ "auth.callback.type": "native" });
+
+          // Extract session token from Set-Cookie headers
+          // Use getSetCookie() which properly handles multiple Set-Cookie headers
+          const setCookies = authResponse.headers.getSetCookie?.() || [];
+
+          // Fallback: try to get from single header if getSetCookie not available
+          if (setCookies.length === 0) {
+            const singleCookie = authResponse.headers.get("Set-Cookie");
+            if (singleCookie) {
+              // biome-ignore lint/performance/useTopLevelRegex: does not hurt here
+              setCookies.push(...singleCookie.split(/,(?=\s*\w+=)/));
+            }
           }
-        }
 
-        logger.debug("Session token extraction result", {
-          hasSessionToken: !!sessionToken,
-          tokenPreview: sessionToken
-            ? `${sessionToken.substring(0, 20)}...`
-            : null,
-        });
-
-        if (sessionToken) {
-          const oneTimeToken = randomBytes(32).toString("hex");
-          const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-          await prisma.oneTimeAuthToken.create({
-            data: {
-              token: oneTimeToken,
-              sessionToken,
-              expiresAt,
-            },
+          logger.debug("Extracting session from cookies", {
+            cookieCount: setCookies.length,
+            cookieNames: setCookies.map(parseCookieName),
           });
 
-          logger.info("Generated one-time token for native OAuth callback", {
-            provider: params.provider,
-          });
-
-          const redirectWithToken = new URL(redirectUrl);
-          redirectWithToken.searchParams.set("native_token", oneTimeToken);
-          const setCookieHeaders = authResponse.headers.getSetCookie?.() || [];
-          if (setCookieHeaders.length > 0) {
-            set.headers["Set-Cookie"] = setCookieHeaders.join(", ");
+          let sessionToken: string | null = null;
+          for (const cookie of setCookies) {
+            const match = cookie.match(SESSION_TOKEN_REGEX);
+            if (match) {
+              sessionToken = decodeURIComponent(match[1]);
+              break;
+            }
           }
-          // biome-ignore lint/complexity/useLiteralKeys: if it works, don't touch it
-          set.headers["Location"] = redirectWithToken.toString();
-          set.status = 302;
-          return;
-        }
 
-        logger.warn(
-          "Could not generate native token, falling back to normal redirect",
-          {
-            provider: params.provider,
+          logger.debug("Session token extraction result", {
             hasSessionToken: !!sessionToken,
-          }
-        );
-      }
-    }
+            tokenPreview: sessionToken
+              ? `${sessionToken.substring(0, 20)}...`
+              : null,
+          });
 
-    // For non-native callbacks or if token generation failed, return original response
-    return authResponse;
+          if (sessionToken) {
+            const oneTimeToken = randomBytes(32).toString("hex");
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+            await prisma.oneTimeAuthToken.create({
+              data: {
+                token: oneTimeToken,
+                sessionToken,
+                expiresAt,
+              },
+            });
+
+            addSpanEvent("token.created", {
+              type: "oauth_callback",
+              expiresAt: expiresAt.toISOString(),
+            });
+            logger.info("Generated one-time token for native OAuth callback", {
+              provider: params.provider,
+            });
+
+            const redirectWithToken = new URL(redirectUrl);
+            redirectWithToken.searchParams.set("native_token", oneTimeToken);
+
+            const newHeaders = new Headers(authResponse.headers);
+            newHeaders.set("Location", redirectWithToken.toString());
+
+            // By returning a new Response, we let the underlying server handle
+            // multiple Set-Cookie headers correctly, instead of incorrectly
+            // joining them.
+            return new Response(null, {
+              status: 302,
+              headers: newHeaders,
+            });
+          }
+
+          logger.warn(
+            "Could not generate native token, falling back to normal redirect",
+            {
+              provider: params.provider,
+              hasSessionToken: !!sessionToken,
+            }
+          );
+        } else {
+          setSpanAttributes({ "auth.callback.type": "web" });
+        }
+      }
+
+      // For non-native callbacks or if token generation failed, return original response
+      return authResponse;
+    });
   })
 
   .all("/api/auth/*", ({ request }) => {
