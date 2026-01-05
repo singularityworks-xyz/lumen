@@ -56,6 +56,7 @@ export function initOtel(serviceName: string): boolean {
   // Trace Provider
   const traceExporter = new OTLPTraceExporter({
     url: `${config.endpoint}/v1/traces`,
+    headers: config.headers,
   });
   tracerProvider = new NodeTracerProvider({
     resource,
@@ -71,6 +72,7 @@ export function initOtel(serviceName: string): boolean {
   // Metric Provider
   const metricExporter = new OTLPMetricExporter({
     url: `${config.endpoint}/v1/metrics`,
+    headers: config.headers,
   });
   meterProvider = new MeterProvider({
     resource,
@@ -86,6 +88,7 @@ export function initOtel(serviceName: string): boolean {
   // Log Provider
   const logExporter = new OTLPLogExporter({
     url: `${config.endpoint}/v1/logs`,
+    headers: config.headers,
   });
   loggerProvider = new LoggerProvider({
     resource,
