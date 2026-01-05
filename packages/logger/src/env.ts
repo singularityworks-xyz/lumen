@@ -6,7 +6,7 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production"]).default("development"),
     OTEL_ENABLED: z
       .string()
-      .transform((v) => v !== "false")
+      .transform((v) => v === "true" || v === "1")
       .default(true),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_SERVICE_NAME: z.string().optional(),

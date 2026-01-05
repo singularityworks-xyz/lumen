@@ -299,22 +299,6 @@ export function useSelectionHandlers(
     [screenToFlowPosition, clearStoreSelectionBox]
   );
 
-  const handleSelectionEnd = useCallback((_event: React.MouseEvent) => {
-    const selectionBoxElement = document.querySelector(
-      ".react-flow__selection"
-    ) as HTMLElement | null;
-
-    if (!selectionBoxElement) {
-      return;
-    }
-
-    const rect = selectionBoxElement.getBoundingClientRect();
-
-    if (rect.width < 50 || rect.height < 50) {
-      return;
-    }
-  }, []);
-
   const handleCloseSelectionMenu = useCallback(() => {
     clearStoreSelectionBox();
     setPresenceSelectionBox(null);
@@ -328,6 +312,15 @@ export function useSelectionHandlers(
 
       if (selectionEl) {
         const rect = selectionEl.getBoundingClientRect();
+
+        // Clear small, accidental selections (less than 10px in either dimension)
+        if (rect.width < 10 && rect.height < 10) {
+          clearStoreSelectionBox();
+          isSelectingRef.current = false;
+          selectionStartRef.current = null;
+          return;
+        }
+
         const topLeft = screenToFlowPosition({ x: rect.left, y: rect.top });
         const bottomRight = screenToFlowPosition({
           x: rect.right,
@@ -359,9 +352,8 @@ export function useSelectionHandlers(
 
       isSelectingRef.current = false;
       selectionStartRef.current = null;
-      handleSelectionEnd(event);
     },
-    [handleSelectionEnd, screenToFlowPosition, setStoreSelectionBox]
+    [screenToFlowPosition, setStoreSelectionBox, clearStoreSelectionBox]
   );
 
   // Sync persisted selection box to presence

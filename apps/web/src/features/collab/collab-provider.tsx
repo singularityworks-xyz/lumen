@@ -495,8 +495,10 @@ export function CollaborationProvider({
       };
 
       ws.onerror = (error) => {
-        recordError(new Error("WebSocket error"), { "ws.workspaceId": workspaceId });
-        logger.error("WebSocket error", { error });
+        const errObj =
+          error instanceof Error ? error : new Error(String(error));
+        recordError(errObj, { "ws.workspaceId": workspaceId });
+        logger.error("WebSocket error", { error: errObj });
         setConnectionState("error");
       };
 
@@ -549,12 +551,13 @@ export function CollaborationProvider({
 
   const disconnect = useCallback(
     () =>
+      // biome-ignore lint/suspicious/useAwait: cleanup is sync
       withSpanAsync("ws.disconnect", async (span) => {
         const workspaceId = workspaceIdRef.current;
         if (workspaceId) {
           span.setAttribute("workspace.id", workspaceId);
         }
-        await logger.info("Disconnecting", { workspaceId });
+        logger.info("Disconnecting", { workspaceId });
         cleanup();
       }),
     [cleanup]

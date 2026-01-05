@@ -533,6 +533,7 @@ class RoomManager {
           logger.debug("Skipping persistence - workspace not in DB", {
             workspaceId,
           });
+          setSpanAttributes({ "room.persistence.skipped": true });
           return;
         }
 

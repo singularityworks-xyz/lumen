@@ -99,17 +99,42 @@ logger.info("Server started successfully", {
   url: `http://${app.server?.hostname}:${app.server?.port}`,
 });
 
-// Graceful shutdown
 let isShuttingDown = false;
-const shutdown = async () => {
+const shutdown = async (signal: string) => {
   if (isShuttingDown) {
     return;
   }
   isShuttingDown = true;
-  logger.info("Shutting down...");
-  await shutdownOtel();
-  process.exit(0);
+  logger.info("Shutting down gracefully...", { signal });
+
+  try {
+    // Stop accepting new connections
+    if (app.server) {
+      logger.debug("Stopping server...");
+      app.server.stop();
+    }
+
+    // Give in-flight requests a moment to complete
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Flush OpenTelemetry data
+    logger.debug("Flushing OpenTelemetry...");
+    await shutdownOtel();
+
+    // Close database connections
+    logger.debug("Disconnecting from database...");
+    const { prisma } = await import("@lumen/db");
+    await prisma.$disconnect();
+
+    logger.info("Shutdown complete");
+    process.exit(0);
+  } catch (error) {
+    logger.error("Error during shutdown", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    process.exit(1);
+  }
 };
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

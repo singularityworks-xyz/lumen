@@ -292,6 +292,7 @@ export function KanbanCanvas() {
     return () => reactFlowCanvas?.removeEventListener("wheel", handleWheel);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: req
   useEffect(() => {
     if (!isCollaborating) {
       return;
@@ -345,9 +346,6 @@ export function KanbanCanvas() {
     updateCursor,
     updateColumnDragPosition,
     setPresenceSelectionBox,
-    activeColumnDataRef.current,
-    isSelectingRef.current,
-    selectionStartRef.current,
   ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: req

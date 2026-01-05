@@ -23,15 +23,16 @@ export function withSpan<T>(
 ): T {
   const tracer = getTracer();
   return tracer.startActiveSpan(name, options ?? {}, (span) => {
+    let result: T;
     try {
-      const result = fn(span);
-      span.end();
-      return result;
+      result = fn(span);
     } catch (error) {
       recordSpanError(span, error);
-      span.end();
       throw error;
+    } finally {
+      span.end();
     }
+    return result;
   });
 }
 

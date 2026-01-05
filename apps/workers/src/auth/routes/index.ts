@@ -21,28 +21,33 @@ const parseCookieName = (cookieString: string): string => {
   return match?.[1]?.trim() || "unknown";
 };
 
-// Cleanup expired tokens periodically (every 5 minutes)
 const cleanupInterval = setInterval(
   async () => {
-    await withSpanAsync("auth.cleanupExpiredTokens", async (span) => {
-      try {
-        const result = await prisma.oneTimeAuthToken.deleteMany({
-          where: { expiresAt: { lt: new Date() } },
-        });
-        if (result.count > 0) {
-          setSpanAttributes({ "auth.tokens.deleted": result.count });
-          addSpanEvent("tokens.deleted", { count: result.count });
-          logger.debug("Cleaned up expired one-time tokens", {
-            count: result.count,
+    try {
+      await withSpanAsync("auth.cleanupExpiredTokens", async (span) => {
+        try {
+          const result = await prisma.oneTimeAuthToken.deleteMany({
+            where: { expiresAt: { lt: new Date() } },
+          });
+          if (result.count > 0) {
+            setSpanAttributes({ "auth.tokens.deleted": result.count });
+            addSpanEvent("tokens.deleted", { count: result.count });
+            logger.debug("Cleaned up expired one-time tokens", {
+              count: result.count,
+            });
+          }
+        } catch (err) {
+          recordSpanError(span, err);
+          logger.error("Failed to cleanup expired tokens", {
+            error: err instanceof Error ? err.message : "Unknown error",
           });
         }
-      } catch (err) {
-        recordSpanError(span, err);
-        logger.error("Failed to cleanup expired tokens", {
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
-    });
+      });
+    } catch (outerErr) {
+      logger.error("Cleanup span failed", {
+        error: outerErr instanceof Error ? outerErr.message : "Unknown error",
+      });
+    }
   },
   5 * 60 * 1000
 );
@@ -223,7 +228,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
 
   // Special handler for OAuth callback when redirecting to native-callback
   // This intercepts the callback, completes the OAuth flow, and adds a one-time token to the redirect URL
-  .get("/api/auth/callback/:provider", ({ request, params, set }) => {
+  .get("/api/auth/callback/:provider", ({ request, params }) => {
     return withSpanAsync("auth.oauthCallback", async () => {
       setSpanAttributes({ provider: params.provider });
 
@@ -300,15 +305,17 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
 
             const redirectWithToken = new URL(redirectUrl);
             redirectWithToken.searchParams.set("native_token", oneTimeToken);
-            const setCookieHeaders =
-              authResponse.headers.getSetCookie?.() || [];
-            if (setCookieHeaders.length > 0) {
-              set.headers["Set-Cookie"] = setCookieHeaders.join(", ");
-            }
-            // biome-ignore lint/complexity/useLiteralKeys: if it works, don't touch it
-            set.headers["Location"] = redirectWithToken.toString();
-            set.status = 302;
-            return;
+
+            const newHeaders = new Headers(authResponse.headers);
+            newHeaders.set("Location", redirectWithToken.toString());
+
+            // By returning a new Response, we let the underlying server handle
+            // multiple Set-Cookie headers correctly, instead of incorrectly
+            // joining them.
+            return new Response(null, {
+              status: 302,
+              headers: newHeaders,
+            });
           }
 
           logger.warn(

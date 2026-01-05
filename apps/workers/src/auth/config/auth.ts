@@ -58,7 +58,7 @@ export const auth = betterAuth({
 
 logger.info("Better Auth initialized successfully", {
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") || [],
+  trustedOrigins: env.BETTER_AUTH_TRUSTED_ORIGINS || [],
   sessionExpiresIn: "7 days",
   cookieStrategy: "compact",
   jwtEnabled: true,

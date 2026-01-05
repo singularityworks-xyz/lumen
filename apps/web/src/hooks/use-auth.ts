@@ -86,7 +86,9 @@ function exchangeTokenForSession(token: string): Promise<boolean> {
       logger.error("Token exchange error", {
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      throw error;
+      recordError(error);
+      span.setAttribute("auth.exchange.success", false);
+      return false;
     }
   });
 }

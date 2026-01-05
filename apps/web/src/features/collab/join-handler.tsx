@@ -92,7 +92,8 @@ export function useJoinWorkspace({
         setError(message);
         setJoinState("error");
         onJoinError?.(message);
-        throw err;
+        span.recordException(err as Error);
+        span.setStatus({ code: 2, message });
       }
     });
   }, [shareToken, apiUrl, onJoinError]);
@@ -149,7 +150,8 @@ export function useJoinWorkspace({
         setError(message);
         setJoinState("error");
         onJoinError?.(message);
-        throw err;
+        span.recordException(err as Error);
+        span.setStatus({ code: 2, message });
       }
     });
   }, [

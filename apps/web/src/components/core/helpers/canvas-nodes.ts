@@ -354,7 +354,7 @@ export function useCanvasNodes() {
           y: qa.position.y,
         },
         data: { taskId: qa.taskId },
-        style: { zIndex: 2000 },
+        style: { zIndex: computeZIndex(`task-quick-actions-${qa.taskId}`) },
         draggable: true,
       }));
 

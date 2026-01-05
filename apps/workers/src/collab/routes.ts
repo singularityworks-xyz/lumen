@@ -7,6 +7,8 @@ import {
   withSpanAsync,
 } from "@lumen/logger/server";
 import { Elysia, t } from "elysia";
+// biome-ignore lint/performance/noNamespaceImport: skippo
+import * as Y from "yjs";
 import { auth } from "../auth/config/auth";
 import { env } from "../env";
 import { toHeaders } from "../utils/headers";
@@ -39,29 +41,34 @@ type WsData = {
   connectionId?: string;
 };
 
-// Store pending auth data between beforeHandle and open handler
-const pendingAuth = new Map<
-  string,
-  {
-    user: {
-      id: string;
-      name?: string | null;
-      email: string;
-      image?: string | null;
-    };
-    collaborator: { role: Role };
-    initialStateVector?: Uint8Array;
-    connectionId: string;
-    timestamp: number;
-  }
->();
+// Auth data structure for pending authentication
+type PendingAuthEntry = {
+  user: {
+    id: string;
+    name?: string | null;
+    email: string;
+    image?: string | null;
+  };
+  collaborator: { role: Role };
+  initialStateVector?: Uint8Array;
+  connectionId: string;
+  timestamp: number;
+};
+
+// Store pending auth data as queues per workspace to ensure FIFO ordering
+// This fixes the race condition where concurrent connections could get mismatched auth data
+const pendingAuthQueues = new Map<string, PendingAuthEntry[]>();
 
 // Clean up old pending auth entries every 30 seconds
 setInterval(() => {
   const now = Date.now();
-  for (const [key, value] of pendingAuth.entries()) {
-    if (now - value.timestamp > 30_000) {
-      pendingAuth.delete(key);
+  for (const [workspaceId, queue] of pendingAuthQueues.entries()) {
+    // Filter out entries older than 30 seconds
+    const filtered = queue.filter((entry) => now - entry.timestamp <= 30_000);
+    if (filtered.length === 0) {
+      pendingAuthQueues.delete(workspaceId);
+    } else if (filtered.length !== queue.length) {
+      pendingAuthQueues.set(workspaceId, filtered);
     }
   }
 }, 30_000);
@@ -177,10 +184,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             // Generate unique connection ID for this WebSocket connection
             const connectionId = generateId(16);
 
-            // Store auth data in pending map for open handler to retrieve
-            // Use exact key with connectionId to prevent auth data collision
-            const authKey = `${workspaceId}:${connectionId}`;
-            pendingAuth.set(authKey, {
+            // Push auth data to workspace queue for open handler to retrieve (FIFO)
+            const authEntry: PendingAuthEntry = {
               user: {
                 id: userId,
                 name: (payload as Record<string, unknown>).name as
@@ -195,12 +200,15 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               initialStateVector,
               connectionId,
               timestamp: Date.now(),
-            });
+            };
+            const queue = pendingAuthQueues.get(workspaceId) ?? [];
+            queue.push(authEntry);
+            pendingAuthQueues.set(workspaceId, queue);
 
-            logger.debug("JWT auth successful, stored in pendingAuth", {
+            logger.debug("JWT auth successful, stored in pendingAuthQueues", {
               userId,
               connectionId,
-              authKey,
+              queueLength: queue.length,
             });
 
             // Return undefined to allow WebSocket upgrade to proceed
@@ -211,7 +219,8 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               error: error instanceof Error ? error.message : "Unknown error",
             });
             set.status = 401;
-            return { error: "Unauthorized", message: "Invalid JWT token" };
+            // Re-throw the error so the span wrapper can record it.
+            throw error;
           }
         }
 
@@ -278,21 +287,22 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         // Generate unique connection ID for this WebSocket connection
         const connectionId = generateId(16);
 
-        // Store auth data in pending map for open handler to retrieve
-        // Use exact key with connectionId to prevent auth data collision
-        const authKey = `${workspaceId}:${connectionId}`;
-        pendingAuth.set(authKey, {
+        // Push auth data to workspace queue for open handler to retrieve (FIFO)
+        const authEntry: PendingAuthEntry = {
           user: session.user,
           collaborator: collab,
           initialStateVector,
           connectionId,
           timestamp: Date.now(),
-        });
+        };
+        const queue = pendingAuthQueues.get(workspaceId) ?? [];
+        queue.push(authEntry);
+        pendingAuthQueues.set(workspaceId, queue);
 
-        logger.debug("Session auth successful, stored in pendingAuth", {
+        logger.debug("Session auth successful, stored in pendingAuthQueues", {
           userId: session.user.id,
           connectionId,
-          authKey,
+          queueLength: queue.length,
         });
 
         // Return undefined to allow WebSocket upgrade to proceed
@@ -306,19 +316,14 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         const { workspaceId } = ws.data.params;
         const wsData = ws.data as unknown as WsData;
 
-        // Find the most recent auth entry for this workspace (FIFO approach)
-        // Since connections are processed sequentially, the first match should be correct
-        let authData:
-          | (typeof pendingAuth extends Map<string, infer V> ? V : never)
-          | undefined;
-        let authKey: string | undefined;
+        // Get the first auth entry from the workspace queue (FIFO order)
+        // This ensures correct auth data assignment even with concurrent connections
+        const queue = pendingAuthQueues.get(workspaceId);
+        const authData = queue?.shift();
 
-        for (const [key, value] of pendingAuth.entries()) {
-          if (key.startsWith(`${workspaceId}:`)) {
-            authData = value;
-            authKey = key;
-            break;
-          }
+        // Clean up empty queues
+        if (queue && queue.length === 0) {
+          pendingAuthQueues.delete(workspaceId);
         }
 
         if (!authData) {
@@ -327,11 +332,6 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           });
           ws.close();
           return;
-        }
-
-        // Remove from pending auth
-        if (authKey) {
-          pendingAuth.delete(authKey);
         }
 
         const { user, collaborator, initialStateVector, connectionId } =
@@ -872,9 +872,13 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             where: { workspaceId },
           });
           if (stored?.yjsState) {
-            // Load from stored Yjs state
+            // Load from stored Yjs state - must apply the update before reading maps
             const tempRoom = roomManager.getOrCreateRoom(workspaceId);
             const doc = tempRoom.doc;
+
+            // Apply the stored state to the document
+            Y.applyUpdate(doc, new Uint8Array(stored.yjsState));
+
             return {
               workspace: Object.fromEntries(doc.getMap("workspace").entries()),
               boards: Object.fromEntries(doc.getMap("boards").entries()),

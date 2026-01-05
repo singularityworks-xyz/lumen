@@ -70,7 +70,7 @@ export function getCollaborator(
         userId,
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      return null;
+      throw error;
     }
   });
 }
@@ -186,7 +186,7 @@ export function checkWorkspaceExistence(idToCheck: string): Promise<boolean> {
         workspaceId: idToCheck,
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      return false;
+      throw error;
     }
   });
 }
@@ -324,8 +324,10 @@ export function getShareInfo(token: string): Promise<{
         where: { token },
       });
       if (!share) {
+        setSpanAttributes({ "share.found": false });
         return null;
       }
+      setSpanAttributes({ "share.found": true });
       const owner = await getUserInfo(share.createdBy);
       const workspaceName = await getWorkspaceName(share.workspaceId);
 
