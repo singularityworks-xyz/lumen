@@ -3,7 +3,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     try {
       const { initOtel } = await import("@lumen/logger/server");
-      initOtel("lumen-web");
+      const { PrismaInstrumentation } = await import("@prisma/instrumentation");
+      initOtel("lumen-web", [new PrismaInstrumentation()]);
       console.log("[instrumentation] OpenTelemetry initialized successfully");
     } catch (error) {
       console.error(

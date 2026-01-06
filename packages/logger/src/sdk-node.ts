@@ -8,6 +8,7 @@ import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import type { Instrumentation } from "@opentelemetry/instrumentation";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -28,7 +29,10 @@ let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let initialized = false;
 
-export function initOtel(serviceName: string): boolean {
+export function initOtel(
+  serviceName: string,
+  instrumentations: Instrumentation[] = []
+): boolean {
   if (initialized) {
     return true;
   }
@@ -51,6 +55,7 @@ export function initOtel(serviceName: string): boolean {
     "service.name": config.serviceName,
     "service.version": "1.0.0",
     "deployment.environment": config.environment,
+    "host.name": process.env.HOSTNAME || process.env.HOST || "unknown",
   });
 
   // Trace Provider
@@ -95,6 +100,37 @@ export function initOtel(serviceName: string): boolean {
     processors: [new BatchLogRecordProcessor(logExporter)],
   });
   logs.setGlobalLoggerProvider(loggerProvider);
+
+  // Register Instrumentations
+  try {
+    const {
+      registerInstrumentations,
+    } = require("@opentelemetry/instrumentation");
+    registerInstrumentations({
+      tracerProvider,
+      meterProvider,
+      loggerProvider,
+      instrumentations,
+    });
+    console.log(
+      `[OTEL] Registered ${instrumentations.length} instrumentations`
+    );
+  } catch (e) {
+    console.warn("[OTEL] Failed to register instrumentations", e);
+  }
+
+  // Initialize Host Metrics
+  try {
+    const { HostMetrics } = require("@opentelemetry/host-metrics");
+    const hostMetrics = new HostMetrics({
+      meterProvider,
+      name: "host-metrics",
+    });
+    hostMetrics.start();
+    console.log("[OTEL] Host metrics started");
+  } catch (e) {
+    console.warn("[OTEL] HostMetrics not available", e);
+  }
 
   initialized = true;
   console.log(

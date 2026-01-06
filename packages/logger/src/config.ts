@@ -25,7 +25,6 @@ function parseHeaders(headersStr: string | undefined): Record<string, string> {
     if (eqIndex > 0) {
       const key = part.substring(0, eqIndex).trim();
       const value = part.substring(eqIndex + 1).trim();
-      // Decode URL-encoded values (like %20 for space)
       headers[key] = decodeURIComponent(value);
     }
   }

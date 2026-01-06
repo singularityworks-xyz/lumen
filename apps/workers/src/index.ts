@@ -2,6 +2,7 @@ import { cors } from "@elysiajs/cors";
 import { opentelemetry } from "@elysiajs/opentelemetry";
 import { createLogger } from "@lumen/logger";
 import { initOtel, shutdownOtel } from "@lumen/logger/server";
+import { PrismaInstrumentation } from "@prisma/instrumentation";
 import { Elysia } from "elysia";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
@@ -9,8 +10,7 @@ import { collabRoutes } from "./collab";
 import { env } from "./env";
 import { otelMetrics } from "./middleware/otel-metrics";
 
-initOtel("lumen-workers");
-
+initOtel("lumen-workers", [new PrismaInstrumentation()]);
 const logger = createLogger({ name: "workers:main" });
 
 const origins =
