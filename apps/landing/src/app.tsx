@@ -2,6 +2,7 @@
 /** biome-ignore-all lint/a11y/useValidAnchor: SOON */
 
 import { Logo } from "./components/logo";
+import { ColophonSection } from "./sections/colophon";
 import { HeroSection } from "./sections/hero";
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
         <div className="relative z-10">
           <div aria-hidden="true" className="noise-overlay" />
           <HeroSection />
+          <ColophonSection />
         </div>
       </div>
     </main>
