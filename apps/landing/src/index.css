@@ -1,13 +1,8 @@
 @import "tailwindcss";
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans/700.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/bebas-neue/400.css";
+@import "@fontsource/instrument-serif";
 
 :root {
+  --font-heading: "Instrument Serif", serif;
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.95 0 0);
   --card: oklch(0.12 0 0);
@@ -39,9 +34,6 @@
 }
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", "IBM Plex Sans Fallback", sans-serif;
-  --font-mono: "IBM Plex Mono", "IBM Plex Mono Fallback", monospace;
-  --font-display: "Bebas Neue", "Bebas Neue Fallback", sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -76,9 +68,7 @@
 }
 
 @theme {
-  --font-ibm-plex-sans: "IBM Plex Sans", sans-serif;
-  --font-ibm-plex-mono: "IBM Plex Mono", monospace;
-  --font-bebas: "Bebas Neue", sans-serif;
+  --font-family-heading: "Instrument Serif", serif;
   --animate-slide-up: slideUp 1s linear forwards;
   --animate-marquee: marquee 25s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -178,28 +168,4 @@ body {
   body::-webkit-scrollbar-thumb:hover {
     background: hsl(0, 0%, 32%);
   }
-}
-
-.noise-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1000;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-}
-
-.grid-bg {
-  background-image:
-    linear-gradient(to right, oklch(0.2 0 0) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(0.2 0 0) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-::selection {
-  background: oklch(0.95 0 0);
-  color: oklch(0.08 0 0);
 }
