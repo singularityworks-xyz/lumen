@@ -8,6 +8,7 @@ import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { HostMetrics } from "@opentelemetry/host-metrics";
 import {
   type Instrumentation,
   registerInstrumentations,
@@ -117,21 +118,20 @@ export function initOtel(
         `[OTEL] Registered ${instrumentations.length} instrumentations`
       );
     }
-  } catch (e) {
-    diag.warn("[OTEL] Failed to register instrumentations", e);
+  } catch (error) {
+    diag.warn("[OTEL] Failed to register instrumentations", error);
   }
 
   // Initialize Host Metrics
   try {
-    const { HostMetrics } = require("@opentelemetry/host-metrics");
     const hostMetrics = new HostMetrics({
       meterProvider,
       name: "host-metrics",
     });
     hostMetrics.start();
     diag.info("[OTEL] Host metrics started");
-  } catch (e) {
-    diag.warn("[OTEL] HostMetrics not available", e);
+  } catch (error) {
+    diag.warn("[OTEL] HostMetrics not available", error);
   }
 
   initialized = true;
