@@ -21,20 +21,15 @@ export default function App() {
                     { label: "Features", href: "#features" },
                     { label: "Pricing", href: "#pricing" },
                     { label: "Docs", href: "#docs" },
-                  ].map((item, i) => (
+                  ].map((item) => (
                     <a
-                      className="group relative flex items-center gap-2 rounded-lg px-4 py-2 text-muted-foreground text-sm transition-all hover:bg-primary/10 hover:text-foreground"
+                      className="relative rounded-lg px-4 py-2 text-muted-foreground text-sm transition-all hover:bg-primary/10 hover:text-foreground"
                       href={item.href}
                       key={item.label}
                     >
-                      <span
-                        className="h-1.5 w-1.5 rounded-full bg-primary/40 transition-colors group-hover:bg-primary"
-                        style={{ animationDelay: `${i * 0.1}s` }}
-                      />
                       {item.label}
                     </a>
                   ))}
-                  <div className="mx-1 h-6 w-px bg-border/30" />
                 </div>
               </div>
 
