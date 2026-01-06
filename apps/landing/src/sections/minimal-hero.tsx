@@ -873,7 +873,7 @@ export const MinimalHero = () => (
     <div className="relative z-10 mx-auto mt-8 hidden h-130 w-full origin-top px-8 md:mt-16 md:block md:scale-[0.7] lg:mt-24 lg:scale-100">
       {/* Card 1 */}
       <div
-        className="absolute bottom-72 left-4 w-96 -rotate-6 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute bottom-72 left-4 w-96 -rotate-6 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.1s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-8 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
@@ -915,7 +915,7 @@ export const MinimalHero = () => (
 
       {/* Card 2 */}
       <div
-        className="absolute bottom-44 left-[16%] w-80 -rotate-4 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute bottom-44 left-[16%] w-80 -rotate-4 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.2s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-7 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
@@ -972,7 +972,7 @@ export const MinimalHero = () => (
 
       {/* Card 3 */}
       <div
-        className="absolute bottom-8 left-[28%] w-72 -rotate-2 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute bottom-8 left-[28%] w-72 -rotate-2 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.3s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-6 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
@@ -1018,7 +1018,7 @@ export const MinimalHero = () => (
 
       {/* Card 4 */}
       <div
-        className="absolute bottom-0 left-1/2 w-96 -translate-x-1/2 rotate-0 transition-all hover:scale-105"
+        className="absolute bottom-0 left-1/2 w-96 -translate-x-1/2 rotate-0 transition-all hover:z-50 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.4s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-8 shadow-[inset_0_2px_15px_rgba(255,255,255,0.12),inset_0_-2px_15px_rgba(0,0,0,0.5),0_12px_40px_rgba(0,0,0,0.5)]">
@@ -1059,7 +1059,7 @@ export const MinimalHero = () => (
 
       {/* Card 5 */}
       <div
-        className="absolute right-[28%] bottom-8 w-72 rotate-2 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute right-[28%] bottom-8 w-72 rotate-2 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.5s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-6 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
@@ -1100,7 +1100,7 @@ export const MinimalHero = () => (
 
       {/* Card 6 */}
       <div
-        className="absolute right-[14%] bottom-48 w-80 rotate-4 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute right-[14%] bottom-48 w-80 rotate-4 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.6s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-7 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
@@ -1141,7 +1141,7 @@ export const MinimalHero = () => (
 
       {/* Card 7 */}
       <div
-        className="absolute right-4 bottom-72 w-96 rotate-6 transition-all hover:rotate-0 hover:scale-105"
+        className="absolute right-4 bottom-72 w-96 rotate-6 transition-all hover:z-50 hover:rotate-0 hover:scale-105"
         style={{ animation: "fadeIn 0.6s ease-out 0.7s both" }}
       >
         <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-8 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)]">
