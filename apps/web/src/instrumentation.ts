@@ -4,8 +4,12 @@ export async function register() {
     try {
       const { initOtel } = await import("@lumen/logger/server");
       const { PrismaInstrumentation } = await import("@prisma/instrumentation");
-      initOtel("lumen-web", [new PrismaInstrumentation()]);
-      console.log("[instrumentation] OpenTelemetry initialized successfully");
+      const initialized = initOtel("lumen-web", [new PrismaInstrumentation()]);
+      console.log("[instrumentation] OpenTelemetry initialized:", {
+        initialized,
+        endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ? "set" : "not set",
+        headers: process.env.OTEL_EXPORTER_OTLP_HEADERS ? "set" : "not set",
+      });
     } catch (error) {
       console.error(
         "[instrumentation] Failed to initialize OpenTelemetry:",
