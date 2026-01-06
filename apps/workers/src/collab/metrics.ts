@@ -20,8 +20,25 @@ const wsRoomJoinDuration = meter.createHistogram(
   }
 );
 
-// Active connections gauge
-let activeConnections = 0;
+// Active connections gauge with atomic-like counter management
+// JavaScript is single-threaded, but we use a closure pattern to ensure
+// the counter is properly encapsulated and all operations are synchronous
+const activeConnectionsManager = (() => {
+  let count = 0;
+
+  return {
+    increment: (): number => {
+      count += 1;
+      return count;
+    },
+    decrement: (): number => {
+      count = Math.max(0, count - 1);
+      return count;
+    },
+    get: (): number => count,
+  };
+})();
+
 const wsActiveConnections = meter.createObservableGauge(
   "ws_active_connections",
   {
@@ -30,7 +47,7 @@ const wsActiveConnections = meter.createObservableGauge(
 );
 
 wsActiveConnections.addCallback((result) => {
-  result.observe(activeConnections);
+  result.observe(activeConnectionsManager.get());
 });
 
 // Message throughput counter
@@ -58,11 +75,11 @@ export function recordWsRoomJoinDuration(
 }
 
 export function incrementActiveConnections(): void {
-  activeConnections += 1;
+  activeConnectionsManager.increment();
 }
 
 export function decrementActiveConnections(): void {
-  activeConnections = Math.max(0, activeConnections - 1);
+  activeConnectionsManager.decrement();
 }
 
 export function recordWsMessage(attributes?: Record<string, string>): void {
@@ -76,5 +93,5 @@ export function recordWsConnectionError(
 }
 
 export function getActiveConnections(): number {
-  return activeConnections;
+  return activeConnectionsManager.get();
 }

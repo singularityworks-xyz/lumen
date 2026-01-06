@@ -8,7 +8,10 @@ import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import type { Instrumentation } from "@opentelemetry/instrumentation";
+import {
+  type Instrumentation,
+  registerInstrumentations,
+} from "@opentelemetry/instrumentation";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -40,7 +43,7 @@ export function initOtel(
   const config = getOtelConfig(serviceName);
 
   if (!config.enabled) {
-    console.log(
+    diag.info(
       `[OTEL] Disabled (endpoint: ${config.endpoint || "not set"}, enabled: ${config.enabled})`
     );
     return false;
@@ -103,20 +106,19 @@ export function initOtel(
 
   // Register Instrumentations
   try {
-    const {
-      registerInstrumentations,
-    } = require("@opentelemetry/instrumentation");
-    registerInstrumentations({
-      tracerProvider,
-      meterProvider,
-      loggerProvider,
-      instrumentations,
-    });
-    console.log(
-      `[OTEL] Registered ${instrumentations.length} instrumentations`
-    );
+    if (instrumentations.length > 0) {
+      registerInstrumentations({
+        tracerProvider,
+        meterProvider,
+        loggerProvider,
+        instrumentations,
+      });
+      diag.info(
+        `[OTEL] Registered ${instrumentations.length} instrumentations`
+      );
+    }
   } catch (e) {
-    console.warn("[OTEL] Failed to register instrumentations", e);
+    diag.warn("[OTEL] Failed to register instrumentations", e);
   }
 
   // Initialize Host Metrics
@@ -127,13 +129,13 @@ export function initOtel(
       name: "host-metrics",
     });
     hostMetrics.start();
-    console.log("[OTEL] Host metrics started");
+    diag.info("[OTEL] Host metrics started");
   } catch (e) {
-    console.warn("[OTEL] HostMetrics not available", e);
+    diag.warn("[OTEL] HostMetrics not available", e);
   }
 
   initialized = true;
-  console.log(
+  diag.info(
     `[OTEL] Initialized for ${config.serviceName} → ${config.endpoint}`
   );
 
@@ -159,7 +161,7 @@ export async function shutdownOtel(): Promise<void> {
 
   await Promise.all(shutdownPromises);
   initialized = false;
-  console.log("[OTEL] Shutdown complete");
+  diag.info("[OTEL] Shutdown complete");
 }
 
 export function getTracerProvider(): NodeTracerProvider | null {

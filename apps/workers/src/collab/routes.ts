@@ -408,9 +408,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             userId: user.id,
           });
         }
-        incrementActiveConnections();
 
         wsData.connectionId = connectionId;
+        incrementActiveConnections();
         wsData.user = user;
         wsData.collaborator = collaborator;
 
@@ -430,6 +430,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       withSpan("ws.message", () => {
         const data = ws.data as unknown as WsData;
         const connectionId = data.connectionId;
+        const workspaceId = ws.data.params.workspaceId;
         if (!connectionId) {
           return;
         }
@@ -449,6 +450,12 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           const handled = roomManager.handleMessage(connectionId, msgData);
           if (handled) {
             recordWsMessage({ messageSize: messageSize.toString() });
+          } else {
+            recordWsConnectionError({
+              connectionId,
+              workspaceId,
+              error: "message_handle_failed",
+            });
           }
         }
       });

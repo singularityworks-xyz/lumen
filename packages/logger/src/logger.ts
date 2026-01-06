@@ -210,7 +210,6 @@ class CustomLogger implements Logger {
 
     const otelAttrs: Record<string, string | number | boolean> = {
       "logger.name": this.name,
-      "service.name": this.name,
     };
 
     // Add trace context for correlation
