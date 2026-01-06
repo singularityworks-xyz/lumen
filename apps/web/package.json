@@ -18,6 +18,7 @@
     "@lumen/logger": "workspace:^",
     "@lumen/native-bridge": "workspace:^",
     "@lumen/yjs-shared": "workspace:^",
+    "@prisma/instrumentation": "^7.2.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",

@@ -1,9 +1,5 @@
-import { context } from "@opentelemetry/api";
-import {
-  logs,
-  type Logger as OtelLogger,
-  SeverityNumber,
-} from "@opentelemetry/api-logs";
+import { context, trace } from "@opentelemetry/api";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import { env } from "./env";
 
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
@@ -142,7 +138,6 @@ class CustomLogger implements Logger {
   base: Record<string, unknown>;
   pretty: boolean;
   isBrowser: boolean;
-  otelLogger: OtelLogger;
 
   constructor(options: LoggerOptions) {
     this.name = options.name || "lumen";
@@ -152,9 +147,6 @@ class CustomLogger implements Logger {
     this.base = { ...options.base, env: env.NODE_ENV };
     this.pretty = options.pretty ?? env.NODE_ENV !== "production";
     this.isBrowser = isBrowser();
-
-    // Get logger from global provider (safe for browser)
-    this.otelLogger = logs.getLogger(this.name);
   }
 
   private log(
@@ -220,6 +212,14 @@ class CustomLogger implements Logger {
       "logger.name": this.name,
     };
 
+    // Add trace context for correlation
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      const spanContext = activeSpan.spanContext();
+      otelAttrs.trace_id = spanContext.traceId;
+      otelAttrs.span_id = spanContext.spanId;
+    }
+
     for (const [key, value] of Object.entries(attributes)) {
       if (
         typeof value === "string" ||
@@ -242,9 +242,12 @@ class CustomLogger implements Logger {
       }
     }
 
+    // Get logger lazily to ensure it picks up the registered provider after initOtel()
+    const otelLogger = logs.getLogger(this.name);
+
     // Explicitly pass context (though Logs SDK likely picks it up automatically)
     // Using context.active() is the correct way
-    this.otelLogger.emit({
+    otelLogger.emit({
       severityNumber: severityMap[level],
       severityText: level.toUpperCase(),
       body: msg,

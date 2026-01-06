@@ -13,6 +13,7 @@ import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
+import { recordWsRoomJoinDuration } from "./metrics";
 
 const logger = createLogger({ name: "collab:room-manager" });
 const MESSAGE_SYNC = 0;
@@ -140,6 +141,7 @@ class RoomManager {
     initialStateVector?: Uint8Array;
   }): WsConnection {
     return withSpan("room.join", () => {
+      const joinStartTime = performance.now();
       const { connectionId, ws, user, workspaceId, initialStateVector } =
         options;
       setSpanAttributes({
@@ -171,6 +173,9 @@ class RoomManager {
         workspaceId,
         userId: user.id,
         role: user.role,
+        operation: "room.join",
+        userName: user.name,
+        userEmail: user.email,
       });
 
       const room = this.getOrCreateRoom(workspaceId);
@@ -211,10 +216,22 @@ class RoomManager {
         "room.connections": room.connections.size,
         "room.reused": false,
       });
+      const joinDurationSeconds = (performance.now() - joinStartTime) / 1000;
+      recordWsRoomJoinDuration(joinDurationSeconds, {
+        workspaceId,
+        userId: user.id,
+        connectionId,
+      });
+
       logger.info("Client joined room", {
         connectionId,
         workspaceId,
+        userId: user.id,
+        role: user.role,
+        operation: "room.join.complete",
         totalConnections: room.connections.size,
+        userName: user.name,
+        userEmail: user.email,
       });
 
       return connection;
@@ -302,7 +319,12 @@ class RoomManager {
         logger.error("Failed to handle message", {
           connectionId,
           workspaceId,
-          error: error instanceof Error ? error.message : "Unknown error",
+          userId: connection?.user?.id,
+          operation: "message.handle",
+          error: {
+            type: "message_processing_error",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
           messageLength: message.byteLength,
         });
         return false;
@@ -562,9 +584,11 @@ class RoomManager {
 
         logger.info("Persisting room state", {
           workspaceId,
+          operation: "room.persist",
           stateSize: state.length,
           stateVectorSize: stateVector.length,
           entityCounts,
+          connections: room.connections.size,
         });
 
         await prisma.workspaceState.upsert({

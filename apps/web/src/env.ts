@@ -17,6 +17,7 @@ export const env = createEnv({
       .transform((v) => v !== "false")
       .default(true),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_API_URL: z.url().default("http://localhost:3002"),
@@ -29,6 +30,7 @@ export const env = createEnv({
     BETTER_AUTH_TELEMETRY: process.env.BETTER_AUTH_TELEMETRY ?? "0",
     OTEL_ENABLED: process.env.OTEL_ENABLED,
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   emptyStringAsUndefined: true,

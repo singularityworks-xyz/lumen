@@ -8,6 +8,11 @@ import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { HostMetrics } from "@opentelemetry/host-metrics";
+import {
+  type Instrumentation,
+  registerInstrumentations,
+} from "@opentelemetry/instrumentation";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -28,7 +33,10 @@ let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let initialized = false;
 
-export function initOtel(serviceName: string): boolean {
+export function initOtel(
+  serviceName: string,
+  instrumentations: Instrumentation[] = []
+): boolean {
   if (initialized) {
     return true;
   }
@@ -36,7 +44,7 @@ export function initOtel(serviceName: string): boolean {
   const config = getOtelConfig(serviceName);
 
   if (!config.enabled) {
-    console.log(
+    diag.info(
       `[OTEL] Disabled (endpoint: ${config.endpoint || "not set"}, enabled: ${config.enabled})`
     );
     return false;
@@ -51,6 +59,7 @@ export function initOtel(serviceName: string): boolean {
     "service.name": config.serviceName,
     "service.version": "1.0.0",
     "deployment.environment": config.environment,
+    "host.name": process.env.HOSTNAME || process.env.HOST || "unknown",
   });
 
   // Trace Provider
@@ -96,8 +105,37 @@ export function initOtel(serviceName: string): boolean {
   });
   logs.setGlobalLoggerProvider(loggerProvider);
 
+  // Register Instrumentations
+  try {
+    if (instrumentations.length > 0) {
+      registerInstrumentations({
+        tracerProvider,
+        meterProvider,
+        loggerProvider,
+        instrumentations,
+      });
+      diag.info(
+        `[OTEL] Registered ${instrumentations.length} instrumentations`
+      );
+    }
+  } catch (error) {
+    diag.warn("[OTEL] Failed to register instrumentations", error);
+  }
+
+  // Initialize Host Metrics
+  try {
+    const hostMetrics = new HostMetrics({
+      meterProvider,
+      name: "host-metrics",
+    });
+    hostMetrics.start();
+    diag.info("[OTEL] Host metrics started");
+  } catch (error) {
+    diag.warn("[OTEL] HostMetrics not available", error);
+  }
+
   initialized = true;
-  console.log(
+  diag.info(
     `[OTEL] Initialized for ${config.serviceName} → ${config.endpoint}`
   );
 
@@ -123,7 +161,7 @@ export async function shutdownOtel(): Promise<void> {
 
   await Promise.all(shutdownPromises);
   initialized = false;
-  console.log("[OTEL] Shutdown complete");
+  diag.info("[OTEL] Shutdown complete");
 }
 
 export function getTracerProvider(): NodeTracerProvider | null {
