@@ -23,6 +23,13 @@ import {
   getWorkspaceCollaboratorCount,
   getWorkspaceName,
 } from "./helpers";
+import {
+  decrementActiveConnections,
+  incrementActiveConnections,
+  recordWsConnectionError,
+  recordWsConnectionLatency,
+  recordWsMessage,
+} from "./metrics";
 import { type CollaboratorInfo, roomManager } from "./room-manager";
 
 const logger = createLogger({ name: "collab:routes" });
@@ -39,6 +46,7 @@ type WsData = {
   collaborator?: { role: Role };
   initialStateVector?: Uint8Array;
   connectionId?: string;
+  connectionStartTime?: number;
 };
 
 // Auth data structure for pending authentication
@@ -53,6 +61,7 @@ type PendingAuthEntry = {
   initialStateVector?: Uint8Array;
   connectionId: string;
   timestamp: number;
+  connectionStartTime: number;
 };
 
 // Store pending auth data as queues per workspace to ensure FIFO ordering
@@ -200,6 +209,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               initialStateVector,
               connectionId,
               timestamp: Date.now(),
+              connectionStartTime: performance.now(),
             };
             const queue = pendingAuthQueues.get(workspaceId) ?? [];
             queue.push(authEntry);
@@ -216,7 +226,12 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           } catch (error) {
             logger.error("JWT verification failed", {
               workspaceId,
-              error: error instanceof Error ? error.message : "Unknown error",
+              operation: "auth.jwt.verify",
+              error: {
+                type: "jwt_verification_error",
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
+              },
             });
             set.status = 401;
             // Re-throw the error so the span wrapper can record it.
@@ -294,6 +309,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           initialStateVector,
           connectionId,
           timestamp: Date.now(),
+          connectionStartTime: performance.now(),
         };
         const queue = pendingAuthQueues.get(workspaceId) ?? [];
         queue.push(authEntry);
@@ -330,12 +346,18 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           logger.error("No pending auth data found for workspace", {
             workspaceId,
           });
+          recordWsConnectionError({ workspaceId, error: "auth_data_missing" });
           ws.close();
           return;
         }
 
-        const { user, collaborator, initialStateVector, connectionId } =
-          authData;
+        const {
+          user,
+          collaborator,
+          initialStateVector,
+          connectionId,
+          connectionStartTime,
+        } = authData;
         const color = getColorForUser(user.id);
 
         setSpanAttributes({
@@ -377,6 +399,17 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           initialStateVector,
         });
 
+        // Record connection metrics
+        if (connectionStartTime) {
+          const latencySeconds =
+            (performance.now() - connectionStartTime) / 1000;
+          recordWsConnectionLatency(latencySeconds, {
+            workspaceId,
+            userId: user.id,
+          });
+        }
+        incrementActiveConnections();
+
         wsData.connectionId = connectionId;
         wsData.user = user;
         wsData.collaborator = collaborator;
@@ -386,6 +419,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           workspaceId,
           userId: user.id,
           role: collaborator.role,
+          operation: "websocket.open",
+          userName: user.name,
+          userEmail: user.email,
         });
       });
     },
@@ -410,7 +446,10 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
           const msgData =
             message instanceof ArrayBuffer ? new Uint8Array(message) : message;
-          roomManager.handleMessage(connectionId, msgData);
+          const handled = roomManager.handleMessage(connectionId, msgData);
+          if (handled) {
+            recordWsMessage({ messageSize: messageSize.toString() });
+          }
         }
       });
     },
@@ -428,10 +467,12 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         setSpanAttributes({ connectionId, workspaceId });
 
         roomManager.leave(connectionId);
+        decrementActiveConnections();
 
         logger.info("WebSocket closed", {
           connectionId,
           workspaceId,
+          operation: "websocket.close",
         });
       });
     },
@@ -614,6 +655,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           workspaceId,
           workspaceName,
           createdBy: session.user.id,
+          operation: "share.create",
         });
 
         return {

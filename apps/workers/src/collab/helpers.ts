@@ -68,7 +68,11 @@ export function getCollaborator(
       logger.error("Failed to get collaborator", {
         workspaceId,
         userId,
-        error: error instanceof Error ? error.message : "Unknown error",
+        operation: "db.getCollaborator",
+        error: {
+          type: "database_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
       });
       throw error;
     }
@@ -92,10 +96,11 @@ export function addCollaborator(
         });
 
         if (!workspaceExists) {
-          logger.info(
-            { workspaceId, userId },
-            "Lazily creating workspace record for new owner"
-          );
+          logger.info("Lazily creating workspace record for new owner", {
+            workspaceId,
+            userId,
+            operation: "db.workspace.create.lazy",
+          });
           // Try to get name from active room first
           const room = roomManager.getRoom(workspaceId);
           let initialName = "Untitled Workspace";

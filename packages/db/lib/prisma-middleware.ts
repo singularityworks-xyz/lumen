@@ -18,10 +18,12 @@ export function createJwksEncryptionExtension() {
           create({ args, query }) {
             return withSpanAsync("db.jwks.encrypt", async (span) => {
               if (!isEncryptionConfigured()) {
-                logger.warn(
-                  "JWKS encryption not configured - JWKS_ENCRYPTION_KEY environment variable missing. " +
-                    "Private keys will be stored as plaintext. Generate a key with: openssl rand -base64 32"
-                );
+                logger.warn("JWKS encryption not configured", {
+                  operation: "db.jwks.encryption",
+                  issue: "JWKS_ENCRYPTION_KEY_missing",
+                  message:
+                    "Private keys will be stored as plaintext. Generate a key with: openssl rand -base64 32",
+                });
                 return query(args);
               }
 
@@ -102,8 +104,12 @@ export function createJwksEncryptionExtension() {
                 recordSpanError(span, error);
                 logger.error("Failed to decrypt private key on read", {
                   jwksId: result.id,
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
+                  operation: "db.jwks.decrypt",
+                  error: {
+                    type: "decryption_error",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
                 });
                 throw error;
               }
@@ -124,8 +130,12 @@ export function createJwksEncryptionExtension() {
                 recordSpanError(span, error);
                 logger.error("Failed to decrypt private key on read", {
                   jwksId: result.id,
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
+                  operation: "db.jwks.decrypt",
+                  error: {
+                    type: "decryption_error",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
                 });
                 throw error;
               }
@@ -148,10 +158,14 @@ export function createJwksEncryptionExtension() {
                     recordSpanError(span, error);
                     logger.error("Failed to decrypt private key on read", {
                       jwksId: item.id,
-                      error:
-                        error instanceof Error
-                          ? error.message
-                          : "Unknown error",
+                      operation: "db.jwks.decrypt",
+                      error: {
+                        type: "decryption_error",
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : "Unknown error",
+                      },
                     });
                     throw error;
                   }
