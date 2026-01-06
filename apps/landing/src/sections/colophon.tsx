@@ -157,9 +157,9 @@ export function ColophonSection() {
               </p>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="font-mono text-muted-foreground text-sm line-through">
-                  $20
+                  $12
                 </span>
-                <span className="font-bold text-2xl text-foreground">$12</span>
+                <span className="font-bold text-2xl text-foreground">$8</span>
                 <span className="font-mono text-[10px] text-muted-foreground">
                   /mo
                 </span>
