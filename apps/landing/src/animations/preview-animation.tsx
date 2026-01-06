@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/a11y/noSvgWithoutTitle: TODO: fix acc */
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -62,7 +61,8 @@ const Cursor = ({
 }) => (
   <div className={`relative ${className}`}>
     <svg
-      className="relative -top-[3px] -left-[3px] z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
+      aria-hidden="true"
+      className="relative -top-0.75 -left-0.75 z-10 h-4 w-4 fill-current text-zinc-300 drop-shadow-md sm:h-5 sm:w-5 md:h-6 md:w-6"
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" }}
       viewBox="0 0 24 24"
     >
@@ -97,6 +97,7 @@ const ContextMenu = ({
   >
     <div className="flex h-3 w-3 items-center justify-center rounded bg-zinc-800 text-zinc-400 sm:h-4 sm:w-4 md:h-5 md:w-5">
       <svg
+        aria-hidden="true"
         className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3"
         fill="none"
         stroke="currentColor"
@@ -468,6 +469,7 @@ export const HeroAnimation = () => {
                   className="mb-1 flex h-3 items-center justify-center rounded border border-zinc-800 border-dashed text-zinc-600 sm:mb-2 sm:h-4 md:h-6"
                 >
                   <svg
+                    aria-hidden="true"
                     className="h-2 w-2 sm:h-3 sm:w-3 md:h-4 md:w-4"
                     fill="none"
                     stroke="currentColor"
@@ -541,7 +543,7 @@ export const HeroAnimation = () => {
         {showBoard2 && (
           <motion.div
             animate={{ opacity: 1, scale: 1, ...POS.board2 }}
-            className="absolute z-0 flex h-[100px] w-[140px] flex-col overflow-visible rounded-lg border border-zinc-800 bg-[#171717] shadow-2xl sm:h-40 sm:w-[220px] sm:rounded-xl md:h-[220px] md:w-[300px]"
+            className="absolute z-0 flex h-25 w-35 flex-col overflow-visible rounded-lg border border-zinc-800 bg-[#171717] shadow-2xl sm:h-40 sm:w-55 sm:rounded-xl md:h-55 md:w-75"
             exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
             initial={{ opacity: 0, scale: 0.9, ...POS.board2 }}
             key="board-2"
@@ -564,6 +566,7 @@ export const HeroAnimation = () => {
                 className="flex h-2 w-2 items-center justify-center rounded transition-colors hover:bg-zinc-800 sm:h-3 sm:w-3 md:h-4 md:w-4"
               >
                 <svg
+                  aria-hidden="true"
                   className="h-1.5 w-1.5 text-zinc-600 sm:h-2 sm:w-2 md:h-3 md:w-3"
                   fill="none"
                   stroke="currentColor"
@@ -623,7 +626,7 @@ export const HeroAnimation = () => {
                   {showCommentDialog && (
                     <motion.div
                       animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-                      className="absolute top-5 -left-2.5 z-50 w-20 rounded-lg border border-zinc-800 bg-[#171717] p-1 shadow-2xl ring-1 ring-white/10 sm:top-8 sm:left-[-15px] sm:w-24 sm:p-1.5 md:top-10 md:-left-5 md:w-32 md:p-2"
+                      className="absolute top-5 -left-2.5 z-50 w-20 rounded-lg border border-zinc-800 bg-[#171717] p-1 shadow-2xl ring-1 ring-white/10 sm:top-8 sm:-left-3.75 sm:w-24 sm:p-1.5 md:top-10 md:-left-5 md:w-32 md:p-2"
                       exit={{ opacity: 0, scale: 0.9 }}
                       initial={{ opacity: 0, y: 5, x: 10, scale: 0.9 }}
                     >
