@@ -53,8 +53,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: max(calc(var(--radius) - 4px), 0px);
+  --radius-md: max(calc(var(--radius) - 2px), 0px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
@@ -72,11 +72,7 @@
   --animate-slide-up: slideUp 1s linear forwards;
   --animate-marquee: marquee 25s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --color-background: #060606;
   --color-text-primary: #e5e5e5;
-  --color-border: hsl(240, 3.7%, 15.9%);
-  --color-ring: hsl(240, 4.9%, 83.9%);
-  --color-foreground: hsl(240, 5%, 84%);
 
   @keyframes slideUp {
     0% {

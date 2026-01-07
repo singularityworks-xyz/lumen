@@ -12,6 +12,8 @@ export function ColophonSection() {
   const gridRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
 
+  const currentYear = new Date().getFullYear();
+
   useEffect(() => {
     if (!sectionRef.current) {
       return;
@@ -202,7 +204,7 @@ export function ColophonSection() {
             <p className="text-foreground/70 text-sm leading-relaxed">
               Zoom, pan, and place boards anywhere on an infinite canvas with no
               limits. Watch teammates' cursors move in real-time as you
-              collaborate. Work offline seamlessly your changes sync
+              collaborate. Work offline seamlessly — your changes sync
               automatically when you reconnect. Drop comment clusters anywhere
               for contextual discussions, and connect related boards with visual
               links to see the big picture at a glance.
@@ -228,11 +230,19 @@ export function ColophonSection() {
         ref={footerRef}
       >
         <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          © 2025 Singularity Works. All rights reserved.
+          © {currentYear} Singularity Works. All rights reserved.
         </p>
-        <p className="font-mono text-[10px] text-muted-foreground">
-          Crafted with precision. Illuminated with vision.
-        </p>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+          <a
+            className="font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            href="mailto:work@singularityworks.xyz"
+          >
+            Contact: work@singularityworks.xyz
+          </a>
+          <p className="font-mono text-[10px] text-muted-foreground">
+            Crafted with precision. Illuminated with vision.
+          </p>
+        </div>
       </div>
     </section>
   );

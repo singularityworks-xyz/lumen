@@ -291,18 +291,18 @@ export default function PixelSnow({
         uResolution: {
           value: new Vector2(container.offsetWidth, container.offsetHeight),
         },
-        uFlakeSize: { value: flakeSize },
-        uMinFlakeSize: { value: minFlakeSize },
-        uPixelResolution: { value: pixelResolution },
-        uSpeed: { value: speed },
-        uDepthFade: { value: depthFade },
-        uFarPlane: { value: farPlane },
-        uColor: { value: colorVector.clone() },
-        uBrightness: { value: brightness },
-        uGamma: { value: gamma },
-        uDensity: { value: density },
-        uVariant: { value: variantValue },
-        uDirection: { value: (direction * Math.PI) / 180 },
+        uFlakeSize: { value: 0.01 },
+        uMinFlakeSize: { value: 1.25 },
+        uPixelResolution: { value: 200 },
+        uSpeed: { value: 1.25 },
+        uDepthFade: { value: 8 },
+        uFarPlane: { value: 20 },
+        uColor: { value: new Vector3(1, 1, 1) },
+        uBrightness: { value: 1 },
+        uGamma: { value: 0.4545 },
+        uDensity: { value: 0.3 },
+        uVariant: { value: 0 },
+        uDirection: { value: (125 * Math.PI) / 180 },
       },
       transparent: true,
     });
@@ -340,21 +340,7 @@ export default function PixelSnow({
       rendererRef.current = null;
       materialRef.current = null;
     };
-  }, [
-    handleResize,
-    brightness,
-    colorVector.clone,
-    density,
-    depthFade,
-    direction,
-    farPlane,
-    flakeSize,
-    gamma,
-    minFlakeSize,
-    pixelResolution,
-    speed,
-    variantValue,
-  ]); // Only recreate scene when handleResize changes
+  }, [handleResize]);
 
   // Update material uniforms when props change
   useEffect(() => {
