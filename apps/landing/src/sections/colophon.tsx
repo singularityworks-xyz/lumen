@@ -138,7 +138,35 @@ export function ColophonSection() {
             Pricing
           </h4>
           <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-            <div className="flex-1 rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
+            <div className="relative flex-1 overflow-hidden rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
+              {/* Subtle SVG decoration */}
+              <div className="absolute -top-4 -right-4 opacity-12">
+                <svg
+                  aria-hidden="true"
+                  className="text-primary"
+                  height="100"
+                  viewBox="0 0 100 100"
+                  width="100"
+                >
+                  <path
+                    d="M50 10 L80 40 L50 70 L20 40 Z"
+                    fill="currentColor"
+                    opacity="0.25"
+                  />
+                  <path
+                    d="M60 30 L85 55 L60 80 L35 55 Z"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    fill="currentColor"
+                    opacity="0.1"
+                    r="15"
+                  />
+                </svg>
+              </div>
               <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
                 Offline
               </p>
@@ -153,7 +181,53 @@ export function ColophonSection() {
               </p>
             </div>
 
-            <div className="flex-1 rounded-xl border border-primary/30 bg-primary/5 p-5 backdrop-blur-sm">
+            <div className="relative flex-1 overflow-hidden rounded-xl border border-primary/30 bg-primary/5 p-5 backdrop-blur-sm">
+              {/* Subtle SVG decoration */}
+              <div className="absolute -right-5 -bottom-5 opacity-10">
+                <svg
+                  aria-hidden="true"
+                  className="text-primary"
+                  height="120"
+                  viewBox="0 0 120 120"
+                  width="120"
+                >
+                  <rect
+                    fill="currentColor"
+                    height="60"
+                    opacity="0.2"
+                    rx="8"
+                    width="60"
+                    x="30"
+                    y="30"
+                  />
+                  <rect
+                    fill="currentColor"
+                    height="30"
+                    opacity="0.15"
+                    rx="4"
+                    width="30"
+                    x="45"
+                    y="45"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    fill="currentColor"
+                    opacity="0.1"
+                    r="12"
+                  />
+                  <path
+                    d="M20 20 L40 20 L30 40 Z"
+                    fill="currentColor"
+                    opacity="0.25"
+                  />
+                  <path
+                    d="M80 80 L100 80 L90 100 Z"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                </svg>
+              </div>
               <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
                 Individual
               </p>
@@ -178,6 +252,52 @@ export function ColophonSection() {
                 <span className="font-mono text-[8px] text-primary-foreground uppercase">
                   Limited
                 </span>
+              </div>
+              {/* Subtle SVG decoration */}
+              <div className="absolute top-1/4 -right-6 opacity-8">
+                <svg
+                  aria-hidden="true"
+                  className="text-primary"
+                  height="140"
+                  viewBox="0 0 140 140"
+                  width="140"
+                >
+                  <polygon
+                    fill="currentColor"
+                    opacity="0.18"
+                    points="70,20 110,50 90,90 50,90 30,50"
+                  />
+                  <polygon
+                    fill="currentColor"
+                    opacity="0.12"
+                    points="80,40 100,60 90,80 70,80 60,60"
+                  />
+                  <circle
+                    cx="80"
+                    cy="60"
+                    fill="currentColor"
+                    opacity="0.08"
+                    r="18"
+                  />
+                  <rect
+                    fill="currentColor"
+                    height="20"
+                    opacity="0.2"
+                    rx="3"
+                    width="20"
+                    x="25"
+                    y="25"
+                  />
+                  <rect
+                    fill="currentColor"
+                    height="15"
+                    opacity="0.15"
+                    rx="2"
+                    width="15"
+                    x="95"
+                    y="95"
+                  />
+                </svg>
               </div>
               <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
                 Permanent
