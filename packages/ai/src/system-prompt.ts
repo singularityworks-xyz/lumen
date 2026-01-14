@@ -4,6 +4,7 @@ export type SystemPromptContext = {
   workspaceId?: string;
   workspaceName?: string;
   isShared?: boolean;
+  totalMembers?: number;
   collaborators?: Array<{
     name: string;
     email?: string;
@@ -26,7 +27,7 @@ const CORE_IDENTITY = `You are **Larity**, an AI assistant created by **Singular
 
 const PERSONALITY = `## Personality & Communication Style
 - **Concise**: Get to the point. No filler words or unnecessary pleasantries.
-- **Cold but Polite**: Professional detachment. No excessive warmth or sugarcoating.
+- **Polite**: Professional detachment. No excessive warmth or sugarcoating.
 - **Proactive**: Offer relevant suggestions without being asked.
 - **Focused & Disciplined**: Stay on task. Don't ramble.
 - **Persuasive**: When recommending actions, be compelling but not pushy.
@@ -77,8 +78,20 @@ const GUARDRAILS = `## Guardrails — Non-Negotiable Rules
 - Do not reference other users' data or cross-workspace information.`;
 
 export function buildSystemPrompt(context?: SystemPromptContext): string {
-  const sections = [CORE_IDENTITY];
+  // IMPORTANT: For Cerebras prompt caching optimization, static content must come FIRST
+  // and dynamic content (session context) must come LAST.
+  // This maximizes cache hit rate since Cerebras caches from the beginning of the prompt.
 
+  const sections = [
+    // Static content first - cacheable
+    CORE_IDENTITY,
+    PERSONALITY,
+    CAPABILITIES,
+    RESPONSE_FORMAT,
+    GUARDRAILS,
+  ];
+
+  // Dynamic content last - not cached, but doesn't break cache for static parts
   if (context) {
     let contextSection = "\n## Current Session Context\n";
 
@@ -91,19 +104,27 @@ export function buildSystemPrompt(context?: SystemPromptContext): string {
     }
 
     if (context.workspaceName) {
-      contextSection += `- **Workspace**: ${context.workspaceName}`;
+      contextSection += `- **Workspace**: "${context.workspaceName}"`;
+      // Explicitly state workspace type
       if (context.isShared) {
-        contextSection += " (shared)";
+        const memberText =
+          context.totalMembers && context.totalMembers > 1
+            ? ` with ${context.totalMembers} members`
+            : "";
+        contextSection += ` — **Shared workspace**${memberText}`;
+      } else {
+        contextSection += " — **Personal workspace** (only you have access)";
       }
       contextSection += "\n";
     }
 
+    // List other collaborators if shared
     if (
       context.isShared &&
       context.collaborators &&
       context.collaborators.length > 0
     ) {
-      contextSection += "- **Collaborators**:\n";
+      contextSection += "- **Other members**:\n";
       for (const collab of context.collaborators) {
         const role = collab.role ? ` [${collab.role}]` : "";
         contextSection += `  - ${collab.name}${role}\n`;
@@ -120,11 +141,6 @@ export function buildSystemPrompt(context?: SystemPromptContext): string {
 
     sections.push(contextSection);
   }
-
-  sections.push(PERSONALITY);
-  sections.push(CAPABILITIES);
-  sections.push(RESPONSE_FORMAT);
-  sections.push(GUARDRAILS);
 
   return sections.join("\n");
 }

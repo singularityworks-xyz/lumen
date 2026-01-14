@@ -10,7 +10,19 @@ import { streamText } from "ai";
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { toHeaders } from "../utils/headers";
-import { getModel, isAiEnabled } from "./providers";
+import {
+  recordAiError,
+  recordAiRequest,
+  recordModelFallback,
+  recordRateLimitHit,
+  recordStreamDuration,
+} from "./metrics";
+import {
+  getModel,
+  getModelChain,
+  isAiEnabled,
+  isRateLimitError,
+} from "./providers";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
@@ -31,12 +43,7 @@ function parseRateLimitError(error: unknown): {
 
   const errorMessage = error.message;
 
-  if (
-    errorMessage.includes("quota") ||
-    errorMessage.includes("rate limit") ||
-    errorMessage.includes("429") ||
-    errorMessage.includes("RESOURCE_EXHAUSTED")
-  ) {
+  if (isRateLimitError(error)) {
     const retryMatch = errorMessage.match(RETRY_MATCH_REGEX);
     const retryAfterSeconds = retryMatch
       ? Math.ceil(Number.parseFloat(retryMatch[1]))
@@ -52,6 +59,110 @@ function parseRateLimitError(error: unknown): {
   return { isRateLimit: false, message: errorMessage };
 }
 
+async function* streamWithFallback(
+  systemPrompt: string,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  workspaceId: string,
+  messageId: string
+): AsyncGenerator<{ chunk: string; modelUsed: string }, void, unknown> {
+  const modelChain = getModelChain();
+
+  for (let i = 0; i < modelChain.length; i++) {
+    const modelName = modelChain[i];
+    const isLastModel = i === modelChain.length - 1;
+
+    // Create a child span for each model attempt
+    const modelSpan = tracer.startSpan(`ai.model.${modelName}`, {
+      attributes: {
+        "ai.model": modelName,
+        "ai.attempt": i + 1,
+        "ai.total_models": modelChain.length,
+        "ai.is_fallback": i > 0,
+        "ai.workspace_id": workspaceId,
+        "ai.message_id": messageId,
+      },
+    });
+
+    try {
+      logger.info("Attempting model", {
+        workspaceId,
+        messageId,
+        model: modelName,
+        attempt: i + 1,
+        totalModels: modelChain.length,
+        isFallback: i > 0,
+      });
+
+      const model = getModel(modelName);
+      const result = streamText({
+        model,
+        system: systemPrompt,
+        messages,
+      });
+
+      modelSpan.addEvent("ai.stream_start");
+
+      for await (const chunk of result.textStream) {
+        yield { chunk, modelUsed: modelName };
+      }
+
+      // Success - record metrics and end span
+      modelSpan.addEvent("ai.stream_complete");
+      modelSpan.setStatus({ code: SpanStatusCode.OK });
+      modelSpan.end();
+
+      logger.info("Model streaming completed", {
+        workspaceId,
+        messageId,
+        model: modelName,
+        isFallback: i > 0,
+      });
+      return;
+    } catch (error) {
+      const rateLimited = isRateLimitError(error);
+
+      // Record error on span
+      recordSpanError(modelSpan, error);
+      modelSpan.setAttribute("ai.rate_limited", rateLimited);
+      modelSpan.end();
+
+      logger.warn("Model failed", {
+        workspaceId,
+        messageId,
+        model: modelName,
+        isRateLimit: rateLimited,
+        error: error instanceof Error ? error.message : "Unknown",
+        willTryNext: !isLastModel && rateLimited,
+      });
+
+      // Record metrics
+      if (rateLimited) {
+        recordRateLimitHit({ model: modelName });
+        recordAiError({ model: modelName, errorType: "rate_limit" });
+      } else {
+        recordAiError({ model: modelName, errorType: "api_error" });
+      }
+
+      // Only try next model if this was a rate limit error
+      if (!rateLimited || isLastModel) {
+        throw error;
+      }
+
+      // Record fallback metric
+      if (i + 1 < modelChain.length) {
+        const nextModel = modelChain[i + 1];
+        recordModelFallback({
+          fromModel: modelName,
+          toModel: nextModel,
+          reason: "rate_limit",
+        });
+      }
+    }
+  }
+
+  throw new Error("All models exhausted");
+}
+
 export const aiRoutes = new Elysia({ name: "ai-routes" })
   .get("/api/ai/health", () => ({
     enabled: isAiEnabled(),
@@ -65,6 +176,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       const { workspaceId, message, context: _context, history } = body;
 
       return tracer.startActiveSpan("ai.chat", async (span) => {
+        const streamStartTime = performance.now();
+
         span.setAttributes({
           "ai.workspace_id": workspaceId,
           "ai.message_length": message.length,
@@ -108,7 +221,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         });
 
         try {
-          const model = getModel();
           const workspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
             select: {
@@ -128,7 +240,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             },
           });
 
-          const isShared = collaborators.length > 1;
+          const totalMembers = collaborators.length;
+          const isShared = totalMembers > 1;
 
           const collaboratorList = collaborators
             .filter((c) => c.user.id !== session.user.id)
@@ -144,6 +257,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             workspaceId,
             workspaceName: workspace?.name ?? undefined,
             isShared,
+            totalMembers,
             collaborators:
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
@@ -171,13 +285,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
           span.addEvent("ai.stream_start");
 
-          const result = streamText({
-            model,
-            system: systemPrompt,
-            messages,
-          });
-
           return (async function* () {
+            let modelUsed = "unknown";
+            let fullContent = "";
+
             try {
               const startEvent: StreamEvent = {
                 type: "message_start",
@@ -185,10 +296,17 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: startEvent });
 
-              let fullContent = "";
-
               try {
-                for await (const chunk of result.textStream) {
+                for await (const {
+                  chunk,
+                  modelUsed: model,
+                } of streamWithFallback(
+                  systemPrompt,
+                  messages,
+                  workspaceId,
+                  messageId
+                )) {
+                  modelUsed = model;
                   fullContent += chunk;
                   const deltaEvent: StreamEvent = {
                     type: "content_delta",
@@ -202,11 +320,24 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 logger.error("AI stream iteration error", {
                   workspaceId,
                   messageId,
+                  modelUsed,
                   error:
                     streamError instanceof Error
                       ? streamError.message
                       : "Unknown",
                   isRateLimit: parsedError.isRateLimit,
+                });
+
+                const streamDuration =
+                  (performance.now() - streamStartTime) / 1000;
+                recordStreamDuration(streamDuration, {
+                  model: modelUsed,
+                  success: false,
+                });
+                recordAiRequest({
+                  model: modelUsed,
+                  workspaceId,
+                  status: parsedError.isRateLimit ? "rate_limited" : "error",
                 });
 
                 const errorEvent: StreamEvent = {
@@ -220,11 +351,25 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 return;
               }
 
+              const streamDuration =
+                (performance.now() - streamStartTime) / 1000;
+
               // Check if we got empty content (might indicate a silent error)
               if (fullContent.length === 0) {
                 logger.warn("AI stream completed with empty content", {
                   workspaceId,
                   messageId,
+                  modelUsed,
+                });
+
+                recordStreamDuration(streamDuration, {
+                  model: modelUsed,
+                  success: false,
+                });
+                recordAiRequest({
+                  model: modelUsed,
+                  workspaceId,
+                  status: "error",
                 });
 
                 const errorEvent: StreamEvent = {
@@ -253,7 +398,21 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: completeEvent });
 
+              // Record success metrics
+              recordStreamDuration(streamDuration, {
+                model: modelUsed,
+                success: true,
+              });
+              recordAiRequest({
+                model: modelUsed,
+                workspaceId,
+                status: "success",
+              });
+
+              // Set final span attributes
+              span.setAttribute("ai.model_used", modelUsed);
               span.setAttribute("ai.response_length", fullContent.length);
+              span.setAttribute("ai.stream_duration_seconds", streamDuration);
               span.addEvent("ai.stream_complete");
               span.setStatus({ code: SpanStatusCode.OK });
               span.end();
@@ -261,17 +420,33 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               logger.info("AI chat completed", {
                 workspaceId,
                 messageId,
+                modelUsed,
                 responseLength: fullContent.length,
+                streamDurationSeconds: streamDuration.toFixed(3),
               });
             } catch (error) {
               recordSpanError(span, error);
               span.end();
 
               const parsedError = parseRateLimitError(error);
+              const streamDuration =
+                (performance.now() - streamStartTime) / 1000;
+
+              // Record error metrics
+              recordStreamDuration(streamDuration, {
+                model: modelUsed,
+                success: false,
+              });
+              recordAiRequest({
+                model: modelUsed,
+                workspaceId,
+                status: parsedError.isRateLimit ? "rate_limited" : "error",
+              });
 
               logger.error("AI streaming error", {
                 workspaceId,
                 messageId,
+                modelUsed,
                 error: error instanceof Error ? error.message : "Unknown",
                 isRateLimit: parsedError.isRateLimit,
                 retryAfterSeconds: parsedError.retryAfterSeconds,
@@ -289,6 +464,13 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           span.end();
 
           const parsedError = parseRateLimitError(error);
+
+          // Record error metrics
+          recordAiRequest({
+            model: "unknown",
+            workspaceId,
+            status: parsedError.isRateLimit ? "rate_limited" : "error",
+          });
 
           logger.error("AI chat error", {
             workspaceId,
