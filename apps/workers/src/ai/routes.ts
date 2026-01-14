@@ -277,7 +277,13 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             },
           });
 
-          const totalMembers = collaborators.length;
+          // Calculate total members including owner if they're not in collaborators
+          const ownerIncluded = workspace?.owner
+            ? collaborators.some((c) => c.user.id === workspace.owner.id)
+              ? 0
+              : 1
+            : 0;
+          const totalMembers = collaborators.length + ownerIncluded;
           const isShared = totalMembers > 1;
 
           const collaboratorList = collaborators
