@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY packages/db/package.json ./packages/db/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/ai/package.json ./packages/ai/
 COPY packages/configs/package.json ./packages/configs/
 COPY packages/yjs-shared/package.json ./packages/yjs-shared/
 COPY apps/workers/package.json ./apps/workers/
@@ -10,6 +11,7 @@ COPY packages/db/prisma ./packages/db/prisma
 RUN bun install
 COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
+COPY packages/ai ./packages/ai
 COPY packages/configs ./packages/configs
 COPY packages/yjs-shared ./packages/yjs-shared
 COPY apps/workers ./apps/workers
@@ -22,9 +24,11 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=builder --chown=appuser:appgroup /app/packages/logger/node_modules ./packages/logger/node_modules
+COPY --from=builder --chown=appuser:appgroup /app/packages/ai/node_modules ./packages/ai/node_modules
 COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/node_modules ./packages/yjs-shared/node_modules
 COPY --from=builder --chown=appuser:appgroup /app/packages/db/prisma ./packages/db/prisma
 COPY --from=builder --chown=appuser:appgroup /app/packages/logger/src ./packages/logger/src
+COPY --from=builder --chown=appuser:appgroup /app/packages/ai/src ./packages/ai/src
 COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/index.ts ./packages/yjs-shared/
 COPY --from=builder --chown=appuser:appgroup /app/apps/workers/dist ./apps/workers/dist
 COPY --from=builder --chown=appuser:appgroup /app/apps/workers/package.json ./apps/workers/
