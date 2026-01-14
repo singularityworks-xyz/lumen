@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
+import { streamChat } from "../lib/api-client";
 import { useAiStore } from "../store/ai-store";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
@@ -83,9 +83,16 @@ export const AiDrawerContent = memo(
     const [mounted, setMounted] = useState(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
-    const messages = useAiStore(
-      useShallow((state) => state.conversations[workspaceId]?.messages ?? [])
+    // Subscribe to streamVersion to force re-renders during streaming
+    const streamVersion = useAiStore(
+      (state) => state.conversations[workspaceId]?.streamVersion ?? 0
     );
+    const messages = useAiStore(
+      (state) => state.conversations[workspaceId]?.messages ?? []
+    );
+    // Use streamVersion in a way that doesn't trigger lint warnings
+    // This ensures we re-render when chunks arrive
+    const _forceUpdate = streamVersion;
     const isStreaming = useAiStore(
       (state) => state.conversations[workspaceId]?.isStreaming ?? false
     );
@@ -98,6 +105,8 @@ export const AiDrawerContent = memo(
     const completeStream = useAiStore((state) => state.completeStream);
     const clearConversation = useAiStore((state) => state.clearConversation);
     const cancelStream = useAiStore((state) => state.cancelStream);
+    const setStreamError = useAiStore((state) => state.setStreamError);
+    const abortControllerRef = useRef<AbortController | null>(null);
     const currentContext: ContextSnapshot = useMemo(
       () => ({
         currentBoardId: null,
@@ -127,7 +136,7 @@ export const AiDrawerContent = memo(
       setMounted(true);
     }, []);
 
-    const handleSend = useCallback(() => {
+    const handleSend = useCallback(async () => {
       const content = inputValue.trim();
       if (!content || isStreaming) {
         return;
@@ -136,34 +145,72 @@ export const AiDrawerContent = memo(
       setInputValue("");
       sendMessage(workspaceId, content, currentContext);
       const assistantId = addAssistantMessage(workspaceId, "");
-      const mockResponse = `I understand you're asking about "${content}". This is a placeholder response - the AI backend will be connected in the next stage. For now, the UI is fully functional and ready for integration.`;
 
-      let charIndex = 0;
-      const streamInterval = setInterval(() => {
-        const char = mockResponse[charIndex];
-        if (charIndex < mockResponse.length && char !== undefined) {
-          appendStreamChunk(workspaceId, assistantId, char);
-          charIndex += 1;
-        } else {
-          clearInterval(streamInterval);
-          completeStream(workspaceId, assistantId);
-        }
-      }, 20);
+      // Convert messages to history format for the API
+      const history = messages.map((msg) => ({
+        role: msg.role as "user" | "assistant" | "tool",
+        content: msg.content,
+      }));
+
+      // Cancel any existing stream
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      try {
+        abortControllerRef.current = await streamChat(
+          {
+            workspaceId,
+            message: content,
+            context: currentContext,
+            history,
+          },
+          {
+            onContentDelta: (chunk) => {
+              appendStreamChunk(workspaceId, assistantId, chunk);
+            },
+            onMessageComplete: () => {
+              completeStream(workspaceId, assistantId);
+              abortControllerRef.current = null;
+            },
+            onError: (error) => {
+              setStreamError(workspaceId, assistantId, error);
+              abortControllerRef.current = null;
+            },
+          }
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send message";
+        setStreamError(workspaceId, assistantId, errorMessage);
+      }
     }, [
       inputValue,
       isStreaming,
       workspaceId,
       currentContext,
+      messages,
       sendMessage,
       addAssistantMessage,
       appendStreamChunk,
       completeStream,
+      setStreamError,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
       setInputValue(prompt);
       inputRef.current?.focus();
     }, []);
+
+    const handleCancel = useCallback(() => {
+      // Abort the HTTP request if in progress
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // Update store state
+      cancelStream();
+    }, [cancelStream]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -579,7 +626,7 @@ export const AiDrawerContent = memo(
               <SendButton
                 isDisabled={!inputValue.trim() || isOffline}
                 isStreaming={isStreaming}
-                onCancel={cancelStream}
+                onCancel={handleCancel}
                 onSend={handleSend}
               />
             </div>

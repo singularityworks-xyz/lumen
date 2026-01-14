@@ -4,6 +4,7 @@ import { createLogger } from "@lumen/logger";
 import { initOtel, shutdownOtel } from "@lumen/logger/server";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
 import { Elysia } from "elysia";
+import { aiRoutes } from "./ai";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
@@ -33,6 +34,7 @@ const app = new Elysia()
   .use(authMacro)
   .use(authRoutes)
   .use(collabRoutes)
+  .use(aiRoutes)
   .get("/", () => {
     logger.debug("Root endpoint accessed");
     return {
@@ -108,20 +110,14 @@ const shutdown = async (signal: string) => {
   logger.info("Shutting down gracefully...", { signal });
 
   try {
-    // Stop accepting new connections
     if (app.server) {
       logger.debug("Stopping server...");
       app.server.stop();
     }
 
-    // Give in-flight requests a moment to complete
     await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Flush OpenTelemetry data
     logger.debug("Flushing OpenTelemetry...");
     await shutdownOtel();
-
-    // Close database connections
     logger.debug("Disconnecting from database...");
     const { prisma } = await import("@lumen/db");
     await prisma.$disconnect();

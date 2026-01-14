@@ -31,6 +31,7 @@ export const env = createEnv({
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     DATABASE_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -47,6 +48,7 @@ export const env = createEnv({
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     DATABASE_URL: process.env.DATABASE_URL,
     JWKS_ENCRYPTION_KEY: process.env.JWKS_ENCRYPTION_KEY,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
   },
   onValidationError: (error) => {
     console.error("Environment validation failed:", error);

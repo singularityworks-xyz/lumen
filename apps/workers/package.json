@@ -9,13 +9,16 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.7",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/opentelemetry": "^1.4.10",
+    "@elysiajs/stream": "^1.1.0",
     "@lumen/logger": "workspace:^",
     "@lumen/yjs-shared": "workspace:^",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@prisma/instrumentation": "^7.2.0",
+    "ai": "^6.0.33",
     "better-auth": "^1.4.9",
     "elysia": "^1.4.19",
     "jose": "^6.1.3",

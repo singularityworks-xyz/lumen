@@ -12,6 +12,8 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.7",
+    "ai": "^6.0.33",
     "zod": "^4.3.5"
   }
 }

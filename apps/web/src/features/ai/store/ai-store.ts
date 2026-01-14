@@ -14,6 +14,7 @@ export type WorkspaceAiState = {
   messages: AiMessage[];
   isStreaming: boolean;
   streamingMessageId: string | null;
+  streamVersion: number;
   lastActiveAt: string;
 };
 
@@ -96,6 +97,7 @@ const createEmptyConversation = (): WorkspaceAiState => ({
   messages: [],
   isStreaming: false,
   streamingMessageId: null,
+  streamVersion: 0,
   lastActiveAt: new Date().toISOString(),
 });
 
@@ -166,6 +168,8 @@ export const useAiStore = create<AiStore>()(
             if (message) {
               message.content += chunk;
             }
+            // Increment version to force re-renders on each chunk
+            conv.streamVersion += 1;
           }
         });
       },
