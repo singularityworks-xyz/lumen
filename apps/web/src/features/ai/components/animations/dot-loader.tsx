@@ -49,6 +49,9 @@ export const DotLoader = ({
 
   useEffect(() => {
     if (isPlaying) {
+      if (interval.current) {
+        clearInterval(interval.current);
+      }
       if (currentIndex.current >= frames.length) {
         currentIndex.current = 0;
       }

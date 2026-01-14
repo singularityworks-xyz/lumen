@@ -329,31 +329,32 @@ export const useAiStore = create<AiStore>()(
       },
 
       cancelStream: () => {
-        const state = get();
-        if (state.currentStreamId) {
+        set((state) => {
+          if (!state.currentStreamId) {
+            return;
+          }
+
           for (const [workspaceId, conv] of Object.entries(
             state.conversations
           )) {
             if (conv.isStreaming && conv.streamingMessageId) {
-              set((s) => {
-                const c = s.conversations[workspaceId];
-                if (c) {
-                  const msg = c.messages.find(
-                    (m) => m.id === conv.streamingMessageId
-                  );
-                  if (msg) {
-                    msg.isStreaming = false;
-                    msg.content += "\n\n*(Cancelled)*";
-                  }
-                  c.isStreaming = false;
-                  c.streamingMessageId = null;
+              const c = state.conversations[workspaceId];
+              if (c) {
+                const msg = c.messages.find(
+                  (m) => m.id === conv.streamingMessageId
+                );
+                if (msg) {
+                  msg.isStreaming = false;
+                  msg.content += "\n\n*(Cancelled)*";
                 }
-                s.currentStreamId = null;
-              });
+                c.isStreaming = false;
+                c.streamingMessageId = null;
+              }
               break;
             }
           }
-        }
+          state.currentStreamId = null;
+        });
       },
 
       setOffline: (offline) =>

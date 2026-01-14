@@ -69,24 +69,22 @@ export const DotFlow = ({ items }: DotFlowProps) => {
 
   return (
     <div className="flex items-center gap-4 rounded bg-black px-4 py-3">
-      <DotLoader
-        className="gap-px"
-        dotClassName="bg-white/15 [&.active]:bg-white size-1"
-        // @ts-expect-error
-        duration={items[index].duration ?? 150}
-        // @ts-expect-error
-        frames={items[index].frames}
-        onComplete={next}
-        // @ts-expect-error
-        repeatCount={items[index].repeatCount ?? 1}
-      />
+      {items.length > 0 && items[index] && (
+        <DotLoader
+          className="gap-px"
+          dotClassName="bg-white/15 [&.active]:bg-white size-1"
+          duration={items[index].duration ?? 150}
+          frames={items[index].frames}
+          onComplete={next}
+          repeatCount={items[index].repeatCount ?? 1}
+        />
+      )}
       <div className="relative" ref={containerRef}>
         <div
           className="inline-block whitespace-nowrap font-medium text-lg text-white"
           ref={textRef}
         >
-          {/* @ts-expect-error */}
-          {items[textIndex].title}
+          {items[textIndex]?.title}
         </div>
       </div>
     </div>

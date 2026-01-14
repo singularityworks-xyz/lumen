@@ -87,7 +87,7 @@ export const AiDrawerContent = memo(
       (state) => state.conversations[workspaceId]?.streamVersion ?? 0
     );
     const messages = useAiStore(
-      (state) => state.conversations[workspaceId]?.messages ?? []
+      (state) => state.conversations[workspaceId]?.messages
     );
     // Use streamVersion in a way that doesn't trigger lint warnings
     // This ensures we re-render when chunks arrive
@@ -106,6 +106,10 @@ export const AiDrawerContent = memo(
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Memoize messages with stable empty array fallback
+    const messagesList = useMemo(() => messages ?? [], [messages]);
+
     const currentContext: ContextSnapshot = useMemo(
       () => ({
         currentBoardId: null,
@@ -128,7 +132,7 @@ export const AiDrawerContent = memo(
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
-    }, [messages.length]);
+    }, [messagesList.length]);
 
     // Set mounted state to prevent shader loading issues
     useEffect(() => {
@@ -145,11 +149,14 @@ export const AiDrawerContent = memo(
       sendMessage(workspaceId, content, currentContext);
       const assistantId = addAssistantMessage(workspaceId, "");
 
-      // Convert messages to history format for the API
-      const history = messages.map((msg) => ({
-        role: msg.role as "user" | "assistant" | "tool",
-        content: msg.content,
-      }));
+      // Convert messages to history format for the API, including the new message
+      const history = [
+        ...messagesList.map((msg) => ({
+          role: msg.role as "user" | "assistant" | "tool",
+          content: msg.content,
+        })),
+        { role: "user" as const, content },
+      ];
 
       // Cancel any existing stream
       if (abortControllerRef.current) {
@@ -188,7 +195,7 @@ export const AiDrawerContent = memo(
       isStreaming,
       workspaceId,
       currentContext,
-      messages,
+      messagesList,
       sendMessage,
       addAssistantMessage,
       appendStreamChunk,
@@ -409,7 +416,7 @@ export const AiDrawerContent = memo(
             </div>
 
             <div className="flex items-center gap-2">
-              {messages.length > 0 && (
+              {messagesList.length > 0 && (
                 <button
                   aria-label="Clear conversation"
                   className={cn(
@@ -450,7 +457,7 @@ export const AiDrawerContent = memo(
             )}
             ref={scrollRef}
           >
-            {messages.length === 0 ? (
+            {messagesList.length === 0 ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
                 className="flex h-full flex-col items-center justify-center py-12 text-center"
@@ -478,11 +485,12 @@ export const AiDrawerContent = memo(
               </motion.div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {messages.map((message, index) => (
+                {messagesList.map((message, index) => (
                   <MessageBubble
                     index={index}
                     key={message.id}
                     message={message}
+                    workspaceId={workspaceId}
                   />
                 ))}
               </AnimatePresence>

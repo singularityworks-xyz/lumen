@@ -9,6 +9,7 @@ import {
 import { streamText } from "ai";
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
+import { getCollaborator } from "../collab/helpers";
 import { toHeaders } from "../utils/headers";
 import {
   recordAiError,
@@ -198,6 +199,42 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         }
 
         span.setAttribute("ai.user_id", session.user.id);
+
+        // Verify workspace access - check if user is owner or collaborator
+        // Note: Local workspaces may not exist in the database yet, so absence
+        // doesn't mean unauthorized - we allow access to local workspaces
+        const workspaceAccess = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+          select: { ownerId: true },
+        });
+
+        if (workspaceAccess) {
+          // Workspace exists in database - verify user has access
+          const isOwner = workspaceAccess.ownerId === session.user.id;
+          if (!isOwner) {
+            const collaborator = await getCollaborator(
+              workspaceId,
+              session.user.id
+            );
+            if (!collaborator) {
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: "Forbidden: User is not a member of this workspace",
+              });
+              span.end();
+              set.status = 403;
+              logger.warn("Unauthorized workspace access attempt", {
+                userId: session.user.id,
+                workspaceId,
+                operation: "ai.chat",
+              });
+              return {
+                error: "Access denied: You are not a member of this workspace",
+              };
+            }
+          }
+        }
+        // If workspace doesn't exist in DB, assume it's a local workspace owned by the user
 
         if (!isAiEnabled()) {
           span.setStatus({

@@ -32,155 +32,160 @@ const thinkingFrames = [
 type MessageBubbleProps = {
   message: AiMessage;
   index: number;
+  workspaceId: string;
 };
 
-export const MessageBubble = memo(({ message, index }: MessageBubbleProps) => {
-  const isUser = message.role === "user";
-  const isStreaming = message.isStreaming;
-  const { user } = useAuth();
+export const MessageBubble = memo(
+  ({ message, index, workspaceId }: MessageBubbleProps) => {
+    const isUser = message.role === "user";
+    const isStreaming = message.isStreaming;
+    const { user } = useAuth();
 
-  return (
-    <motion.div
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      className={cn(
-        "flex max-w-[90%] gap-2.5",
-        isUser ? "ml-auto flex-row-reverse" : "mr-auto"
-      )}
-      exit={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
-      initial={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
-      transition={{
-        type: "spring",
-        stiffness: 400,
-        damping: 25,
-        delay: index * 0.02,
-      }}
-    >
-      {isUser ? (
-        user?.image ? (
-          <Image
-            alt={user.name || "You"}
-            className="h-7 w-7 shrink-0 rounded-full object-cover"
-            height={28}
-            src={user.image}
-            width={28}
-          />
-        ) : (
-          <div
-            className={cn(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-              "bg-primary text-primary-foreground"
-            )}
-          >
-            <span className="font-semibold text-[10px]">
-              {user?.name?.[0]?.toUpperCase() || "Y"}
-            </span>
-          </div>
-        )
-      ) : (
-        <LarityOrb size="sm" speed={isStreaming ? 0.8 : 0.3} />
-      )}
-
-      <div
+    return (
+      <motion.div
+        animate={{ opacity: 1, x: 0, scale: 1 }}
         className={cn(
-          "flex flex-col gap-1",
-          isUser ? "items-end" : "items-start"
+          "flex max-w-[90%] gap-2.5",
+          isUser ? "ml-auto flex-row-reverse" : "mr-auto"
         )}
+        exit={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
+        initial={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 25,
+          delay: index * 0.02,
+        }}
       >
+        {isUser ? (
+          user?.image ? (
+            <Image
+              alt={user.name || "You"}
+              className="h-7 w-7 shrink-0 rounded-full object-cover"
+              height={28}
+              src={user.image}
+              width={28}
+            />
+          ) : (
+            <div
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                "bg-primary text-primary-foreground"
+              )}
+            >
+              <span className="font-semibold text-[10px]">
+                {user?.name?.[0]?.toUpperCase() || "Y"}
+              </span>
+            </div>
+          )
+        ) : (
+          <LarityOrb size="sm" speed={isStreaming ? 0.8 : 0.3} />
+        )}
+
         <div
           className={cn(
-            "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
-            "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
-            isUser
-              ? "rounded-br-md bg-primary text-primary-foreground"
-              : "rounded-bl-md bg-muted/80 text-foreground"
+            "flex flex-col gap-1",
+            isUser ? "items-end" : "items-start"
           )}
         >
-          {isStreaming && !message.content && !message.error ? (
-            <div className="flex items-center gap-2 py-0.5">
-              <DotLoader
-                className="gap-px"
-                dotClassName={cn(
-                  "size-[2px] rounded-[0.5px]",
-                  "bg-foreground/10 [&.active]:bg-foreground/60"
-                )}
-                duration={80}
-                frames={thinkingFrames}
-                repeatCount={-1}
-              />
-              <TextShimmer
-                as="span"
-                className="text-[11px] text-muted-foreground"
-                duration={1.5}
-              >
-                Thinking...
-              </TextShimmer>
-            </div>
-          ) : message.error && !message.content ? (
-            <p className="text-[11px] text-muted-foreground italic">
-              Failed to generate response
-            </p>
-          ) : isUser ? (
-            <p className="wrap-break-word whitespace-pre-wrap">
-              {message.content}
-            </p>
-          ) : (
-            <div className="flex items-end gap-1">
-              <MarkdownRenderer
-                className="min-w-0 flex-1"
-                content={message.content}
-              />
-              {isStreaming && (
-                <span className="mb-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/40" />
-              )}
-            </div>
-          )}
-        </div>
-
-        {message.error && (
           <div
             className={cn(
-              "mt-1.5 flex items-start gap-2 rounded-lg px-3 py-2",
-              "border border-destructive/20 bg-destructive/10"
+              "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+              "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
+              "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
+              isUser
+                ? "rounded-br-md bg-primary text-primary-foreground"
+                : "rounded-bl-md bg-muted/80 text-foreground"
             )}
           >
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-[11px] text-destructive">
-                {message.error.includes("Rate limit") ||
-                message.error.includes("wait")
-                  ? "Rate limit reached"
-                  : "Something went wrong"}
+            {isStreaming && !message.content && !message.error ? (
+              <div className="flex items-center gap-2 py-0.5">
+                <DotLoader
+                  className="gap-px"
+                  dotClassName={cn(
+                    "size-[2px] rounded-[0.5px]",
+                    "bg-foreground/10 [&.active]:bg-foreground/60"
+                  )}
+                  duration={80}
+                  frames={thinkingFrames}
+                  repeatCount={-1}
+                />
+                <TextShimmer
+                  as="span"
+                  className="text-[11px] text-muted-foreground"
+                  duration={1.5}
+                >
+                  Thinking...
+                </TextShimmer>
+              </div>
+            ) : message.error && !message.content ? (
+              <p className="text-[11px] text-muted-foreground italic">
+                Failed to generate response
               </p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                It's not you, it's us.
+            ) : isUser ? (
+              <p className="wrap-break-word whitespace-pre-wrap">
+                {message.content}
               </p>
-              <p className="mt-1 text-[10px] text-destructive/70">
-                {message.error}
-              </p>
-            </div>
+            ) : (
+              <div className="flex items-end gap-1">
+                <MarkdownRenderer
+                  className="min-w-0 flex-1"
+                  content={message.content}
+                />
+                {isStreaming && (
+                  <span className="mb-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/40" />
+                )}
+              </div>
+            )}
           </div>
-        )}
 
-        {message.requiresConfirmation && !message.confirmedAt && (
-          <ConfirmationPrompt
-            action={message.pendingAction}
-            messageId={message.id}
-          />
-        )}
-      </div>
-    </motion.div>
-  );
-});
+          {message.error && (
+            <div
+              className={cn(
+                "mt-1.5 flex items-start gap-2 rounded-lg px-3 py-2",
+                "border border-destructive/20 bg-destructive/10"
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-[11px] text-destructive">
+                  {message.error.includes("Rate limit") ||
+                  message.error.includes("wait")
+                    ? "Rate limit reached"
+                    : "Something went wrong"}
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  It's not you, it's us.
+                </p>
+                <p className="mt-1 text-[10px] text-destructive/70">
+                  {message.error}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {message.requiresConfirmation && !message.confirmedAt && (
+            <ConfirmationPrompt
+              action={message.pendingAction}
+              messageId={message.id}
+              workspaceId={workspaceId}
+            />
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+);
 
 MessageBubble.displayName = "MessageBubble";
 
 type ConfirmationPromptProps = {
   messageId: string;
+  workspaceId: string;
   action?: AiMessage["pendingAction"];
 };
 
 const ConfirmationPrompt = memo(
-  ({ messageId, action }: ConfirmationPromptProps) => {
+  ({ messageId, workspaceId, action }: ConfirmationPromptProps) => {
     const confirmAction = useAiStore((state) => state.confirmAction);
 
     return (
@@ -202,7 +207,7 @@ const ConfirmationPrompt = memo(
             "bg-primary text-primary-foreground",
             "hover:bg-primary/90"
           )}
-          onClick={() => confirmAction("", messageId, true)}
+          onClick={() => confirmAction(workspaceId, messageId, true)}
           type="button"
         >
           Yes
@@ -213,7 +218,7 @@ const ConfirmationPrompt = memo(
             "bg-muted text-muted-foreground",
             "hover:bg-muted/80"
           )}
-          onClick={() => confirmAction("", messageId, false)}
+          onClick={() => confirmAction(workspaceId, messageId, false)}
           type="button"
         >
           Cancel
