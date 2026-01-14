@@ -57,6 +57,10 @@ export const RightDrawers = memo(() => {
     setActiveDrawer("boards");
   }, []);
 
+  const handleSwitchToAi = useCallback(() => {
+    setActiveDrawer("ai");
+  }, []);
+
   const handleCommentsOpenChange = useCallback((open: boolean) => {
     setActiveDrawer(open ? "comments" : "none");
   }, []);
@@ -107,6 +111,7 @@ export const RightDrawers = memo(() => {
           isOpen={activeDrawer === "comments"}
           onCommentClick={handleCommentClick}
           onOpenChange={handleCommentsOpenChange}
+          onSwitchToAi={handleSwitchToAi}
           onSwitchToBoards={handleSwitchToBoards}
         />
       )}
@@ -114,6 +119,7 @@ export const RightDrawers = memo(() => {
         commentCount={isSharedWorkspace ? commentCount : 0}
         isOpen={activeDrawer === "boards"}
         onOpenChange={handleBoardsOpenChange}
+        onSwitchToAi={handleSwitchToAi}
         onSwitchToComments={
           isSharedWorkspace ? handleSwitchToComments : undefined
         }

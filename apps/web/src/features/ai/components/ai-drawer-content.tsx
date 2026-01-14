@@ -13,6 +13,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { cn } from "@/src/lib/utils";
 import { useAiStore } from "../store/ai-store";
 import { DotLoader } from "./animations/dot-loader";
@@ -77,6 +78,7 @@ export const AiDrawerContent = memo(
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const messages = useAiStore(
       useShallow((state) => state.conversations[workspaceId]?.messages ?? [])
     );
@@ -115,6 +117,11 @@ export const AiDrawerContent = memo(
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
     }, [messages.length]);
+
+    // Set mounted state to prevent shader loading issues
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
     const handleSend = useCallback(() => {
       const content = inputValue.trim();
@@ -188,7 +195,7 @@ export const AiDrawerContent = memo(
           )}
         >
           <AnimatePresence>
-            {isStreaming && (
+            {isStreaming && mounted && (
               <motion.div
                 animate={{ opacity: 1 }}
                 className="pointer-events-none absolute inset-0 z-50 overflow-hidden rounded-2xl"
@@ -196,29 +203,45 @@ export const AiDrawerContent = memo(
                 initial={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <PulsingBorder
-                  aspectRatio="auto"
-                  bloom={0.25}
-                  colorBack="#00000000"
-                  colors={["#ffffff", "#a0a0a0", "#ffffff", "#c0c0c0"]}
-                  intensity={0.25}
-                  margin={0}
-                  pulse={0.5}
-                  roundness={0.08}
-                  scale={1}
-                  smoke={0.3}
-                  smokeSize={0.5}
-                  softness={0.6}
-                  speed={0.7}
-                  spotSize={0.35}
-                  spots={5}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "1rem",
-                  }}
-                  thickness={0.02}
-                />
+                {(() => {
+                  try {
+                    return (
+                      <PulsingBorder
+                        aspectRatio="auto"
+                        bloom={0.25}
+                        colorBack="#00000000"
+                        colors={["#ffffff", "#a0a0a0", "#ffffff", "#c0c0c0"]}
+                        intensity={0.25}
+                        margin={0}
+                        pulse={0.5}
+                        roundness={0.08}
+                        scale={1}
+                        smoke={0.3}
+                        smokeSize={0.5}
+                        softness={0.6}
+                        speed={0.7}
+                        spotSize={0.35}
+                        spots={5}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: "1rem",
+                        }}
+                        thickness={0.02}
+                      />
+                    );
+                  } catch (_error) {
+                    // Fallback: render a simple animated border if shader fails
+                    return (
+                      <div
+                        className="h-full w-full animate-pulse rounded-2xl border-2 border-white/20"
+                        style={{
+                          boxShadow: "0 0 20px rgba(255, 255, 255, 0.1)",
+                        }}
+                      />
+                    );
+                  }
+                })()}
               </motion.div>
             )}
           </AnimatePresence>
@@ -242,7 +265,11 @@ export const AiDrawerContent = memo(
                     </span>
                   ) : isStreaming ? (
                     <span className="flex items-center gap-1">
-                      <TextShimmer className="pt-1 text-[10px]" duration={1}>
+                      <TextShimmer
+                        as="span"
+                        className="pt-1 text-[10px]"
+                        duration={1}
+                      >
                         Contemplating...
                       </TextShimmer>
                     </span>
@@ -468,99 +495,36 @@ export const AiDrawerContent = memo(
           </div>
         </div>
 
-        {onSwitchToBoards && (
-          <motion.button
-            animate={{ opacity: 1 }}
-            aria-label="Switch to Boards"
-            className={cn(
-              "absolute top-1/3 left-0 -translate-x-full -translate-y-1/2",
-              "flex flex-col items-center justify-center gap-1",
-              "w-9 rounded-l-xl py-3",
-              "bg-card/95 backdrop-blur-md",
-              "border-2 border-border/50 border-r-0",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
-              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.5),-4px_0_10px_rgba(0,0,0,0.25),inset_0_3px_12px_rgba(255,255,255,0.1),inset_0_-3px_10px_rgba(0,0,0,0.45),inset_1px_0_5px_rgba(0,0,0,0.25)]",
-              "hover:bg-muted/80",
-              "group cursor-pointer transition-all duration-200"
-            )}
-            initial={{ opacity: 0 }}
-            onClick={onSwitchToBoards}
-            transition={{
-              type: "tween",
-              ease: "easeOut",
-              duration: 0.25,
-              delay: 0.15,
-            }}
-            type="button"
-          >
-            <div className="relative">
-              <LayoutGrid className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-              {boardCount > 0 && (
-                <span
-                  className={cn(
-                    "absolute -top-1 -right-1",
-                    "h-3 min-w-3 px-0.5",
-                    "flex items-center justify-center",
-                    "rounded-full bg-primary text-primary-foreground",
-                    "font-bold text-[7px]"
-                  )}
-                >
-                  {boardCount > 9 ? "9+" : boardCount}
-                </span>
-              )}
-            </div>
-            <span className="writing-mode-vertical font-medium text-[8px] text-muted-foreground transition-colors group-hover:text-foreground">
-              Boards
-            </span>
-          </motion.button>
-        )}
-
-        {onSwitchToComments && (
-          <motion.button
-            animate={{ opacity: 1 }}
-            aria-label="Switch to Comments"
-            className={cn(
-              "absolute top-2/3 left-0 -translate-x-full -translate-y-1/2",
-              "flex flex-col items-center justify-center gap-1",
-              "w-9 rounded-l-xl py-3",
-              "bg-card/95 backdrop-blur-md",
-              "border-2 border-border/50 border-r-0",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
-              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.5),-4px_0_10px_rgba(0,0,0,0.25),inset_0_3px_12px_rgba(255,255,255,0.1),inset_0_-3px_10px_rgba(0,0,0,0.45),inset_1px_0_5px_rgba(0,0,0,0.25)]",
-              "hover:bg-muted/80",
-              "group cursor-pointer transition-all duration-200"
-            )}
-            initial={{ opacity: 0 }}
-            onClick={onSwitchToComments}
-            transition={{
-              type: "tween",
-              ease: "easeOut",
-              duration: 0.25,
-              delay: 0.2,
-            }}
-            type="button"
-          >
-            <div className="relative">
-              <MessageCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-              {commentCount > 0 && (
-                <span
-                  className={cn(
-                    "absolute -top-1 -right-1",
-                    "h-3 min-w-3 px-0.5",
-                    "flex items-center justify-center",
-                    "rounded-full bg-primary text-primary-foreground",
-                    "font-bold text-[7px]"
-                  )}
-                >
-                  {commentCount > 9 ? "9+" : commentCount}
-                </span>
-              )}
-            </div>
-            <span className="writing-mode-vertical font-medium text-[8px] text-muted-foreground transition-colors group-hover:text-foreground">
-              Comments
-            </span>
-          </motion.button>
-        )}
+        <SwitchButtons
+          buttons={[
+            ...(onSwitchToBoards
+              ? [
+                  {
+                    id: "boards",
+                    icon: (
+                      <LayoutGrid className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                    ),
+                    label: "Boards",
+                    onClick: onSwitchToBoards,
+                    count: boardCount,
+                  },
+                ]
+              : []),
+            ...(onSwitchToComments
+              ? [
+                  {
+                    id: "comments",
+                    icon: (
+                      <MessageCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                    ),
+                    label: "Comments",
+                    onClick: onSwitchToComments,
+                    count: commentCount,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </motion.div>
     );
   }

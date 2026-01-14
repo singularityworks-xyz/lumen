@@ -12,10 +12,12 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Board, Task } from "@/src/features/kanban/types";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
+import LarityOrb from "../../ai/components/animations/larity-orb";
 
 type BoardStats = {
   board: Board;
@@ -220,7 +222,7 @@ const FloatingIndicator = memo(
       )}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "4px" }}
+      style={{ marginTop: "8px" }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
@@ -254,6 +256,7 @@ type BoardsDrawerContentProps = {
   boardStats: BoardStats[];
   onClose: () => void;
   onSwitchToComments?: () => void;
+  onSwitchToAi?: () => void;
   commentCount?: number;
   onBoardClick: (boardId: string) => void;
 };
@@ -263,6 +266,7 @@ const BoardsDrawerContent = memo(
     boardStats,
     onClose,
     onSwitchToComments,
+    onSwitchToAi,
     commentCount = 0,
     onBoardClick,
   }: BoardsDrawerContentProps) => {
@@ -433,53 +437,33 @@ const BoardsDrawerContent = memo(
           />
         </div>
 
-        {onSwitchToComments && (
-          <motion.button
-            animate={{ opacity: 1 }}
-            aria-label="Switch to Comments"
-            className={cn(
-              "absolute top-1/2 left-0 -translate-x-full -translate-y-1/2",
-              "flex flex-col items-center justify-center gap-1",
-              "w-9 rounded-l-xl py-3",
-              "bg-card/95 backdrop-blur-md",
-              "border-2 border-border/50 border-r-0",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
-              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.5),-4px_0_10px_rgba(0,0,0,0.25),inset_0_3px_12px_rgba(255,255,255,0.1),inset_0_-3px_10px_rgba(0,0,0,0.45),inset_1px_0_5px_rgba(0,0,0,0.25)]",
-              "hover:bg-muted/80 hover:shadow-[0_4px_20px_rgba(0,0,0,0.18),-5px_0_12px_rgba(0,0,0,0.1),inset_0_3px_12px_rgba(0,0,0,0.26),inset_0_-2px_8px_rgba(255,255,255,0.09),inset_1px_0_5px_rgba(0,0,0,0.15)]",
-              "dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.6),-5px_0_12px_rgba(0,0,0,0.3),inset_0_3px_14px_rgba(255,255,255,0.12),inset_0_-3px_12px_rgba(0,0,0,0.5),inset_1px_0_6px_rgba(0,0,0,0.3)]",
-              "group cursor-pointer transition-all duration-200"
-            )}
-            initial={{ opacity: 0 }}
-            onClick={onSwitchToComments}
-            transition={{
-              type: "tween",
-              ease: "easeOut",
-              duration: 0.25,
-              delay: 0.15,
-            }}
-            type="button"
-          >
-            <div className="relative">
-              <MessageCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-              {commentCount > 0 && (
-                <span
-                  className={cn(
-                    "absolute -top-1 -right-1",
-                    "h-3 min-w-3 px-0.5",
-                    "flex items-center justify-center",
-                    "rounded-full bg-primary text-primary-foreground",
-                    "font-bold text-[7px]"
-                  )}
-                >
-                  {commentCount > 9 ? "9+" : commentCount}
-                </span>
-              )}
-            </div>
-            <span className="writing-mode-vertical font-medium text-[8px] text-muted-foreground transition-colors group-hover:text-foreground">
-              Comments
-            </span>
-          </motion.button>
-        )}
+        <SwitchButtons
+          buttons={[
+            ...(onSwitchToComments
+              ? [
+                  {
+                    id: "comments",
+                    icon: (
+                      <MessageCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                    ),
+                    label: "Comments",
+                    onClick: onSwitchToComments,
+                    count: commentCount,
+                  },
+                ]
+              : []),
+            ...(onSwitchToAi
+              ? [
+                  {
+                    id: "ai",
+                    icon: <LarityOrb size="xs" speed={0.3} />,
+                    label: "Larity",
+                    onClick: onSwitchToAi,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </motion.div>
     );
   }
@@ -489,6 +473,7 @@ export type BoardsDrawerProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSwitchToComments?: () => void;
+  onSwitchToAi?: () => void;
   commentCount?: number;
 };
 
@@ -497,6 +482,7 @@ export const BoardsDrawer = memo(
     isOpen,
     onOpenChange,
     onSwitchToComments,
+    onSwitchToAi,
     commentCount = 0,
   }: BoardsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
@@ -635,6 +621,7 @@ export const BoardsDrawer = memo(
                 commentCount={commentCount}
                 onBoardClick={handleBoardClick}
                 onClose={handleClose}
+                onSwitchToAi={onSwitchToAi}
                 onSwitchToComments={onSwitchToComments}
               />
             </>

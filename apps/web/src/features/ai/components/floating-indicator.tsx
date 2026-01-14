@@ -36,7 +36,7 @@ export const FloatingIndicator = memo(
       )}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "104px" }}
+      style={{ marginTop: "100px" }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
