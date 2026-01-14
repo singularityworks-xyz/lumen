@@ -17,6 +17,7 @@
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@prisma/instrumentation": "^7.2.0",
+    "ai": "^6.0.34",
     "better-auth": "^1.4.9",
     "elysia": "^1.4.19",
     "jose": "^6.1.3",
