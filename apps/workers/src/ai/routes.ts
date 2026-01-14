@@ -1,4 +1,5 @@
-import type { StreamEvent } from "@lumen/ai";
+import { buildSystemPrompt, type StreamEvent } from "@lumen/ai";
+import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import {
   getTracer,
@@ -10,13 +11,45 @@ import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { toHeaders } from "../utils/headers";
 import { getModel, isAiEnabled } from "./providers";
-import { buildSystemPrompt } from "./system-prompt";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
+const RETRY_MATCH_REGEX = /retry in (\d+(?:\.\d+)?)/i;
 
 function generateMessageId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function parseRateLimitError(error: unknown): {
+  isRateLimit: boolean;
+  retryAfterSeconds?: number;
+  message: string;
+} {
+  if (!(error instanceof Error)) {
+    return { isRateLimit: false, message: "An error occurred" };
+  }
+
+  const errorMessage = error.message;
+
+  if (
+    errorMessage.includes("quota") ||
+    errorMessage.includes("rate limit") ||
+    errorMessage.includes("429") ||
+    errorMessage.includes("RESOURCE_EXHAUSTED")
+  ) {
+    const retryMatch = errorMessage.match(RETRY_MATCH_REGEX);
+    const retryAfterSeconds = retryMatch
+      ? Math.ceil(Number.parseFloat(retryMatch[1]))
+      : 60;
+
+    return {
+      isRateLimit: true,
+      retryAfterSeconds,
+      message: `Rate limit reached. Please wait ${retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
+  return { isRateLimit: false, message: errorMessage };
 }
 
 export const aiRoutes = new Elysia({ name: "ai-routes" })
@@ -76,9 +109,43 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
         try {
           const model = getModel();
+          const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: {
+              name: true,
+              owner: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          });
+          const collaborators = await prisma.workspaceCollaborator.findMany({
+            where: { workspaceId },
+            select: {
+              role: true,
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          });
+
+          const isShared = collaborators.length > 1;
+
+          const collaboratorList = collaborators
+            .filter((c) => c.user.id !== session.user.id)
+            .map((c) => ({
+              name: c.user.name ?? "Unknown",
+              email: c.user.email ?? undefined,
+              role: c.role as "owner" | "admin" | "member" | "viewer",
+            }));
+
           const systemPrompt = buildSystemPrompt({
-            workspaceId,
             userName: session.user.name ?? undefined,
+            userEmail: session.user.email ?? undefined,
+            workspaceId,
+            workspaceName: workspace?.name ?? undefined,
+            isShared,
+            collaborators:
+              collaboratorList.length > 0 ? collaboratorList : undefined,
           });
 
           const messages: Array<{
@@ -110,7 +177,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             messages,
           });
 
-          // Note: span.end() is called inside the generator when streaming completes
           return (async function* () {
             try {
               const startEvent: StreamEvent = {
@@ -121,13 +187,59 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
               let fullContent = "";
 
-              for await (const chunk of result.textStream) {
-                fullContent += chunk;
-                const deltaEvent: StreamEvent = {
-                  type: "content_delta",
-                  content: chunk,
+              try {
+                for await (const chunk of result.textStream) {
+                  fullContent += chunk;
+                  const deltaEvent: StreamEvent = {
+                    type: "content_delta",
+                    content: chunk,
+                  };
+                  yield sse({ event: "message", data: deltaEvent });
+                }
+              } catch (streamError) {
+                const parsedError = parseRateLimitError(streamError);
+
+                logger.error("AI stream iteration error", {
+                  workspaceId,
+                  messageId,
+                  error:
+                    streamError instanceof Error
+                      ? streamError.message
+                      : "Unknown",
+                  isRateLimit: parsedError.isRateLimit,
+                });
+
+                const errorEvent: StreamEvent = {
+                  type: "error",
+                  error: parsedError.message,
                 };
-                yield sse({ event: "message", data: deltaEvent });
+                yield sse({ event: "error", data: errorEvent });
+
+                recordSpanError(span, streamError);
+                span.end();
+                return;
+              }
+
+              // Check if we got empty content (might indicate a silent error)
+              if (fullContent.length === 0) {
+                logger.warn("AI stream completed with empty content", {
+                  workspaceId,
+                  messageId,
+                });
+
+                const errorEvent: StreamEvent = {
+                  type: "error",
+                  error:
+                    "Failed to generate response. Please try again in a moment.",
+                };
+                yield sse({ event: "error", data: errorEvent });
+
+                span.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: "Empty response",
+                });
+                span.end();
+                return;
               }
 
               const completeEvent: StreamEvent = {
@@ -155,16 +267,19 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               recordSpanError(span, error);
               span.end();
 
+              const parsedError = parseRateLimitError(error);
+
               logger.error("AI streaming error", {
                 workspaceId,
                 messageId,
                 error: error instanceof Error ? error.message : "Unknown",
+                isRateLimit: parsedError.isRateLimit,
+                retryAfterSeconds: parsedError.retryAfterSeconds,
               });
 
               const errorEvent: StreamEvent = {
                 type: "error",
-                error:
-                  error instanceof Error ? error.message : "An error occurred",
+                error: parsedError.message,
               };
               yield sse({ event: "error", data: errorEvent });
             }
@@ -173,16 +288,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           recordSpanError(span, error);
           span.end();
 
+          const parsedError = parseRateLimitError(error);
+
           logger.error("AI chat error", {
             workspaceId,
             error: error instanceof Error ? error.message : "Unknown",
-            stack: error instanceof Error ? error.stack : undefined,
+            isRateLimit: parsedError.isRateLimit,
+            retryAfterSeconds: parsedError.retryAfterSeconds,
           });
 
-          set.status = 500;
+          set.status = parsedError.isRateLimit ? 429 : 500;
           return {
-            error: "Failed to process chat request",
-            message: error instanceof Error ? error.message : "Unknown error",
+            error: parsedError.message,
+            isRateLimit: parsedError.isRateLimit,
+            retryAfterSeconds: parsedError.retryAfterSeconds,
           };
         }
       });

@@ -218,6 +218,7 @@ export const useAiStore = create<AiStore>()(
               }
               conv.isStreaming = false;
               conv.streamingMessageId = null;
+              conv.streamVersion += 1;
               state.currentStreamId = null;
             }
           });

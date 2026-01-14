@@ -96,7 +96,7 @@ export const MessageBubble = memo(({ message, index }: MessageBubbleProps) => {
               : "rounded-bl-md bg-muted/80 text-foreground"
           )}
         >
-          {isStreaming && !message.content ? (
+          {isStreaming && !message.content && !message.error ? (
             <div className="flex items-center gap-2 py-0.5">
               <DotLoader
                 className="gap-px"
@@ -116,6 +116,10 @@ export const MessageBubble = memo(({ message, index }: MessageBubbleProps) => {
                 Thinking...
               </TextShimmer>
             </div>
+          ) : message.error && !message.content ? (
+            <p className="text-[11px] text-muted-foreground italic">
+              Failed to generate response
+            </p>
           ) : isUser ? (
             <p className="wrap-break-word whitespace-pre-wrap">
               {message.content}
@@ -134,7 +138,27 @@ export const MessageBubble = memo(({ message, index }: MessageBubbleProps) => {
         </div>
 
         {message.error && (
-          <span className="text-[10px] text-destructive">{message.error}</span>
+          <div
+            className={cn(
+              "mt-1.5 flex items-start gap-2 rounded-lg px-3 py-2",
+              "border border-destructive/20 bg-destructive/10"
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-[11px] text-destructive">
+                {message.error.includes("Rate limit") ||
+                message.error.includes("wait")
+                  ? "Rate limit reached"
+                  : "Something went wrong"}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                It's not you, it's us.
+              </p>
+              <p className="mt-1 text-[10px] text-destructive/70">
+                {message.error}
+              </p>
+            </div>
+          </div>
         )}
 
         {message.requiresConfirmation && !message.confirmedAt && (
