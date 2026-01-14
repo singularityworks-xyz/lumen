@@ -1,13 +1,11 @@
 export type SystemPromptContext = {
   userName?: string;
-  userEmail?: string;
   workspaceId?: string;
   workspaceName?: string;
   isShared?: boolean;
   totalMembers?: number;
   collaborators?: Array<{
     name: string;
-    email?: string;
     role?: "owner" | "admin" | "member" | "viewer";
   }>;
 
@@ -96,11 +94,7 @@ export function buildSystemPrompt(context?: SystemPromptContext): string {
     let contextSection = "\n## Current Session Context\n";
 
     if (context.userName) {
-      contextSection += `- **User**: ${context.userName}`;
-      if (context.userEmail) {
-        contextSection += ` (${context.userEmail})`;
-      }
-      contextSection += "\n";
+      contextSection += `- **User**: ${context.userName}\n`;
     }
 
     if (context.workspaceName) {

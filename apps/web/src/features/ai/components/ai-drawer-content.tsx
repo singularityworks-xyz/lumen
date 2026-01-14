@@ -586,6 +586,9 @@ export const AiDrawerContent = memo(
           <div className={cn("border-border/30 border-t px-3 py-2")}>
             <div className="flex items-end gap-2">
               <textarea
+                aria-label={
+                  isOffline ? "Message input (offline)" : "Message input"
+                }
                 className={cn(
                   "flex-1 resize-none rounded-xl px-3 py-2",
                   "max-h-24 min-h-9",

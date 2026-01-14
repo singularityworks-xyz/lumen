@@ -278,8 +278,12 @@ export const useAiStore = create<AiStore>()(
             if (conv) {
               const message = conv.messages.find((m) => m.id === messageId);
               if (message?.requiresConfirmation) {
-                message.confirmedAt = new Date().toISOString();
-                // The actual action execution will be handled by the hook
+                if (_confirmed) {
+                  message.confirmedAt = new Date().toISOString();
+                  // The actual action execution will be handled by the hook
+                } else {
+                  message.confirmedAt = undefined;
+                }
               }
             }
           });

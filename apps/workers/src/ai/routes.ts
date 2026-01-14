@@ -272,7 +272,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             select: {
               role: true,
               user: {
-                select: { id: true, name: true, email: true },
+                select: { id: true, name: true },
               },
             },
           });
@@ -284,13 +284,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             .filter((c) => c.user.id !== session.user.id)
             .map((c) => ({
               name: c.user.name ?? "Unknown",
-              email: c.user.email ?? undefined,
               role: c.role as "owner" | "admin" | "member" | "viewer",
             }));
 
           const systemPrompt = buildSystemPrompt({
             userName: session.user.name ?? undefined,
-            userEmail: session.user.email ?? undefined,
             workspaceId,
             workspaceName: workspace?.name ?? undefined,
             isShared,

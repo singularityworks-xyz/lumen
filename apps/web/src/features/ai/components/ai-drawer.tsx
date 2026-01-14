@@ -47,7 +47,7 @@ export const AiDrawer = memo(
         if (e.key === "Escape" && isOpen) {
           onOpenChange(false);
         }
-        if (e.key === "a" && e.metaKey && e.shiftKey) {
+        if (e.key === "a" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
           e.preventDefault();
           onOpenChange(!isOpen);
         }
