@@ -76,6 +76,7 @@
         "@lumen/logger": "workspace:^",
         "@lumen/native-bridge": "workspace:^",
         "@lumen/yjs-shared": "workspace:^",
+        "@microsoft/fetch-event-source": "^2.0.1",
         "@paper-design/shaders-react": "^0.0.69",
         "@prisma/instrumentation": "^7.2.0",
         "@radix-ui/react-accordion": "^1.2.12",
@@ -548,6 +549,8 @@
     "@lumen/workers": ["@lumen/workers@workspace:apps/workers"],
 
     "@lumen/yjs-shared": ["@lumen/yjs-shared@workspace:packages/yjs-shared"],
+
+    "@microsoft/fetch-event-source": ["@microsoft/fetch-event-source@2.0.1", "", {}, "sha512-W6CLUJ2eBMw3Rec70qrsEW0jOm/3twwJv21mrmj2yORiaVmVYGS4sSS5yUwvQc1ZlDLYGPnClVWmUUMagKNsfA=="],
 
     "@mrleebo/prisma-ast": ["@mrleebo/prisma-ast@0.12.1", "", { "dependencies": { "chevrotain": "^10.5.0", "lilconfig": "^2.1.0" } }, "sha512-JwqeCQ1U3fvccttHZq7Tk0m/TMC6WcFAQZdukypW3AzlJYKYTGNVd1ANU2GuhKnv4UQuOFj3oAl0LLG/gxFN1w=="],
 

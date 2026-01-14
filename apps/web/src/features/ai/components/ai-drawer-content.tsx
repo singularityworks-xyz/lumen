@@ -139,7 +139,7 @@ export const AiDrawerContent = memo(
       setMounted(true);
     }, []);
 
-    const handleSend = useCallback(async () => {
+    const handleSend = useCallback(() => {
       const content = inputValue.trim();
       if (!content || isStreaming) {
         return;
@@ -164,7 +164,7 @@ export const AiDrawerContent = memo(
       }
 
       try {
-        abortControllerRef.current = await streamChat(
+        abortControllerRef.current = streamChat(
           {
             workspaceId,
             message: content,

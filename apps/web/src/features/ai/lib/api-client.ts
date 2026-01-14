@@ -1,4 +1,8 @@
 import type { AiMessage, ContextSnapshot, StreamEvent } from "@lumen/ai/types";
+import {
+  EventStreamContentType,
+  fetchEventSource,
+} from "@microsoft/fetch-event-source";
 import { env } from "@/src/env";
 
 const API_BASE = env.NEXT_PUBLIC_API_URL;
@@ -11,6 +15,7 @@ export type ChatStreamCallbacks = {
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
   onMessageComplete?: (message: AiMessage) => void;
   onError?: (error: string) => void;
+  onClose?: () => void;
 };
 
 export type ChatRequest = {
@@ -20,114 +25,107 @@ export type ChatRequest = {
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
 };
 
-export async function streamChat(
+class FatalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FatalError";
+  }
+}
+
+export function streamChat(
   request: ChatRequest,
   callbacks: ChatStreamCallbacks
-): Promise<AbortController> {
+): AbortController {
   const controller = new AbortController();
 
-  try {
-    const response = await fetch(`${API_BASE}/api/ai/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    });
+  // Fire and forget - the promise is handled internally via callbacks
+  fetchEventSource(`${API_BASE}/api/ai/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify(request),
+    signal: controller.signal,
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage =
-        errorData.error || errorData.message || `HTTP error ${response.status}`;
-      callbacks.onError?.(errorMessage);
-      return controller;
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      callbacks.onError?.("No response body");
-      return controller;
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    const processStream = async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-
-          // SSE messages are separated by double newlines
-          const messages = buffer.split("\n\n");
-          // Keep the last incomplete message in the buffer
-          buffer = messages.pop() || "";
-
-          for (const message of messages) {
-            if (!message.trim()) {
-              continue;
-            }
-
-            // Parse SSE format: can have event:, data:, id: lines
-            const lines = message.split("\n");
-            let eventType = "message";
-            let eventData = "";
-
-            for (const line of lines) {
-              if (line.startsWith("event:")) {
-                eventType = line.slice(6).trim();
-              } else if (line.startsWith("data:")) {
-                eventData = line.slice(5).trim();
-              }
-            }
-
-            if (!eventData) {
-              continue;
-            }
-
-            // Handle done event
-            if (eventType === "done" || eventData === "[DONE]") {
-              continue;
-            }
-
-            try {
-              const data = JSON.parse(eventData) as StreamEvent;
-              handleStreamEvent(data, callbacks);
-            } catch {
-              // Failed to parse SSE data - skip
-            }
-          }
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
-          // Stream was cancelled, this is expected
-          return;
-        }
-        callbacks.onError?.(
-          error instanceof Error ? error.message : "Stream error"
-        );
+    async onopen(response) {
+      // Check for successful SSE response
+      if (
+        response.ok &&
+        response.headers.get("content-type")?.includes(EventStreamContentType)
+      ) {
+        return;
       }
-    };
 
-    // Start processing without awaiting (fire and forget)
-    processStream();
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      // Request was cancelled, this is expected
-      return controller;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorData as { error?: string; message?: string }).error ||
+          (errorData as { error?: string; message?: string }).message ||
+          `HTTP error ${response.status}`;
+        callbacks.onError?.(errorMessage);
+        throw new FatalError(errorMessage);
+      }
+
+      // Non-SSE response (shouldn't happen, but handle it)
+      throw new FatalError("Server did not return an event stream");
+    },
+
+    onmessage(event) {
+      // Skip done events
+      if (event.event === "done" || event.data === "[DONE]") {
+        return;
+      }
+
+      // Skip empty data
+      if (!event.data) {
+        return;
+      }
+
+      try {
+        const data = JSON.parse(event.data) as StreamEvent;
+        handleStreamEvent(data, callbacks);
+      } catch {
+        // Failed to parse SSE data - skip malformed messages
+      }
+    },
+
+    onclose() {
+      // Server closed the connection normally
+      callbacks.onClose?.();
+    },
+
+    onerror(error) {
+      // Don't report abort errors - they're expected when user cancels
+      if (error instanceof Error && error.name === "AbortError") {
+        throw error;
+      }
+
+      // Fatal errors should not be retried
+      if (error instanceof FatalError) {
+        throw error;
+      }
+
+      // Report the error to the callback
+      callbacks.onError?.(
+        error instanceof Error ? error.message : "Stream error"
+      );
+
+      // Throw to stop retrying - we don't want automatic retries
+      throw error;
+    },
+
+    // Keep connection open even when tab is hidden (for long responses)
+    openWhenHidden: true,
+  }).catch((error) => {
+    if (
+      error instanceof Error &&
+      error.name !== "AbortError" &&
+      !(error instanceof FatalError)
+    ) {
+      callbacks.onError?.(error.message || "Request failed");
     }
-    callbacks.onError?.(
-      error instanceof Error ? error.message : "Request failed"
-    );
-  }
+  });
 
   return controller;
 }
