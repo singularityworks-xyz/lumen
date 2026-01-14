@@ -2,6 +2,7 @@
 
 import { useReactFlow } from "@xyflow/react";
 import { memo, useCallback, useMemo, useState } from "react";
+import { AiDrawer } from "@/src/features/ai/components/ai-drawer";
 import { CommentsDrawer } from "@/src/features/comments/components/comments-drawer";
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useCommentUIStore } from "@/src/features/comments/stores/comment-ui-store";
@@ -9,7 +10,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
 import { BoardsDrawer } from "@/src/features/workspace/components/boards-drawer";
 
-type ActiveDrawer = "none" | "comments" | "boards";
+type ActiveDrawer = "none" | "comments" | "boards" | "ai";
 
 export const RightDrawers = memo(() => {
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>("none");
@@ -56,12 +57,20 @@ export const RightDrawers = memo(() => {
     setActiveDrawer("boards");
   }, []);
 
+  const handleSwitchToAi = useCallback(() => {
+    setActiveDrawer("ai");
+  }, []);
+
   const handleCommentsOpenChange = useCallback((open: boolean) => {
     setActiveDrawer(open ? "comments" : "none");
   }, []);
 
   const handleBoardsOpenChange = useCallback((open: boolean) => {
     setActiveDrawer(open ? "boards" : "none");
+  }, []);
+
+  const handleAiOpenChange = useCallback((open: boolean) => {
+    setActiveDrawer(open ? "ai" : "none");
   }, []);
 
   const openCluster = useCommentUIStore((state) => state.openCluster);
@@ -102,6 +111,7 @@ export const RightDrawers = memo(() => {
           isOpen={activeDrawer === "comments"}
           onCommentClick={handleCommentClick}
           onOpenChange={handleCommentsOpenChange}
+          onSwitchToAi={handleSwitchToAi}
           onSwitchToBoards={handleSwitchToBoards}
         />
       )}
@@ -109,10 +119,24 @@ export const RightDrawers = memo(() => {
         commentCount={isSharedWorkspace ? commentCount : 0}
         isOpen={activeDrawer === "boards"}
         onOpenChange={handleBoardsOpenChange}
+        onSwitchToAi={handleSwitchToAi}
         onSwitchToComments={
           isSharedWorkspace ? handleSwitchToComments : undefined
         }
       />
+      {currentWorkspaceId && (
+        <AiDrawer
+          boardCount={boardCount}
+          commentCount={isSharedWorkspace ? commentCount : 0}
+          isOpen={activeDrawer === "ai"}
+          onOpenChange={handleAiOpenChange}
+          onSwitchToBoards={handleSwitchToBoards}
+          onSwitchToComments={
+            isSharedWorkspace ? handleSwitchToComments : undefined
+          }
+          workspaceId={currentWorkspaceId}
+        />
+      )}
     </>
   );
 });

@@ -9,6 +9,8 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/src/components/ui/avatar";
+import { SwitchButtons } from "@/src/components/ui/switch-buttons";
+import LarityOrb from "@/src/features/ai/components/animations/larity-orb";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { Comment } from "@/src/features/kanban/types";
@@ -195,7 +197,7 @@ const FloatingIndicator = memo(
       )}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "-96px" }}
+      style={{ marginTop: "-100px" }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
@@ -233,6 +235,7 @@ type CommentsDrawerContentProps = {
   localUserId?: string;
   workspaceId: string;
   onSwitchToBoards?: () => void;
+  onSwitchToAi?: () => void;
   boardCount?: number;
   onCommentClick?: (comment: Comment) => void;
 };
@@ -244,6 +247,7 @@ const CommentsDrawerContent = memo(
     localUserId,
     workspaceId,
     onSwitchToBoards,
+    onSwitchToAi,
     boardCount = 0,
     onCommentClick,
   }: CommentsDrawerContentProps) => {
@@ -602,53 +606,33 @@ const CommentsDrawerContent = memo(
           )}
         </div>
 
-        {onSwitchToBoards && (
-          <motion.button
-            animate={{ opacity: 1 }}
-            aria-label="Switch to Boards"
-            className={cn(
-              "absolute top-1/2 left-0 -translate-x-full -translate-y-1/2",
-              "flex flex-col items-center justify-center gap-1",
-              "w-9 rounded-l-xl py-3",
-              "bg-card/95 backdrop-blur-md",
-              "border-2 border-border/50 border-r-0",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
-              "dark:shadow-[0_4px_16px_rgba(0,0,0,0.5),-4px_0_10px_rgba(0,0,0,0.25),inset_0_3px_12px_rgba(255,255,255,0.1),inset_0_-3px_10px_rgba(0,0,0,0.45),inset_1px_0_5px_rgba(0,0,0,0.25)]",
-              "hover:bg-muted/80 hover:shadow-[0_4px_20px_rgba(0,0,0,0.18),-5px_0_12px_rgba(0,0,0,0.1),inset_0_3px_12px_rgba(0,0,0,0.26),inset_0_-2px_8px_rgba(255,255,255,0.09),inset_1px_0_5px_rgba(0,0,0,0.15)]",
-              "dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.6),-5px_0_12px_rgba(0,0,0,0.3),inset_0_3px_14px_rgba(255,255,255,0.12),inset_0_-3px_12px_rgba(0,0,0,0.5),inset_1px_0_6px_rgba(0,0,0,0.3)]",
-              "group cursor-pointer transition-all duration-200"
-            )}
-            initial={{ opacity: 0 }}
-            onClick={onSwitchToBoards}
-            transition={{
-              type: "tween",
-              ease: "easeOut",
-              duration: 0.25,
-              delay: 0.15,
-            }}
-            type="button"
-          >
-            <div className="relative">
-              <LayoutGrid className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-              {boardCount > 0 && (
-                <span
-                  className={cn(
-                    "absolute -top-1 -right-1",
-                    "h-3 min-w-3 px-0.5",
-                    "flex items-center justify-center",
-                    "rounded-full bg-primary text-primary-foreground",
-                    "font-bold text-[7px]"
-                  )}
-                >
-                  {boardCount > 9 ? "9+" : boardCount}
-                </span>
-              )}
-            </div>
-            <span className="writing-mode-vertical font-medium text-[8px] text-muted-foreground transition-colors group-hover:text-foreground">
-              Boards
-            </span>
-          </motion.button>
-        )}
+        <SwitchButtons
+          buttons={[
+            ...(onSwitchToBoards
+              ? [
+                  {
+                    id: "boards",
+                    icon: (
+                      <LayoutGrid className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                    ),
+                    label: "Boards",
+                    onClick: onSwitchToBoards,
+                    count: boardCount,
+                  },
+                ]
+              : []),
+            ...(onSwitchToAi
+              ? [
+                  {
+                    id: "ai",
+                    icon: <LarityOrb size="xs" speed={0.3} />,
+                    label: "Larity",
+                    onClick: onSwitchToAi,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </motion.div>
     );
   }
@@ -658,6 +642,7 @@ export type CommentsDrawerProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSwitchToBoards?: () => void;
+  onSwitchToAi?: () => void;
   boardCount?: number;
   onCommentClick?: (comment: Comment) => void;
 };
@@ -667,6 +652,7 @@ export const CommentsDrawer = memo(
     isOpen,
     onOpenChange,
     onSwitchToBoards,
+    onSwitchToAi,
     boardCount = 0,
     onCommentClick,
   }: CommentsDrawerProps) => {
@@ -736,6 +722,7 @@ export const CommentsDrawer = memo(
                 localUserId={localUser?.id}
                 onClose={handleClose}
                 onCommentClick={onCommentClick}
+                onSwitchToAi={onSwitchToAi}
                 onSwitchToBoards={onSwitchToBoards}
                 workspaceId={currentWorkspaceId ?? ""}
               />

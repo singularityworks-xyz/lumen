@@ -25,6 +25,7 @@ export {
   getTraceContext,
   getTracer,
   recordSpanError,
+  SpanStatusCode,
   setSpanAttributes,
   withSpan,
   withSpanAsync,
