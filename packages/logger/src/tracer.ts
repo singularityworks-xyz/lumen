@@ -6,6 +6,9 @@ import {
   trace,
 } from "@opentelemetry/api";
 
+// biome-ignore lint/performance/noBarrelFile: needed for re-export
+export { SpanStatusCode } from "@opentelemetry/api";
+
 const DEFAULT_TRACER_NAME = "lumen";
 
 export function getTracer(name: string = DEFAULT_TRACER_NAME): Tracer {

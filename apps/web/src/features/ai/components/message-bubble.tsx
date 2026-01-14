@@ -9,6 +9,8 @@ import { cn } from "@/src/lib/utils";
 import { useAiStore } from "../store/ai-store";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
+import { TextShimmer } from "./animations/text-shimmer";
+import { MarkdownRenderer } from "./markdown-renderer";
 
 const thinkingFrames = [
   [24],
@@ -106,19 +108,28 @@ export const MessageBubble = memo(({ message, index }: MessageBubbleProps) => {
                 frames={thinkingFrames}
                 repeatCount={-1}
               />
-              <span className="text-[11px] text-muted-foreground">
+              <TextShimmer
+                as="span"
+                className="text-[11px] text-muted-foreground"
+                duration={1.5}
+              >
                 Thinking...
-              </span>
+              </TextShimmer>
             </div>
+          ) : isUser ? (
+            <p className="wrap-break-word whitespace-pre-wrap">
+              {message.content}
+            </p>
           ) : (
-            <>
-              <p className="wrap-break-word whitespace-pre-wrap">
-                {message.content}
-              </p>
+            <div className="flex items-end gap-1">
+              <MarkdownRenderer
+                className="min-w-0 flex-1"
+                content={message.content}
+              />
               {isStreaming && (
-                <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-current opacity-60" />
+                <span className="mb-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/40" />
               )}
-            </>
+            </div>
           )}
         </div>
 

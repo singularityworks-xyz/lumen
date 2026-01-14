@@ -21,7 +21,6 @@ import { useAiStore } from "../store/ai-store";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
 import { SendButton } from "./animations/send-button";
-import { TextShimmer } from "./animations/text-shimmer";
 import { MessageBubble } from "./message-bubble";
 import { SuggestionChip } from "./suggestion-chip";
 
@@ -401,19 +400,7 @@ export const AiDrawerContent = memo(
                       <WifiOff className="h-3 w-3" /> Offline
                     </span>
                   ) : isAuthenticated ? (
-                    isStreaming ? (
-                      <span className="flex items-center gap-1">
-                        <TextShimmer
-                          as="span"
-                          className="pt-1 text-[10px]"
-                          duration={1}
-                        >
-                          Contemplating...
-                        </TextShimmer>
-                      </span>
-                    ) : (
-                      "powered by Singularity Works"
-                    )
+                    "powered by Singularity Works"
                   ) : (
                     "Sign in to unlock AI assistance"
                   )}

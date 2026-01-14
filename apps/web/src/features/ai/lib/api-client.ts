@@ -56,30 +56,20 @@ export async function streamChat(
 
     const processStream = async () => {
       try {
-        console.log("[SSE] Starting stream processing");
         while (true) {
           const { done, value } = await reader.read();
 
           if (done) {
-            console.log("[SSE] Stream complete");
             break;
           }
 
           const chunk = decoder.decode(value, { stream: true });
-          console.log("[SSE] Raw chunk received:", JSON.stringify(chunk));
           buffer += chunk;
 
           // SSE messages are separated by double newlines
           const messages = buffer.split("\n\n");
           // Keep the last incomplete message in the buffer
           buffer = messages.pop() || "";
-
-          console.log(
-            "[SSE] Parsed messages:",
-            messages.length,
-            "Buffer remaining:",
-            buffer.length
-          );
 
           for (const message of messages) {
             if (!message.trim()) {
@@ -99,8 +89,6 @@ export async function streamChat(
               }
             }
 
-            console.log("[SSE] Event:", eventType, "Data:", eventData);
-
             if (!eventData) {
               continue;
             }
@@ -112,10 +100,9 @@ export async function streamChat(
 
             try {
               const data = JSON.parse(eventData) as StreamEvent;
-              console.log("[SSE] Parsed event:", data.type);
               handleStreamEvent(data, callbacks);
-            } catch (e) {
-              console.error("Failed to parse SSE data:", e, eventData);
+            } catch {
+              // Failed to parse SSE data - skip
             }
           }
         }
@@ -124,7 +111,6 @@ export async function streamChat(
           // Stream was cancelled, this is expected
           return;
         }
-        console.error("Stream processing error:", error);
         callbacks.onError?.(
           error instanceof Error ? error.message : "Stream error"
         );
@@ -138,7 +124,6 @@ export async function streamChat(
       // Request was cancelled, this is expected
       return controller;
     }
-    console.error("Chat request error:", error);
     callbacks.onError?.(
       error instanceof Error ? error.message : "Request failed"
     );
