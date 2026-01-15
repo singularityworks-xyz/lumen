@@ -10,7 +10,7 @@ import {
   decryptContent,
   encryptContent,
   isEncryptionEnabled,
-} from "./encryption";
+} from "../lib/encryption";
 import {
   generateConversationTitle,
   shouldGenerateTitle,

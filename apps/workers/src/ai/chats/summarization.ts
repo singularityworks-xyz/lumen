@@ -2,9 +2,9 @@ import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { getTracer, SpanStatusCode } from "@lumen/logger/tracer";
 import { generateText } from "ai";
-import { decryptContent, encryptContent } from "./encryption";
-import { getModel } from "./providers";
-import { aiRequestQueue } from "./request-queue";
+import { decryptContent, encryptContent } from "../lib/encryption";
+import { aiRequestQueue } from "../lib/request-queue";
+import { getModel } from "../providers";
 
 const logger = createLogger({ name: "ai:summarization" });
 const tracer = getTracer("lumen-ai");

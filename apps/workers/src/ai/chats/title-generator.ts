@@ -5,8 +5,8 @@ import {
   SpanStatusCode,
 } from "@lumen/logger/tracer";
 import { generateText } from "ai";
-import { getModel, isRateLimitError } from "./providers";
-import { aiRequestQueue } from "./request-queue";
+import { aiRequestQueue } from "../lib/request-queue";
+import { getModel, isRateLimitError } from "../providers";
 
 const logger = createLogger({ name: "ai:title-generator" });
 const tracer = getTracer("lumen-ai");

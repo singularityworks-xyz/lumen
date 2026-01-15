@@ -7,8 +7,18 @@ export {
   onTitleGenerated,
   toApiMessages,
   updateConversationTitle,
-} from "./conversation-service";
-export { isEncryptionEnabled } from "./encryption";
+} from "./chats/conversation-service";
+export {
+  cleanupOldConversations,
+  needsSummarization,
+  runMaintenanceTasks,
+  summarizeConversation,
+} from "./chats/summarization";
+export {
+  generateConversationTitle,
+  shouldGenerateTitle,
+} from "./chats/title-generator";
+export { isEncryptionEnabled } from "./lib/encryption";
 export {
   recordAiError,
   recordAiRequest,
@@ -16,26 +26,16 @@ export {
   recordRateLimitHit,
   recordStreamDuration,
   recordTokenUsage,
-} from "./metrics";
+} from "./lib/metrics";
+export {
+  aiRequestQueue,
+  getQueueStats,
+  isUpstashEnabled,
+} from "./lib/request-queue";
 export {
   getModel,
   getModelChain,
   isAiEnabled,
   isRateLimitError,
 } from "./providers";
-export {
-  aiRequestQueue,
-  getQueueStats,
-  isUpstashEnabled,
-} from "./request-queue";
 export { aiRoutes } from "./routes";
-export {
-  cleanupOldConversations,
-  needsSummarization,
-  runMaintenanceTasks,
-  summarizeConversation,
-} from "./summarization";
-export {
-  generateConversationTitle,
-  shouldGenerateTitle,
-} from "./title-generator";

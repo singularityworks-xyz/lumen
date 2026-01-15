@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./src/types/index.ts"
+    "./types": "./src/types/index.ts",
+    "./tools": "./src/tools/index.ts"
   },
   "devDependencies": {
     "@lumen/configs": "workspace:^",

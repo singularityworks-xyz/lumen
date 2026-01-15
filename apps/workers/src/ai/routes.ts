@@ -16,21 +16,21 @@ import {
   clearConversation,
   getOrCreateConversation,
   toApiMessages,
-} from "./conversation-service";
+} from "./chats/conversation-service";
 import {
   recordAiError,
   recordAiRequest,
   recordModelFallback,
   recordRateLimitHit,
   recordStreamDuration,
-} from "./metrics";
+} from "./lib/metrics";
+import { getQueueStats, isUpstashEnabled } from "./lib/request-queue";
 import {
   getModel,
   getModelChain,
   isAiEnabled,
   isRateLimitError,
 } from "./providers";
-import { getQueueStats, isUpstashEnabled } from "./request-queue";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
@@ -765,7 +765,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     }
 
     // Import dynamically to avoid circular dependencies
-    const { runMaintenanceTasks } = await import("./summarization");
+    const { runMaintenanceTasks } = await import("./chats/summarization");
 
     logger.info("Running AI maintenance tasks", {
       userId: session.user.id,
