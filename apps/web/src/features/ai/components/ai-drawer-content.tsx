@@ -84,6 +84,7 @@ export const AiDrawerContent = memo(
     const [inputValue, setInputValue] = useState("");
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
     // Subscribe to streamVersion to force re-renders during streaming
@@ -152,14 +153,19 @@ export const AiDrawerContent = memo(
 
     // Sync conversation from server on mount and periodically check for title
     useEffect(() => {
-      if (!(isAuthenticated && workspaceId)) {
+      if (!(isAuthenticated && workspaceId) || isClearing) {
         return;
       }
 
       const syncFromServer = async () => {
+        // Double-check isClearing before syncing
+        if (isClearing) {
+          return;
+        }
+
         try {
           const serverConversation = await fetchConversation(workspaceId);
-          if (serverConversation) {
+          if (serverConversation && !isClearing) {
             loadServerConversation(
               workspaceId,
               serverConversation.messages,
@@ -175,7 +181,7 @@ export const AiDrawerContent = memo(
 
       // Also periodically check for title updates (in case async title generation completed)
       const intervalId = setInterval(() => {
-        if (!conversationTitle && messagesList.length >= 4) {
+        if (!conversationTitle && messagesList.length >= 4 && !isClearing) {
           syncFromServer();
         }
       }, 10_000);
@@ -187,6 +193,7 @@ export const AiDrawerContent = memo(
       loadServerConversation,
       conversationTitle,
       messagesList.length,
+      isClearing,
     ]);
 
     const handleSend = useCallback(() => {
@@ -271,15 +278,20 @@ export const AiDrawerContent = memo(
     }, [cancelStream]);
 
     const handleClearConversation = useCallback(async () => {
-      clearConversation(workspaceId);
       setShowClearConfirm(false);
+      setIsClearing(true);
 
       try {
+        // Clear server first to prevent sync from bringing messages back
         await clearServerConversation(workspaceId);
       } catch (error) {
         console.warn("Failed to clear conversation on server:", error);
-        // Local state is already cleared
       }
+
+      clearConversation(workspaceId);
+
+      // Small delay before allowing sync again to ensure state is settled
+      setTimeout(() => setIsClearing(false), 100);
     }, [workspaceId, clearConversation]);
 
     const handleKeyDown = useCallback(
