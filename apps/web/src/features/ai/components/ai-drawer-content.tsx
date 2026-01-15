@@ -16,7 +16,11 @@ import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
-import { streamChat } from "../lib/api-client";
+import {
+  clearServerConversation,
+  fetchConversation,
+  streamChat,
+} from "../lib/api-client";
 import { useAiStore } from "../store/ai-store";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
@@ -89,6 +93,9 @@ export const AiDrawerContent = memo(
     const messages = useAiStore(
       (state) => state.conversations[workspaceId]?.messages
     );
+    const conversationTitle = useAiStore(
+      (state) => state.conversations[workspaceId]?.title
+    );
     // Use streamVersion in a way that doesn't trigger lint warnings
     // This ensures we re-render when chunks arrive
     const _forceUpdate = streamVersion;
@@ -105,6 +112,10 @@ export const AiDrawerContent = memo(
     const clearConversation = useAiStore((state) => state.clearConversation);
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
+    const setTitle = useAiStore((state) => state.setTitle);
+    const loadServerConversation = useAiStore(
+      (state) => state.loadServerConversation
+    );
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Memoize messages with stable empty array fallback
@@ -138,6 +149,45 @@ export const AiDrawerContent = memo(
     useEffect(() => {
       setMounted(true);
     }, []);
+
+    // Sync conversation from server on mount and periodically check for title
+    useEffect(() => {
+      if (!(isAuthenticated && workspaceId)) {
+        return;
+      }
+
+      const syncFromServer = async () => {
+        try {
+          const serverConversation = await fetchConversation(workspaceId);
+          if (serverConversation) {
+            loadServerConversation(
+              workspaceId,
+              serverConversation.messages,
+              serverConversation.title
+            );
+          }
+        } catch (error) {
+          console.warn("Failed to sync conversation from server:", error);
+        }
+      };
+
+      syncFromServer();
+
+      // Also periodically check for title updates (in case async title generation completed)
+      const intervalId = setInterval(() => {
+        if (!conversationTitle && messagesList.length >= 4) {
+          syncFromServer();
+        }
+      }, 10_000);
+
+      return () => clearInterval(intervalId);
+    }, [
+      isAuthenticated,
+      workspaceId,
+      loadServerConversation,
+      conversationTitle,
+      messagesList.length,
+    ]);
 
     const handleSend = useCallback(() => {
       const content = inputValue.trim();
@@ -179,6 +229,9 @@ export const AiDrawerContent = memo(
               completeStream(workspaceId, assistantId);
               abortControllerRef.current = null;
             },
+            onTitleGenerated: (title) => {
+              setTitle(workspaceId, title);
+            },
             onError: (error) => {
               setStreamError(workspaceId, assistantId, error);
               abortControllerRef.current = null;
@@ -201,6 +254,7 @@ export const AiDrawerContent = memo(
       appendStreamChunk,
       completeStream,
       setStreamError,
+      setTitle,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
@@ -209,14 +263,24 @@ export const AiDrawerContent = memo(
     }, []);
 
     const handleCancel = useCallback(() => {
-      // Abort the HTTP request if in progress
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
-      // Update store state
       cancelStream();
     }, [cancelStream]);
+
+    const handleClearConversation = useCallback(async () => {
+      clearConversation(workspaceId);
+      setShowClearConfirm(false);
+
+      try {
+        await clearServerConversation(workspaceId);
+      } catch (error) {
+        console.warn("Failed to clear conversation on server:", error);
+        // Local state is already cleared
+      }
+    }, [workspaceId, clearConversation]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -397,9 +461,9 @@ export const AiDrawerContent = memo(
           >
             <div className="flex items-center gap-2.5">
               <LarityOrb size="md" speed={isStreaming ? 0.8 : 0.4} />
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">
-                  Larity — Work, illuminated
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate font-semibold text-foreground text-sm">
+                  {conversationTitle || "Larity — Work, illuminated"}
                 </h3>
                 <p className="text-[10px] text-muted-foreground">
                   {isOffline ? (
@@ -561,10 +625,7 @@ export const AiDrawerContent = memo(
                           "hover:border-destructive/50 hover:bg-destructive/20",
                           "transition-all duration-200"
                         )}
-                        onClick={() => {
-                          clearConversation(workspaceId);
-                          setShowClearConfirm(false);
-                        }}
+                        onClick={handleClearConversation}
                         type="button"
                       >
                         Clear

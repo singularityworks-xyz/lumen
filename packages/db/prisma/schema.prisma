@@ -8,26 +8,25 @@ datasource db {
 }
 
 generator prismabox {
-  provider = "prismabox"
+  provider                    = "prismabox"
   typeboxImportDependencyName = "elysia"
-  typeboxImportVariableName = "t"
-  inputModel = true
-  output   = "./generated/prismabox"
+  typeboxImportVariableName   = "t"
+  inputModel                  = true
+  output                      = "./generated/prismabox"
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String?
-  email         String   @unique
-  emailVerified Boolean  @default(false)
-  image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  sessions      Session[]
-  accounts      Account[]
-  collaborators WorkspaceCollaborator[]
-  workspaces    Workspace[]
+  id              String                  @id @default(cuid())
+  name            String?
+  email           String                  @unique
+  emailVerified   Boolean                 @default(false)
+  image           String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  collaborators   WorkspaceCollaborator[]
+  workspaces      Workspace[]
   workspaceShares WorkspaceShare[]
 
   @@map("user")
@@ -102,10 +101,11 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner         User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  collaborators WorkspaceCollaborator[]
-  shares        WorkspaceShare[]
-  state         WorkspaceState?
+  owner          User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators  WorkspaceCollaborator[]
+  shares         WorkspaceShare[]
+  state          WorkspaceState?
+  aiConversation AiConversation?
 
   @@index([ownerId])
   @@map("workspace")
@@ -174,4 +174,42 @@ model Jwks {
 
   @@index([isActive, expiresAt])
   @@map("jwks")
+}
+
+model AiConversation {
+  id               String      @id @default(cuid())
+  workspaceId      String      @unique
+  title            String?
+  summary          String?     @db.Text
+  summaryUpToIndex Int         @default(0)
+  messageCount     Int         @default(0)
+  lastActiveAt     DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  messages         AiMessage[]
+  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([lastActiveAt])
+  @@map("ai_conversation")
+}
+
+model AiMessage {
+  id                   String         @id @default(cuid())
+  conversationId       String
+  role                 String
+  content              String         @db.Text
+  toolCalls            Json?
+  toolCallId           String?
+  toolName             String?
+  contextSnapshot      Json?
+  requiresConfirmation Boolean        @default(false)
+  pendingAction        Json?
+  confirmedAt          DateTime?
+  createdAt            DateTime       @default(now())
+  conversation         AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId])
+  @@map("ai_message")
 }

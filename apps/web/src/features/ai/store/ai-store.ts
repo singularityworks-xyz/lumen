@@ -12,6 +12,7 @@ const tracer = getTracer("lumen-ai");
 
 export type WorkspaceAiState = {
   messages: AiMessage[];
+  title: string | null;
   isStreaming: boolean;
   streamingMessageId: string | null;
   streamVersion: number;
@@ -89,12 +90,19 @@ export type AiActions = {
   removeFromSyncQueue: (id: string) => void;
   getConversation: (workspaceId: string) => WorkspaceAiState;
   getMessages: (workspaceId: string) => AiMessage[];
+  setTitle: (workspaceId: string, title: string) => void;
+  loadServerConversation: (
+    workspaceId: string,
+    messages: AiMessage[],
+    title: string | null
+  ) => void;
 };
 
 export type AiStore = AiState & AiActions;
 
 const createEmptyConversation = (): WorkspaceAiState => ({
   messages: [],
+  title: null,
   isStreaming: false,
   streamingMessageId: null,
   streamVersion: 0,
@@ -395,6 +403,34 @@ export const useAiStore = create<AiStore>()(
       getMessages: (workspaceId) => {
         const state = get();
         return state.conversations[workspaceId]?.messages || [];
+      },
+
+      setTitle: (workspaceId, title) => {
+        set((state) => {
+          if (!state.conversations[workspaceId]) {
+            state.conversations[workspaceId] = createEmptyConversation();
+          }
+          state.conversations[workspaceId].title = title;
+        });
+      },
+
+      loadServerConversation: (workspaceId, messages, title) => {
+        set((state) => {
+          if (!state.conversations[workspaceId]) {
+            state.conversations[workspaceId] = createEmptyConversation();
+          }
+          const conv = state.conversations[workspaceId];
+          if (
+            conv.messages.length === 0 ||
+            messages.length > conv.messages.length
+          ) {
+            conv.messages = messages;
+            conv.title = title;
+            conv.lastActiveAt = new Date().toISOString();
+          } else if (title && !conv.title) {
+            conv.title = title;
+          }
+        });
       },
     })),
     {

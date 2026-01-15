@@ -46,6 +46,7 @@ export type AiMessage = {
 export type AiConversation = {
   id: string;
   workspaceId: string;
+  title?: string;
   messages: AiMessage[];
   summary?: string;
   summaryUpToIndex?: number;
@@ -62,6 +63,7 @@ export type StreamEventType =
   | "tool_call_result"
   | "confirmation_required"
   | "message_complete"
+  | "title_generated"
   | "error";
 
 export type StreamEvent =
@@ -71,6 +73,7 @@ export type StreamEvent =
   | { type: "tool_call_result"; toolCallId: string; result: unknown }
   | { type: "confirmation_required"; messageId: string; action: PendingAction }
   | { type: "message_complete"; message: AiMessage }
+  | { type: "title_generated"; title: string }
   | { type: "error"; error: string };
 
 export type ChatRequest = {

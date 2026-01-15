@@ -12,6 +12,12 @@ import { auth } from "../auth/config/auth";
 import { getCollaborator } from "../collab/helpers";
 import { toHeaders } from "../utils/headers";
 import {
+  addMessage,
+  clearConversation,
+  getOrCreateConversation,
+  toApiMessages,
+} from "./conversation-service";
+import {
   recordAiError,
   recordAiRequest,
   recordModelFallback,
@@ -24,6 +30,7 @@ import {
   isAiEnabled,
   isRateLimitError,
 } from "./providers";
+import { getQueueStats, isUpstashEnabled } from "./request-queue";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
@@ -303,6 +310,19 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
 
+          // Get or create conversation for this workspace
+          const conversation = await getOrCreateConversation(workspaceId);
+          span.setAttribute("ai.conversation_id", conversation.id);
+
+          // Save user message to database
+          const userMessageId = generateMessageId();
+          await addMessage(conversation.id, {
+            id: userMessageId,
+            role: "user",
+            content: message,
+            contextSnapshot: _context,
+          });
+
           const messages: Array<{
             role: "user" | "assistant";
             content: string;
@@ -439,6 +459,36 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: completeEvent });
 
+              // Save assistant message to database
+              // Title generation happens asynchronously via callback
+              try {
+                const { titleWillGenerate } = await addMessage(
+                  conversation.id,
+                  {
+                    id: messageId,
+                    role: "assistant",
+                    content: fullContent,
+                  }
+                );
+
+                // If title will be generated, the callback will be called later
+                // We don't block the response waiting for it
+                if (titleWillGenerate) {
+                  span.setAttribute("ai.title_generation_started", true);
+                  logger.info("Title generation started asynchronously", {
+                    conversationId: conversation.id,
+                  });
+                }
+              } catch (saveError) {
+                // Log but don't fail the request if saving fails
+                logger.error("Failed to save assistant message", {
+                  workspaceId,
+                  messageId,
+                  error:
+                    saveError instanceof Error ? saveError.message : "Unknown",
+                });
+              }
+
               // Record success metrics
               recordStreamDuration(streamDuration, {
                 model: modelUsed,
@@ -559,4 +609,177 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         ),
       }),
     }
-  );
+  )
+
+  // Get conversation for a workspace
+  .get(
+    "/api/ai/conversation/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Verify workspace access
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (workspaceAccess) {
+        const isOwner = workspaceAccess.ownerId === session.user.id;
+        if (!isOwner) {
+          const collaborator = await getCollaborator(
+            workspaceId,
+            session.user.id
+          );
+          if (!collaborator) {
+            set.status = 403;
+            return { error: "Access denied" };
+          }
+        }
+      }
+
+      try {
+        const conversation = await getOrCreateConversation(workspaceId);
+        const messages = await toApiMessages(conversation.messages);
+        return {
+          id: conversation.id,
+          workspaceId: conversation.workspaceId,
+          title: conversation.title,
+          messageCount: conversation.messageCount,
+          messages,
+          lastActiveAt: conversation.lastActiveAt.toISOString(),
+          createdAt: conversation.createdAt.toISOString(),
+        };
+      } catch (error) {
+        logger.error("Failed to get conversation", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to load conversation" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+      }),
+    }
+  )
+
+  // Clear conversation
+  .delete(
+    "/api/ai/conversation/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      // Verify workspace access
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (workspaceAccess) {
+        const isOwner = workspaceAccess.ownerId === session.user.id;
+        if (!isOwner) {
+          const collaborator = await getCollaborator(
+            workspaceId,
+            session.user.id
+          );
+          if (!collaborator) {
+            set.status = 403;
+            return { error: "Access denied" };
+          }
+        }
+      }
+
+      try {
+        const conversation = await prisma.aiConversation.findUnique({
+          where: { workspaceId },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          await clearConversation(conversation.id);
+          logger.info("Conversation cleared", {
+            workspaceId,
+            userId: session.user.id,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to clear conversation", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to clear conversation" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+      }),
+    }
+  )
+
+  // Get queue stats
+  .get("/api/ai/queue-stats", () => {
+    const stats = getQueueStats();
+    return {
+      queueLength: stats.queueLength,
+      remaining: stats.remaining,
+      activeRequests: stats.activeRequests,
+      isProcessing: stats.isProcessing,
+      usingUpstash: isUpstashEnabled(),
+      rateLimit: 30,
+      windowSizeSeconds: 60,
+    };
+  })
+
+  // Run maintenance tasks (summarization and cleanup)
+  // This should be called periodically via cron or manually by admins
+  .post("/api/ai/maintenance", async ({ headers, set }) => {
+    // Verify admin authentication
+    const session = await auth.api.getSession({
+      headers: toHeaders(headers),
+    });
+    if (!session) {
+      set.status = 401;
+      return { error: "Unauthorized" };
+    }
+
+    // Import dynamically to avoid circular dependencies
+    const { runMaintenanceTasks } = await import("./summarization");
+
+    logger.info("Running AI maintenance tasks", {
+      userId: session.user.id,
+    });
+
+    // Run in background, return immediately
+    runMaintenanceTasks().catch((error) => {
+      logger.error("Maintenance tasks failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    });
+
+    return {
+      message: "Maintenance tasks started",
+      note: "Tasks running in background",
+    };
+  });

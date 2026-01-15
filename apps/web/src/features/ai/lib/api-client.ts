@@ -14,6 +14,7 @@ export type ChatStreamCallbacks = {
   onToolCallResult?: (toolCallId: string, result: unknown) => void;
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
   onMessageComplete?: (message: AiMessage) => void;
+  onTitleGenerated?: (title: string) => void;
   onError?: (error: string) => void;
   onClose?: () => void;
 };
@@ -153,6 +154,9 @@ function handleStreamEvent(
     case "message_complete":
       callbacks.onMessageComplete?.(event.message);
       break;
+    case "title_generated":
+      callbacks.onTitleGenerated?.(event.title);
+      break;
     case "error":
       callbacks.onError?.(event.error);
       break;
@@ -176,5 +180,59 @@ export async function checkAiHealth(): Promise<{
     return await response.json();
   } catch {
     return { enabled: false, status: "error" };
+  }
+}
+
+export type ConversationResponse = {
+  id: string;
+  workspaceId: string;
+  title: string | null;
+  messageCount: number;
+  messages: AiMessage[];
+  lastActiveAt: string;
+  createdAt: string;
+};
+
+export async function fetchConversation(
+  workspaceId: string
+): Promise<ConversationResponse | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      {
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return null;
+      }
+      throw new Error(`Failed to fetch conversation: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch conversation:", error);
+    return null;
+  }
+}
+
+export async function clearServerConversation(
+  workspaceId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    return response.ok;
+  } catch (error) {
+    console.error("Failed to clear conversation:", error);
+    return false;
   }
 }
