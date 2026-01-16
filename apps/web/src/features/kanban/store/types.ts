@@ -148,6 +148,10 @@ export type KanbanActions = {
     options?: { clearBoardsAndColumns?: boolean }
   ) => void;
   duplicateWorkspace: (workspaceId: string, newName: string) => string | null;
+  // Enable AI for a local workspace (requires user consent)
+  enableWorkspaceAi: (workspaceId: string) => void;
+  // Disable AI for a workspace
+  disableWorkspaceAi: (workspaceId: string) => void;
   openWorkspaceQuickActions: (
     workspaceId: string,
     position: { x: number; y: number }

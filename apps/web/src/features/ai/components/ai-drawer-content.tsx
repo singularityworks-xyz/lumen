@@ -5,6 +5,7 @@ import { getSuggestionsForContext } from "@lumen/ai/types";
 import { PulsingBorder } from "@paper-design/shaders-react";
 import {
   ChevronRight,
+  Info,
   LayoutGrid,
   MessageCircle,
   Trash2,
@@ -17,11 +18,13 @@ import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
 import {
+  buildWorkspaceSnapshot,
   clearServerConversation,
   fetchConversation,
   streamChat,
 } from "../lib/api-client";
 import { useAiStore } from "../store/ai-store";
+import { AiOptInDialog } from "./ai-opt-in-dialog";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
 import { SendButton } from "./animations/send-button";
@@ -83,10 +86,28 @@ export const AiDrawerContent = memo(
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [showOptInDialog, setShowOptInDialog] = useState(false);
+    const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+
+    // Check if workspace has AI enabled (for local workspaces)
+    const workspace = useKanbanStore(
+      (state) => state.workspaces.byId[workspaceId]
+    );
+    const workspaceShareUrl = useKanbanStore(
+      (state) => state.workspaceShareUrls[workspaceId]
+    );
+    const isSharedWorkspace =
+      workspace?.isShared === true ||
+      !!workspaceShareUrl ||
+      !!workspace?.shareToken;
+    // For shared workspaces, AI is always enabled
+    // For local workspaces, user must explicitly opt-in
+    const isAiEnabled = isSharedWorkspace || workspace?.aiEnabled === true;
+
     // Subscribe to streamVersion to force re-renders during streaming
     const streamVersion = useAiStore(
       (state) => state.conversations[workspaceId]?.streamVersion ?? 0
@@ -152,7 +173,13 @@ export const AiDrawerContent = memo(
     }, []);
 
     // Sync conversation from server on mount and periodically check for title
+    // Only for shared workspaces - local workspaces keep messages in local storage only
     useEffect(() => {
+      // Skip server sync for local workspaces - they use local storage only
+      if (!isSharedWorkspace) {
+        return;
+      }
+
       if (!(isAuthenticated && workspaceId) || isClearing) {
         return;
       }
@@ -190,6 +217,7 @@ export const AiDrawerContent = memo(
     }, [
       isAuthenticated,
       workspaceId,
+      isSharedWorkspace,
       loadServerConversation,
       conversationTitle,
       messagesList.length,
@@ -226,7 +254,10 @@ export const AiDrawerContent = memo(
             workspaceId,
             message: content,
             context: currentContext,
+            workspaceSnapshot: buildWorkspaceSnapshot(workspaceId),
             history,
+            // For local workspaces, don't persist conversation to server DB
+            ephemeral: !isSharedWorkspace,
           },
           {
             onContentDelta: (chunk) => {
@@ -264,6 +295,7 @@ export const AiDrawerContent = memo(
     }, [
       inputValue,
       isStreaming,
+      isSharedWorkspace,
       workspaceId,
       currentContext,
       messagesList,
@@ -425,6 +457,72 @@ export const AiDrawerContent = memo(
                 </motion.div>
               </motion.div>
             )}
+            {isAuthenticated && !isAiEnabled && (
+              <motion.div
+                animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                transition={{ duration: 0.3 }}
+              >
+                <motion.div
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className={cn(
+                    "w-full max-w-72 rounded-2xl p-5",
+                    "bg-card/95 backdrop-blur-md",
+                    "border border-border/50",
+                    "shadow-[0_8px_30px_rgba(0,0,0,0.15),inset_0_2px_4px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(255,255,255,0.06)]",
+                    "dark:shadow-[0_8px_30px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  )}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <div className="mb-4 flex justify-center">
+                    <LarityOrb size="lg" speed={0.3} />
+                  </div>
+                  <h4 className="mb-1 text-center font-medium text-foreground text-sm">
+                    AI Assistant Disabled
+                  </h4>
+                  <p className="mb-4 text-center text-muted-foreground text-xs">
+                    This is a local workspace. Enable Larity to get AI
+                    assistance with your tasks.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-muted/40 font-medium text-muted-foreground text-xs",
+                        "border border-border/40",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                        "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                        "hover:border-border/60 hover:bg-muted/60",
+                        "transition-all duration-200"
+                      )}
+                      onClick={onClose}
+                      type="button"
+                    >
+                      Close
+                    </button>
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-primary font-medium text-primary-foreground text-xs",
+                        "shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+                        "hover:bg-primary/90",
+                        "transition-all duration-200"
+                      )}
+                      onClick={() => setShowOptInDialog(true)}
+                      type="button"
+                    >
+                      Enable AI
+                    </button>
+                  </div>
+                  <p className="mt-3 text-center text-[9px] text-muted-foreground/60">
+                    Your data will be sent to our servers for AI processing
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
             {isStreaming && mounted && (
               <motion.div
                 animate={{ opacity: 1 }}
@@ -503,6 +601,54 @@ export const AiDrawerContent = memo(
             </div>
 
             <div className="flex items-center gap-2">
+              {!isSharedWorkspace && isAiEnabled && (
+                <div className="relative">
+                  <button
+                    aria-label="Privacy info"
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-lg",
+                      "text-muted-foreground hover:text-foreground",
+                      "hover:bg-muted/80",
+                      "transition-all duration-200"
+                    )}
+                    onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                    type="button"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                  <AnimatePresence>
+                    {showPrivacyInfo && (
+                      <motion.div
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn(
+                          "absolute top-full right-0 z-50 mt-2 w-64 rounded-xl p-3",
+                          "bg-card/98 backdrop-blur-xl",
+                          "border border-border/50",
+                          "shadow-lg"
+                        )}
+                        exit={{ opacity: 0, y: -4 }}
+                        initial={{ opacity: 0, y: -4 }}
+                      >
+                        <p className="mb-2 font-medium text-foreground text-xs">
+                          Local Workspace Privacy
+                        </p>
+                        <ul className="space-y-1 text-[10px] text-muted-foreground">
+                          <li>• Chat history stored locally in your browser</li>
+                          <li>• Workspace data sent for AI context only</li>
+                          <li>• No data persisted on our servers</li>
+                        </ul>
+                        <button
+                          className="mt-2 text-[10px] text-primary hover:underline"
+                          onClick={() => setShowPrivacyInfo(false)}
+                          type="button"
+                        >
+                          Got it
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
               {messagesList.length > 0 && (
                 <button
                   aria-label="Clear conversation"
@@ -747,6 +893,14 @@ export const AiDrawerContent = memo(
                 ]
               : []),
           ]}
+        />
+
+        <AiOptInDialog
+          isOpen={showOptInDialog}
+          onClose={() => setShowOptInDialog(false)}
+          onConfirm={() => setShowOptInDialog(false)}
+          workspaceId={workspaceId}
+          workspaceName={workspace?.name ?? "Workspace"}
         />
       </motion.div>
     );

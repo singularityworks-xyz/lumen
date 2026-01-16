@@ -1,3 +1,5 @@
+import type { WorkspaceSnapshot } from "../tools/executors/shared";
+
 export type TextPart = {
   type: "text";
   text: string;
@@ -47,6 +49,7 @@ export type StreamResult =
 export type StreamContext = {
   workspaceId: string;
   userId: string;
+  snapshot?: WorkspaceSnapshot;
 };
 
 export type StreamOptions = {

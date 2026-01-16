@@ -41,7 +41,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     "/api/ai/chat",
     // biome-ignore lint/suspicious/useAwait: Necessary for streaming response
     async ({ body, headers, set }) => {
-      const { workspaceId, message, context: _context, history } = body;
+      const {
+        workspaceId,
+        message,
+        context: _context,
+        history,
+        workspaceSnapshot,
+        ephemeral,
+      } = body;
 
       return tracer.startActiveSpan("ai.chat", async (span) => {
         const streamStartTime = performance.now();
@@ -165,16 +172,25 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
 
-          const conversation = await getOrCreateConversation(workspaceId);
-          span.setAttribute("ai.conversation_id", conversation.id);
+          // Only persist conversation for non-ephemeral (shared) workspaces
+          let conversation: { id: string } | null = null;
+          if (ephemeral) {
+            span.setAttribute("ai.ephemeral", true);
+            logger.debug("Ephemeral mode - skipping conversation persistence", {
+              workspaceId,
+            });
+          } else {
+            conversation = await getOrCreateConversation(workspaceId);
+            span.setAttribute("ai.conversation_id", conversation.id);
 
-          const userMessageId = generateMessageId();
-          await addMessage(conversation.id, {
-            id: userMessageId,
-            role: "user",
-            content: message,
-            contextSnapshot: _context,
-          });
+            const userMessageId = generateMessageId();
+            await addMessage(conversation.id, {
+              id: userMessageId,
+              role: "user",
+              content: message,
+              contextSnapshot: _context,
+            });
+          }
 
           // Build messages from history
           const messages = history
@@ -203,7 +219,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
               try {
                 const tools = getToolsForMessage(message);
-                const streamCtx = { workspaceId, userId: session.user.id };
+                const streamCtx = {
+                  workspaceId,
+                  userId: session.user.id,
+                  snapshot: workspaceSnapshot,
+                };
 
                 for await (const part of streamWithFallback({
                   systemPrompt,
@@ -321,29 +341,34 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: completeEvent });
 
-              try {
-                const { titleWillGenerate } = await addMessage(
-                  conversation.id,
-                  {
-                    id: messageId,
-                    role: "assistant",
-                    content: fullContent,
-                  }
-                );
+              // Only save assistant message for non-ephemeral workspaces
+              if (conversation) {
+                try {
+                  const { titleWillGenerate } = await addMessage(
+                    conversation.id,
+                    {
+                      id: messageId,
+                      role: "assistant",
+                      content: fullContent,
+                    }
+                  );
 
-                if (titleWillGenerate) {
-                  span.setAttribute("ai.title_generation_started", true);
-                  logger.info("Title generation started asynchronously", {
-                    conversationId: conversation.id,
+                  if (titleWillGenerate) {
+                    span.setAttribute("ai.title_generation_started", true);
+                    logger.info("Title generation started asynchronously", {
+                      conversationId: conversation.id,
+                    });
+                  }
+                } catch (saveError) {
+                  logger.error("Failed to save assistant message", {
+                    workspaceId,
+                    messageId,
+                    error:
+                      saveError instanceof Error
+                        ? saveError.message
+                        : "Unknown",
                   });
                 }
-              } catch (saveError) {
-                logger.error("Failed to save assistant message", {
-                  workspaceId,
-                  messageId,
-                  error:
-                    saveError instanceof Error ? saveError.message : "Unknown",
-                });
               }
 
               recordStreamDuration(streamDuration, {
@@ -448,6 +473,52 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             viewportZoom: t.Number(),
           })
         ),
+        workspaceSnapshot: t.Optional(
+          t.Object({
+            name: t.String(),
+            boards: t.Array(
+              t.Object({
+                id: t.String(),
+                name: t.String(),
+                description: t.Optional(t.String()),
+                accentColor: t.Optional(t.String()),
+                icon: t.Optional(t.String()),
+                columns: t.Array(
+                  t.Object({
+                    id: t.String(),
+                    name: t.String(),
+                    description: t.Optional(t.String()),
+                    position: t.Number(),
+                    accentColor: t.Optional(t.String()),
+                    icon: t.Optional(t.String()),
+                    tasks: t.Array(
+                      t.Object({
+                        id: t.String(),
+                        title: t.String(),
+                        description: t.Optional(t.String()),
+                        priority: t.Union([
+                          t.Literal("low"),
+                          t.Literal("medium"),
+                          t.Literal("high"),
+                        ]),
+                        status: t.Union([
+                          t.Literal("todo"),
+                          t.Literal("done"),
+                          t.Literal("trash"),
+                        ]),
+                        progress: t.Number(),
+                        position: t.Number(),
+                        dueDate: t.Optional(t.String()),
+                        tags: t.Optional(t.Array(t.String())),
+                        assignedTo: t.Optional(t.String()),
+                      })
+                    ),
+                  })
+                ),
+              })
+            ),
+          })
+        ),
         history: t.Optional(
           t.Array(
             t.Object({
@@ -472,6 +543,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             })
           )
         ),
+        /** If true, don't persist conversation to database (for local workspaces) */
+        ephemeral: t.Optional(t.Boolean()),
       }),
     }
   )

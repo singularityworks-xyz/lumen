@@ -4,6 +4,7 @@ import {
   fetchEventSource,
 } from "@microsoft/fetch-event-source";
 import { env } from "@/src/env";
+import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
 const API_BASE = env.NEXT_PUBLIC_API_URL;
 
@@ -19,11 +20,130 @@ export type ChatStreamCallbacks = {
   onClose?: () => void;
 };
 
+export type TaskSnapshot = {
+  id: string;
+  title: string;
+  description?: string;
+  priority: "low" | "medium" | "high";
+  status: "todo" | "done" | "trash";
+  progress: number;
+  position: number;
+  dueDate?: string;
+  tags?: string[];
+  assignedTo?: string;
+};
+
+export type ColumnSnapshot = {
+  id: string;
+  name: string;
+  description?: string;
+  position: number;
+  accentColor?: string;
+  icon?: string;
+  tasks: TaskSnapshot[];
+};
+
+export type BoardSnapshot = {
+  id: string;
+  name: string;
+  description?: string;
+  accentColor?: string;
+  icon?: string;
+  columns: ColumnSnapshot[];
+};
+
+export type WorkspaceSnapshot = {
+  name: string;
+  boards: BoardSnapshot[];
+};
+
+export function buildWorkspaceSnapshot(
+  workspaceId: string
+): WorkspaceSnapshot | undefined {
+  const state = useKanbanStore.getState();
+  const workspace = state.workspaces.byId[workspaceId];
+
+  if (!workspace) {
+    return;
+  }
+
+  const boards: BoardSnapshot[] = [];
+
+  for (const boardId of workspace.board_ids) {
+    const board = state.boards.byId[boardId];
+    if (!board) {
+      continue;
+    }
+
+    const columns: ColumnSnapshot[] = [];
+
+    for (const columnId of board.column_ids) {
+      const column = state.columns.byId[columnId];
+      if (!column) {
+        continue;
+      }
+
+      const tasks: TaskSnapshot[] = [];
+
+      for (const taskId of column.task_ids) {
+        const task = state.tasks.byId[taskId];
+        if (!task) {
+          continue;
+        }
+
+        tasks.push({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: task.status,
+          progress: task.progress,
+          position: task.position,
+          dueDate: task.due_date,
+          tags: task.tags,
+          assignedTo: task.assigned_to,
+        });
+      }
+
+      tasks.sort((a, b) => a.position - b.position);
+
+      columns.push({
+        id: column.id,
+        name: column.name,
+        description: column.description,
+        position: column.position,
+        accentColor: column.accentColor,
+        icon: column.icon,
+        tasks,
+      });
+    }
+
+    columns.sort((a, b) => a.position - b.position);
+
+    boards.push({
+      id: board.id,
+      name: board.name,
+      description: board.description,
+      accentColor: board.accentColor,
+      icon: board.icon,
+      columns,
+    });
+  }
+
+  return {
+    name: workspace.name,
+    boards,
+  };
+}
+
 export type ChatRequest = {
   workspaceId: string;
   message: string;
   context?: ContextSnapshot;
+  workspaceSnapshot?: WorkspaceSnapshot;
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
+  /** If true, don't persist conversation to database (for local workspaces) */
+  ephemeral?: boolean;
 };
 
 class FatalError extends Error {
