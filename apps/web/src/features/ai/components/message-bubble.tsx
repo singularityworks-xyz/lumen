@@ -11,7 +11,7 @@ import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
 import { TextShimmer } from "./animations/text-shimmer";
 import { MarkdownRenderer } from "./markdown-renderer";
-import { ToolIndicator } from "./tool-indicator";
+import { ToolCallFlow } from "./tool-call-flow";
 
 const thinkingFrames = [
   [24],
@@ -85,93 +85,77 @@ export const MessageBubble = memo(
 
         <div
           className={cn(
-            "flex flex-col gap-1",
+            "flex flex-col gap-1.5",
             isUser ? "items-end" : "items-start"
           )}
         >
-          <div
-            className={cn(
-              "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-              "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
-              "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
-              isUser
-                ? "rounded-br-md bg-primary text-primary-foreground"
-                : "rounded-bl-md bg-muted/80 text-foreground"
-            )}
-          >
-            {message.toolCalls?.map((toolCall) => (
-              <ToolIndicator
-                className="mb-2"
-                key={toolCall.id}
-                status={
-                  message.toolResult
-                    ? (message.toolResult as { success: boolean }).success
-                      ? "success"
-                      : "error"
-                    : "pending"
-                }
-                toolName={toolCall.name}
-              />
-            ))}
+          {message.toolCalls && message.toolCalls.length > 0 && (
+            <ToolCallFlow
+              toolCalls={message.toolCalls}
+              toolResult={message.toolResult}
+            />
+          )}
 
-            {message.toolName && (
-              <ToolIndicator
-                className="mb-2"
-                status={
-                  message.toolResult
-                    ? (message.toolResult as { success: boolean }).success
-                      ? "success"
-                      : "error"
-                    : "pending"
-                }
-                toolName={message.toolName}
-              />
-            )}
-
-            {isStreaming &&
-            !message.content &&
-            !message.error &&
-            !message.toolName &&
-            !message.toolCalls?.length ? (
-              <div className="flex items-center gap-2 py-0.5">
-                <DotLoader
-                  className="gap-px"
-                  dotClassName={cn(
-                    "size-[2px] rounded-[0.5px]",
-                    "bg-foreground/10 [&.active]:bg-foreground/60"
+          {!message.content &&
+          message.toolCalls &&
+          message.toolCalls.length > 0 &&
+          !isStreaming &&
+          !message.error ? null : (
+            <div
+              className={cn(
+                "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+                "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
+                "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
+                isUser
+                  ? "rounded-br-md bg-primary text-primary-foreground"
+                  : "rounded-bl-md bg-muted/80 text-foreground"
+              )}
+            >
+              {isStreaming &&
+              !message.content &&
+              !message.error &&
+              !message.toolName &&
+              !message.toolCalls?.length ? (
+                <div className="flex items-center gap-2 py-0.5">
+                  <DotLoader
+                    className="gap-px"
+                    dotClassName={cn(
+                      "size-[2px] rounded-[0.5px]",
+                      "bg-foreground/10 [&.active]:bg-foreground/60"
+                    )}
+                    duration={80}
+                    frames={thinkingFrames}
+                    repeatCount={-1}
+                  />
+                  <TextShimmer
+                    as="span"
+                    className="text-[11px] text-muted-foreground"
+                    duration={1.5}
+                  >
+                    Thinking...
+                  </TextShimmer>
+                </div>
+              ) : message.error && !message.content ? (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Failed to generate response
+                </p>
+              ) : isUser ? (
+                <p className="wrap-break-word whitespace-pre-wrap">
+                  {message.content}
+                </p>
+              ) : (
+                <div className="flex items-end gap-1">
+                  <MarkdownRenderer
+                    className="min-w-0 flex-1"
+                    content={message.content}
+                  />
+                  {isStreaming && (
+                    <span className="mb-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/40" />
                   )}
-                  duration={80}
-                  frames={thinkingFrames}
-                  repeatCount={-1}
-                />
-                <TextShimmer
-                  as="span"
-                  className="text-[11px] text-muted-foreground"
-                  duration={1.5}
-                >
-                  Thinking...
-                </TextShimmer>
-              </div>
-            ) : message.error && !message.content ? (
-              <p className="text-[11px] text-muted-foreground italic">
-                Failed to generate response
-              </p>
-            ) : isUser ? (
-              <p className="wrap-break-word whitespace-pre-wrap">
-                {message.content}
-              </p>
-            ) : (
-              <div className="flex items-end gap-1">
-                <MarkdownRenderer
-                  className="min-w-0 flex-1"
-                  content={message.content}
-                />
-                {isStreaming && (
-                  <span className="mb-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/40" />
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {message.error && (
             <div

@@ -10,7 +10,6 @@ import {
   recordSpanError,
   SpanStatusCode,
 } from "@lumen/logger/tracer";
-import { streamText } from "ai";
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { getCollaborator } from "../collab/helpers";
@@ -21,230 +20,16 @@ import {
   getOrCreateConversation,
   toApiMessages,
 } from "./chats/conversation-service";
-import {
-  recordAiError,
-  recordAiRequest,
-  recordModelFallback,
-  recordRateLimitHit,
-  recordStreamDuration,
-} from "./lib/metrics";
+import { buildMessagesFromHistory } from "./lib/message-builder";
+import { recordAiRequest, recordStreamDuration } from "./lib/metrics";
 import { getQueueStats, isUpstashEnabled } from "./lib/request-queue";
-import {
-  getModel,
-  getModelChain,
-  isAiEnabled,
-  isRateLimitError,
-} from "./providers";
-import { executeTool } from "./tools/tool-executor";
+import { streamWithFallback } from "./lib/streaming";
+import type { HistoryMessage } from "./lib/types";
+import { generateMessageId, parseRateLimitError } from "./lib/utils";
+import { isAiEnabled } from "./providers";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
-const RETRY_MATCH_REGEX = /retry in (\d+(?:\.\d+)?)/i;
-
-function generateMessageId(): string {
-  return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
-function parseRateLimitError(error: unknown): {
-  isRateLimit: boolean;
-  retryAfterSeconds?: number;
-  message: string;
-} {
-  if (!(error instanceof Error)) {
-    return { isRateLimit: false, message: "An error occurred" };
-  }
-
-  const errorMessage = error.message;
-
-  if (isRateLimitError(error)) {
-    const retryMatch = errorMessage.match(RETRY_MATCH_REGEX);
-    const retryAfterSeconds = retryMatch
-      ? Math.ceil(Number.parseFloat(retryMatch[1]))
-      : 60;
-
-    return {
-      isRateLimit: true,
-      retryAfterSeconds,
-      message: `Rate limit reached. Please wait ${retryAfterSeconds} seconds before trying again.`,
-    };
-  }
-
-  return { isRateLimit: false, message: errorMessage };
-}
-
-type StreamResult =
-  | {
-      type: "chunk";
-      chunk: string;
-      modelUsed: string;
-    }
-  | {
-      type: "tool_call";
-      toolCallId: string;
-      toolName: string;
-      args: Record<string, unknown>;
-      modelUsed: string;
-    }
-  | {
-      type: "tool_result";
-      toolCallId: string;
-      result: unknown;
-      modelUsed: string;
-    };
-
-type StreamContext = {
-  workspaceId: string;
-  userId: string;
-};
-
-type StreamOptions = {
-  systemPrompt: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-  messageId: string;
-  tools: Record<string, unknown> | null;
-  ctx: StreamContext;
-};
-
-async function* streamWithFallback(
-  opts: StreamOptions
-): AsyncGenerator<StreamResult, void, unknown> {
-  const { systemPrompt, messages, messageId, tools, ctx } = opts;
-  const modelChain = getModelChain();
-
-  for (let i = 0; i < modelChain.length; i++) {
-    const modelName = modelChain[i];
-    const isLastModel = i === modelChain.length - 1;
-
-    const modelSpan = tracer.startSpan(`ai.model.${modelName}`, {
-      attributes: {
-        "ai.model": modelName,
-        "ai.attempt": i + 1,
-        "ai.total_models": modelChain.length,
-        "ai.is_fallback": i > 0,
-        "ai.workspace_id": ctx.workspaceId,
-        "ai.message_id": messageId,
-        "ai.tools_enabled": !!tools,
-      },
-    });
-
-    try {
-      logger.info("Attempting model", {
-        workspaceId: ctx.workspaceId,
-        messageId,
-        model: modelName,
-        attempt: i + 1,
-        totalModels: modelChain.length,
-        isFallback: i > 0,
-        toolsEnabled: !!tools,
-      });
-
-      const model = getModel(modelName);
-
-      const streamOptions: Parameters<typeof streamText>[0] = {
-        model,
-        system: systemPrompt,
-        messages,
-      };
-
-      if (tools) {
-        // @ts-expect-error - Dynamic tools type
-        streamOptions.tools = tools;
-      }
-
-      const result = streamText(streamOptions);
-
-      modelSpan.addEvent("ai.stream_start");
-
-      for await (const part of result.fullStream) {
-        if (part.type === "text-delta") {
-          // biome-ignore lint/suspicious/noExplicitAny: TODO: infer types here
-          const chunk = (part as any).textDelta ?? (part as any).text ?? "";
-          yield { type: "chunk", chunk, modelUsed: modelName };
-        } else if (part.type === "tool-call") {
-          const toolCallPart = part as unknown as {
-            toolCallId: string;
-            toolName: string;
-            args: unknown;
-          };
-          yield {
-            type: "tool_call",
-            toolCallId: toolCallPart.toolCallId,
-            toolName: toolCallPart.toolName,
-            args: toolCallPart.args as Record<string, unknown>,
-            modelUsed: modelName,
-          };
-
-          const toolResult = await executeTool(
-            toolCallPart.toolName,
-            toolCallPart.args as Record<string, unknown>,
-            ctx
-          );
-
-          yield {
-            type: "tool_result",
-            toolCallId: toolCallPart.toolCallId,
-            result: toolResult,
-            modelUsed: modelName,
-          };
-        }
-      }
-
-      // Success - record metrics and end span
-      modelSpan.addEvent("ai.stream_complete");
-      modelSpan.setStatus({ code: SpanStatusCode.OK });
-      modelSpan.end();
-
-      logger.info("Model streaming completed", {
-        workspaceId: ctx.workspaceId,
-        messageId,
-        model: modelName,
-        isFallback: i > 0,
-      });
-      return;
-    } catch (error) {
-      const rateLimited = isRateLimitError(error);
-
-      // Record error on span
-      recordSpanError(modelSpan, error);
-      modelSpan.setAttribute("ai.rate_limited", rateLimited);
-      modelSpan.end();
-
-      logger.warn("Model failed", {
-        workspaceId: ctx.workspaceId,
-        messageId,
-        model: modelName,
-        isRateLimit: rateLimited,
-        error: error instanceof Error ? error.message : "Unknown",
-        willTryNext: !isLastModel && rateLimited,
-      });
-
-      // Record metrics
-      if (rateLimited) {
-        recordRateLimitHit({ model: modelName });
-        recordAiError({ model: modelName, errorType: "rate_limit" });
-      } else {
-        recordAiError({ model: modelName, errorType: "api_error" });
-      }
-
-      // Only try next model if this was a rate limit error
-      if (!rateLimited || isLastModel) {
-        throw error;
-      }
-
-      // Record fallback metric
-      if (i + 1 < modelChain.length) {
-        const nextModel = modelChain[i + 1];
-        recordModelFallback({
-          fromModel: modelName,
-          toModel: nextModel,
-          reason: "rate_limit",
-        });
-      }
-    }
-  }
-
-  throw new Error("All models exhausted");
-}
 
 export const aiRoutes = new Elysia({ name: "ai-routes" })
   .get("/api/ai/health", () => ({
@@ -283,15 +68,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         span.setAttribute("ai.user_id", session.user.id);
 
         // Verify workspace access - check if user is owner or collaborator
-        // Note: Local workspaces may not exist in the database yet, so absence
-        // doesn't mean unauthorized - we allow access to local workspaces
         const workspaceAccess = await prisma.workspace.findUnique({
           where: { id: workspaceId },
           select: { ownerId: true },
         });
 
         if (workspaceAccess) {
-          // Workspace exists in database - verify user has access
           const isOwner = workspaceAccess.ownerId === session.user.id;
           if (!isOwner) {
             const collaborator = await getCollaborator(
@@ -316,7 +98,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             }
           }
         }
-        // If workspace doesn't exist in DB, assume it's a local workspace owned by the user
 
         if (!isAiEnabled()) {
           span.setStatus({
@@ -359,7 +140,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             },
           });
 
-          // Calculate total members including owner if they're not in collaborators
           const ownerIncluded = workspace?.owner
             ? collaborators.some((c) => c.user.id === workspace.owner.id)
               ? 0
@@ -385,11 +165,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
 
-          // Get or create conversation for this workspace
           const conversation = await getOrCreateConversation(workspaceId);
           span.setAttribute("ai.conversation_id", conversation.id);
 
-          // Save user message to database
           const userMessageId = generateMessageId();
           await addMessage(conversation.id, {
             id: userMessageId,
@@ -398,22 +176,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             contextSnapshot: _context,
           });
 
-          const messages: Array<{
-            role: "user" | "assistant";
-            content: string;
-          }> = [];
+          // Build messages from history
+          const messages = history
+            ? buildMessagesFromHistory(history as HistoryMessage[])
+            : [];
 
-          if (history) {
-            for (const msg of history) {
-              if (msg.role === "user" || msg.role === "assistant") {
-                messages.push({
-                  role: msg.role,
-                  content: msg.content,
-                });
-              }
-            }
-          }
-
+          // Add current user message
           messages.push({
             role: "user",
             content: message,
@@ -434,7 +202,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               yield sse({ event: "message", data: startEvent });
 
               try {
-                // Determine tools needed for this message
                 const tools = getToolsForMessage(message);
                 const streamCtx = { workspaceId, userId: session.user.id };
 
@@ -466,7 +233,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     const resultEvent: StreamEvent = {
                       type: "tool_call_result",
                       toolCallId: part.toolCallId,
-                      result: part.result,
+                      result: part.output,
                     };
                     yield sse({ event: "message", data: resultEvent });
                   }
@@ -511,7 +278,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               const streamDuration =
                 (performance.now() - streamStartTime) / 1000;
 
-              // Check if we got empty content (might indicate a silent error)
               if (fullContent.length === 0 && !hasToolCalls) {
                 logger.warn("AI stream completed with empty content", {
                   workspaceId,
@@ -555,8 +321,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: completeEvent });
 
-              // Save assistant message to database
-              // Title generation happens asynchronously via callback
               try {
                 const { titleWillGenerate } = await addMessage(
                   conversation.id,
@@ -567,8 +331,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   }
                 );
 
-                // If title will be generated, the callback will be called later
-                // We don't block the response waiting for it
                 if (titleWillGenerate) {
                   span.setAttribute("ai.title_generation_started", true);
                   logger.info("Title generation started asynchronously", {
@@ -576,7 +338,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   });
                 }
               } catch (saveError) {
-                // Log but don't fail the request if saving fails
                 logger.error("Failed to save assistant message", {
                   workspaceId,
                   messageId,
@@ -585,7 +346,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 });
               }
 
-              // Record success metrics
               recordStreamDuration(streamDuration, {
                 model: modelUsed,
                 success: true,
@@ -596,7 +356,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 status: "success",
               });
 
-              // Set final span attributes
               span.setAttribute("ai.model_used", modelUsed);
               span.setAttribute("ai.response_length", fullContent.length);
               span.setAttribute("ai.stream_duration_seconds", streamDuration);
@@ -619,7 +378,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               const streamDuration =
                 (performance.now() - streamStartTime) / 1000;
 
-              // Record error metrics
               recordStreamDuration(streamDuration, {
                 model: modelUsed,
                 success: false,
@@ -652,7 +410,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
           const parsedError = parseRateLimitError(error);
 
-          // Record error metrics
           recordAiRequest({
             model: "unknown",
             workspaceId,
@@ -700,6 +457,18 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 t.Literal("tool"),
               ]),
               content: t.String(),
+              toolCalls: t.Optional(
+                t.Array(
+                  t.Object({
+                    id: t.String(),
+                    name: t.String(),
+                    arguments: t.Record(t.String(), t.Unknown()),
+                  })
+                )
+              ),
+              toolCallId: t.Optional(t.String()),
+              toolName: t.Optional(t.String()),
+              toolResult: t.Optional(t.Unknown()),
             })
           )
         ),
@@ -707,7 +476,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     }
   )
 
-  // Get conversation for a workspace
   .get(
     "/api/ai/conversation/:workspaceId",
     async ({ params, headers, set }) => {
@@ -721,7 +489,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         return { error: "Unauthorized" };
       }
 
-      // Verify workspace access
       const workspaceAccess = await prisma.workspace.findUnique({
         where: { id: workspaceId },
         select: { ownerId: true },
@@ -769,7 +536,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     }
   )
 
-  // Clear conversation
   .delete(
     "/api/ai/conversation/:workspaceId",
     async ({ params, headers, set }) => {
@@ -783,7 +549,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         return { error: "Unauthorized" };
       }
 
-      // Verify workspace access
       const workspaceAccess = await prisma.workspace.findUnique({
         where: { id: workspaceId },
         select: { ownerId: true },
@@ -834,7 +599,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     }
   )
 
-  // Get queue stats
   .get("/api/ai/queue-stats", () => {
     const stats = getQueueStats();
     return {
@@ -848,10 +612,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     };
   })
 
-  // Run maintenance tasks (summarization and cleanup)
-  // This should be called periodically via cron or manually by admins
   .post("/api/ai/maintenance", async ({ headers, set }) => {
-    // Verify admin authentication
     const session = await auth.api.getSession({
       headers: toHeaders(headers),
     });
@@ -860,14 +621,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       return { error: "Unauthorized" };
     }
 
-    // Import dynamically to avoid circular dependencies
     const { runMaintenanceTasks } = await import("./chats/summarization");
 
     logger.info("Running AI maintenance tasks", {
       userId: session.user.id,
     });
 
-    // Run in background, return immediately
     runMaintenanceTasks().catch((error) => {
       logger.error("Maintenance tasks failed", {
         error: error instanceof Error ? error.message : "Unknown",
