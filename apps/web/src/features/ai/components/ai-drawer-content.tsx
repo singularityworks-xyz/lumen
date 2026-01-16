@@ -232,6 +232,17 @@ export const AiDrawerContent = memo(
             onContentDelta: (chunk) => {
               appendStreamChunk(workspaceId, assistantId, chunk);
             },
+            onToolCallStart: (toolName, toolCallId) => {
+              console.log("[AI] Tool Call Start:", toolName, toolCallId);
+              useAiStore
+                .getState()
+                .appendToolCall(workspaceId, assistantId, toolName, toolCallId);
+            },
+            onToolCallResult: (toolCallId, result) => {
+              useAiStore
+                .getState()
+                .updateToolResult(workspaceId, assistantId, toolCallId, result);
+            },
             onMessageComplete: () => {
               completeStream(workspaceId, assistantId);
               abortControllerRef.current = null;

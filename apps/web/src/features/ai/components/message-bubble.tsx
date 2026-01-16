@@ -11,6 +11,7 @@ import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
 import { TextShimmer } from "./animations/text-shimmer";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { ToolIndicator } from "./tool-indicator";
 
 const thinkingFrames = [
   [24],
@@ -98,7 +99,40 @@ export const MessageBubble = memo(
                 : "rounded-bl-md bg-muted/80 text-foreground"
             )}
           >
-            {isStreaming && !message.content && !message.error ? (
+            {message.toolCalls?.map((toolCall) => (
+              <ToolIndicator
+                className="mb-2"
+                key={toolCall.id}
+                status={
+                  message.toolResult
+                    ? (message.toolResult as { success: boolean }).success
+                      ? "success"
+                      : "error"
+                    : "pending"
+                }
+                toolName={toolCall.name}
+              />
+            ))}
+
+            {message.toolName && (
+              <ToolIndicator
+                className="mb-2"
+                status={
+                  message.toolResult
+                    ? (message.toolResult as { success: boolean }).success
+                      ? "success"
+                      : "error"
+                    : "pending"
+                }
+                toolName={message.toolName}
+              />
+            )}
+
+            {isStreaming &&
+            !message.content &&
+            !message.error &&
+            !message.toolName &&
+            !message.toolCalls?.length ? (
               <div className="flex items-center gap-2 py-0.5">
                 <DotLoader
                   className="gap-px"

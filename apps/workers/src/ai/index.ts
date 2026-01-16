@@ -39,3 +39,5 @@ export {
   isRateLimitError,
 } from "./providers";
 export { aiRoutes } from "./routes";
+export type { ToolExecutionResult } from "./tools/tool-executor";
+export { executeTool, executeToolDirect } from "./tools/tool-executor";

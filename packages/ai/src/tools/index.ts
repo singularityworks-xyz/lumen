@@ -1,3 +1,4 @@
-/** biome-ignore-all lint/performance/noBarrelFile: it is intended */
+// biome-ignore lint/performance/noBarrelFile: it is intended
 export * from "./definitions";
+export * from "./router";
 export * from "./schemas";

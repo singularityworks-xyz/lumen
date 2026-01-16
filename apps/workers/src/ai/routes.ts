@@ -1,4 +1,8 @@
-import { buildSystemPrompt, type StreamEvent } from "@lumen/ai";
+import {
+  buildSystemPrompt,
+  getToolsForMessage,
+  type StreamEvent,
+} from "@lumen/ai";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import {
@@ -31,6 +35,7 @@ import {
   isAiEnabled,
   isRateLimitError,
 } from "./providers";
+import { executeTool } from "./tools/tool-executor";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
@@ -67,51 +72,121 @@ function parseRateLimitError(error: unknown): {
   return { isRateLimit: false, message: errorMessage };
 }
 
+type StreamResult =
+  | {
+      type: "chunk";
+      chunk: string;
+      modelUsed: string;
+    }
+  | {
+      type: "tool_call";
+      toolCallId: string;
+      toolName: string;
+      args: Record<string, unknown>;
+      modelUsed: string;
+    }
+  | {
+      type: "tool_result";
+      toolCallId: string;
+      result: unknown;
+      modelUsed: string;
+    };
+
+type StreamContext = {
+  workspaceId: string;
+  userId: string;
+};
+
+type StreamOptions = {
+  systemPrompt: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messageId: string;
+  tools: Record<string, unknown> | null;
+  ctx: StreamContext;
+};
+
 async function* streamWithFallback(
-  systemPrompt: string,
-  messages: Array<{ role: "user" | "assistant"; content: string }>,
-  workspaceId: string,
-  messageId: string
-): AsyncGenerator<{ chunk: string; modelUsed: string }, void, unknown> {
+  opts: StreamOptions
+): AsyncGenerator<StreamResult, void, unknown> {
+  const { systemPrompt, messages, messageId, tools, ctx } = opts;
   const modelChain = getModelChain();
 
   for (let i = 0; i < modelChain.length; i++) {
     const modelName = modelChain[i];
     const isLastModel = i === modelChain.length - 1;
 
-    // Create a child span for each model attempt
     const modelSpan = tracer.startSpan(`ai.model.${modelName}`, {
       attributes: {
         "ai.model": modelName,
         "ai.attempt": i + 1,
         "ai.total_models": modelChain.length,
         "ai.is_fallback": i > 0,
-        "ai.workspace_id": workspaceId,
+        "ai.workspace_id": ctx.workspaceId,
         "ai.message_id": messageId,
+        "ai.tools_enabled": !!tools,
       },
     });
 
     try {
       logger.info("Attempting model", {
-        workspaceId,
+        workspaceId: ctx.workspaceId,
         messageId,
         model: modelName,
         attempt: i + 1,
         totalModels: modelChain.length,
         isFallback: i > 0,
+        toolsEnabled: !!tools,
       });
 
       const model = getModel(modelName);
-      const result = streamText({
+
+      const streamOptions: Parameters<typeof streamText>[0] = {
         model,
         system: systemPrompt,
         messages,
-      });
+      };
+
+      if (tools) {
+        // @ts-expect-error - Dynamic tools type
+        streamOptions.tools = tools;
+      }
+
+      const result = streamText(streamOptions);
 
       modelSpan.addEvent("ai.stream_start");
 
-      for await (const chunk of result.textStream) {
-        yield { chunk, modelUsed: modelName };
+      for await (const part of result.fullStream) {
+        if (part.type === "text-delta") {
+          // biome-ignore lint/suspicious/noExplicitAny: TODO: infer types here
+          const chunk = (part as any).textDelta ?? (part as any).text ?? "";
+          yield { type: "chunk", chunk, modelUsed: modelName };
+        } else if (part.type === "tool-call") {
+          const toolCallPart = part as unknown as {
+            toolCallId: string;
+            toolName: string;
+            args: unknown;
+          };
+          yield {
+            type: "tool_call",
+            toolCallId: toolCallPart.toolCallId,
+            toolName: toolCallPart.toolName,
+            args: toolCallPart.args as Record<string, unknown>,
+            modelUsed: modelName,
+          };
+
+          const toolResult = await executeTool(
+            toolCallPart.toolName,
+            toolCallPart.args as Record<string, unknown>,
+            ctx
+          );
+
+          yield {
+            type: "tool_result",
+            toolCallId: toolCallPart.toolCallId,
+            result: toolResult,
+            modelUsed: modelName,
+          };
+        }
       }
 
       // Success - record metrics and end span
@@ -120,7 +195,7 @@ async function* streamWithFallback(
       modelSpan.end();
 
       logger.info("Model streaming completed", {
-        workspaceId,
+        workspaceId: ctx.workspaceId,
         messageId,
         model: modelName,
         isFallback: i > 0,
@@ -135,7 +210,7 @@ async function* streamWithFallback(
       modelSpan.end();
 
       logger.warn("Model failed", {
-        workspaceId,
+        workspaceId: ctx.workspaceId,
         messageId,
         model: modelName,
         isRateLimit: rateLimited,
@@ -349,6 +424,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return (async function* () {
             let modelUsed = "unknown";
             let fullContent = "";
+            let hasToolCalls = false;
 
             try {
               const startEvent: StreamEvent = {
@@ -358,22 +434,42 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               yield sse({ event: "message", data: startEvent });
 
               try {
-                for await (const {
-                  chunk,
-                  modelUsed: model,
-                } of streamWithFallback(
+                // Determine tools needed for this message
+                const tools = getToolsForMessage(message);
+                const streamCtx = { workspaceId, userId: session.user.id };
+
+                for await (const part of streamWithFallback({
                   systemPrompt,
                   messages,
-                  workspaceId,
-                  messageId
-                )) {
-                  modelUsed = model;
-                  fullContent += chunk;
-                  const deltaEvent: StreamEvent = {
-                    type: "content_delta",
-                    content: chunk,
-                  };
-                  yield sse({ event: "message", data: deltaEvent });
+                  messageId,
+                  tools,
+                  ctx: streamCtx,
+                })) {
+                  modelUsed = part.modelUsed;
+
+                  if (part.type === "chunk") {
+                    fullContent += part.chunk;
+                    const deltaEvent: StreamEvent = {
+                      type: "content_delta",
+                      content: part.chunk,
+                    };
+                    yield sse({ event: "message", data: deltaEvent });
+                  } else if (part.type === "tool_call") {
+                    hasToolCalls = true;
+                    const toolEvent: StreamEvent = {
+                      type: "tool_call_start",
+                      toolName: part.toolName,
+                      toolCallId: part.toolCallId,
+                    };
+                    yield sse({ event: "message", data: toolEvent });
+                  } else if (part.type === "tool_result") {
+                    const resultEvent: StreamEvent = {
+                      type: "tool_call_result",
+                      toolCallId: part.toolCallId,
+                      result: part.result,
+                    };
+                    yield sse({ event: "message", data: resultEvent });
+                  }
                 }
               } catch (streamError) {
                 const parsedError = parseRateLimitError(streamError);
@@ -416,7 +512,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 (performance.now() - streamStartTime) / 1000;
 
               // Check if we got empty content (might indicate a silent error)
-              if (fullContent.length === 0) {
+              if (fullContent.length === 0 && !hasToolCalls) {
                 logger.warn("AI stream completed with empty content", {
                   workspaceId,
                   messageId,

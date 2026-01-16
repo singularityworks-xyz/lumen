@@ -51,6 +51,20 @@ export type AiActions = {
     chunk: string
   ) => void;
 
+  appendToolCall: (
+    workspaceId: string,
+    messageId: string,
+    toolName: string,
+    toolCallId: string
+  ) => void;
+
+  updateToolResult: (
+    workspaceId: string,
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ) => void;
+
   completeStream: (workspaceId: string, messageId: string) => void;
 
   setStreamError: (
@@ -177,6 +191,54 @@ export const useAiStore = create<AiStore>()(
               message.content += chunk;
             }
             // Increment version to force re-renders on each chunk
+            conv.streamVersion += 1;
+          }
+        });
+      },
+
+      appendToolCall: (workspaceId, messageId, toolName, toolCallId) => {
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              if (!message.toolCalls) {
+                message.toolCalls = [];
+              }
+              // Check if tool call already exists to prevent duplicates
+              if (!message.toolCalls.some((tc) => tc.id === toolCallId)) {
+                message.toolCalls.push({
+                  id: toolCallId,
+                  name: toolName,
+                  arguments: {},
+                });
+              }
+              // For legacy/single tool support
+              message.toolName = toolName;
+            }
+            conv.streamVersion += 1;
+          }
+        });
+      },
+
+      updateToolResult: (workspaceId, messageId, _toolCallId, result) => {
+        console.log("[AI Store] Updating tool result", {
+          workspaceId,
+          messageId,
+          result,
+        });
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              // For now just store last result
+              message.toolResult = result;
+
+              // If we wanted to store per-tool results:
+              // const tc = message.toolCalls?.find(tc => tc.id === toolCallId);
+              // if (tc) tc.result = result;
+            }
             conv.streamVersion += 1;
           }
         });
