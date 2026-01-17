@@ -223,6 +223,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   workspaceId,
                   userId: session.user.id,
                   snapshot: workspaceSnapshot,
+                  ephemeral: ephemeral ?? false,
                 };
 
                 for await (const part of streamWithFallback({
@@ -256,6 +257,19 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       result: part.output,
                     };
                     yield sse({ event: "message", data: resultEvent });
+                  } else if (part.type === "action_instruction") {
+                    const actionEvent: StreamEvent = {
+                      type: "action_instruction",
+                      toolCallId: part.toolCallId,
+                      instruction: part.instruction as StreamEvent extends {
+                        type: "action_instruction";
+                        instruction: infer T;
+                      }
+                        ? T
+                        : never,
+                      message: part.message,
+                    };
+                    yield sse({ event: "message", data: actionEvent });
                   }
                 }
               } catch (streamError) {

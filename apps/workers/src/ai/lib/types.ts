@@ -44,12 +44,21 @@ export type StreamResult =
       toolCallId: string;
       output: unknown;
       modelUsed: string;
+    }
+  | {
+      type: "action_instruction";
+      toolCallId: string;
+      instruction: unknown;
+      message: string;
+      modelUsed: string;
     };
 
 export type StreamContext = {
   workspaceId: string;
   userId: string;
   snapshot?: WorkspaceSnapshot;
+  // If true, action tools return instructions instead of executing (for local workspaces)
+  ephemeral?: boolean;
 };
 
 export type StreamOptions = {

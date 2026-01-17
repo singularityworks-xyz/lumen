@@ -115,6 +115,20 @@ export async function* streamWithFallback(
               output: toolResult,
             });
 
+            // Check if the result contains an action instruction (for ephemeral/local workspaces)
+            const resultData = toolResult.data as
+              | { actionInstruction?: unknown; message?: string }
+              | undefined;
+            if (resultData?.actionInstruction) {
+              yield {
+                type: "action_instruction" as const,
+                toolCallId: toolCallPart.toolCallId,
+                instruction: resultData.actionInstruction,
+                message: resultData.message ?? "Action pending",
+                modelUsed: modelName,
+              };
+            }
+
             yield {
               type: "tool_result",
               toolCallId: toolCallPart.toolCallId,

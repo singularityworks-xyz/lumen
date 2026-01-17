@@ -1,3 +1,4 @@
+import { needsTools } from "@lumen/ai/tools";
 import type { AiMessage, ContextSnapshot, StreamEvent } from "@lumen/ai/types";
 import {
   EventStreamContentType,
@@ -13,6 +14,11 @@ export type ChatStreamCallbacks = {
   onContentDelta?: (content: string) => void;
   onToolCallStart?: (toolName: string, toolCallId: string) => void;
   onToolCallResult?: (toolCallId: string, result: unknown) => void;
+  onActionInstruction?: (
+    toolCallId: string,
+    instruction: unknown,
+    message: string
+  ) => void;
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
   onMessageComplete?: (message: AiMessage) => void;
   onTitleGenerated?: (title: string) => void;
@@ -136,13 +142,27 @@ export function buildWorkspaceSnapshot(
   };
 }
 
+// Builds workspace snapshot only if the message might need tools.
+// This optimizes bandwidth for simple chat messages that don't need workspace context.
+export function buildWorkspaceSnapshotIfNeeded(
+  workspaceId: string,
+  message: string
+): WorkspaceSnapshot | undefined {
+  // Use AI router to detect if tools might be needed
+  if (!needsTools(message)) {
+    return;
+  }
+
+  return buildWorkspaceSnapshot(workspaceId);
+}
+
 export type ChatRequest = {
   workspaceId: string;
   message: string;
   context?: ContextSnapshot;
   workspaceSnapshot?: WorkspaceSnapshot;
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
-  /** If true, don't persist conversation to database (for local workspaces) */
+  // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
 };
 
@@ -267,6 +287,13 @@ function handleStreamEvent(
       break;
     case "tool_call_result":
       callbacks.onToolCallResult?.(event.toolCallId, event.result);
+      break;
+    case "action_instruction":
+      callbacks.onActionInstruction?.(
+        event.toolCallId,
+        event.instruction,
+        event.message
+      );
       break;
     case "confirmation_required":
       callbacks.onConfirmationRequired?.(event.messageId, event.action);

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActionInstruction } from "@lumen/ai/tools";
 import type { ContextSnapshot } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
 import { PulsingBorder } from "@paper-design/shaders-react";
@@ -17,8 +18,9 @@ import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
+import { executeActionInstruction } from "../lib/action-executor";
 import {
-  buildWorkspaceSnapshot,
+  buildWorkspaceSnapshotIfNeeded,
   clearServerConversation,
   fetchConversation,
   streamChat,
@@ -254,7 +256,11 @@ export const AiDrawerContent = memo(
             workspaceId,
             message: content,
             context: currentContext,
-            workspaceSnapshot: buildWorkspaceSnapshot(workspaceId),
+            // Only send snapshot if tools might be needed
+            workspaceSnapshot: buildWorkspaceSnapshotIfNeeded(
+              workspaceId,
+              content
+            ),
             history,
             // For local workspaces, don't persist conversation to server DB
             ephemeral: !isSharedWorkspace,
@@ -273,6 +279,16 @@ export const AiDrawerContent = memo(
               useAiStore
                 .getState()
                 .updateToolResult(workspaceId, assistantId, toolCallId, result);
+            },
+            onActionInstruction: (_toolCallId, instruction, message) => {
+              // Execute action instructions locally for ephemeral workspaces
+              console.log("[AI] Action instruction received:", message);
+              const store = useKanbanStore.getState();
+              const resultMessage = executeActionInstruction(
+                store,
+                instruction as ActionInstruction
+              );
+              console.log("[AI] Action executed:", resultMessage);
             },
             onMessageComplete: () => {
               completeStream(workspaceId, assistantId);

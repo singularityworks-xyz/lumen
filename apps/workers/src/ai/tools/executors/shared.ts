@@ -1,89 +1,25 @@
 import { createLogger } from "@lumen/logger";
 import { roomManager } from "../../../collab";
 
+// biome-ignore lint/performance/noBarrelFile: Re-export types and utilities from @lumen/ai for action executors
+export {
+  type ExecutorContext,
+  getWorkspaceFromSnapshot,
+  mapPriority,
+  type ToolExecutionResult,
+  type WorkspaceSnapshot,
+} from "@lumen/ai/tools";
+
 export const logger = createLogger({ name: "ai:tool-executor" });
-
-export type ToolExecutionResult = {
-  success: boolean;
-  data?: unknown;
-  error?: string;
-  requiresConfirmation?: boolean;
-};
-
-export type WorkspaceSnapshot = {
-  name: string;
-  boards: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    accentColor?: string;
-    icon?: string;
-    columns: Array<{
-      id: string;
-      name: string;
-      description?: string;
-      position: number;
-      accentColor?: string;
-      icon?: string;
-      tasks: Array<{
-        id: string;
-        title: string;
-        description?: string;
-        priority: "low" | "medium" | "high";
-        status: "todo" | "done" | "trash";
-        progress: number;
-        position: number;
-        dueDate?: string;
-        tags?: string[];
-        assignedTo?: string;
-      }>;
-    }>;
-  }>;
-};
-
-export type ExecutorContext = {
-  workspaceId: string;
-  userId: string;
-  snapshot?: WorkspaceSnapshot;
-};
-
-export function getWorkspaceFromSnapshot(
-  ctx: ExecutorContext
-): WorkspaceSnapshot | null {
-  if (ctx.snapshot) {
-    logger.debug("Using workspace snapshot from client", {
-      workspaceId: ctx.workspaceId,
-      boardCount: ctx.snapshot.boards.length,
-    });
-    return ctx.snapshot;
-  }
-
-  logger.warn(
-    "No workspace snapshot provided, AI tools may not work correctly",
-    {
-      workspaceId: ctx.workspaceId,
-    }
-  );
-  return null;
-}
-
-export function mapPriority(priority?: string): "low" | "medium" | "high" {
-  if (!priority) {
-    return "medium";
-  }
-  if (priority === "urgent") {
-    return "high";
-  }
-  if (priority === "low" || priority === "medium" || priority === "high") {
-    return priority;
-  }
-  return "medium";
-}
 
 /**
  * Get workspace Yjs document for action tools (create, update, delete).
  * This is needed because action tools modify shared state via Yjs.
- * @deprecated For query tools, use getWorkspaceFromSnapshot instead.
+ *
+ * For shared workspaces: Uses Yjs for real-time collaboration
+ * For local workspaces: Returns null (action tools are not supported)
+ *
+ * @deprecated For query tools, use getWorkspaceFromSnapshot from @lumen/ai instead.
  */
 export async function getWorkspaceDoc(workspaceId: string) {
   // First try to get existing room (user is connected via WebSocket)
