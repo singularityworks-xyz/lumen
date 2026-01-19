@@ -79,7 +79,9 @@ export async function encryptContent(plaintext: string): Promise<string> {
     logger.error("Failed to encrypt message content", {
       error: error instanceof Error ? error.message : "Unknown",
     });
-    return plaintext;
+    throw new Error(
+      `Encryption failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 }
 

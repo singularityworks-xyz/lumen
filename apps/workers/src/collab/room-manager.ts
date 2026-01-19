@@ -712,7 +712,7 @@ class RoomManager {
     });
   }
 
-  private scheduleRoomCleanup(workspaceId: string): void {
+  scheduleRoomCleanup(workspaceId: string): void {
     const currentRoom = this.rooms.get(workspaceId);
     if (!currentRoom) {
       return;

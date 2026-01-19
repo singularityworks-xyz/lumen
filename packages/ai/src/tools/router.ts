@@ -65,13 +65,21 @@ export type ToolSelection = {
 export function detectToolIntent(message: string): ToolSelection {
   const lower = message.toLowerCase();
 
-  const hasActionKeyword = ACTION_KEYWORDS.some((k) => lower.includes(k));
-  const hasQueryKeyword = QUERY_KEYWORDS.some((k) => lower.includes(k));
-  const hasEntityKeyword = [
+  // Helper function to check if message contains keyword with word boundaries
+  const hasKeyword = (keywords: string[]) =>
+    keywords.some((keyword) => {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b${escaped}\\b`, "i");
+      return regex.test(lower);
+    });
+
+  const hasActionKeyword = hasKeyword(ACTION_KEYWORDS);
+  const hasQueryKeyword = hasKeyword(QUERY_KEYWORDS);
+  const hasEntityKeyword = hasKeyword([
     ...BOARD_KEYWORDS,
     ...TASK_KEYWORDS,
     ...COLUMN_KEYWORDS,
-  ].some((k) => lower.includes(k));
+  ]);
 
   // No entity keywords = probably just chat, no tools needed
   if (!(hasEntityKeyword || hasActionKeyword || hasQueryKeyword)) {
@@ -85,9 +93,7 @@ export function detectToolIntent(message: string): ToolSelection {
   // Action keywords with entity = action tools
   if (hasActionKeyword && hasEntityKeyword) {
     // Check for destructive intent
-    const isDestructive = ["delete", "remove", "clear"].some((k) =>
-      lower.includes(k)
-    );
+    const isDestructive = hasKeyword(["delete", "remove", "clear"]);
 
     if (isDestructive) {
       return {

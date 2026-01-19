@@ -49,6 +49,12 @@ export async function getWorkspaceYjsDoc(
 
     // Get the room that was created during loadRoomState
     room = roomManager.getRoom(workspaceId);
+
+    // Schedule cleanup for rooms loaded from database (zero connections)
+    if (room && room.connections.size === 0) {
+      roomManager.scheduleRoomCleanup(workspaceId);
+    }
+
     return room?.doc ?? null;
   } catch (error) {
     logger.error("Failed to load room state", { workspaceId, error });

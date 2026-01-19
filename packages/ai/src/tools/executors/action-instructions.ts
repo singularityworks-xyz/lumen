@@ -1,6 +1,8 @@
 // Action instructions that can be executed client-side.
 // Used for local workspaces where the server can't access Yjs.
 
+import type { TaskStatus } from "../schemas";
+
 export type CreateTaskInstruction = {
   type: "createTask";
   boardId: string;
@@ -18,6 +20,7 @@ export type UpdateTaskInstruction = {
     title?: string;
     description?: string;
     priority?: "low" | "medium" | "high";
+    status?: TaskStatus;
     dueDate?: string | null;
   };
 };
@@ -68,6 +71,7 @@ export type BulkUpdateTasksInstruction = {
   taskIds: string[];
   updates: {
     priority?: "low" | "medium" | "high";
+    status?: TaskStatus;
     dueDate?: string | null;
     columnId?: string;
   };

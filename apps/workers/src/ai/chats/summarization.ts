@@ -154,11 +154,12 @@ export async function summarizeConversation(
           },
         });
 
-        // Update message count
+        // Update message count and reset summaryUpToIndex to reflect new indexing
         await tx.aiConversation.update({
           where: { id: conversationId },
           data: {
             messageCount: messagesToKeep.length,
+            summaryUpToIndex: messagesToKeep.length,
           },
         });
       }

@@ -47,6 +47,7 @@ export function buildUpdateTaskInstruction(
         priority: params.updates.priority
           ? mapPriority(params.updates.priority)
           : undefined,
+        status: params.updates.status,
         dueDate: params.updates.dueDate,
       },
     },
@@ -155,6 +156,7 @@ export function buildBulkUpdateTasksInstruction(
         priority: params.updates.priority
           ? mapPriority(params.updates.priority)
           : undefined,
+        status: params.updates.status,
         dueDate: params.updates.dueDate,
         columnId: params.updates.columnId,
       },

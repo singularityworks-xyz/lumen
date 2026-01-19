@@ -1,4 +1,4 @@
-import type { ActionInstructionData } from "@lumen/ai";
+import type { ActionInstructionData, ToolExecutionResult } from "@lumen/ai";
 import { createLogger } from "@lumen/logger";
 import {
   getTracer,
@@ -105,11 +105,21 @@ export async function* streamWithFallback(
               modelUsed: modelName,
             };
 
-            const toolResult = await executeTool(
-              toolCallPart.toolName,
-              toolCallPart.input as Record<string, unknown>,
-              ctx
-            );
+            let toolResult: ToolExecutionResult;
+            try {
+              toolResult = await executeTool(
+                toolCallPart.toolName,
+                toolCallPart.input as Record<string, unknown>,
+                ctx
+              );
+            } catch (error) {
+              // Create a failure result object on tool execution error
+              toolResult = {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+                data: null,
+              };
+            }
 
             toolCallsInStep.push({
               ...toolCallPart,
@@ -117,18 +127,21 @@ export async function* streamWithFallback(
             });
 
             // Check if the result contains an action instruction (for ephemeral/local workspaces)
-            const resultData = toolResult.data as
-              | { actionInstruction?: unknown; message?: string }
-              | undefined;
-            if (resultData?.actionInstruction) {
-              yield {
-                type: "action_instruction" as const,
-                toolCallId: toolCallPart.toolCallId,
-                instruction:
-                  resultData.actionInstruction as ActionInstructionData,
-                message: resultData.message ?? "Action pending",
-                modelUsed: modelName,
-              };
+            // Skip if tool execution failed
+            if (toolResult.success !== false) {
+              const resultData = toolResult.data as
+                | { actionInstruction?: unknown; message?: string }
+                | undefined;
+              if (resultData?.actionInstruction) {
+                yield {
+                  type: "action_instruction" as const,
+                  toolCallId: toolCallPart.toolCallId,
+                  instruction:
+                    resultData.actionInstruction as ActionInstructionData,
+                  message: resultData.message ?? "Action pending",
+                  modelUsed: modelName,
+                };
+              }
             }
 
             yield {

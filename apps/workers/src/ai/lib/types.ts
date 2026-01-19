@@ -16,7 +16,7 @@ export type ToolResultPart = {
   type: "tool-result";
   toolCallId: string;
   toolName: string;
-  output: unknown;
+  output: { type: "json"; value: unknown };
 };
 
 export type ContentPart = TextPart | ToolCallPart | ToolResultPart;
