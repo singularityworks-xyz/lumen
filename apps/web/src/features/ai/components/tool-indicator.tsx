@@ -63,7 +63,7 @@ function formatToolName(name: string): string {
   // e.g. getWorkspaceOverview -> Get Workspace Overview
   // e.g. createTask -> Create Task
   return (
-    name
+    (name || "")
       .replace(/([A-Z])/g, " $1")
       // biome-ignore lint/performance/useTopLevelRegex: it's fine
       .replace(/^./, (str) => str.toUpperCase())

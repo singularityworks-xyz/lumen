@@ -137,7 +137,7 @@ export const ToolCallFlow = memo(
     };
 
     const formatToolName = (name: string): string =>
-      name
+      (name || "")
         .replace(camelCaseRegex, " $1")
         .replace(firstCharRegex, (str) => str.toUpperCase())
         .trim();
