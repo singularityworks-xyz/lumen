@@ -1,5 +1,12 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalDotEnv": [".env"],
+  "globalEnv": [
+    "NEXT_PUBLIC_API_URL",
+    "OTEL_ENABLED",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_HEADERS"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
