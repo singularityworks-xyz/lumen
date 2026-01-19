@@ -196,7 +196,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               workspaceId,
             });
           } else {
-            conversation = await getOrCreateConversation(workspaceId);
+            conversation = await getOrCreateConversation(
+              workspaceId,
+              session.user.id
+            );
             span.setAttribute("ai.conversation_id", conversation.id);
 
             const userMessageId = generateMessageId();
@@ -225,6 +228,13 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             let modelUsed = "unknown";
             let fullContent = "";
             let hasToolCalls = false;
+            let totalUsage:
+              | {
+                  promptTokens: number;
+                  completionTokens: number;
+                  totalTokens: number;
+                }
+              | undefined;
             const toolCalls: Array<{
               toolCallId: string;
               toolName: string;
@@ -311,6 +321,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       message: part.message,
                     };
                     yield sse({ event: "message", data: actionEvent });
+                  } else if (part.type === "usage") {
+                    totalUsage = part.usage;
                   }
                 }
               } catch (streamError) {
@@ -392,6 +404,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   role: "assistant",
                   content: fullContent,
                   createdAt: new Date().toISOString(),
+                  metadata: {
+                    usage: totalUsage,
+                    duration: streamDuration,
+                    model: modelUsed,
+                  },
                 },
               };
               yield sse({ event: "message", data: completeEvent });
@@ -406,6 +423,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       role: "assistant",
                       content: fullContent,
                       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                      metadata: {
+                        usage: totalUsage,
+                        duration: streamDuration,
+                        model: modelUsed,
+                      },
                     }
                   );
 
@@ -670,7 +692,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       }
 
       try {
-        const conversation = await getOrCreateConversation(workspaceId);
+        const conversation = await getOrCreateConversation(
+          workspaceId,
+          session.user.id
+        );
         const messages = await toApiMessages(conversation.messages);
         return {
           id: conversation.id,
@@ -739,7 +764,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
       try {
         const conversation = await prisma.aiConversation.findUnique({
-          where: { workspaceId },
+          where: {
+            workspaceId_userId: {
+              workspaceId,
+              userId: session.user.id,
+            },
+          },
           select: { id: true },
         });
 

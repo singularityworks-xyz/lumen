@@ -51,6 +51,15 @@ export type StreamResult =
       instruction: ActionInstructionData;
       message: string;
       modelUsed: string;
+    }
+  | {
+      type: "usage";
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
+      modelUsed: string;
     };
 
 export type StreamContext = {

@@ -67,7 +67,11 @@ export type AiActions = {
     result: unknown
   ) => void;
 
-  completeStream: (workspaceId: string, messageId: string) => void;
+  completeStream: (
+    workspaceId: string,
+    messageId: string,
+    finalMessage?: Partial<AiMessage>
+  ) => void;
 
   setStreamError: (
     workspaceId: string,
@@ -256,7 +260,7 @@ export const useAiStore = create<AiStore>()(
         });
       },
 
-      completeStream: (workspaceId, messageId) => {
+      completeStream: (workspaceId, messageId, finalMessage) => {
         tracer.startActiveSpan("ai.completeStream", (span) => {
           span.setAttributes({
             "ai.workspace_id": workspaceId,
@@ -269,6 +273,15 @@ export const useAiStore = create<AiStore>()(
               const message = conv.messages.find((m) => m.id === messageId);
               if (message) {
                 message.isStreaming = false;
+                if (finalMessage) {
+                  if (finalMessage.metadata) {
+                    message.metadata = finalMessage.metadata;
+                  }
+                  if (finalMessage.content) {
+                    // Ensure content matches server exactly
+                    message.content = finalMessage.content;
+                  }
+                }
                 span.setAttribute("ai.content_length", message.content.length);
               }
               conv.isStreaming = false;

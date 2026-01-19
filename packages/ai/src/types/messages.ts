@@ -41,6 +41,16 @@ export type AiMessage = {
   confirmedAt?: string;
   isStreaming?: boolean;
   error?: string;
+  metadata?: {
+    usage?: {
+      tokens?: number;
+      totalTokens?: number;
+      inputTokens?: number;
+      outputTokens?: number;
+    };
+    duration?: number;
+    model?: string;
+  };
   createdAt: string;
 };
 

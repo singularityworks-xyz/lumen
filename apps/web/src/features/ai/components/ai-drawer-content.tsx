@@ -302,8 +302,8 @@ export const AiDrawerContent = memo(
               );
               logger.info({ resultMessage }, "Action executed");
             },
-            onMessageComplete: () => {
-              completeStream(workspaceId, assistantId);
+            onMessageComplete: (completedMessage) => {
+              completeStream(workspaceId, assistantId, completedMessage);
               abortControllerRef.current = null;
 
               // For local/ephemeral workspaces, generate title client-side

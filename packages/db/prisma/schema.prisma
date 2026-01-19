@@ -28,6 +28,7 @@ model User {
   collaborators   WorkspaceCollaborator[]
   workspaces      Workspace[]
   workspaceShares WorkspaceShare[]
+  aiConversations AiConversation[]
 
   @@map("user")
 }
@@ -101,11 +102,11 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner          User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  collaborators  WorkspaceCollaborator[]
-  shares         WorkspaceShare[]
-  state          WorkspaceState?
-  aiConversation AiConversation?
+  owner           User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators   WorkspaceCollaborator[]
+  shares          WorkspaceShare[]
+  state           WorkspaceState?
+  aiConversations AiConversation[]
 
   @@index([ownerId])
   @@map("workspace")
@@ -178,7 +179,8 @@ model Jwks {
 
 model AiConversation {
   id               String      @id @default(cuid())
-  workspaceId      String      @unique
+  workspaceId      String
+  userId           String
   title            String?
   summary          String?     @db.Text
   summaryUpToIndex Int         @default(0)
@@ -188,8 +190,11 @@ model AiConversation {
   updatedAt        DateTime    @updatedAt
   messages         AiMessage[]
   workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, userId])
   @@index([workspaceId])
+  @@index([userId])
   @@index([lastActiveAt])
   @@map("ai_conversation")
 }
@@ -205,6 +210,7 @@ model AiMessage {
   contextSnapshot      Json?
   requiresConfirmation Boolean        @default(false)
   pendingAction        Json?
+  metadata             Json?
   confirmedAt          DateTime?
   createdAt            DateTime       @default(now())
   conversation         AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

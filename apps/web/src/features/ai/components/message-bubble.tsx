@@ -1,6 +1,7 @@
 "use client";
 
 import type { AiMessage } from "@lumen/ai/types";
+import { ClockCheck, Shell } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { memo } from "react";
@@ -12,6 +13,13 @@ import LarityOrb from "./animations/larity-orb";
 import { TextShimmer } from "./animations/text-shimmer";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { ToolCallFlow } from "./tool-call-flow";
+
+const formatTokens = (tokens: number) => {
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}K`;
+  }
+  return tokens.toString();
+};
 
 const thinkingFrames = [
   [24],
@@ -105,8 +113,9 @@ export const MessageBubble = memo(
             <div
               className={cn(
                 "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-                "shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.1)]",
-                "dark:shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.05)]",
+                // Engraved effect
+                "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.1),0_1px_0_rgba(255,255,255,0.5)]",
+                "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_2px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.08)]",
                 isUser
                   ? "rounded-br-md bg-primary text-primary-foreground"
                   : "rounded-bl-md bg-muted/80 text-foreground"
@@ -155,6 +164,23 @@ export const MessageBubble = memo(
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {!(isUser || isStreaming) && message.metadata && (
+            <div className="flex w-full items-center justify-between px-1 opacity-70">
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <Shell className="h-3 w-3" />
+                {message.metadata.usage?.totalTokens
+                  ? `${formatTokens(message.metadata.usage.totalTokens)} tokens`
+                  : ""}
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <ClockCheck className="h-3 w-3" />
+                {message.metadata.duration
+                  ? `${message.metadata.duration.toFixed(2)}s`
+                  : ""}
+              </span>
             </div>
           )}
 

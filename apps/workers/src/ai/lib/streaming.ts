@@ -153,6 +153,24 @@ export async function* streamWithFallback(
           }
         }
 
+        try {
+          const usage = await result.usage;
+          yield {
+            type: "usage",
+            usage: {
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+            },
+            modelUsed: modelName,
+          };
+        } catch (e) {
+          logger.warn("Failed to get usage stats", {
+            error: e instanceof Error ? e.message : "Unknown",
+            model: modelName,
+          });
+        }
+
         modelSpan.addEvent("ai.stream_complete");
         modelSpan.setStatus({ code: SpanStatusCode.OK });
         modelSpan.end();
