@@ -26,6 +26,10 @@ import {
   fetchConversation,
   streamChat,
 } from "../lib/api-client";
+import {
+  generateLocalTitle,
+  shouldGenerateLocalTitle,
+} from "../lib/local-title-generator";
 import { useAiStore } from "../store/ai-store";
 import { AiOptInDialog } from "./ai-opt-in-dialog";
 import { DotLoader } from "./animations/dot-loader";
@@ -301,6 +305,31 @@ export const AiDrawerContent = memo(
             onMessageComplete: () => {
               completeStream(workspaceId, assistantId);
               abortControllerRef.current = null;
+
+              // For local/ephemeral workspaces, generate title client-side
+              if (!isSharedWorkspace) {
+                const currentConv =
+                  useAiStore.getState().conversations[workspaceId];
+                const msgCount = currentConv?.messages.length ?? 0;
+                const currentTitle = currentConv?.title ?? null;
+
+                if (shouldGenerateLocalTitle(msgCount, currentTitle)) {
+                  // Find first user message
+                  const firstUserMsg = currentConv?.messages.find(
+                    (m) => m.role === "user"
+                  );
+                  if (firstUserMsg?.content) {
+                    const generatedTitle = generateLocalTitle(
+                      firstUserMsg.content
+                    );
+                    setTitle(workspaceId, generatedTitle);
+                    logger.debug(
+                      { generatedTitle },
+                      "Generated local title for ephemeral workspace"
+                    );
+                  }
+                }
+              }
             },
             onTitleGenerated: (title) => {
               setTitle(workspaceId, title);
