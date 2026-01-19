@@ -80,29 +80,37 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           select: { ownerId: true },
         });
 
-        if (workspaceAccess) {
-          const isOwner = workspaceAccess.ownerId === session.user.id;
-          if (!isOwner) {
-            const collaborator = await getCollaborator(
+        if (!workspaceAccess) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: "Not Found: Workspace does not exist",
+          });
+          span.end();
+          set.status = 404;
+          return { error: "Workspace not found" };
+        }
+
+        const isOwner = workspaceAccess.ownerId === session.user.id;
+        if (!isOwner) {
+          const collaborator = await getCollaborator(
+            workspaceId,
+            session.user.id
+          );
+          if (!collaborator) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "Forbidden: User is not a member of this workspace",
+            });
+            span.end();
+            set.status = 403;
+            logger.warn("Unauthorized workspace access attempt", {
+              userId: session.user.id,
               workspaceId,
-              session.user.id
-            );
-            if (!collaborator) {
-              span.setStatus({
-                code: SpanStatusCode.ERROR,
-                message: "Forbidden: User is not a member of this workspace",
-              });
-              span.end();
-              set.status = 403;
-              logger.warn("Unauthorized workspace access attempt", {
-                userId: session.user.id,
-                workspaceId,
-                operation: "ai.chat",
-              });
-              return {
-                error: "Access denied: You are not a member of this workspace",
-              };
-            }
+              operation: "ai.chat",
+            });
+            return {
+              error: "Access denied: You are not a member of this workspace",
+            };
           }
         }
 
@@ -258,15 +266,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     };
                     yield sse({ event: "message", data: resultEvent });
                   } else if (part.type === "action_instruction") {
+                    hasToolCalls = true;
                     const actionEvent: StreamEvent = {
                       type: "action_instruction",
                       toolCallId: part.toolCallId,
-                      instruction: part.instruction as StreamEvent extends {
-                        type: "action_instruction";
-                        instruction: infer T;
-                      }
-                        ? T
-                        : never,
+                      instruction: part.instruction,
                       message: part.message,
                     };
                     yield sse({ event: "message", data: actionEvent });
@@ -581,17 +585,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         select: { ownerId: true },
       });
 
-      if (workspaceAccess) {
-        const isOwner = workspaceAccess.ownerId === session.user.id;
-        if (!isOwner) {
-          const collaborator = await getCollaborator(
-            workspaceId,
-            session.user.id
-          );
-          if (!collaborator) {
-            set.status = 403;
-            return { error: "Access denied" };
-          }
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
         }
       }
 
@@ -641,17 +648,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         select: { ownerId: true },
       });
 
-      if (workspaceAccess) {
-        const isOwner = workspaceAccess.ownerId === session.user.id;
-        if (!isOwner) {
-          const collaborator = await getCollaborator(
-            workspaceId,
-            session.user.id
-          );
-          if (!collaborator) {
-            set.status = 403;
-            return { error: "Access denied" };
-          }
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
         }
       }
 
@@ -696,32 +706,5 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       usingUpstash: isUpstashEnabled(),
       rateLimit: 30,
       windowSizeSeconds: 60,
-    };
-  })
-
-  .post("/api/ai/maintenance", async ({ headers, set }) => {
-    const session = await auth.api.getSession({
-      headers: toHeaders(headers),
-    });
-    if (!session) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
-    const { runMaintenanceTasks } = await import("./chats/summarization");
-
-    logger.info("Running AI maintenance tasks", {
-      userId: session.user.id,
-    });
-
-    runMaintenanceTasks().catch((error) => {
-      logger.error("Maintenance tasks failed", {
-        error: error instanceof Error ? error.message : "Unknown",
-      });
-    });
-
-    return {
-      message: "Maintenance tasks started",
-      note: "Tasks running in background",
     };
   });

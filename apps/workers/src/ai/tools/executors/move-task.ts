@@ -10,6 +10,20 @@ export async function executeMoveTask(
   params: MoveTaskParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "moveTask",
+        taskId: params.taskId,
+        columnId: params.columnId,
+        position: params.position,
+      },
+      message: `Move task instruction for task ${params.taskId}`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

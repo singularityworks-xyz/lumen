@@ -275,7 +275,14 @@ export async function addMessage(
         select: { role: true, content: true },
       });
 
-      const messagesToUse = recentMessages
+      const decryptedMessages = await Promise.all(
+        recentMessages.map(async (m) => ({
+          role: m.role,
+          content: await decryptContent(m.content),
+        }))
+      );
+
+      const messagesToUse = decryptedMessages
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({
           role: m.role as "user" | "assistant",

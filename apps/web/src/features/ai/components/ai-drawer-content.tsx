@@ -95,6 +95,7 @@ export const AiDrawerContent = memo(
     const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+    const isClearingRef = useRef(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
 
@@ -191,13 +192,13 @@ export const AiDrawerContent = memo(
 
       const syncFromServer = async () => {
         // Double-check isClearing before syncing
-        if (isClearing) {
+        if (isClearingRef.current) {
           return;
         }
 
         try {
           const serverConversation = await fetchConversation(workspaceId);
-          if (serverConversation && !isClearing) {
+          if (serverConversation && !isClearingRef.current) {
             loadServerConversation(
               workspaceId,
               serverConversation.messages,
@@ -213,7 +214,11 @@ export const AiDrawerContent = memo(
 
       // Also periodically check for title updates (in case async title generation completed)
       const intervalId = setInterval(() => {
-        if (!conversationTitle && messagesList.length >= 4 && !isClearing) {
+        if (
+          !conversationTitle &&
+          messagesList.length >= 4 &&
+          !isClearingRef.current
+        ) {
           syncFromServer();
         }
       }, 10_000);
@@ -342,6 +347,7 @@ export const AiDrawerContent = memo(
     const handleClearConversation = useCallback(async () => {
       setShowClearConfirm(false);
       setIsClearing(true);
+      isClearingRef.current = true;
 
       try {
         // Clear server first to prevent sync from bringing messages back
@@ -353,7 +359,10 @@ export const AiDrawerContent = memo(
       clearConversation(workspaceId);
 
       // Small delay before allowing sync again to ensure state is settled
-      setTimeout(() => setIsClearing(false), 100);
+      setTimeout(() => {
+        setIsClearing(false);
+        isClearingRef.current = false;
+      }, 100);
     }, [workspaceId, clearConversation]);
 
     const handleKeyDown = useCallback(

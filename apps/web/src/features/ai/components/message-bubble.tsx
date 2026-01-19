@@ -99,6 +99,7 @@ export const MessageBubble = memo(
           {!message.content &&
           message.toolCalls &&
           message.toolCalls.length > 0 &&
+          !message.toolResult &&
           !isStreaming &&
           !message.error ? null : (
             <div

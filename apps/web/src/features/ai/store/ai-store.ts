@@ -223,9 +223,9 @@ export const useAiStore = create<AiStore>()(
         });
       },
 
-      updateToolResult: (workspaceId, messageId, _toolCallId, result) => {
+      updateToolResult: (workspaceId, messageId, toolCallId, result) => {
         logger.debug(
-          { workspaceId, messageId, result },
+          { workspaceId, messageId, toolCallId, result },
           "Updating tool result"
         );
         set((state) => {
@@ -233,12 +233,16 @@ export const useAiStore = create<AiStore>()(
           if (conv) {
             const message = conv.messages.find((m) => m.id === messageId);
             if (message) {
-              // For now just store last result
-              message.toolResult = result;
-
-              // If we wanted to store per-tool results:
-              // const tc = message.toolCalls?.find(tc => tc.id === toolCallId);
-              // if (tc) tc.result = result;
+              // find matching tool call and assign result
+              const matchingToolCall = message.toolCalls?.find(
+                (tc) => tc.id === toolCallId
+              );
+              if (matchingToolCall) {
+                matchingToolCall.result = result;
+              } else {
+                // fallback for legacy single result
+                message.toolResult = result;
+              }
             }
             conv.streamVersion += 1;
           }

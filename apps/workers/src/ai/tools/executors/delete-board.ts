@@ -10,6 +10,18 @@ export async function executeDeleteBoard(
   params: DeleteBoardParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "deleteBoard",
+        boardId: params.boardId,
+      },
+      message: `Delete board instruction for board ${params.boardId}`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

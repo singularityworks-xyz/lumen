@@ -10,6 +10,18 @@ export async function executeBulkDeleteTasks(
   params: BulkDeleteTasksParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "bulkDeleteTasks",
+        taskIds: params.taskIds,
+      },
+      message: `Bulk delete instruction for ${params.taskIds.length} tasks`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

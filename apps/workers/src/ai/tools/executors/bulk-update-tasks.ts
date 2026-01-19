@@ -11,6 +11,19 @@ export async function executeBulkUpdateTasks(
   params: BulkUpdateTasksParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "bulkUpdateTasks",
+        taskIds: params.taskIds,
+        updates: params.updates,
+      },
+      message: `Bulk update instruction for ${params.taskIds.length} tasks`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

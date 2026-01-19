@@ -4,6 +4,7 @@ export type ToolCall = {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  result?: unknown;
 };
 
 export type ToolResult = {

@@ -16,6 +16,23 @@ export async function executeCreateTask(
   params: CreateTaskParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "createTask",
+        boardId: params.boardId,
+        columnId: params.columnId,
+        title: params.title,
+        description: params.description,
+        priority: params.priority,
+        dueDate: params.dueDate,
+      },
+      message: `Create task instruction for "${params.title}"`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

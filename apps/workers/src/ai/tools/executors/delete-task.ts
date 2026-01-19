@@ -10,6 +10,18 @@ export async function executeDeleteTask(
   params: DeleteTaskParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "deleteTask",
+        taskId: params.taskId,
+      },
+      message: `Delete task instruction for task ${params.taskId}`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {

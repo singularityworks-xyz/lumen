@@ -3,6 +3,11 @@ export type ToolExecutionResult = {
   data?: unknown;
   error?: string;
   requiresConfirmation?: boolean;
+  instruction?: {
+    type: string;
+    [key: string]: unknown;
+  };
+  message?: string;
 };
 
 // Workspace snapshot sent from the client.

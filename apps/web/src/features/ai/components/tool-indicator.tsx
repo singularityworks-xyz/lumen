@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleDashed, Hammer, Search } from "lucide-react";
+import { Check, CircleDashed, Hammer, Search, X } from "lucide-react";
 import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 
@@ -37,6 +37,8 @@ export const ToolIndicator = memo(
             <CircleDashed className="h-3 w-3 animate-spin" />
           ) : status === "success" ? (
             <Check className="h-3 w-3" />
+          ) : status === "error" ? (
+            <X className="h-3 w-3" />
           ) : isQuery ? (
             <Search className="h-3 w-3" />
           ) : (

@@ -1,4 +1,4 @@
-import { type actionTools, allTools, queryTools } from "./definitions";
+import { actionTools, allTools, queryTools } from "./definitions";
 
 const ACTION_KEYWORDS = [
   "create",
@@ -98,8 +98,8 @@ export function detectToolIntent(message: string): ToolSelection {
     }
 
     return {
-      intent: "both",
-      tools: allTools,
+      intent: "action",
+      tools: actionTools,
       reason: "Action intent with workspace entity",
     };
   }

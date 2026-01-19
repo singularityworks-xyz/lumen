@@ -1,3 +1,4 @@
+import type { ActionInstructionData } from "@lumen/ai";
 import { createLogger } from "@lumen/logger";
 import {
   getTracer,
@@ -123,7 +124,8 @@ export async function* streamWithFallback(
               yield {
                 type: "action_instruction" as const,
                 toolCallId: toolCallPart.toolCallId,
-                instruction: resultData.actionInstruction,
+                instruction:
+                  resultData.actionInstruction as ActionInstructionData,
                 message: resultData.message ?? "Action pending",
                 modelUsed: modelName,
               };

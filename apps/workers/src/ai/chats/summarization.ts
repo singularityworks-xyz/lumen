@@ -255,26 +255,38 @@ export async function cleanupOldConversations(): Promise<{
   }
 }
 
+let maintenanceInProgress = false;
+
 export async function runMaintenanceTasks(): Promise<void> {
-  logger.info("Starting AI maintenance tasks");
-
-  // 1. Find conversations that need summarization
-  const conversationsNeedingSummary = await prisma.aiConversation.findMany({
-    where: {
-      messageCount: { gte: SUMMARIZATION_THRESHOLD },
-    },
-    select: { id: true, messageCount: true, summaryUpToIndex: true },
-  });
-
-  for (const conv of conversationsNeedingSummary) {
-    const unsummarized = conv.messageCount - conv.summaryUpToIndex;
-    if (unsummarized >= SUMMARIZATION_THRESHOLD) {
-      await summarizeConversation(conv.id);
-    }
+  if (maintenanceInProgress) {
+    logger.warn("Maintenance tasks already in progress, skipping");
+    return;
   }
 
-  // 2. Cleanup old conversations
-  await cleanupOldConversations();
+  maintenanceInProgress = true;
+  try {
+    logger.info("Starting AI maintenance tasks");
 
-  logger.info("AI maintenance tasks completed");
+    // 1. Find conversations that need summarization
+    const conversationsNeedingSummary = await prisma.aiConversation.findMany({
+      where: {
+        messageCount: { gte: SUMMARIZATION_THRESHOLD },
+      },
+      select: { id: true, messageCount: true, summaryUpToIndex: true },
+    });
+
+    for (const conv of conversationsNeedingSummary) {
+      const unsummarized = conv.messageCount - conv.summaryUpToIndex;
+      if (unsummarized >= SUMMARIZATION_THRESHOLD) {
+        await summarizeConversation(conv.id);
+      }
+    }
+
+    // 2. Cleanup old conversations
+    await cleanupOldConversations();
+
+    logger.info("AI maintenance tasks completed");
+  } finally {
+    maintenanceInProgress = false;
+  }
 }

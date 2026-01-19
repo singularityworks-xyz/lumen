@@ -2,7 +2,7 @@
 
 import { Info, Shield, ShieldAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect } from "react";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
 import LarityOrb from "./animations/larity-orb";
@@ -32,6 +32,21 @@ export const AiOptInDialog = memo(
       onConfirm();
     }, [workspaceId, enableWorkspaceAi, onConfirm]);
 
+    useEffect(() => {
+      if (!isOpen) {
+        return;
+      }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          onClose();
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, onClose]);
+
     return (
       <AnimatePresence>
         {isOpen && (
@@ -45,6 +60,9 @@ export const AiOptInDialog = memo(
           >
             <motion.div
               animate={{ opacity: 1, scale: 1, y: 0 }}
+              aria-describedby="ai-opt-in-description"
+              aria-labelledby="ai-opt-in-title"
+              aria-modal="true"
               className={cn(
                 "w-full max-w-sm rounded-xl p-5",
                 "border border-border/50 bg-card/98 backdrop-blur-xl",
@@ -54,15 +72,22 @@ export const AiOptInDialog = memo(
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
               transition={{ type: "spring", stiffness: 350, damping: 35 }}
             >
               <div className="mb-3 flex items-center gap-3">
                 <LarityOrb size="md" speed={0.5} />
                 <div>
-                  <h3 className="font-semibold text-base text-foreground">
+                  <h3
+                    className="font-semibold text-base text-foreground"
+                    id="ai-opt-in-title"
+                  >
                     Enable Larity AI
                   </h3>
-                  <p className="text-muted-foreground text-xs">
+                  <p
+                    className="text-muted-foreground text-xs"
+                    id="ai-opt-in-description"
+                  >
                     for "{workspaceName}"
                   </p>
                 </div>

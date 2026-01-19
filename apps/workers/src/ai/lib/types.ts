@@ -1,4 +1,4 @@
-import type { WorkspaceSnapshot } from "../tools/executors/shared";
+import type { ActionInstructionData, WorkspaceSnapshot } from "@lumen/ai/types";
 
 export type TextPart = {
   type: "text";
@@ -48,7 +48,7 @@ export type StreamResult =
   | {
       type: "action_instruction";
       toolCallId: string;
-      instruction: unknown;
+      instruction: ActionInstructionData;
       message: string;
       modelUsed: string;
     };

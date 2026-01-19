@@ -10,6 +10,20 @@ export async function executeCreateColumn(
   params: CreateColumnParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
+  // For local workspaces, return a client-side instruction
+  if (ctx.ephemeral) {
+    return {
+      success: true,
+      instruction: {
+        type: "createColumn",
+        boardId: params.boardId,
+        name: params.name,
+        position: params.position,
+      },
+      message: `Create column instruction for "${params.name}"`,
+    };
+  }
+
   try {
     const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {
