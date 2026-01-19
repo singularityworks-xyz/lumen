@@ -18,12 +18,28 @@ export async function executeCreateTask(
 ): Promise<ToolExecutionResult> {
   // For local workspaces, return a client-side instruction
   if (ctx.ephemeral) {
+    // Resolve columnId from snapshot if not provided
+    let columnId = params.columnId;
+    if (!columnId && ctx.snapshot) {
+      const board = ctx.snapshot.boards?.find((b) => b.id === params.boardId);
+      if (board?.columns?.length) {
+        columnId = board.columns[0].id;
+      }
+    }
+
+    if (!columnId) {
+      return {
+        success: false,
+        error: "Column ID is required but could not be resolved from snapshot",
+      };
+    }
+
     return {
       success: true,
       instruction: {
         type: "createTask",
         boardId: params.boardId,
-        columnId: params.columnId,
+        columnId,
         title: params.title,
         description: params.description,
         priority: params.priority,

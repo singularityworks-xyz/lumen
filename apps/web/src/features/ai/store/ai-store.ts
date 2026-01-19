@@ -217,6 +217,7 @@ export const useAiStore = create<AiStore>()(
               }
               // For legacy/single tool support
               message.toolName = toolName;
+              message.toolCallId = toolCallId;
             }
             conv.streamVersion += 1;
           }
@@ -225,7 +226,13 @@ export const useAiStore = create<AiStore>()(
 
       updateToolResult: (workspaceId, messageId, toolCallId, result) => {
         logger.debug(
-          { workspaceId, messageId, toolCallId, result },
+          {
+            workspaceId,
+            messageId,
+            toolCallId,
+            resultPresent: result !== undefined && result !== null,
+            resultType: typeof result,
+          },
           "Updating tool result"
         );
         set((state) => {

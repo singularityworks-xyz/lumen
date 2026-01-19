@@ -159,7 +159,7 @@ export async function summarizeConversation(
           where: { id: conversationId },
           data: {
             messageCount: messagesToKeep.length,
-            summaryUpToIndex: messagesToKeep.length,
+            summaryUpToIndex: 0,
           },
         });
       }

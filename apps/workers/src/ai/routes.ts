@@ -1,7 +1,9 @@
 import {
+  type ActionInstructionData,
   buildSystemPrompt,
   getToolsForMessage,
   type StreamEvent,
+  type ToolExecutionResult,
 } from "@lumen/ai";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
@@ -217,6 +219,13 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             let modelUsed = "unknown";
             let fullContent = "";
             let hasToolCalls = false;
+            const toolCalls: Array<{
+              toolCallId: string;
+              toolName: string;
+              timestamp: string;
+              instruction?: ActionInstructionData;
+              result?: ToolExecutionResult;
+            }> = [];
 
             try {
               const startEvent: StreamEvent = {
@@ -252,6 +261,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     yield sse({ event: "message", data: deltaEvent });
                   } else if (part.type === "tool_call") {
                     hasToolCalls = true;
+                    toolCalls.push({
+                      toolCallId: part.toolCallId,
+                      toolName: part.toolName,
+                      timestamp: new Date().toISOString(),
+                    });
                     const toolEvent: StreamEvent = {
                       type: "tool_call_start",
                       toolName: part.toolName,
@@ -259,6 +273,15 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     };
                     yield sse({ event: "message", data: toolEvent });
                   } else if (part.type === "tool_result") {
+                    // Update existing tool call with result
+                    const existingToolCall = toolCalls.find(
+                      (tc) => tc.toolCallId === part.toolCallId
+                    );
+                    if (existingToolCall) {
+                      existingToolCall.result =
+                        part.output as ToolExecutionResult;
+                      existingToolCall.timestamp = new Date().toISOString();
+                    }
                     const resultEvent: StreamEvent = {
                       type: "tool_call_result",
                       toolCallId: part.toolCallId,
@@ -267,6 +290,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     yield sse({ event: "message", data: resultEvent });
                   } else if (part.type === "action_instruction") {
                     hasToolCalls = true;
+                    // Update existing tool call with instruction
+                    const existingToolCall = toolCalls.find(
+                      (tc) => tc.toolCallId === part.toolCallId
+                    );
+                    if (existingToolCall) {
+                      existingToolCall.instruction = part.instruction;
+                      existingToolCall.timestamp = new Date().toISOString();
+                    }
                     const actionEvent: StreamEvent = {
                       type: "action_instruction",
                       toolCallId: part.toolCallId,
@@ -368,8 +399,22 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       id: messageId,
                       role: "assistant",
                       content: fullContent,
+                      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
                     }
                   );
+
+                  // Create tool messages for each tool result
+                  for (const toolCall of toolCalls) {
+                    if (toolCall.result) {
+                      await addMessage(conversation.id, {
+                        id: `tool_${toolCall.toolCallId}`,
+                        role: "tool",
+                        content: JSON.stringify(toolCall.result),
+                        toolCallId: toolCall.toolCallId,
+                        toolName: toolCall.toolName,
+                      });
+                    }
+                  }
 
                   if (titleWillGenerate) {
                     span.setAttribute("ai.title_generation_started", true);
