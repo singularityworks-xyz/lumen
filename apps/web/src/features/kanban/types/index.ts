@@ -178,6 +178,7 @@ export type Workspace = {
   ownerImage?: string;
   shareToken?: string;
   savedDialogState?: WorkspaceDialogState;
+  aiEnabled?: boolean;
 };
 
 export type EntityMap<T> = {

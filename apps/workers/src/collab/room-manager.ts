@@ -56,6 +56,8 @@ class RoomManager {
   private readonly persistenceDebounceMs = 5000;
   // Track recently deleted workspaces to prevent recreation during delete
   private readonly deletedWorkspaces = new Set<string>();
+  // Track pending room state loads to prevent duplicate Y.applyUpdate calls
+  private readonly pendingLoads = new Map<string, Promise<boolean>>();
 
   getRoom(workspaceId: string): Room | undefined {
     return this.rooms.get(workspaceId);
@@ -637,7 +639,15 @@ class RoomManager {
   }
 
   loadRoomState(workspaceId: string): Promise<boolean> {
-    return withSpanAsync("room.loadState", async (span) => {
+    // Check if a load is already in progress for this workspace
+    const existingLoad = this.pendingLoads.get(workspaceId);
+    if (existingLoad) {
+      logger.debug("Returning existing loadRoomState promise", { workspaceId });
+      return existingLoad;
+    }
+
+    // Create and store the load promise
+    const loadPromise = withSpanAsync("room.loadState", async (span) => {
       setSpanAttributes({ workspaceId });
 
       try {
@@ -709,10 +719,18 @@ class RoomManager {
         });
         return false;
       }
+    }).finally(() => {
+      // Always remove from pending loads when done
+      this.pendingLoads.delete(workspaceId);
     });
+
+    // Store the promise to prevent duplicate loads
+    this.pendingLoads.set(workspaceId, loadPromise);
+
+    return loadPromise;
   }
 
-  private scheduleRoomCleanup(workspaceId: string): void {
+  scheduleRoomCleanup(workspaceId: string): void {
     const currentRoom = this.rooms.get(workspaceId);
     if (!currentRoom) {
       return;

@@ -32,6 +32,9 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),
     CEREBRAS_API_KEY: z.string().optional(),
+    UPSTASH_REDIS_REST_URL: z.url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+    AI_ENCRYPTION_KEY: z.string().min(32).optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -49,6 +52,9 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     JWKS_ENCRYPTION_KEY: process.env.JWKS_ENCRYPTION_KEY,
     CEREBRAS_API_KEY: process.env.CEREBRAS_API_KEY,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    AI_ENCRYPTION_KEY: process.env.AI_ENCRYPTION_KEY,
   },
   onValidationError: (error) => {
     console.error("Environment validation failed:", error);

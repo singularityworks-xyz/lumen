@@ -1,10 +1,13 @@
 "use client";
 
+import type { ActionInstruction } from "@lumen/ai/tools";
 import type { ContextSnapshot } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
+import { createLogger } from "@lumen/logger";
 import { PulsingBorder } from "@paper-design/shaders-react";
 import {
   ChevronRight,
+  Info,
   LayoutGrid,
   MessageCircle,
   Trash2,
@@ -16,13 +19,22 @@ import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
-import { streamChat } from "../lib/api-client";
+import { executeActionInstruction } from "../lib/action-executor";
+import {
+  buildWorkspaceSnapshotIfNeeded,
+  clearServerConversation,
+  fetchConversation,
+  streamChat,
+} from "../lib/api-client";
 import { useAiStore } from "../store/ai-store";
+import { AiOptInDialog } from "./ai-opt-in-dialog";
 import { DotLoader } from "./animations/dot-loader";
 import LarityOrb from "./animations/larity-orb";
 import { SendButton } from "./animations/send-button";
 import { MessageBubble } from "./message-bubble";
 import { SuggestionChip } from "./suggestion-chip";
+
+const logger = createLogger({ name: "[client] ai/drawer" });
 
 const heartbitFrames = [
   [],
@@ -79,15 +91,38 @@ export const AiDrawerContent = memo(
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [showOptInDialog, setShowOptInDialog] = useState(false);
+    const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
+    const isClearingRef = useRef(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+
+    // Check if workspace has AI enabled (for local workspaces)
+    const workspace = useKanbanStore(
+      (state) => state.workspaces.byId[workspaceId]
+    );
+    const workspaceShareUrl = useKanbanStore(
+      (state) => state.workspaceShareUrls[workspaceId]
+    );
+    const isSharedWorkspace =
+      workspace?.isShared === true ||
+      !!workspaceShareUrl ||
+      !!workspace?.shareToken;
+    // For shared workspaces, AI is always enabled
+    // For local workspaces, user must explicitly opt-in
+    const isAiEnabled = isSharedWorkspace || workspace?.aiEnabled === true;
+
     // Subscribe to streamVersion to force re-renders during streaming
     const streamVersion = useAiStore(
       (state) => state.conversations[workspaceId]?.streamVersion ?? 0
     );
     const messages = useAiStore(
       (state) => state.conversations[workspaceId]?.messages
+    );
+    const conversationTitle = useAiStore(
+      (state) => state.conversations[workspaceId]?.title
     );
     // Use streamVersion in a way that doesn't trigger lint warnings
     // This ensures we re-render when chunks arrive
@@ -105,6 +140,10 @@ export const AiDrawerContent = memo(
     const clearConversation = useAiStore((state) => state.clearConversation);
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
+    const setTitle = useAiStore((state) => state.setTitle);
+    const loadServerConversation = useAiStore(
+      (state) => state.loadServerConversation
+    );
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Memoize messages with stable empty array fallback
@@ -139,6 +178,62 @@ export const AiDrawerContent = memo(
       setMounted(true);
     }, []);
 
+    // Sync conversation from server on mount and periodically check for title
+    // Only for shared workspaces - local workspaces keep messages in local storage only
+    useEffect(() => {
+      // Skip server sync for local workspaces - they use local storage only
+      if (!isSharedWorkspace) {
+        return;
+      }
+
+      if (!(isAuthenticated && workspaceId) || isClearing) {
+        return;
+      }
+
+      const syncFromServer = async () => {
+        // Double-check isClearing before syncing
+        if (isClearingRef.current) {
+          return;
+        }
+
+        try {
+          const serverConversation = await fetchConversation(workspaceId);
+          if (serverConversation && !isClearingRef.current) {
+            loadServerConversation(
+              workspaceId,
+              serverConversation.messages,
+              serverConversation.title
+            );
+          }
+        } catch (error) {
+          logger.warn({ error }, "Failed to sync conversation from server");
+        }
+      };
+
+      syncFromServer();
+
+      // Also periodically check for title updates (in case async title generation completed)
+      const intervalId = setInterval(() => {
+        if (
+          !conversationTitle &&
+          messagesList.length >= 4 &&
+          !isClearingRef.current
+        ) {
+          syncFromServer();
+        }
+      }, 10_000);
+
+      return () => clearInterval(intervalId);
+    }, [
+      isAuthenticated,
+      workspaceId,
+      isSharedWorkspace,
+      loadServerConversation,
+      conversationTitle,
+      messagesList.length,
+      isClearing,
+    ]);
+
     const handleSend = useCallback(() => {
       const content = inputValue.trim();
       if (!content || isStreaming) {
@@ -169,15 +264,46 @@ export const AiDrawerContent = memo(
             workspaceId,
             message: content,
             context: currentContext,
+            // Only send snapshot if tools might be needed
+            workspaceSnapshot: buildWorkspaceSnapshotIfNeeded(
+              workspaceId,
+              content
+            ),
             history,
+            // For local workspaces, don't persist conversation to server DB
+            ephemeral: !isSharedWorkspace,
           },
           {
             onContentDelta: (chunk) => {
               appendStreamChunk(workspaceId, assistantId, chunk);
             },
+            onToolCallStart: (toolName, toolCallId) => {
+              logger.debug({ toolName, toolCallId }, "Tool call started");
+              useAiStore
+                .getState()
+                .appendToolCall(workspaceId, assistantId, toolName, toolCallId);
+            },
+            onToolCallResult: (toolCallId, result) => {
+              useAiStore
+                .getState()
+                .updateToolResult(workspaceId, assistantId, toolCallId, result);
+            },
+            onActionInstruction: (_toolCallId, instruction, message) => {
+              // Execute action instructions locally for ephemeral workspaces
+              logger.debug({ message }, "Action instruction received");
+              const store = useKanbanStore.getState();
+              const resultMessage = executeActionInstruction(
+                store,
+                instruction as ActionInstruction
+              );
+              logger.info({ resultMessage }, "Action executed");
+            },
             onMessageComplete: () => {
               completeStream(workspaceId, assistantId);
               abortControllerRef.current = null;
+            },
+            onTitleGenerated: (title) => {
+              setTitle(workspaceId, title);
             },
             onError: (error) => {
               setStreamError(workspaceId, assistantId, error);
@@ -193,6 +319,7 @@ export const AiDrawerContent = memo(
     }, [
       inputValue,
       isStreaming,
+      isSharedWorkspace,
       workspaceId,
       currentContext,
       messagesList,
@@ -201,6 +328,7 @@ export const AiDrawerContent = memo(
       appendStreamChunk,
       completeStream,
       setStreamError,
+      setTitle,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
@@ -209,14 +337,33 @@ export const AiDrawerContent = memo(
     }, []);
 
     const handleCancel = useCallback(() => {
-      // Abort the HTTP request if in progress
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
-      // Update store state
       cancelStream();
     }, [cancelStream]);
+
+    const handleClearConversation = useCallback(async () => {
+      setShowClearConfirm(false);
+      setIsClearing(true);
+      isClearingRef.current = true;
+
+      try {
+        // Clear server first to prevent sync from bringing messages back
+        await clearServerConversation(workspaceId);
+      } catch (error) {
+        logger.warn({ error }, "Failed to clear conversation on server");
+      }
+
+      clearConversation(workspaceId);
+
+      // Small delay before allowing sync again to ensure state is settled
+      setTimeout(() => {
+        setIsClearing(false);
+        isClearingRef.current = false;
+      }, 100);
+    }, [workspaceId, clearConversation]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -338,6 +485,72 @@ export const AiDrawerContent = memo(
                 </motion.div>
               </motion.div>
             )}
+            {isAuthenticated && !isAiEnabled && (
+              <motion.div
+                animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                transition={{ duration: 0.3 }}
+              >
+                <motion.div
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className={cn(
+                    "w-full max-w-72 rounded-2xl p-5",
+                    "bg-card/95 backdrop-blur-md",
+                    "border border-border/50",
+                    "shadow-[0_8px_30px_rgba(0,0,0,0.15),inset_0_2px_4px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(255,255,255,0.06)]",
+                    "dark:shadow-[0_8px_30px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  )}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <div className="mb-4 flex justify-center">
+                    <LarityOrb size="lg" speed={0.3} />
+                  </div>
+                  <h4 className="mb-1 text-center font-medium text-foreground text-sm">
+                    AI Assistant Disabled
+                  </h4>
+                  <p className="mb-4 text-center text-muted-foreground text-xs">
+                    This is a local workspace. Enable Larity to get AI
+                    assistance with your tasks.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-muted/40 font-medium text-muted-foreground text-xs",
+                        "border border-border/40",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                        "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                        "hover:border-border/60 hover:bg-muted/60",
+                        "transition-all duration-200"
+                      )}
+                      onClick={onClose}
+                      type="button"
+                    >
+                      Close
+                    </button>
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-primary font-medium text-primary-foreground text-xs",
+                        "shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+                        "hover:bg-primary/90",
+                        "transition-all duration-200"
+                      )}
+                      onClick={() => setShowOptInDialog(true)}
+                      type="button"
+                    >
+                      Enable AI
+                    </button>
+                  </div>
+                  <p className="mt-3 text-center text-[9px] text-muted-foreground/60">
+                    Your data will be sent to our servers for AI processing
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
             {isStreaming && mounted && (
               <motion.div
                 animate={{ opacity: 1 }}
@@ -397,9 +610,9 @@ export const AiDrawerContent = memo(
           >
             <div className="flex items-center gap-2.5">
               <LarityOrb size="md" speed={isStreaming ? 0.8 : 0.4} />
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">
-                  Larity — Work, illuminated
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate font-semibold text-foreground text-sm">
+                  {conversationTitle || "Larity — Work, illuminated"}
                 </h3>
                 <p className="text-[10px] text-muted-foreground">
                   {isOffline ? (
@@ -416,6 +629,55 @@ export const AiDrawerContent = memo(
             </div>
 
             <div className="flex items-center gap-2">
+              {!isSharedWorkspace && isAiEnabled && (
+                <div className="relative">
+                  <button
+                    aria-label="Privacy info"
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-lg",
+                      "text-muted-foreground hover:text-foreground",
+                      "hover:bg-muted/80",
+                      "transition-all duration-200"
+                    )}
+                    onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                    type="button"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                  <AnimatePresence>
+                    {showPrivacyInfo && (
+                      <motion.div
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn(
+                          "absolute top-full right-0 z-50 mt-2 w-64 rounded-xl p-3",
+                          "bg-card/98 backdrop-blur-xl",
+                          "border border-border/50",
+                          "shadow-[0_4px_12px_rgba(0,0,0,0.15)]",
+                          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
+                        )}
+                        exit={{ opacity: 0, y: -4 }}
+                        initial={{ opacity: 0, y: -4 }}
+                      >
+                        <p className="mb-2 font-medium text-foreground text-xs">
+                          Local Workspace Privacy
+                        </p>
+                        <ul className="space-y-1 text-[10px] text-muted-foreground">
+                          <li>• Chat history stored locally in your browser</li>
+                          <li>• Workspace data sent for AI context only</li>
+                          <li>• No data persisted on our servers</li>
+                        </ul>
+                        <button
+                          className="mt-2 text-[10px] text-primary hover:underline"
+                          onClick={() => setShowPrivacyInfo(false)}
+                          type="button"
+                        >
+                          Got it
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
               {messagesList.length > 0 && (
                 <button
                   aria-label="Clear conversation"
@@ -561,10 +823,7 @@ export const AiDrawerContent = memo(
                           "hover:border-destructive/50 hover:bg-destructive/20",
                           "transition-all duration-200"
                         )}
-                        onClick={() => {
-                          clearConversation(workspaceId);
-                          setShowClearConfirm(false);
-                        }}
+                        onClick={handleClearConversation}
                         type="button"
                       >
                         Clear
@@ -663,6 +922,14 @@ export const AiDrawerContent = memo(
                 ]
               : []),
           ]}
+        />
+
+        <AiOptInDialog
+          isOpen={showOptInDialog}
+          onClose={() => setShowOptInDialog(false)}
+          onConfirm={() => setShowOptInDialog(false)}
+          workspaceId={workspaceId}
+          workspaceName={workspace?.name ?? "Workspace"}
         />
       </motion.div>
     );

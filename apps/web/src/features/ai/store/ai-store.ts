@@ -3,15 +3,18 @@ import type {
   ContextSnapshot,
   PendingAction,
 } from "@lumen/ai/types";
+import { createLogger } from "@lumen/logger";
 import { addSpanEvent, getTracer } from "@lumen/logger/tracer";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
+const logger = createLogger({ name: "[client] ai/store" });
 const tracer = getTracer("lumen-ai");
 
 export type WorkspaceAiState = {
   messages: AiMessage[];
+  title: string | null;
   isStreaming: boolean;
   streamingMessageId: string | null;
   streamVersion: number;
@@ -48,6 +51,20 @@ export type AiActions = {
     workspaceId: string,
     messageId: string,
     chunk: string
+  ) => void;
+
+  appendToolCall: (
+    workspaceId: string,
+    messageId: string,
+    toolName: string,
+    toolCallId: string
+  ) => void;
+
+  updateToolResult: (
+    workspaceId: string,
+    messageId: string,
+    toolCallId: string,
+    result: unknown
   ) => void;
 
   completeStream: (workspaceId: string, messageId: string) => void;
@@ -89,12 +106,19 @@ export type AiActions = {
   removeFromSyncQueue: (id: string) => void;
   getConversation: (workspaceId: string) => WorkspaceAiState;
   getMessages: (workspaceId: string) => AiMessage[];
+  setTitle: (workspaceId: string, title: string) => void;
+  loadServerConversation: (
+    workspaceId: string,
+    messages: AiMessage[],
+    title: string | null
+  ) => void;
 };
 
 export type AiStore = AiState & AiActions;
 
 const createEmptyConversation = (): WorkspaceAiState => ({
   messages: [],
+  title: null,
   isStreaming: false,
   streamingMessageId: null,
   streamVersion: 0,
@@ -169,6 +193,64 @@ export const useAiStore = create<AiStore>()(
               message.content += chunk;
             }
             // Increment version to force re-renders on each chunk
+            conv.streamVersion += 1;
+          }
+        });
+      },
+
+      appendToolCall: (workspaceId, messageId, toolName, toolCallId) => {
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              if (!message.toolCalls) {
+                message.toolCalls = [];
+              }
+              // Check if tool call already exists to prevent duplicates
+              if (!message.toolCalls.some((tc) => tc.id === toolCallId)) {
+                message.toolCalls.push({
+                  id: toolCallId,
+                  name: toolName,
+                  arguments: {},
+                });
+              }
+              // For legacy/single tool support
+              message.toolName = toolName;
+              message.toolCallId = toolCallId;
+            }
+            conv.streamVersion += 1;
+          }
+        });
+      },
+
+      updateToolResult: (workspaceId, messageId, toolCallId, result) => {
+        logger.debug(
+          {
+            workspaceId,
+            messageId,
+            toolCallId,
+            resultPresent: result !== undefined && result !== null,
+            resultType: typeof result,
+          },
+          "Updating tool result"
+        );
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              // find matching tool call and assign result
+              const matchingToolCall = message.toolCalls?.find(
+                (tc) => tc.id === toolCallId
+              );
+              if (matchingToolCall) {
+                matchingToolCall.result = result;
+              } else {
+                // fallback for legacy single result
+                message.toolResult = result;
+              }
+            }
             conv.streamVersion += 1;
           }
         });
@@ -395,6 +477,75 @@ export const useAiStore = create<AiStore>()(
       getMessages: (workspaceId) => {
         const state = get();
         return state.conversations[workspaceId]?.messages || [];
+      },
+
+      setTitle: (workspaceId, title) => {
+        set((state) => {
+          if (!state.conversations[workspaceId]) {
+            state.conversations[workspaceId] = createEmptyConversation();
+          }
+          state.conversations[workspaceId].title = title;
+        });
+      },
+
+      loadServerConversation: (workspaceId, messages, title) => {
+        set((state) => {
+          if (!state.conversations[workspaceId]) {
+            state.conversations[workspaceId] = createEmptyConversation();
+          }
+          const conv = state.conversations[workspaceId];
+
+          // Get latest timestamp from incoming messages
+          const incomingLastActive =
+            messages.length > 0 ? messages.at(-1)?.createdAt : null;
+
+          // Get latest timestamp from existing conversation
+          const existingLastActive =
+            conv.messages.length > 0 ? conv.messages.at(-1)?.createdAt : null;
+
+          // Compare timestamps to decide which conversation is newer
+          const shouldPreferIncoming =
+            !existingLastActive ||
+            (incomingLastActive && incomingLastActive > existingLastActive);
+
+          if (shouldPreferIncoming) {
+            // Incoming conversation is newer or equal, use it as base
+            conv.messages = messages;
+            conv.lastActiveAt = incomingLastActive || new Date().toISOString();
+          } else if (incomingLastActive === existingLastActive) {
+            // Timestamps are equal, merge messages by ID to avoid duplicates
+            const messageMap = new Map();
+            // Add existing messages
+            for (const msg of conv.messages) {
+              messageMap.set(msg.id, msg);
+            }
+            // Add or replace with incoming messages
+            for (const msg of messages) {
+              messageMap.set(msg.id, msg);
+            }
+            conv.messages = Array.from(messageMap.values()).sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime()
+            );
+          }
+
+          // Update title only if incoming title is present and either newer or conv.title is empty
+          if (title && (!conv.title || shouldPreferIncoming)) {
+            conv.title = title;
+          }
+
+          // Ensure lastActiveAt is set to the latest timestamp
+          const latestTimestamp =
+            incomingLastActive && existingLastActive
+              ? incomingLastActive > existingLastActive
+                ? incomingLastActive
+                : existingLastActive
+              : incomingLastActive ||
+                existingLastActive ||
+                new Date().toISOString();
+          conv.lastActiveAt = latestTimestamp;
+        });
       },
     })),
     {

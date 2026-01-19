@@ -1,6 +1,7 @@
 {
   "extends": "@lumen/configs/base.json",
   "compilerOptions": {
+    "rootDir": "./src",
     "outDir": "dist",
     "module": "ESNext",
     "moduleResolution": "bundler"

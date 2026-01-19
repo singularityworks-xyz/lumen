@@ -27,6 +27,8 @@ type SliceCreator = (
   | "setDeletedSharedWorkspace"
   | "resetWorkspace"
   | "duplicateWorkspace"
+  | "enableWorkspaceAi"
+  | "disableWorkspaceAi"
   | "openWorkspaceQuickActions"
   | "closeWorkspaceQuickActions"
   | "updateWorkspaceQuickActionsPosition"
@@ -159,6 +161,8 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       description,
       created_at: new Date().toISOString(),
       board_ids: [],
+      // Local workspaces have AI disabled by default for privacy
+      aiEnabled: false,
     };
 
     set((state) => {
@@ -166,17 +170,11 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       state.workspaces.allIds.push(id);
     });
 
-    logger.info({ id, name }, "Workspace created");
+    logger.info({ id, name }, "Local workspace created");
 
-    // Persist to backend metadata table (fire and forget)
-    fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ id, name, description }),
-    }).catch((error) => {
-      logger.error({ id, error }, "Failed to create workspace metadata");
-    });
+    // NOTE: We intentionally do NOT sync local workspaces to the backend.
+    // Local workspaces are stored only in IndexedDB for privacy.
+    // Syncing only happens when the user explicitly shares the workspace.
 
     return id;
   },
@@ -187,8 +185,13 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       if (workspace) {
         Object.assign(workspace, updates);
 
-        // Persist to backend metadata table (fire and forget)
-        if (updates.name || updates.description) {
+        // Only sync to backend if this is a shared workspace
+        // Local workspaces stay local for privacy
+        const shareUrl = state.workspaceShareUrls[workspaceId];
+        const isSharedWorkspace =
+          workspace.isShared === true || !!shareUrl || !!workspace.shareToken;
+
+        if (isSharedWorkspace && (updates.name || updates.description)) {
           fetch(`${NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -620,6 +623,24 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     set((state) => {
       if (state.workspaceDialog) {
         state.workspaceDialog.inputValue = value;
+      }
+    }),
+
+  enableWorkspaceAi: (workspaceId) =>
+    set((state) => {
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.aiEnabled = true;
+        logger.info({ workspaceId }, "AI enabled for workspace");
+      }
+    }),
+
+  disableWorkspaceAi: (workspaceId) =>
+    set((state) => {
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.aiEnabled = false;
+        logger.info({ workspaceId }, "AI disabled for workspace");
       }
     }),
 

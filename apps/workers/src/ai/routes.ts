@@ -1,4 +1,10 @@
-import { buildSystemPrompt, type StreamEvent } from "@lumen/ai";
+import {
+  type ActionInstructionData,
+  buildSystemPrompt,
+  getToolsForMessage,
+  type StreamEvent,
+  type ToolExecutionResult,
+} from "@lumen/ai";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import {
@@ -6,163 +12,26 @@ import {
   recordSpanError,
   SpanStatusCode,
 } from "@lumen/logger/tracer";
-import { streamText } from "ai";
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { getCollaborator } from "../collab/helpers";
 import { toHeaders } from "../utils/headers";
 import {
-  recordAiError,
-  recordAiRequest,
-  recordModelFallback,
-  recordRateLimitHit,
-  recordStreamDuration,
-} from "./metrics";
-import {
-  getModel,
-  getModelChain,
-  isAiEnabled,
-  isRateLimitError,
-} from "./providers";
+  addMessage,
+  clearConversation,
+  getOrCreateConversation,
+  toApiMessages,
+} from "./chats/conversation-service";
+import { buildMessagesFromHistory } from "./lib/message-builder";
+import { recordAiRequest, recordStreamDuration } from "./lib/metrics";
+import { getQueueStats, isUpstashEnabled } from "./lib/request-queue";
+import { streamWithFallback } from "./lib/streaming";
+import type { HistoryMessage } from "./lib/types";
+import { generateMessageId, parseRateLimitError } from "./lib/utils";
+import { isAiEnabled } from "./providers";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
-const RETRY_MATCH_REGEX = /retry in (\d+(?:\.\d+)?)/i;
-
-function generateMessageId(): string {
-  return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
-function parseRateLimitError(error: unknown): {
-  isRateLimit: boolean;
-  retryAfterSeconds?: number;
-  message: string;
-} {
-  if (!(error instanceof Error)) {
-    return { isRateLimit: false, message: "An error occurred" };
-  }
-
-  const errorMessage = error.message;
-
-  if (isRateLimitError(error)) {
-    const retryMatch = errorMessage.match(RETRY_MATCH_REGEX);
-    const retryAfterSeconds = retryMatch
-      ? Math.ceil(Number.parseFloat(retryMatch[1]))
-      : 60;
-
-    return {
-      isRateLimit: true,
-      retryAfterSeconds,
-      message: `Rate limit reached. Please wait ${retryAfterSeconds} seconds before trying again.`,
-    };
-  }
-
-  return { isRateLimit: false, message: errorMessage };
-}
-
-async function* streamWithFallback(
-  systemPrompt: string,
-  messages: Array<{ role: "user" | "assistant"; content: string }>,
-  workspaceId: string,
-  messageId: string
-): AsyncGenerator<{ chunk: string; modelUsed: string }, void, unknown> {
-  const modelChain = getModelChain();
-
-  for (let i = 0; i < modelChain.length; i++) {
-    const modelName = modelChain[i];
-    const isLastModel = i === modelChain.length - 1;
-
-    // Create a child span for each model attempt
-    const modelSpan = tracer.startSpan(`ai.model.${modelName}`, {
-      attributes: {
-        "ai.model": modelName,
-        "ai.attempt": i + 1,
-        "ai.total_models": modelChain.length,
-        "ai.is_fallback": i > 0,
-        "ai.workspace_id": workspaceId,
-        "ai.message_id": messageId,
-      },
-    });
-
-    try {
-      logger.info("Attempting model", {
-        workspaceId,
-        messageId,
-        model: modelName,
-        attempt: i + 1,
-        totalModels: modelChain.length,
-        isFallback: i > 0,
-      });
-
-      const model = getModel(modelName);
-      const result = streamText({
-        model,
-        system: systemPrompt,
-        messages,
-      });
-
-      modelSpan.addEvent("ai.stream_start");
-
-      for await (const chunk of result.textStream) {
-        yield { chunk, modelUsed: modelName };
-      }
-
-      // Success - record metrics and end span
-      modelSpan.addEvent("ai.stream_complete");
-      modelSpan.setStatus({ code: SpanStatusCode.OK });
-      modelSpan.end();
-
-      logger.info("Model streaming completed", {
-        workspaceId,
-        messageId,
-        model: modelName,
-        isFallback: i > 0,
-      });
-      return;
-    } catch (error) {
-      const rateLimited = isRateLimitError(error);
-
-      // Record error on span
-      recordSpanError(modelSpan, error);
-      modelSpan.setAttribute("ai.rate_limited", rateLimited);
-      modelSpan.end();
-
-      logger.warn("Model failed", {
-        workspaceId,
-        messageId,
-        model: modelName,
-        isRateLimit: rateLimited,
-        error: error instanceof Error ? error.message : "Unknown",
-        willTryNext: !isLastModel && rateLimited,
-      });
-
-      // Record metrics
-      if (rateLimited) {
-        recordRateLimitHit({ model: modelName });
-        recordAiError({ model: modelName, errorType: "rate_limit" });
-      } else {
-        recordAiError({ model: modelName, errorType: "api_error" });
-      }
-
-      // Only try next model if this was a rate limit error
-      if (!rateLimited || isLastModel) {
-        throw error;
-      }
-
-      // Record fallback metric
-      if (i + 1 < modelChain.length) {
-        const nextModel = modelChain[i + 1];
-        recordModelFallback({
-          fromModel: modelName,
-          toModel: nextModel,
-          reason: "rate_limit",
-        });
-      }
-    }
-  }
-
-  throw new Error("All models exhausted");
-}
 
 export const aiRoutes = new Elysia({ name: "ai-routes" })
   .get("/api/ai/health", () => ({
@@ -174,7 +43,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     "/api/ai/chat",
     // biome-ignore lint/suspicious/useAwait: Necessary for streaming response
     async ({ body, headers, set }) => {
-      const { workspaceId, message, context: _context, history } = body;
+      const {
+        workspaceId,
+        message,
+        context: _context,
+        history,
+        workspaceSnapshot,
+        ephemeral,
+      } = body;
 
       return tracer.startActiveSpan("ai.chat", async (span) => {
         const streamStartTime = performance.now();
@@ -201,40 +77,44 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         span.setAttribute("ai.user_id", session.user.id);
 
         // Verify workspace access - check if user is owner or collaborator
-        // Note: Local workspaces may not exist in the database yet, so absence
-        // doesn't mean unauthorized - we allow access to local workspaces
         const workspaceAccess = await prisma.workspace.findUnique({
           where: { id: workspaceId },
           select: { ownerId: true },
         });
 
-        if (workspaceAccess) {
-          // Workspace exists in database - verify user has access
-          const isOwner = workspaceAccess.ownerId === session.user.id;
-          if (!isOwner) {
-            const collaborator = await getCollaborator(
+        if (!workspaceAccess) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: "Not Found: Workspace does not exist",
+          });
+          span.end();
+          set.status = 404;
+          return { error: "Workspace not found" };
+        }
+
+        const isOwner = workspaceAccess.ownerId === session.user.id;
+        if (!isOwner) {
+          const collaborator = await getCollaborator(
+            workspaceId,
+            session.user.id
+          );
+          if (!collaborator) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "Forbidden: User is not a member of this workspace",
+            });
+            span.end();
+            set.status = 403;
+            logger.warn("Unauthorized workspace access attempt", {
+              userId: session.user.id,
               workspaceId,
-              session.user.id
-            );
-            if (!collaborator) {
-              span.setStatus({
-                code: SpanStatusCode.ERROR,
-                message: "Forbidden: User is not a member of this workspace",
-              });
-              span.end();
-              set.status = 403;
-              logger.warn("Unauthorized workspace access attempt", {
-                userId: session.user.id,
-                workspaceId,
-                operation: "ai.chat",
-              });
-              return {
-                error: "Access denied: You are not a member of this workspace",
-              };
-            }
+              operation: "ai.chat",
+            });
+            return {
+              error: "Access denied: You are not a member of this workspace",
+            };
           }
         }
-        // If workspace doesn't exist in DB, assume it's a local workspace owned by the user
 
         if (!isAiEnabled()) {
           span.setStatus({
@@ -277,7 +157,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             },
           });
 
-          // Calculate total members including owner if they're not in collaborators
           const ownerIncluded = workspace?.owner
             ? collaborators.some((c) => c.user.id === workspace.owner.id)
               ? 0
@@ -303,22 +182,32 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
 
-          const messages: Array<{
-            role: "user" | "assistant";
-            content: string;
-          }> = [];
+          // Only persist conversation for non-ephemeral (shared) workspaces
+          let conversation: { id: string } | null = null;
+          if (ephemeral) {
+            span.setAttribute("ai.ephemeral", true);
+            logger.debug("Ephemeral mode - skipping conversation persistence", {
+              workspaceId,
+            });
+          } else {
+            conversation = await getOrCreateConversation(workspaceId);
+            span.setAttribute("ai.conversation_id", conversation.id);
 
-          if (history) {
-            for (const msg of history) {
-              if (msg.role === "user" || msg.role === "assistant") {
-                messages.push({
-                  role: msg.role,
-                  content: msg.content,
-                });
-              }
-            }
+            const userMessageId = generateMessageId();
+            await addMessage(conversation.id, {
+              id: userMessageId,
+              role: "user",
+              content: message,
+              contextSnapshot: _context,
+            });
           }
 
+          // Build messages from history
+          const messages = history
+            ? buildMessagesFromHistory(history as HistoryMessage[])
+            : [];
+
+          // Add current user message
           messages.push({
             role: "user",
             content: message,
@@ -329,6 +218,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return (async function* () {
             let modelUsed = "unknown";
             let fullContent = "";
+            let hasToolCalls = false;
+            const toolCalls: Array<{
+              toolCallId: string;
+              toolName: string;
+              timestamp: string;
+              instruction?: ActionInstructionData;
+              result?: ToolExecutionResult;
+            }> = [];
 
             try {
               const startEvent: StreamEvent = {
@@ -338,22 +235,77 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               yield sse({ event: "message", data: startEvent });
 
               try {
-                for await (const {
-                  chunk,
-                  modelUsed: model,
-                } of streamWithFallback(
+                const tools = getToolsForMessage(message);
+                const streamCtx = {
+                  workspaceId,
+                  userId: session.user.id,
+                  snapshot: workspaceSnapshot,
+                  ephemeral: ephemeral ?? false,
+                };
+
+                for await (const part of streamWithFallback({
                   systemPrompt,
                   messages,
-                  workspaceId,
-                  messageId
-                )) {
-                  modelUsed = model;
-                  fullContent += chunk;
-                  const deltaEvent: StreamEvent = {
-                    type: "content_delta",
-                    content: chunk,
-                  };
-                  yield sse({ event: "message", data: deltaEvent });
+                  messageId,
+                  tools,
+                  ctx: streamCtx,
+                })) {
+                  modelUsed = part.modelUsed;
+
+                  if (part.type === "chunk") {
+                    fullContent += part.chunk;
+                    const deltaEvent: StreamEvent = {
+                      type: "content_delta",
+                      content: part.chunk,
+                    };
+                    yield sse({ event: "message", data: deltaEvent });
+                  } else if (part.type === "tool_call") {
+                    hasToolCalls = true;
+                    toolCalls.push({
+                      toolCallId: part.toolCallId,
+                      toolName: part.toolName,
+                      timestamp: new Date().toISOString(),
+                    });
+                    const toolEvent: StreamEvent = {
+                      type: "tool_call_start",
+                      toolName: part.toolName,
+                      toolCallId: part.toolCallId,
+                    };
+                    yield sse({ event: "message", data: toolEvent });
+                  } else if (part.type === "tool_result") {
+                    // Update existing tool call with result
+                    const existingToolCall = toolCalls.find(
+                      (tc) => tc.toolCallId === part.toolCallId
+                    );
+                    if (existingToolCall) {
+                      existingToolCall.result =
+                        part.output as ToolExecutionResult;
+                      existingToolCall.timestamp = new Date().toISOString();
+                    }
+                    const resultEvent: StreamEvent = {
+                      type: "tool_call_result",
+                      toolCallId: part.toolCallId,
+                      result: part.output,
+                    };
+                    yield sse({ event: "message", data: resultEvent });
+                  } else if (part.type === "action_instruction") {
+                    hasToolCalls = true;
+                    // Update existing tool call with instruction
+                    const existingToolCall = toolCalls.find(
+                      (tc) => tc.toolCallId === part.toolCallId
+                    );
+                    if (existingToolCall) {
+                      existingToolCall.instruction = part.instruction;
+                      existingToolCall.timestamp = new Date().toISOString();
+                    }
+                    const actionEvent: StreamEvent = {
+                      type: "action_instruction",
+                      toolCallId: part.toolCallId,
+                      instruction: part.instruction,
+                      message: part.message,
+                    };
+                    yield sse({ event: "message", data: actionEvent });
+                  }
                 }
               } catch (streamError) {
                 const parsedError = parseRateLimitError(streamError);
@@ -395,8 +347,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               const streamDuration =
                 (performance.now() - streamStartTime) / 1000;
 
-              // Check if we got empty content (might indicate a silent error)
-              if (fullContent.length === 0) {
+              if (fullContent.length === 0 && !hasToolCalls) {
                 logger.warn("AI stream completed with empty content", {
                   workspaceId,
                   messageId,
@@ -439,7 +390,50 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: completeEvent });
 
-              // Record success metrics
+              // Only save assistant message for non-ephemeral workspaces
+              if (conversation) {
+                try {
+                  const { titleWillGenerate } = await addMessage(
+                    conversation.id,
+                    {
+                      id: messageId,
+                      role: "assistant",
+                      content: fullContent,
+                      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                    }
+                  );
+
+                  // Create tool messages for each tool result
+                  for (const toolCall of toolCalls) {
+                    if (toolCall.result) {
+                      await addMessage(conversation.id, {
+                        id: `tool_${toolCall.toolCallId}`,
+                        role: "tool",
+                        content: JSON.stringify(toolCall.result),
+                        toolCallId: toolCall.toolCallId,
+                        toolName: toolCall.toolName,
+                      });
+                    }
+                  }
+
+                  if (titleWillGenerate) {
+                    span.setAttribute("ai.title_generation_started", true);
+                    logger.info("Title generation started asynchronously", {
+                      conversationId: conversation.id,
+                    });
+                  }
+                } catch (saveError) {
+                  logger.error("Failed to save assistant message", {
+                    workspaceId,
+                    messageId,
+                    error:
+                      saveError instanceof Error
+                        ? saveError.message
+                        : "Unknown",
+                  });
+                }
+              }
+
               recordStreamDuration(streamDuration, {
                 model: modelUsed,
                 success: true,
@@ -450,7 +444,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 status: "success",
               });
 
-              // Set final span attributes
               span.setAttribute("ai.model_used", modelUsed);
               span.setAttribute("ai.response_length", fullContent.length);
               span.setAttribute("ai.stream_duration_seconds", streamDuration);
@@ -473,7 +466,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               const streamDuration =
                 (performance.now() - streamStartTime) / 1000;
 
-              // Record error metrics
               recordStreamDuration(streamDuration, {
                 model: modelUsed,
                 success: false,
@@ -506,7 +498,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
           const parsedError = parseRateLimitError(error);
 
-          // Record error metrics
           recordAiRequest({
             model: "unknown",
             workspaceId,
@@ -545,6 +536,55 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             viewportZoom: t.Number(),
           })
         ),
+        workspaceSnapshot: t.Optional(
+          t.Object({
+            name: t.String(),
+            boards: t.Array(
+              t.Object({
+                id: t.String(),
+                name: t.String(),
+                description: t.Optional(t.String()),
+                accentColor: t.Optional(t.String()),
+                icon: t.Optional(t.String()),
+                columns: t.Array(
+                  t.Object({
+                    id: t.String(),
+                    name: t.String(),
+                    description: t.Optional(t.String()),
+                    position: t.Number(),
+                    accentColor: t.Optional(t.String()),
+                    icon: t.Optional(t.String()),
+                    tasks: t.Array(
+                      t.Object({
+                        id: t.String(),
+                        title: t.String(),
+                        description: t.Optional(t.String()),
+                        priority: t.Union([
+                          t.Literal("low"),
+                          t.Literal("medium"),
+                          t.Literal("high"),
+                          t.Literal("urgent"),
+                        ]),
+                        status: t.Union([
+                          t.Literal("todo"),
+                          t.Literal("in_progress"),
+                          t.Literal("done"),
+                          t.Literal("blocked"),
+                          t.Literal("cancelled"),
+                        ]),
+                        progress: t.Number(),
+                        position: t.Number(),
+                        dueDate: t.Optional(t.String()),
+                        tags: t.Optional(t.Array(t.String())),
+                        assignedTo: t.Optional(t.String()),
+                      })
+                    ),
+                  })
+                ),
+              })
+            ),
+          })
+        ),
         history: t.Optional(
           t.Array(
             t.Object({
@@ -554,9 +594,165 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 t.Literal("tool"),
               ]),
               content: t.String(),
+              toolCalls: t.Optional(
+                t.Array(
+                  t.Object({
+                    id: t.String(),
+                    name: t.String(),
+                    arguments: t.Record(t.String(), t.Unknown()),
+                  })
+                )
+              ),
+              toolCallId: t.Optional(t.String()),
+              toolName: t.Optional(t.String()),
+              toolResult: t.Optional(t.Unknown()),
             })
           )
         ),
+        /** If true, don't persist conversation to database (for local workspaces) */
+        ephemeral: t.Optional(t.Boolean()),
       }),
     }
-  );
+  )
+
+  .get(
+    "/api/ai/conversation/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
+        }
+      }
+
+      try {
+        const conversation = await getOrCreateConversation(workspaceId);
+        const messages = await toApiMessages(conversation.messages);
+        return {
+          id: conversation.id,
+          workspaceId: conversation.workspaceId,
+          title: conversation.title,
+          messageCount: conversation.messageCount,
+          messages,
+          lastActiveAt: conversation.lastActiveAt.toISOString(),
+          createdAt: conversation.createdAt.toISOString(),
+        };
+      } catch (error) {
+        logger.error("Failed to get conversation", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to load conversation" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+      }),
+    }
+  )
+
+  .delete(
+    "/api/ai/conversation/:workspaceId",
+    async ({ params, headers, set }) => {
+      const { workspaceId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
+        }
+      }
+
+      try {
+        const conversation = await prisma.aiConversation.findUnique({
+          where: { workspaceId },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          await clearConversation(conversation.id);
+          logger.info("Conversation cleared", {
+            workspaceId,
+            userId: session.user.id,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to clear conversation", {
+          workspaceId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to clear conversation" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+      }),
+    }
+  )
+
+  .get("/api/ai/queue-stats", () => {
+    const stats = getQueueStats();
+    return {
+      queueLength: stats.queueLength,
+      remaining: stats.remaining,
+      activeRequests: stats.activeRequests,
+      isProcessing: stats.isProcessing,
+      usingUpstash: isUpstashEnabled(),
+      rateLimit: 30,
+      windowSizeSeconds: 60,
+    };
+  });
