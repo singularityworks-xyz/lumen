@@ -632,17 +632,34 @@ export const AiDrawerContent = memo(
           </AnimatePresence>
           <div
             className={cn(
-              "flex items-center justify-between px-4 py-3",
+              "flex items-center justify-between gap-3 px-4 py-3",
               "border-border/50 border-b",
               "bg-linear-to-b from-muted/50 to-transparent"
             )}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <LarityOrb size="md" speed={isStreaming ? 0.8 : 0.4} />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate font-semibold text-foreground text-sm">
+              <div className="group relative min-w-0 flex-1">
+                <h3 className="max-w-45 truncate font-semibold text-foreground text-sm">
                   {conversationTitle || "Larity — Work, illuminated"}
                 </h3>
+                {conversationTitle && conversationTitle.length > 20 && (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute top-full left-0 z-50 mt-2",
+                      "max-w-70 rounded-lg px-3 py-2",
+                      "bg-card/98 backdrop-blur-xl",
+                      "border border-border/50",
+                      "opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+                      "shadow-[0_4px_12px_rgba(0,0,0,0.15)]",
+                      "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
+                    )}
+                  >
+                    <p className="font-medium text-foreground text-xs">
+                      {conversationTitle}
+                    </p>
+                  </div>
+                )}
                 <p className="text-[10px] text-muted-foreground">
                   {isOffline ? (
                     <span className="flex items-center gap-1 text-yellow-500">
@@ -657,7 +674,7 @@ export const AiDrawerContent = memo(
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {!isSharedWorkspace && isAiEnabled && (
                 <div className="relative">
                   <button
