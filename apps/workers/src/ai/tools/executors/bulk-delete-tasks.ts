@@ -1,18 +1,17 @@
-import type { BulkDeleteTasksParams } from "@lumen/ai/tools";
+import type {
+  BulkDeleteTasksParams,
+  ExecutorContext,
+  ToolExecutionResult,
+} from "@lumen/ai/tools";
 import { type Column, type Task, YJS_MAP_NAMES } from "@lumen/yjs-shared";
-import {
-  type ExecutorContext,
-  getWorkspaceDoc,
-  logger,
-  type ToolExecutionResult,
-} from "./shared";
+import { getWorkspaceYjsDoc, logger } from "./yjs-accessor";
 
 export async function executeBulkDeleteTasks(
   params: BulkDeleteTasksParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
   try {
-    const doc = await getWorkspaceDoc(ctx.workspaceId);
+    const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {
       return { success: false, error: "Workspace not loaded" };
     }

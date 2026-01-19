@@ -1,18 +1,17 @@
-import type { CreateBoardParams } from "@lumen/ai/tools";
+import type {
+  CreateBoardParams,
+  ExecutorContext,
+  ToolExecutionResult,
+} from "@lumen/ai/tools";
 import { type Board, type Column, YJS_MAP_NAMES } from "@lumen/yjs-shared";
-import {
-  type ExecutorContext,
-  getWorkspaceDoc,
-  logger,
-  type ToolExecutionResult,
-} from "./shared";
+import { getWorkspaceYjsDoc, logger } from "./yjs-accessor";
 
 export async function executeCreateBoard(
   params: CreateBoardParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
   try {
-    const doc = await getWorkspaceDoc(ctx.workspaceId);
+    const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {
       return { success: false, error: "Workspace not loaded" };
     }

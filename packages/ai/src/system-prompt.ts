@@ -122,17 +122,26 @@ export function buildSystemPrompt(context?: SystemPromptContext): string {
 
     if (context.workspaceName) {
       contextSection += `- **Workspace**: "${context.workspaceName}"`;
-      // Explicitly state workspace type
+      // Explicitly state workspace type and its implications
       if (context.isShared) {
         const memberText =
           context.totalMembers && context.totalMembers > 1
             ? ` with ${context.totalMembers} members`
             : "";
-        contextSection += ` — **Shared workspace**${memberText}`;
+        contextSection += ` — **Shared workspace**${memberText}\n`;
+        contextSection +=
+          "  - Your actions sync to all members in real-time via the server\n";
+        contextSection +=
+          "  - Conversation history is saved and persists across sessions\n";
       } else {
-        contextSection += " — **Personal workspace** (only you have access)";
+        contextSection += " — **Local workspace** (private, browser-only)\n";
+        contextSection += `  - Your actions are applied locally in the user's browser\n`;
+        contextSection +=
+          "  - Data is stored in browser storage only (not synced to server)\n";
+        contextSection += `  - This conversation is ephemeral and won't be saved\n`;
+        contextSection +=
+          "  - If user wants collaboration or cloud backup, suggest sharing the workspace\n";
       }
-      contextSection += "\n";
     }
 
     // List other collaborators if shared

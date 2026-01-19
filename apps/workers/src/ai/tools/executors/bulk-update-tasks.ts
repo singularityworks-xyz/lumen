@@ -1,19 +1,18 @@
-import type { BulkUpdateTasksParams } from "@lumen/ai/tools";
-import { type Task, YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import {
+  type BulkUpdateTasksParams,
   type ExecutorContext,
-  getWorkspaceDoc,
-  logger,
   mapPriority,
   type ToolExecutionResult,
-} from "./shared";
+} from "@lumen/ai/tools";
+import { type Task, YJS_MAP_NAMES } from "@lumen/yjs-shared";
+import { getWorkspaceYjsDoc, logger } from "./yjs-accessor";
 
 export async function executeBulkUpdateTasks(
   params: BulkUpdateTasksParams,
   ctx: ExecutorContext
 ): Promise<ToolExecutionResult> {
   try {
-    const doc = await getWorkspaceDoc(ctx.workspaceId);
+    const doc = await getWorkspaceYjsDoc(ctx.workspaceId);
     if (!doc) {
       return { success: false, error: "Workspace not loaded" };
     }
