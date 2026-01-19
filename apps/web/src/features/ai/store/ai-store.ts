@@ -3,11 +3,13 @@ import type {
   ContextSnapshot,
   PendingAction,
 } from "@lumen/ai/types";
+import { createLogger } from "@lumen/logger";
 import { addSpanEvent, getTracer } from "@lumen/logger/tracer";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
+const logger = createLogger({ name: "[client] ai/store" });
 const tracer = getTracer("lumen-ai");
 
 export type WorkspaceAiState = {
@@ -222,11 +224,10 @@ export const useAiStore = create<AiStore>()(
       },
 
       updateToolResult: (workspaceId, messageId, _toolCallId, result) => {
-        console.log("[AI Store] Updating tool result", {
-          workspaceId,
-          messageId,
-          result,
-        });
+        logger.debug(
+          { workspaceId, messageId, result },
+          "Updating tool result"
+        );
         set((state) => {
           const conv = state.conversations[workspaceId];
           if (conv) {

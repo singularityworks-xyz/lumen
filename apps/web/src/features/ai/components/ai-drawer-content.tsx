@@ -3,6 +3,7 @@
 import type { ActionInstruction } from "@lumen/ai/tools";
 import type { ContextSnapshot } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
+import { createLogger } from "@lumen/logger";
 import { PulsingBorder } from "@paper-design/shaders-react";
 import {
   ChevronRight,
@@ -32,6 +33,8 @@ import LarityOrb from "./animations/larity-orb";
 import { SendButton } from "./animations/send-button";
 import { MessageBubble } from "./message-bubble";
 import { SuggestionChip } from "./suggestion-chip";
+
+const logger = createLogger({ name: "[client] ai/drawer" });
 
 const heartbitFrames = [
   [],
@@ -202,7 +205,7 @@ export const AiDrawerContent = memo(
             );
           }
         } catch (error) {
-          console.warn("Failed to sync conversation from server:", error);
+          logger.warn({ error }, "Failed to sync conversation from server");
         }
       };
 
@@ -270,7 +273,7 @@ export const AiDrawerContent = memo(
               appendStreamChunk(workspaceId, assistantId, chunk);
             },
             onToolCallStart: (toolName, toolCallId) => {
-              console.log("[AI] Tool Call Start:", toolName, toolCallId);
+              logger.debug({ toolName, toolCallId }, "Tool call started");
               useAiStore
                 .getState()
                 .appendToolCall(workspaceId, assistantId, toolName, toolCallId);
@@ -282,13 +285,13 @@ export const AiDrawerContent = memo(
             },
             onActionInstruction: (_toolCallId, instruction, message) => {
               // Execute action instructions locally for ephemeral workspaces
-              console.log("[AI] Action instruction received:", message);
+              logger.debug({ message }, "Action instruction received");
               const store = useKanbanStore.getState();
               const resultMessage = executeActionInstruction(
                 store,
                 instruction as ActionInstruction
               );
-              console.log("[AI] Action executed:", resultMessage);
+              logger.info({ resultMessage }, "Action executed");
             },
             onMessageComplete: () => {
               completeStream(workspaceId, assistantId);
@@ -344,7 +347,7 @@ export const AiDrawerContent = memo(
         // Clear server first to prevent sync from bringing messages back
         await clearServerConversation(workspaceId);
       } catch (error) {
-        console.warn("Failed to clear conversation on server:", error);
+        logger.warn({ error }, "Failed to clear conversation on server");
       }
 
       clearConversation(workspaceId);

@@ -1,5 +1,6 @@
 import { needsTools } from "@lumen/ai/tools";
 import type { AiMessage, ContextSnapshot, StreamEvent } from "@lumen/ai/types";
+import { createLogger } from "@lumen/logger";
 import {
   EventStreamContentType,
   fetchEventSource,
@@ -7,6 +8,7 @@ import {
 import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
+const logger = createLogger({ name: "[client] ai/api-client" });
 const API_BASE = env.NEXT_PUBLIC_API_URL;
 
 export type ChatStreamCallbacks = {
@@ -360,7 +362,7 @@ export async function fetchConversation(
 
     return await response.json();
   } catch (error) {
-    console.error("Failed to fetch conversation:", error);
+    logger.error({ error }, "Failed to fetch conversation");
     return null;
   }
 }
@@ -379,7 +381,7 @@ export async function clearServerConversation(
 
     return response.ok;
   } catch (error) {
-    console.error("Failed to clear conversation:", error);
+    logger.error({ error }, "Failed to clear conversation");
     return false;
   }
 }
