@@ -45,6 +45,7 @@ type ToolCall = {
   id: string;
   name: string;
   arguments?: Record<string, unknown>;
+  result?: unknown;
 };
 
 type ToolCallFlowProps = {
@@ -159,13 +160,12 @@ export const ToolCallFlow = memo(
       <div className={cn("flex flex-col gap-1.5", className)}>
         <AnimatePresence mode="popLayout">
           {toolCalls.map((toolCall, index) => {
+            const result = toolCall.result ?? toolResult;
             const isSuccess =
-              toolResult &&
-              typeof toolResult === "object" &&
-              "success" in toolResult
-                ? (toolResult as { success: boolean }).success
+              result && typeof result === "object" && "success" in result
+                ? (result as { success: boolean }).success
                 : false;
-            const isCompleted = toolResult !== undefined;
+            const isCompleted = result !== undefined;
             const isExpanded = expandedIds.has(toolCall.id);
 
             if (isCompleted) {
@@ -252,7 +252,7 @@ export const ToolCallFlow = memo(
                             style={customTheme}
                             wrapLongLines
                           >
-                            {formatOutput(toolResult)}
+                            {formatOutput(result)}
                           </SyntaxHighlighter>
                         </div>
                       </motion.div>

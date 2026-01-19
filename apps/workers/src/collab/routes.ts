@@ -1178,10 +1178,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
 
   .delete(
     "/api/workspaces/:workspaceId",
-    ({ params, headers, set }) => {
+    ({ params, headers, set, query }) => {
       return withSpanAsync("workspace.delete", async (span) => {
         const { workspaceId } = params;
-        setSpanAttributes({ workspaceId });
+        const ephemeral = query.ephemeral === "true";
+        setSpanAttributes({ workspaceId, ephemeral });
 
         const session = await auth.api.getSession({
           headers: toHeaders(headers),
@@ -1190,6 +1191,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         if (!session) {
           set.status = 401;
           return { error: "Unauthorized" };
+        }
+
+        if (ephemeral) {
+          roomManager.deleteRoom(workspaceId);
+          return { success: true };
         }
 
         // Check if user is owner

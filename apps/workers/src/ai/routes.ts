@@ -76,43 +76,44 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
         span.setAttribute("ai.user_id", session.user.id);
 
-        // Verify workspace access - check if user is owner or collaborator
-        const workspaceAccess = await prisma.workspace.findUnique({
-          where: { id: workspaceId },
-          select: { ownerId: true },
-        });
-
-        if (!workspaceAccess) {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: "Not Found: Workspace does not exist",
+        if (!ephemeral) {
+          const workspaceAccess = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { ownerId: true },
           });
-          span.end();
-          set.status = 404;
-          return { error: "Workspace not found" };
-        }
 
-        const isOwner = workspaceAccess.ownerId === session.user.id;
-        if (!isOwner) {
-          const collaborator = await getCollaborator(
-            workspaceId,
-            session.user.id
-          );
-          if (!collaborator) {
+          if (!workspaceAccess) {
             span.setStatus({
               code: SpanStatusCode.ERROR,
-              message: "Forbidden: User is not a member of this workspace",
+              message: "Not Found: Workspace does not exist",
             });
             span.end();
-            set.status = 403;
-            logger.warn("Unauthorized workspace access attempt", {
-              userId: session.user.id,
+            set.status = 404;
+            return { error: "Workspace not found" };
+          }
+
+          const isOwner = workspaceAccess.ownerId === session.user.id;
+          if (!isOwner) {
+            const collaborator = await getCollaborator(
               workspaceId,
-              operation: "ai.chat",
-            });
-            return {
-              error: "Access denied: You are not a member of this workspace",
-            };
+              session.user.id
+            );
+            if (!collaborator) {
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: "Forbidden: User is not a member of this workspace",
+              });
+              span.end();
+              set.status = 403;
+              logger.warn("Unauthorized workspace access attempt", {
+                userId: session.user.id,
+                workspaceId,
+                operation: "ai.chat",
+              });
+              return {
+                error: "Access denied: You are not a member of this workspace",
+              };
+            }
           }
         }
 
@@ -138,44 +139,49 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         });
 
         try {
-          const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: {
-              name: true,
-              owner: {
-                select: { id: true, name: true, email: true },
-              },
-            },
-          });
-          const collaborators = await prisma.workspaceCollaborator.findMany({
-            where: { workspaceId },
-            select: {
-              role: true,
-              user: {
-                select: { id: true, name: true },
-              },
-            },
-          });
+          const workspaceName = ephemeral
+            ? workspaceSnapshot?.name
+            : (
+                await prisma.workspace.findUnique({
+                  where: { id: workspaceId },
+                  select: { name: true },
+                })
+              )?.name;
 
-          const ownerIncluded = workspace?.owner
-            ? collaborators.some((c) => c.user.id === workspace.owner.id)
-              ? 0
-              : 1
-            : 0;
-          const totalMembers = collaborators.length + ownerIncluded;
-          const isShared = totalMembers > 1;
+          let isShared = false;
+          let totalMembers = 1;
+          let collaboratorList: Array<{
+            name: string;
+            role: "owner" | "admin" | "member" | "viewer";
+          }> = [];
 
-          const collaboratorList = collaborators
-            .filter((c) => c.user.id !== session.user.id)
-            .map((c) => ({
-              name: c.user.name ?? "Unknown",
-              role: c.role as "owner" | "admin" | "member" | "viewer",
-            }));
+          if (!ephemeral) {
+            const collaborators = await prisma.workspaceCollaborator.findMany({
+              where: { workspaceId },
+              select: {
+                role: true,
+                user: {
+                  select: { id: true, name: true },
+                },
+              },
+            });
+
+            const ownerIncluded = 1;
+            totalMembers = collaborators.length + ownerIncluded;
+            isShared = totalMembers > 1;
+
+            collaboratorList = collaborators
+              .filter((c) => c.user.id !== session.user.id)
+              .map((c) => ({
+                name: c.user.name ?? "Unknown",
+                role: c.role as "owner" | "admin" | "member" | "viewer",
+              }));
+          }
 
           const systemPrompt = buildSystemPrompt({
             userName: session.user.name ?? undefined,
             workspaceId,
-            workspaceName: workspace?.name ?? undefined,
+            workspaceName: workspaceName ?? undefined,
             isShared,
             totalMembers,
             collaborators:
@@ -617,8 +623,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
   .get(
     "/api/ai/conversation/:workspaceId",
-    async ({ params, headers, set }) => {
+    async ({ params, headers, set, query }) => {
       const { workspaceId } = params;
+      const ephemeral = query.ephemeral === "true";
 
       const session = await auth.api.getSession({
         headers: toHeaders(headers),
@@ -626,6 +633,18 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       if (!session) {
         set.status = 401;
         return { error: "Unauthorized" };
+      }
+
+      if (ephemeral) {
+        return {
+          id: `ephemeral-${workspaceId}`,
+          workspaceId,
+          title: null,
+          messageCount: 0,
+          messages: [],
+          lastActiveAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        };
       }
 
       const workspaceAccess = await prisma.workspace.findUnique({
@@ -680,8 +699,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
   .delete(
     "/api/ai/conversation/:workspaceId",
-    async ({ params, headers, set }) => {
+    async ({ params, headers, set, query }) => {
       const { workspaceId } = params;
+      const ephemeral = query.ephemeral === "true";
 
       const session = await auth.api.getSession({
         headers: toHeaders(headers),
@@ -689,6 +709,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       if (!session) {
         set.status = 401;
         return { error: "Unauthorized" };
+      }
+
+      if (ephemeral) {
+        return { success: true };
       }
 
       const workspaceAccess = await prisma.workspace.findUnique({
