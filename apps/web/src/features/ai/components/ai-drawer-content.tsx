@@ -643,7 +643,8 @@ export const AiDrawerContent = memo(
                           "absolute top-full right-0 z-50 mt-2 w-64 rounded-xl p-3",
                           "bg-card/98 backdrop-blur-xl",
                           "border border-border/50",
-                          "shadow-lg"
+                          "shadow-[0_4px_12px_rgba(0,0,0,0.15)]",
+                          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
                         )}
                         exit={{ opacity: 0, y: -4 }}
                         initial={{ opacity: 0, y: -4 }}
