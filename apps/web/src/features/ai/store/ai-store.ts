@@ -487,16 +487,57 @@ export const useAiStore = create<AiStore>()(
             state.conversations[workspaceId] = createEmptyConversation();
           }
           const conv = state.conversations[workspaceId];
-          if (
-            conv.messages.length === 0 ||
-            messages.length > conv.messages.length
-          ) {
+
+          // Get latest timestamp from incoming messages
+          const incomingLastActive =
+            messages.length > 0 ? messages.at(-1)?.createdAt : null;
+
+          // Get latest timestamp from existing conversation
+          const existingLastActive =
+            conv.messages.length > 0 ? conv.messages.at(-1)?.createdAt : null;
+
+          // Compare timestamps to decide which conversation is newer
+          const shouldPreferIncoming =
+            !existingLastActive ||
+            (incomingLastActive && incomingLastActive > existingLastActive);
+
+          if (shouldPreferIncoming) {
+            // Incoming conversation is newer or equal, use it as base
             conv.messages = messages;
-            conv.title = title;
-            conv.lastActiveAt = new Date().toISOString();
-          } else if (title && !conv.title) {
+            conv.lastActiveAt = incomingLastActive || new Date().toISOString();
+          } else if (incomingLastActive === existingLastActive) {
+            // Timestamps are equal, merge messages by ID to avoid duplicates
+            const messageMap = new Map();
+            // Add existing messages
+            for (const msg of conv.messages) {
+              messageMap.set(msg.id, msg);
+            }
+            // Add or replace with incoming messages
+            for (const msg of messages) {
+              messageMap.set(msg.id, msg);
+            }
+            conv.messages = Array.from(messageMap.values()).sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime()
+            );
+          }
+
+          // Update title only if incoming title is present and either newer or conv.title is empty
+          if (title && (!conv.title || shouldPreferIncoming)) {
             conv.title = title;
           }
+
+          // Ensure lastActiveAt is set to the latest timestamp
+          const latestTimestamp =
+            incomingLastActive && existingLastActive
+              ? incomingLastActive > existingLastActive
+                ? incomingLastActive
+                : existingLastActive
+              : incomingLastActive ||
+                existingLastActive ||
+                new Date().toISOString();
+          conv.lastActiveAt = latestTimestamp;
         });
       },
     })),

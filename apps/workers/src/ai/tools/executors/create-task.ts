@@ -62,8 +62,13 @@ export async function executeCreateTask(
       return { success: false, error: "Column not found" };
     }
 
+    // Verify column belongs to the target board
+    if (column.board_id !== board.id) {
+      return { success: false, error: "Column does not belong to board" };
+    }
+
     // Create task
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const taskId = globalThis.crypto.randomUUID();
     const now = new Date().toISOString();
 
     const newTask: Task = {

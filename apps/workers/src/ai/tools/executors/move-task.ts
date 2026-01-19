@@ -45,6 +45,11 @@ export async function executeMoveTask(
     }
 
     const sourceColumn = columnsMap.get(task.column_id) as Column | undefined;
+    const currentTaskIds = targetColumn.task_ids ?? [];
+    const insertIndex = Math.max(
+      0,
+      Math.min(params.position ?? currentTaskIds.length, currentTaskIds.length)
+    );
 
     doc.transact(() => {
       // Update task
@@ -52,7 +57,7 @@ export async function executeMoveTask(
         ...task,
         column_id: targetColumnId,
         board_id: targetColumn.board_id,
-        position: params.position ?? targetColumn.task_ids?.length ?? 0,
+        position: insertIndex,
         updated_at: new Date().toISOString(),
       };
       tasksMap.set(params.taskId, updatedTask);
@@ -69,11 +74,29 @@ export async function executeMoveTask(
 
       // Add to target column
       if (task.column_id !== targetColumnId) {
+        // Insert taskId at the specified position
+        const updatedTaskIds = [...currentTaskIds];
+        updatedTaskIds.splice(insertIndex, 0, params.taskId);
+
         const updatedTargetColumn: Column = {
           ...targetColumn,
-          task_ids: [...(targetColumn.task_ids ?? []), params.taskId],
+          task_ids: updatedTaskIds,
         };
         columnsMap.set(targetColumnId, updatedTargetColumn);
+
+        // Update positions for all tasks in the target column
+        for (let i = 0; i < updatedTaskIds.length; i++) {
+          const taskId = updatedTaskIds[i];
+          const columnTask = tasksMap.get(taskId) as Task | undefined;
+          if (columnTask) {
+            const updatedColumnTask: Task = {
+              ...columnTask,
+              position: i,
+              updated_at: new Date().toISOString(),
+            };
+            tasksMap.set(taskId, updatedColumnTask);
+          }
+        }
       }
     });
 
