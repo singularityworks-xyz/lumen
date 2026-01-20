@@ -131,8 +131,21 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return { error: "AI features are not configured" };
         }
 
-        const requestedMessageId = headers["x-assistant-message-id"];
-        const messageId = requestedMessageId || generateMessageId();
+        const rawMessageId = headers["x-assistant-message-id"];
+        let messageId: string | undefined;
+
+        if (typeof rawMessageId === "string") {
+          const trimmed = rawMessageId.trim();
+          // Basic validation: ensure it's not empty and reasonably sized
+          if (trimmed.length > 0 && trimmed.length < 100) {
+            messageId = trimmed;
+          }
+        }
+
+        if (!messageId) {
+          messageId = generateMessageId();
+        }
+
         span.setAttribute("ai.message_id", messageId);
 
         logger.info("Starting AI chat", {

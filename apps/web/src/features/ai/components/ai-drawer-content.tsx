@@ -350,9 +350,11 @@ export const AiDrawerContent = memo(
             },
             {
               onContentDelta: (chunk) => {
+                setClassifying(workspaceId, false);
                 appendStreamChunk(workspaceId, assistantId, chunk);
               },
               onToolCallStart: (toolName, toolCallId) => {
+                setClassifying(workspaceId, false);
                 logger.debug({ toolName, toolCallId }, "Tool call started");
                 useAiStore
                   .getState()
@@ -364,6 +366,7 @@ export const AiDrawerContent = memo(
                   );
               },
               onToolCallResult: (toolCallId, result) => {
+                setClassifying(workspaceId, false);
                 useAiStore
                   .getState()
                   .updateToolResult(
@@ -374,6 +377,7 @@ export const AiDrawerContent = memo(
                   );
               },
               onActionInstruction: (_toolCallId, instruction, message) => {
+                setClassifying(workspaceId, false);
                 logger.debug({ message }, "Action instruction received");
                 const store = useKanbanStore.getState();
                 const resultMessage = executeActionInstruction(
@@ -382,7 +386,17 @@ export const AiDrawerContent = memo(
                 );
                 logger.info({ resultMessage }, "Action executed");
               },
+              onConfirmationRequired: (_messageId, action) => {
+                setClassifying(workspaceId, false);
+                cancelStream();
+                setRequiresConfirmation(
+                  workspaceId,
+                  assistantId,
+                  action as PendingAction
+                );
+              },
               onMessageComplete: (completedMessage) => {
+                setClassifying(workspaceId, false);
                 completeStream(workspaceId, assistantId, completedMessage);
                 abortControllerRef.current = null;
 
@@ -409,12 +423,14 @@ export const AiDrawerContent = memo(
                 setTitle(workspaceId, title);
               },
               onError: (error) => {
+                setClassifying(workspaceId, false);
                 setStreamError(workspaceId, assistantId, error);
                 abortControllerRef.current = null;
               },
             }
           );
         } catch (error) {
+          setClassifying(workspaceId, false);
           const errorMessage =
             error instanceof Error ? error.message : "Failed to regenerate";
           setStreamError(workspaceId, assistantId, errorMessage);
@@ -431,6 +447,8 @@ export const AiDrawerContent = memo(
         setStreamError,
         setTitle,
         setClassifying,
+        cancelStream,
+        setRequiresConfirmation,
       ]
     );
 
