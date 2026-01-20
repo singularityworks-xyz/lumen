@@ -102,6 +102,8 @@ export type AiActions = {
     action: PendingAction
   ) => void;
 
+  resolveAction: (workspaceId: string, messageId: string) => void;
+
   clearConversation: (workspaceId: string) => void;
   deleteMessage: (workspaceId: string, messageId: string) => void;
 
@@ -283,18 +285,15 @@ export const useAiStore = create<AiStore>()(
               if (message) {
                 message.isStreaming = false;
                 if (finalMessage) {
-                  if (finalMessage.metadata) {
-                    message.metadata = finalMessage.metadata;
-                  }
-                  if (finalMessage.content) {
-                    // Ensure content matches server exactly
-                    message.content = finalMessage.content;
-                  }
+                  // Merge all properties from the final message from the server
+                  Object.assign(message, finalMessage);
                 }
                 span.setAttribute("ai.content_length", message.content.length);
               }
               conv.isStreaming = false;
               conv.streamingMessageId = null;
+              conv.isClassifying = false;
+              conv.lastActiveAt = new Date().toISOString();
               state.currentStreamId = null;
             }
           });
@@ -406,6 +405,19 @@ export const useAiStore = create<AiStore>()(
             if (message) {
               message.requiresConfirmation = true;
               message.pendingAction = action;
+            }
+          }
+        });
+      },
+
+      resolveAction: (workspaceId, messageId) => {
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              message.pendingAction = undefined;
+              message.requiresConfirmation = false;
             }
           }
         });

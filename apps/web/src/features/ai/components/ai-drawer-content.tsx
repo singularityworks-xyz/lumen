@@ -152,6 +152,7 @@ export const AiDrawerContent = memo(
     const setRequiresConfirmation = useAiStore(
       (state) => state.setRequiresConfirmation
     );
+    const resolveAction = useAiStore((state) => state.resolveAction);
     const loadServerConversation = useAiStore(
       (state) => state.loadServerConversation
     );
@@ -180,6 +181,29 @@ export const AiDrawerContent = memo(
       () => getSuggestionsForContext(currentContext),
       [currentContext]
     );
+
+    // Execute pending actions when confirmed
+    useEffect(() => {
+      for (const msg of messagesList) {
+        if (msg.requiresConfirmation && msg.confirmedAt && msg.pendingAction) {
+          const store = useKanbanStore.getState();
+          const instruction = {
+            type: msg.pendingAction.tool,
+            ...msg.pendingAction.params,
+          };
+
+          try {
+            // @ts-expect-error - Dynamic instruction type
+            executeActionInstruction(store, instruction);
+            logger.info("Executed confirmed action via effect");
+          } catch (e) {
+            logger.error({ error: e }, "Failed to execute action via effect");
+          } finally {
+            resolveAction(workspaceId, msg.id);
+          }
+        }
+      }
+    }, [messagesList, workspaceId, resolveAction]);
 
     // Auto-scroll to bottom on new messages
     // biome-ignore lint/correctness/useExhaustiveDependencies: Only scroll on message count change
@@ -251,7 +275,7 @@ export const AiDrawerContent = memo(
     ]);
 
     const handleRegenerate = useCallback(
-      (messageId: string) => {
+      async (messageId: string) => {
         const conv = useAiStore.getState().conversations[workspaceId];
         if (!conv) {
           return;
@@ -295,15 +319,16 @@ export const AiDrawerContent = memo(
         deleteMessage(workspaceId, messageId);
 
         if (isSharedWorkspace) {
-          deleteServerMessage(workspaceId, messageId).catch(
-            (error: unknown) => {
-              logger.warn({ error }, "Failed to delete message from server");
-            }
-          );
+          try {
+            await deleteServerMessage(workspaceId, messageId);
+          } catch (error) {
+            logger.warn({ error }, "Failed to delete message from server");
+          }
         }
 
         // Start streaming
         const assistantId = addAssistantMessage(workspaceId, "");
+        setClassifying(workspaceId, true);
 
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
@@ -321,6 +346,7 @@ export const AiDrawerContent = memo(
               ),
               history,
               ephemeral: !isSharedWorkspace,
+              assistantMessageId: assistantId,
             },
             {
               onContentDelta: (chunk) => {
@@ -404,6 +430,7 @@ export const AiDrawerContent = memo(
         completeStream,
         setStreamError,
         setTitle,
+        setClassifying,
       ]
     );
 
@@ -452,6 +479,7 @@ export const AiDrawerContent = memo(
             history,
             // For local workspaces, don't persist conversation to server DB
             ephemeral: !isSharedWorkspace,
+            assistantMessageId: assistantId,
           },
           {
             onQueueStatus: ({ isQueued }) => {
@@ -496,7 +524,7 @@ export const AiDrawerContent = memo(
             },
             onConfirmationRequired: (_messageId, action) => {
               setClassifying(workspaceId, false);
-              // Use assistantId because that's the message we're streaming into
+              cancelStream();
               setRequiresConfirmation(
                 workspaceId,
                 assistantId,
@@ -560,6 +588,7 @@ export const AiDrawerContent = memo(
       addAssistantMessage,
       appendStreamChunk,
       completeStream,
+      cancelStream,
       setStreamError,
       setTitle,
       setClassifying,
@@ -1111,25 +1140,6 @@ export const AiDrawerContent = memo(
                     const lastMsg = messagesList.at(-1);
                     if (lastMsg) {
                       confirmAction(workspaceId, lastMsg.id, true);
-
-                      if (lastMsg.pendingAction) {
-                        const store = useKanbanStore.getState();
-                        const instruction = {
-                          type: lastMsg.pendingAction.tool,
-                          ...lastMsg.pendingAction.params,
-                        };
-
-                        try {
-                          // @ts-expect-error - Dynamic instruction type
-                          executeActionInstruction(store, instruction);
-                          logger.info("Executed confirmed action");
-                        } catch (e) {
-                          logger.error(
-                            { error: e },
-                            "Failed to execute confirmed action"
-                          );
-                        }
-                      }
                     }
                   }}
                   type="button"

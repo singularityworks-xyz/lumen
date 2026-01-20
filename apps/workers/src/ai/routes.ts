@@ -131,7 +131,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return { error: "AI features are not configured" };
         }
 
-        const messageId = generateMessageId();
+        const requestedMessageId = headers["x-assistant-message-id"];
+        const messageId = requestedMessageId || generateMessageId();
         span.setAttribute("ai.message_id", messageId);
 
         logger.info("Starting AI chat", {

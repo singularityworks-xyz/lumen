@@ -208,7 +208,7 @@ class ClassifierQueue {
 
     logger.debug("Classification request received", {
       requestId: id,
-      messagePreview: message.slice(0, 50),
+      messageLength: message.length,
       queueLength: position,
       activeCount: this.activeCount,
       hasContext: !!previousMessage,
@@ -427,7 +427,6 @@ If the previous message asked for confirmation and the user says "yes" or "confi
         requestId: logId,
         durationMs,
         responseLength: text.length,
-        rawResponse: text.slice(0, 200),
       });
 
       try {
@@ -454,7 +453,6 @@ If the previous message asked for confirmation and the user says "yes" or "confi
         logger.warn("LLM response parsing failed, using keyword fallback", {
           requestId: logId,
           durationMs,
-          rawResponse: text.slice(0, 200),
           error:
             parseError instanceof Error
               ? parseError.message
@@ -499,7 +497,8 @@ const classifierQueue = new ClassifierQueue();
 
 // Classify a message to determine which tools are needed.
 // Uses LLM for intelligent classification with keyword fallback.
-// Respects privacy - only sends the message text, no workspace data.
+// Note: Sends user message and previous assistant message (truncated) for context awareness.
+// Does NOT send the full workspace snapshot or database content.
 export async function classifyToolIntent(
   message: string,
   apiKey: string,
@@ -509,15 +508,19 @@ export async function classifyToolIntent(
   classification: ClassificationResult;
   queueStatus: QueueStatus;
 }> {
+  // Truncate previous message to avoid sending excessive data, while keeping enough for context
+  // e.g. "Confirm deletion of task?" usually fits in <200 chars.
+  const truncatedContext = previousMessage?.slice(0, 1000);
+
   logger.debug("classifyToolIntent called", {
-    messagePreview: message.slice(0, 50),
+    messageLength: message.length,
     hasContext: !!previousMessage,
   });
 
   const { result, queueStatus } = await classifierQueue.enqueue(
     message,
     apiKey,
-    previousMessage
+    truncatedContext
   );
 
   // Convert classification to tool selection

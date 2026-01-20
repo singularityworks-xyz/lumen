@@ -171,6 +171,7 @@ export type ChatRequest = {
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
+  assistantMessageId?: string;
 };
 
 class FatalError extends Error {
@@ -191,6 +192,9 @@ export function streamChat(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(request.assistantMessageId
+        ? { "x-assistant-message-id": request.assistantMessageId }
+        : {}),
     },
     credentials: "include",
     body: JSON.stringify(request),

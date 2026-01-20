@@ -279,8 +279,6 @@ export async function* streamWithFallback(
         logger.info("Adding tool-call to assistant message", {
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
-          inputType: typeof tc.input,
-          inputValue: JSON.stringify(tc.input),
         });
         assistantContent.push(toolCallContent);
       }
@@ -289,8 +287,8 @@ export async function* streamWithFallback(
         role: "assistant" as const,
         content: assistantContent,
       };
-      logger.info("Assistant message for step 2", {
-        message: JSON.stringify(assistantMsg),
+      logger.info(`Assistant message for step ${step + 1}`, {
+        contentLength: assistantContent.length,
       });
       messages.push(assistantMsg);
 
@@ -303,8 +301,8 @@ export async function* streamWithFallback(
           output: { type: "json" as const, value: tc.output },
         })),
       };
-      logger.info("Tool message for step 2", {
-        message: JSON.stringify(toolMsg),
+      logger.info(`Tool message for step ${step + 1}`, {
+        toolCallCount: toolCallsInStep.length,
       });
       messages.push(toolMsg);
 
