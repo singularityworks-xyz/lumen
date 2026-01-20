@@ -1,4 +1,21 @@
 import { actionTools, allTools, queryTools } from "./definitions";
+import {
+  type ClassificationResult,
+  classifyToolIntentSync,
+  classifyToolIntent as llmClassifyToolIntent,
+  type QueueStatus,
+} from "./tool-classifier";
+import type { ToolSelection } from "./types";
+
+// biome-ignore lint/performance/noBarrelFile: Re-export queue stats function
+export { getClassifierQueueStats } from "./tool-classifier";
+// Re-export types from shared types
+export type {
+  ClassificationResult,
+  QueueStatus,
+  ToolIntent,
+  ToolSelection,
+} from "./types";
 
 const ACTION_KEYWORDS = [
   "create",
@@ -56,14 +73,6 @@ const TASK_KEYWORDS = [
   "todos",
 ];
 const COLUMN_KEYWORDS = ["column", "columns", "lane", "lanes", "list", "lists"];
-
-export type ToolIntent = "none" | "query" | "action" | "both";
-
-export type ToolSelection = {
-  intent: ToolIntent;
-  tools: typeof allTools | typeof queryTools | typeof actionTools | null;
-  reason: string;
-};
 
 // Analyzes message to determine if tools are needed
 export function detectToolIntent(message: string): ToolSelection {
@@ -167,4 +176,29 @@ export function getToolsForMessage(message: string) {
 export function needsTools(message: string): boolean {
   const selection = detectToolIntent(message);
   return selection.intent !== "none";
+}
+
+// Async tool selection using LLM classifier with keyword fallback.
+// This is the recommended way to select tools for a message.
+export async function getToolsForMessageAsync(
+  message: string,
+  apiKey: string
+): Promise<{
+  tools: typeof allTools | typeof queryTools | typeof actionTools | null;
+  classification: ClassificationResult;
+  queueStatus: QueueStatus;
+}> {
+  const { selection, classification, queueStatus } =
+    await llmClassifyToolIntent(message, apiKey);
+  return {
+    tools: selection.tools,
+    classification,
+    queueStatus,
+  };
+}
+
+// Sync tool selection using keyword matching only.
+// Use this as a fallback when LLM classification is not available.
+export function getToolsForMessageSync(message: string) {
+  return classifyToolIntentSync(message).tools;
 }

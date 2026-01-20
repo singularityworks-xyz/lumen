@@ -251,11 +251,13 @@ export async function* streamWithFallback(
 
       for (const tc of toolCallsInStep) {
         // IMPORTANT: The openai-compatible provider reads 'input', not 'args'!
-        // Despite ToolCallPart interface saying 'args', the provider uses 'input'
+        // But AI SDK Core expects 'args' for type validation.
+        // We provide both to satisfy everyone.
         const toolCallContent: ToolCallPart = {
           type: "tool-call",
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
+          args: tc.input,
           input: tc.input,
         };
         logger.info("Adding tool-call to assistant message", {

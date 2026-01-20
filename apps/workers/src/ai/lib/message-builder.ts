@@ -48,6 +48,7 @@ export function buildMessagesFromHistory(
             type: "tool-call" as const,
             toolCallId: tc.id,
             toolName: tc.name,
+            args: tc.arguments ?? {},
             input: tc.arguments ?? {},
           });
         }

@@ -32,8 +32,14 @@ export type WorkspaceSnapshot = {
         id: string;
         title: string;
         description?: string;
-        priority: "low" | "medium" | "high";
-        status: "todo" | "done" | "trash";
+        priority: "low" | "medium" | "high" | "urgent";
+        status:
+          | "todo"
+          | "in_progress"
+          | "done"
+          | "blocked"
+          | "cancelled"
+          | "trash";
         progress: number;
         position: number;
         dueDate?: string;

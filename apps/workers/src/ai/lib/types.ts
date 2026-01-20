@@ -9,8 +9,9 @@ export type ToolCallPart = {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
+  args: Record<string, unknown>;
   // NOTE: Despite AI SDK docs saying 'args', openai-compatible provider reads 'input'
-  input: Record<string, unknown>;
+  input?: Record<string, unknown>;
 };
 
 export type ToolResultPart = {

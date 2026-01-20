@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@lumen/configs": "workspace:^",
+    "@lumen/logger": "workspace:^",
     "@types/node": "^25.0.9",
     "typescript": "^5.9.3"
   },

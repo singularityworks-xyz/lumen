@@ -1,9 +1,11 @@
 import {
   type ActionInstructionData,
   buildSystemPrompt,
+  classifyToolIntent,
   getToolsForMessage,
   type StreamEvent,
   type ToolExecutionResult,
+  type ToolSelection,
 } from "@lumen/ai";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
@@ -15,6 +17,7 @@ import {
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { getCollaborator } from "../collab/helpers";
+import { env } from "../env";
 import { toHeaders } from "../utils/headers";
 import {
   addMessage,
@@ -253,7 +256,35 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               yield sse({ event: "message", data: startEvent });
 
               try {
-                const tools = getToolsForMessage(message);
+                // Use LLM-based tool classification with queue management
+                // Falls back to keyword matching if queue is full or LLM fails
+                let tools: ToolSelection["tools"] = null;
+                if (env.CEREBRAS_API_KEY) {
+                  try {
+                    const { selection, queueStatus } = await classifyToolIntent(
+                      message,
+                      env.CEREBRAS_API_KEY
+                    );
+                    tools = selection.tools;
+
+                    // Notify frontend if request was queued
+                    if (queueStatus.isQueued) {
+                      const queueEvent: StreamEvent = {
+                        type: "queue_status",
+                        position: queueStatus.position,
+                        estimatedWaitMs: queueStatus.estimatedWaitMs,
+                        isQueued: queueStatus.isQueued,
+                      };
+                      yield sse({ event: "message", data: queueEvent });
+                    }
+                  } catch {
+                    // Fallback to keyword-based selection
+                    tools = getToolsForMessage(message);
+                  }
+                } else {
+                  tools = getToolsForMessage(message);
+                }
+
                 const streamCtx = {
                   workspaceId,
                   userId: session.user.id,
