@@ -1,10 +1,23 @@
 "use client";
 
 import type { AiMessage } from "@lumen/ai/types";
-import { Brain, Check, ClockCheck, Copy, RotateCcw, Shell } from "lucide-react";
+import {
+  Brain,
+  Check,
+  ClockCheck,
+  Copy,
+  Info,
+  RotateCcw,
+  Shell,
+} from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { memo, useCallback, useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/src/components/ui/popover";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { DotLoader } from "./animations/dot-loader";
@@ -183,28 +196,62 @@ export const MessageBubble = memo(
 
           {!(isUser || isStreaming) && message.metadata && (
             <div className="flex w-full items-center justify-between px-1 opacity-70">
-              <div className="flex items-center gap-3">
-                {message.metadata.classifier && (
-                  <span
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground/60"
-                    title={`Classified as: ${message.metadata.classifier.intent}`}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex h-3 w-3 items-center justify-center text-muted-foreground/40 transition-colors hover:text-foreground"
+                    title="View details"
+                    type="button"
                   >
-                    <Brain className="h-3 w-3" />
-                  </span>
-                )}
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                  <Shell className="h-3 w-3" />
-                  {message.metadata.usage?.totalTokens
-                    ? `${formatTokens(message.metadata.usage.totalTokens)} tokens`
-                    : ""}
-                </span>
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                  <ClockCheck className="h-3 w-3" />
-                  {message.metadata.duration
-                    ? `${message.metadata.duration.toFixed(2)}s`
-                    : ""}
-                </span>
-              </div>
+                    {message.metadata.classifier ? (
+                      <Brain className="h-2.5 w-2.5" />
+                    ) : (
+                      <Info className="h-2.5 w-2.5" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className={cn(
+                    "w-auto p-2",
+                    "bg-muted/80 backdrop-blur-md",
+                    "border border-border/40",
+                    // Engraved effect
+                    "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.1),0_1px_0_rgba(255,255,255,0.5)]",
+                    "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_2px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.08)]"
+                  )}
+                >
+                  <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+                    {message.metadata.classifier && (
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-3 w-3" />
+                        <span>
+                          Intent:{" "}
+                          <span className="font-medium text-foreground">
+                            {message.metadata.classifier.intent}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Shell className="h-3 w-3" />
+                      <span>
+                        {message.metadata.usage?.totalTokens
+                          ? `${formatTokens(message.metadata.usage.totalTokens)} tokens`
+                          : "Unknown tokens"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ClockCheck className="h-3 w-3" />
+                      <span>
+                        {message.metadata.duration
+                          ? `${message.metadata.duration.toFixed(2)}s`
+                          : "Unknown duration"}
+                      </span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <div className="flex items-center gap-2">
                 <button
                   className="flex h-3 w-3 items-center justify-center text-muted-foreground/40 transition-colors hover:text-foreground"
