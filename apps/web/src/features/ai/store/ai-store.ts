@@ -16,6 +16,7 @@ export type WorkspaceAiState = {
   messages: AiMessage[];
   title: string | null;
   isStreaming: boolean;
+  isClassifying: boolean;
   streamingMessageId: string | null;
   streamVersion: number;
   lastActiveAt: string;
@@ -95,6 +96,12 @@ export type AiActions = {
     confirmed: boolean
   ) => void;
 
+  setRequiresConfirmation: (
+    workspaceId: string,
+    messageId: string,
+    action: PendingAction
+  ) => void;
+
   clearConversation: (workspaceId: string) => void;
   deleteMessage: (workspaceId: string, messageId: string) => void;
 
@@ -111,6 +118,7 @@ export type AiActions = {
   getConversation: (workspaceId: string) => WorkspaceAiState;
   getMessages: (workspaceId: string) => AiMessage[];
   setTitle: (workspaceId: string, title: string) => void;
+  setClassifying: (workspaceId: string, isClassifying: boolean) => void;
   loadServerConversation: (
     workspaceId: string,
     messages: AiMessage[],
@@ -124,6 +132,7 @@ const createEmptyConversation = (): WorkspaceAiState => ({
   messages: [],
   title: null,
   isStreaming: false,
+  isClassifying: false,
   streamingMessageId: null,
   streamVersion: 0,
   lastActiveAt: new Date().toISOString(),
@@ -378,12 +387,27 @@ export const useAiStore = create<AiStore>()(
                   // The actual action execution will be handled by the hook
                 } else {
                   message.confirmedAt = undefined;
+                  message.requiresConfirmation = false;
+                  message.pendingAction = undefined;
                 }
               }
             }
           });
 
           span.end();
+        });
+      },
+
+      setRequiresConfirmation: (workspaceId, messageId, action) => {
+        set((state) => {
+          const conv = state.conversations[workspaceId];
+          if (conv) {
+            const message = conv.messages.find((m) => m.id === messageId);
+            if (message) {
+              message.requiresConfirmation = true;
+              message.pendingAction = action;
+            }
+          }
         });
       },
 
@@ -498,6 +522,15 @@ export const useAiStore = create<AiStore>()(
             state.conversations[workspaceId] = createEmptyConversation();
           }
           state.conversations[workspaceId].title = title;
+        });
+      },
+
+      setClassifying: (workspaceId, isClassifying) => {
+        set((state) => {
+          if (!state.conversations[workspaceId]) {
+            state.conversations[workspaceId] = createEmptyConversation();
+          }
+          state.conversations[workspaceId].isClassifying = isClassifying;
         });
       },
 

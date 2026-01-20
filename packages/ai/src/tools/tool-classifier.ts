@@ -190,6 +190,7 @@ class ClassifierQueue {
     reject: (error: Error) => void;
     message: string;
     apiKey: string;
+    previousMessage?: string;
     timestamp: number;
   }> = [];
   private processing = false;
@@ -199,7 +200,8 @@ class ClassifierQueue {
 
   async enqueue(
     message: string,
-    apiKey: string
+    apiKey: string,
+    previousMessage?: string
   ): Promise<{ result: ClassificationResult; queueStatus: QueueStatus }> {
     const id = crypto.randomUUID();
     const position = this.queue.length;
@@ -209,6 +211,7 @@ class ClassifierQueue {
       messagePreview: message.slice(0, 50),
       queueLength: position,
       activeCount: this.activeCount,
+      hasContext: !!previousMessage,
     });
 
     // If queue is full, fall back to keyword matching immediately
@@ -248,7 +251,12 @@ class ClassifierQueue {
       });
       this.activeCount += 1;
       try {
-        const result = await this.classify(message, apiKey, id);
+        const result = await this.classify(
+          message,
+          apiKey,
+          id,
+          previousMessage
+        );
         return { result, queueStatus: { ...queueStatus, isQueued: false } };
       } finally {
         this.activeCount -= 1;
@@ -271,6 +279,7 @@ class ClassifierQueue {
         reject,
         message,
         apiKey,
+        previousMessage,
         timestamp: Date.now(),
       });
     });
@@ -314,7 +323,12 @@ class ClassifierQueue {
       this.activeCount += 1;
 
       try {
-        const result = await this.classify(item.message, item.apiKey, item.id);
+        const result = await this.classify(
+          item.message,
+          item.apiKey,
+          item.id,
+          item.previousMessage
+        );
         item.resolve(result);
       } catch (error) {
         logger.error("Classification failed for queued request", {
@@ -338,7 +352,8 @@ class ClassifierQueue {
   private async classify(
     message: string,
     apiKey: string,
-    requestId?: string
+    requestId?: string,
+    previousMessage?: string
   ): Promise<ClassificationResult> {
     const startTime = Date.now();
     const logId = requestId ?? "direct";
@@ -347,6 +362,7 @@ class ClassifierQueue {
       requestId: logId,
       model: CLASSIFIER_MODEL,
       messageLength: message.length,
+      hasContext: !!previousMessage,
     });
 
     const provider = createOpenAICompatible({
@@ -381,10 +397,14 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 Guidelines:
 - "none": General chat, greetings, questions about the AI itself, or requests that don't need workspace data
 - "query": Questions about workspace name, ID, members, boards, tasks, columns, activity, or any other workspace details
-- "action": Requests to create, update, delete, or modify anything
+- "action": Requests to create, update, delete, or modify anything, or CONFIRMING a previous action request (e.g. "yes", "do it")
 - "both": Complex requests that need both reading and writing
 
-Be generous with tool detection - if the user asks about the "workspace", "boards", or anything specific to the current context, use "query".`;
+Context:
+Previous Assistant Message: "${previousMessage || "none"}"
+
+Be generous with tool detection - if the user asks about the "workspace", "boards", or anything specific to the current context, use "query".
+If the previous message asked for confirmation and the user says "yes" or "confirm", classify as "action".`;
 
     try {
       const result = await generateText({
@@ -482,7 +502,8 @@ const classifierQueue = new ClassifierQueue();
 // Respects privacy - only sends the message text, no workspace data.
 export async function classifyToolIntent(
   message: string,
-  apiKey: string
+  apiKey: string,
+  previousMessage?: string
 ): Promise<{
   selection: ToolSelection;
   classification: ClassificationResult;
@@ -490,11 +511,13 @@ export async function classifyToolIntent(
 }> {
   logger.debug("classifyToolIntent called", {
     messagePreview: message.slice(0, 50),
+    hasContext: !!previousMessage,
   });
 
   const { result, queueStatus } = await classifierQueue.enqueue(
     message,
-    apiKey
+    apiKey,
+    previousMessage
   );
 
   // Convert classification to tool selection
@@ -508,8 +531,10 @@ export async function classifyToolIntent(
       toolCount = Object.keys(queryTools).length;
       break;
     case "action":
-      tools = actionTools;
-      toolCount = Object.keys(actionTools).length;
+      // Actions often require context (IDs, names) found via queries.
+      // So we provide all tools to ensure the model can look up what it needs.
+      tools = allTools;
+      toolCount = Object.keys(allTools).length;
       break;
     case "both":
       tools = allTools;

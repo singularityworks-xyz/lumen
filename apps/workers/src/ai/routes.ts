@@ -226,6 +226,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             content: message,
           });
 
+          // Find last assistant message for context
+          const lastAssistantMessage = history
+            ?.slice()
+            .reverse()
+            .find((m) => m.role === "assistant")?.content;
+
           span.addEvent("ai.stream_start");
 
           return (async function* () {
@@ -255,17 +261,28 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: startEvent });
 
+              // Use LLM-based tool classification with queue management
+              // Falls back to keyword matching if queue is full or LLM fails
+              let tools: ToolSelection["tools"] = null;
+              let classificationInfo:
+                | { intent: string; confidence: string; model: string }
+                | undefined;
+
               try {
-                // Use LLM-based tool classification with queue management
-                // Falls back to keyword matching if queue is full or LLM fails
-                let tools: ToolSelection["tools"] = null;
                 if (env.CEREBRAS_API_KEY) {
                   try {
-                    const { selection, queueStatus } = await classifyToolIntent(
-                      message,
-                      env.CEREBRAS_API_KEY
-                    );
+                    const { selection, classification, queueStatus } =
+                      await classifyToolIntent(
+                        message,
+                        env.CEREBRAS_API_KEY,
+                        lastAssistantMessage
+                      );
                     tools = selection.tools;
+                    classificationInfo = {
+                      intent: classification.intent,
+                      confidence: classification.confidence,
+                      model: "llama3.1-8b",
+                    };
 
                     // Notify frontend if request was queued
                     if (queueStatus.isQueued) {
@@ -355,6 +372,13 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       message: part.message,
                     };
                     yield sse({ event: "message", data: actionEvent });
+                  } else if (part.type === "confirmation_required") {
+                    const confirmEvent: StreamEvent = {
+                      type: "confirmation_required",
+                      messageId: part.messageId,
+                      action: part.action,
+                    };
+                    yield sse({ event: "message", data: confirmEvent });
                   } else if (part.type === "usage") {
                     totalUsage = part.usage;
                   }
@@ -442,6 +466,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     usage: totalUsage,
                     duration: streamDuration,
                     model: modelUsed,
+                    classifier: classificationInfo,
                   },
                 },
               };
@@ -461,6 +486,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                         usage: totalUsage,
                         duration: streamDuration,
                         model: modelUsed,
+                        classifier: classificationInfo,
                       },
                     }
                   );

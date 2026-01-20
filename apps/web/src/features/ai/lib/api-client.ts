@@ -24,6 +24,11 @@ export type ChatStreamCallbacks = {
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
   onMessageComplete?: (message: AiMessage) => void;
   onTitleGenerated?: (title: string) => void;
+  onQueueStatus?: (status: {
+    position: number;
+    estimatedWaitMs: number;
+    isQueued: boolean;
+  }) => void;
   onError?: (error: string) => void;
   onClose?: () => void;
 };
@@ -305,6 +310,13 @@ function handleStreamEvent(
       break;
     case "title_generated":
       callbacks.onTitleGenerated?.(event.title);
+      break;
+    case "queue_status":
+      callbacks.onQueueStatus?.({
+        position: event.position,
+        estimatedWaitMs: event.estimatedWaitMs,
+        isQueued: event.isQueued,
+      });
       break;
     case "error":
       callbacks.onError?.(event.error);

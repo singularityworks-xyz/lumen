@@ -36,6 +36,7 @@ export async function* streamWithFallback(
 
   for (let step = 0; step < MAX_STEPS; step++) {
     let stepFinished = false;
+    let stepRequiresConfirmation = false;
     const toolCallsInStep: ToolCallInfo[] = [];
     let fullContentInStep = "";
 
@@ -126,6 +127,21 @@ export async function* streamWithFallback(
                 success: false,
                 error: error instanceof Error ? error.message : "Unknown error",
                 data: null,
+              };
+            }
+
+            // Check if tool requires confirmation
+            if (toolResult.requiresConfirmation) {
+              stepRequiresConfirmation = true;
+              yield {
+                type: "confirmation_required",
+                messageId,
+                action: {
+                  tool: toolCallPart.toolName,
+                  params: toolCallPart.input as Record<string, unknown>,
+                  description: `Confirm ${toolCallPart.toolName}`,
+                },
+                modelUsed: modelName,
               };
             }
 
@@ -291,6 +307,11 @@ export async function* streamWithFallback(
         message: JSON.stringify(toolMsg),
       });
       messages.push(toolMsg);
+
+      if (stepRequiresConfirmation) {
+        logger.info("Stopping stream due to confirmation requirement");
+        return;
+      }
     } else {
       return;
     }

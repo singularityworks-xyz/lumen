@@ -1,4 +1,8 @@
-import type { ActionInstructionData, WorkspaceSnapshot } from "@lumen/ai/types";
+import type {
+  ActionInstructionData,
+  PendingAction,
+  WorkspaceSnapshot,
+} from "@lumen/ai/types";
 
 export type TextPart = {
   type: "text";
@@ -53,6 +57,12 @@ export type StreamResult =
       toolCallId: string;
       instruction: ActionInstructionData;
       message: string;
+      modelUsed: string;
+    }
+  | {
+      type: "confirmation_required";
+      messageId: string;
+      action: PendingAction;
       modelUsed: string;
     }
   | {

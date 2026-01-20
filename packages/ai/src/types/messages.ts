@@ -50,6 +50,11 @@ export type AiMessage = {
     };
     duration?: number;
     model?: string;
+    classifier?: {
+      intent: string;
+      confidence: string;
+      model: string;
+    };
   };
   createdAt: string;
 };

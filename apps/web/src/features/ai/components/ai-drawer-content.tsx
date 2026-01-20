@@ -1,7 +1,7 @@
 "use client";
 
 import type { ActionInstruction } from "@lumen/ai/tools";
-import type { ContextSnapshot } from "@lumen/ai/types";
+import type { ContextSnapshot, PendingAction } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
 import { createLogger } from "@lumen/logger";
 import { PulsingBorder } from "@paper-design/shaders-react";
@@ -147,6 +147,11 @@ export const AiDrawerContent = memo(
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
     const setTitle = useAiStore((state) => state.setTitle);
+    const setClassifying = useAiStore((state) => state.setClassifying);
+    const confirmAction = useAiStore((state) => state.confirmAction);
+    const setRequiresConfirmation = useAiStore(
+      (state) => state.setRequiresConfirmation
+    );
     const loadServerConversation = useAiStore(
       (state) => state.loadServerConversation
     );
@@ -409,6 +414,7 @@ export const AiDrawerContent = memo(
       }
 
       setInputValue("");
+      setClassifying(workspaceId, true);
       sendMessage(workspaceId, content, currentContext);
       const assistantId = addAssistantMessage(workspaceId, "");
 
@@ -448,10 +454,25 @@ export const AiDrawerContent = memo(
             ephemeral: !isSharedWorkspace,
           },
           {
+            onQueueStatus: ({ isQueued }) => {
+              if (!isQueued) {
+                // If not queued, we might still be classifying or generating.
+                // Don't turn off classifying yet, wait for content/tools.
+                // Actually, if queue_status says false, it means we passed the queue.
+                // But we are still classifying inside the worker.
+                // So keep it true.
+              }
+            },
+            // Don't turn off on message_start because that happens before classification
+            onMessageStart: () => {
+              // no-op
+            },
             onContentDelta: (chunk) => {
+              setClassifying(workspaceId, false);
               appendStreamChunk(workspaceId, assistantId, chunk);
             },
             onToolCallStart: (toolName, toolCallId) => {
+              setClassifying(workspaceId, false);
               logger.debug({ toolName, toolCallId }, "Tool call started");
               useAiStore
                 .getState()
@@ -463,6 +484,7 @@ export const AiDrawerContent = memo(
                 .updateToolResult(workspaceId, assistantId, toolCallId, result);
             },
             onActionInstruction: (_toolCallId, instruction, message) => {
+              setClassifying(workspaceId, false);
               // Execute action instructions locally for ephemeral workspaces
               logger.debug({ message }, "Action instruction received");
               const store = useKanbanStore.getState();
@@ -472,7 +494,17 @@ export const AiDrawerContent = memo(
               );
               logger.info({ resultMessage }, "Action executed");
             },
+            onConfirmationRequired: (_messageId, action) => {
+              setClassifying(workspaceId, false);
+              // Use assistantId because that's the message we're streaming into
+              setRequiresConfirmation(
+                workspaceId,
+                assistantId,
+                action as PendingAction
+              );
+            },
             onMessageComplete: (completedMessage) => {
+              setClassifying(workspaceId, false);
               completeStream(workspaceId, assistantId, completedMessage);
               abortControllerRef.current = null;
 
@@ -505,12 +537,14 @@ export const AiDrawerContent = memo(
               setTitle(workspaceId, title);
             },
             onError: (error) => {
+              setClassifying(workspaceId, false);
               setStreamError(workspaceId, assistantId, error);
               abortControllerRef.current = null;
             },
           }
         );
       } catch (error) {
+        setClassifying(workspaceId, false);
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";
         setStreamError(workspaceId, assistantId, errorMessage);
@@ -528,6 +562,8 @@ export const AiDrawerContent = memo(
       completeStream,
       setStreamError,
       setTitle,
+      setClassifying,
+      setRequiresConfirmation,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
@@ -1060,50 +1096,111 @@ export const AiDrawerContent = memo(
           />
 
           <div className={cn("border-border/30 border-t px-3 py-2")}>
-            <div className="flex items-end gap-2">
-              <textarea
-                aria-label={
-                  isOffline ? "Message input (offline)" : "Message input"
-                }
-                className={cn(
-                  "flex-1 resize-none rounded-xl px-3 py-2",
-                  "max-h-24 min-h-9",
-                  "bg-muted/40 text-xs",
-                  "border border-border/40",
-                  "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
-                  "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
-                  "placeholder:text-muted-foreground/50",
-                  "focus:border-border/60 focus:outline-none",
-                  "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_3px_rgba(0,0,0,0.1)]",
-                  "dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_3px_rgba(0,0,0,0.2)]",
-                  "disabled:opacity-50",
-                  "overflow-hidden",
-                  "not-focus:overflow-hidden",
-                  "focus:overflow-y-auto",
-                  "scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
-                )}
-                disabled={isStreaming}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  e.target.style.height = "auto";
-                  const newHeight = Math.min(e.target.scrollHeight, 96);
-                  e.target.style.height = `${newHeight}px`;
-                  e.target.style.overflowY =
-                    e.target.scrollHeight > 96 ? "auto" : "hidden";
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={isOffline ? "Offline..." : "Message Larity..."}
-                ref={inputRef}
-                rows={1}
-                value={inputValue}
-              />
-              <SendButton
-                isDisabled={!inputValue.trim() || isOffline}
-                isStreaming={isStreaming}
-                onCancel={handleCancel}
-                onSend={handleSend}
-              />
-            </div>
+            {messagesList.length > 0 &&
+            messagesList.at(-1)?.requiresConfirmation &&
+            !messagesList.at(-1)?.confirmedAt ? (
+              <div className="flex gap-2">
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center rounded-lg px-3 py-1.5",
+                    "bg-primary font-medium text-primary-foreground text-xs",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.2)]",
+                    "transition-all duration-200 hover:bg-primary/90"
+                  )}
+                  onClick={() => {
+                    const lastMsg = messagesList.at(-1);
+                    if (lastMsg) {
+                      confirmAction(workspaceId, lastMsg.id, true);
+
+                      if (lastMsg.pendingAction) {
+                        const store = useKanbanStore.getState();
+                        const instruction = {
+                          type: lastMsg.pendingAction.tool,
+                          ...lastMsg.pendingAction.params,
+                        };
+
+                        try {
+                          // @ts-expect-error - Dynamic instruction type
+                          executeActionInstruction(store, instruction);
+                          logger.info("Executed confirmed action");
+                        } catch (e) {
+                          logger.error(
+                            { error: e },
+                            "Failed to execute confirmed action"
+                          );
+                        }
+                      }
+                    }
+                  }}
+                  type="button"
+                >
+                  Confirm
+                </button>
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center rounded-lg px-3 py-1.5",
+                    "bg-muted/80 font-medium text-muted-foreground text-xs",
+                    "border border-border/50",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.1)]",
+                    "transition-all duration-200 hover:bg-muted hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    const lastMsg = messagesList.at(-1);
+                    if (lastMsg) {
+                      confirmAction(workspaceId, lastMsg.id, false);
+                    }
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <textarea
+                  aria-label={
+                    isOffline ? "Message input (offline)" : "Message input"
+                  }
+                  className={cn(
+                    "flex-1 resize-none rounded-xl px-3 py-2",
+                    "max-h-24 min-h-9",
+                    "bg-muted/40 text-xs",
+                    "border border-border/40",
+                    "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                    "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                    "placeholder:text-muted-foreground/50",
+                    "focus:border-border/60 focus:outline-none",
+                    "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_3px_rgba(0,0,0,0.1)]",
+                    "dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_3px_rgba(0,0,0,0.2)]",
+                    "disabled:opacity-50",
+                    "overflow-hidden",
+                    "not-focus:overflow-hidden",
+                    "focus:overflow-y-auto",
+                    "scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
+                  )}
+                  disabled={isStreaming}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    e.target.style.height = "auto";
+                    const newHeight = Math.min(e.target.scrollHeight, 96);
+                    e.target.style.height = `${newHeight}px`;
+                    e.target.style.overflowY =
+                      e.target.scrollHeight > 96 ? "auto" : "hidden";
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isOffline ? "Offline..." : "Message Larity..."}
+                  ref={inputRef}
+                  rows={1}
+                  value={inputValue}
+                />
+                <SendButton
+                  isDisabled={!inputValue.trim() || isOffline}
+                  isStreaming={isStreaming}
+                  onCancel={handleCancel}
+                  onSend={handleSend}
+                />
+              </div>
+            )}
             <p className="mt-1.5 text-center text-[9px] text-muted-foreground/40">
               Enter to send · Shift+Enter for new line · AI can make mistakes
             </p>
