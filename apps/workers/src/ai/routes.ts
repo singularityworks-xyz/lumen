@@ -19,6 +19,7 @@ import { toHeaders } from "../utils/headers";
 import {
   addMessage,
   clearConversation,
+  deleteMessage,
   getOrCreateConversation,
   toApiMessages,
 } from "./chats/conversation-service";
@@ -718,6 +719,80 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     {
       params: t.Object({
         workspaceId: t.String(),
+      }),
+    }
+  )
+
+  .delete(
+    "/api/ai/conversation/:workspaceId/messages/:messageId",
+    async ({ params, headers, set }) => {
+      const { workspaceId, messageId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
+        }
+      }
+
+      try {
+        const conversation = await prisma.aiConversation.findUnique({
+          where: {
+            workspaceId_userId: {
+              workspaceId,
+              userId: session.user.id,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          await deleteMessage(conversation.id, messageId);
+          logger.info("Message deleted", {
+            workspaceId,
+            messageId,
+            userId: session.user.id,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to delete message", {
+          workspaceId,
+          messageId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to delete message" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+        messageId: t.String(),
       }),
     }
   )

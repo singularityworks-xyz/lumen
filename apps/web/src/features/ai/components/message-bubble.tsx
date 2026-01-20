@@ -1,10 +1,10 @@
 "use client";
 
 import type { AiMessage } from "@lumen/ai/types";
-import { ClockCheck, Shell } from "lucide-react";
+import { Check, ClockCheck, Copy, RotateCcw, Shell } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
-import { memo } from "react";
+import { memo, useCallback, useState } from "react";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useAiStore } from "../store/ai-store";
@@ -42,13 +42,28 @@ type MessageBubbleProps = {
   message: AiMessage;
   index: number;
   workspaceId: string;
+  onRegenerate?: (messageId: string) => void;
 };
 
 export const MessageBubble = memo(
-  ({ message, index, workspaceId }: MessageBubbleProps) => {
+  ({ message, index, workspaceId, onRegenerate }: MessageBubbleProps) => {
     const isUser = message.role === "user";
     const isStreaming = message.isStreaming;
     const { user } = useAuth();
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = useCallback(async () => {
+      if (!message.content) {
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(message.content);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch {
+        // ignore
+      }
+    }, [message.content]);
 
     return (
       <motion.div
@@ -169,18 +184,44 @@ export const MessageBubble = memo(
 
           {!(isUser || isStreaming) && message.metadata && (
             <div className="flex w-full items-center justify-between px-1 opacity-70">
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                <Shell className="h-3 w-3" />
-                {message.metadata.usage?.totalTokens
-                  ? `${formatTokens(message.metadata.usage.totalTokens)} tokens`
-                  : ""}
-              </span>
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                <ClockCheck className="h-3 w-3" />
-                {message.metadata.duration
-                  ? `${message.metadata.duration.toFixed(2)}s`
-                  : ""}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                  <Shell className="h-3 w-3" />
+                  {message.metadata.usage?.totalTokens
+                    ? `${formatTokens(message.metadata.usage.totalTokens)} tokens`
+                    : ""}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                  <ClockCheck className="h-3 w-3" />
+                  {message.metadata.duration
+                    ? `${message.metadata.duration.toFixed(2)}s`
+                    : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex h-3 w-3 items-center justify-center text-muted-foreground/40 transition-colors hover:text-foreground"
+                  onClick={handleCopy}
+                  title="Copy"
+                  type="button"
+                >
+                  {isCopied ? (
+                    <Check className="h-2.5 w-2.5" />
+                  ) : (
+                    <Copy className="h-2.5 w-2.5" />
+                  )}
+                </button>
+                {onRegenerate && (
+                  <button
+                    className="flex h-3 w-3 items-center justify-center text-muted-foreground/40 transition-colors hover:text-foreground"
+                    onClick={() => onRegenerate(message.id)}
+                    title="Regenerate"
+                    type="button"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

@@ -23,6 +23,7 @@ import { executeActionInstruction } from "../lib/action-executor";
 import {
   buildWorkspaceSnapshotIfNeeded,
   clearServerConversation,
+  deleteServerMessage,
   fetchConversation,
   streamChat,
 } from "../lib/api-client";
@@ -142,6 +143,7 @@ export const AiDrawerContent = memo(
     const appendStreamChunk = useAiStore((state) => state.appendStreamChunk);
     const completeStream = useAiStore((state) => state.completeStream);
     const clearConversation = useAiStore((state) => state.clearConversation);
+    const deleteMessage = useAiStore((state) => state.deleteMessage);
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
     const setTitle = useAiStore((state) => state.setTitle);
@@ -237,6 +239,158 @@ export const AiDrawerContent = memo(
       messagesList.length,
       isClearing,
     ]);
+
+    const handleRegenerate = useCallback(
+      (messageId: string) => {
+        const conv = useAiStore.getState().conversations[workspaceId];
+        if (!conv) {
+          return;
+        }
+
+        const msgIndex = conv.messages.findIndex((m) => m.id === messageId);
+        if (msgIndex === -1) {
+          return;
+        }
+
+        // Find preceding user message
+        let userMsgIndex = -1;
+        for (let i = msgIndex - 1; i >= 0; i--) {
+          if (conv.messages[i]?.role === "user") {
+            userMsgIndex = i;
+            break;
+          }
+        }
+
+        if (userMsgIndex === -1) {
+          return;
+        }
+
+        const userMsg = conv.messages[userMsgIndex];
+        if (!userMsg) {
+          return;
+        }
+
+        // Prepare history: all messages up to userMsg (inclusive)
+        const history = conv.messages.slice(0, userMsgIndex + 1).map((m) => ({
+          role: m.role as "user" | "assistant" | "tool",
+          content: m.content,
+        }));
+
+        // Delete the assistant message being regenerated
+        deleteMessage(workspaceId, messageId);
+
+        if (isSharedWorkspace) {
+          deleteServerMessage(workspaceId, messageId).catch(
+            (error: unknown) => {
+              logger.warn({ error }, "Failed to delete message from server");
+            }
+          );
+        }
+
+        // Start streaming
+        const assistantId = addAssistantMessage(workspaceId, "");
+
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        try {
+          abortControllerRef.current = streamChat(
+            {
+              workspaceId,
+              message: userMsg.content,
+              context: userMsg.contextSnapshot || currentContext,
+              workspaceSnapshot: buildWorkspaceSnapshotIfNeeded(
+                workspaceId,
+                userMsg.content
+              ),
+              history,
+              ephemeral: !isSharedWorkspace,
+            },
+            {
+              onContentDelta: (chunk) => {
+                appendStreamChunk(workspaceId, assistantId, chunk);
+              },
+              onToolCallStart: (toolName, toolCallId) => {
+                logger.debug({ toolName, toolCallId }, "Tool call started");
+                useAiStore
+                  .getState()
+                  .appendToolCall(
+                    workspaceId,
+                    assistantId,
+                    toolName,
+                    toolCallId
+                  );
+              },
+              onToolCallResult: (toolCallId, result) => {
+                useAiStore
+                  .getState()
+                  .updateToolResult(
+                    workspaceId,
+                    assistantId,
+                    toolCallId,
+                    result
+                  );
+              },
+              onActionInstruction: (_toolCallId, instruction, message) => {
+                logger.debug({ message }, "Action instruction received");
+                const store = useKanbanStore.getState();
+                const resultMessage = executeActionInstruction(
+                  store,
+                  instruction as ActionInstruction
+                );
+                logger.info({ resultMessage }, "Action executed");
+              },
+              onMessageComplete: (completedMessage) => {
+                completeStream(workspaceId, assistantId, completedMessage);
+                abortControllerRef.current = null;
+
+                if (!isSharedWorkspace) {
+                  const currentConv =
+                    useAiStore.getState().conversations[workspaceId];
+                  const msgCount = currentConv?.messages.length ?? 0;
+                  const currentTitle = currentConv?.title ?? null;
+
+                  if (shouldGenerateLocalTitle(msgCount, currentTitle)) {
+                    const firstUserMsg = currentConv?.messages.find(
+                      (m) => m.role === "user"
+                    );
+                    if (firstUserMsg?.content) {
+                      const generatedTitle = generateLocalTitle(
+                        firstUserMsg.content
+                      );
+                      setTitle(workspaceId, generatedTitle);
+                    }
+                  }
+                }
+              },
+              onTitleGenerated: (title) => {
+                setTitle(workspaceId, title);
+              },
+              onError: (error) => {
+                setStreamError(workspaceId, assistantId, error);
+                abortControllerRef.current = null;
+              },
+            }
+          );
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to regenerate";
+          setStreamError(workspaceId, assistantId, errorMessage);
+        }
+      },
+      [
+        workspaceId,
+        deleteMessage,
+        addAssistantMessage,
+        currentContext,
+        isSharedWorkspace,
+        appendStreamChunk,
+        completeStream,
+        setStreamError,
+        setTitle,
+      ]
+    );
 
     const handleSend = useCallback(() => {
       const content = inputValue.trim();
@@ -798,6 +952,7 @@ export const AiDrawerContent = memo(
                     index={index}
                     key={message.id}
                     message={message}
+                    onRegenerate={handleRegenerate}
                     workspaceId={workspaceId}
                   />
                 ))}

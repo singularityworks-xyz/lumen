@@ -367,6 +367,26 @@ export async function fetchConversation(
   }
 }
 
+export async function deleteServerMessage(
+  workspaceId: string,
+  messageId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    return response.ok;
+  } catch (error) {
+    logger.error({ error }, "Failed to delete message");
+    return false;
+  }
+}
+
 export async function clearServerConversation(
   workspaceId: string
 ): Promise<boolean> {

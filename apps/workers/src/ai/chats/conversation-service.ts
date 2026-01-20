@@ -385,6 +385,50 @@ export async function getConversationContext(
   }
 }
 
+export async function deleteMessage(
+  conversationId: string,
+  messageId: string
+): Promise<void> {
+  const span = tracer.startSpan("ai.deleteMessage");
+  span.setAttributes({
+    "ai.conversation_id": conversationId,
+    "ai.message_id": messageId,
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Check if message exists and belongs to conversation
+      const message = await tx.aiMessage.findUnique({
+        where: { id: messageId },
+        select: { conversationId: true },
+      });
+
+      if (!message || message.conversationId !== conversationId) {
+        return;
+      }
+
+      await tx.aiMessage.delete({
+        where: { id: messageId },
+      });
+
+      // Update message count
+      await tx.aiConversation.update({
+        where: { id: conversationId },
+        data: {
+          messageCount: { decrement: 1 },
+        },
+      });
+    });
+
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
+  } catch (error) {
+    recordSpanError(span, error);
+    span.end();
+    throw error;
+  }
+}
+
 export async function clearConversation(conversationId: string): Promise<void> {
   const span = tracer.startSpan("ai.clearConversation");
   span.setAttribute("ai.conversation_id", conversationId);
