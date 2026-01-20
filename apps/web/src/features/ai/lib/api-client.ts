@@ -24,6 +24,11 @@ export type ChatStreamCallbacks = {
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
   onMessageComplete?: (message: AiMessage) => void;
   onTitleGenerated?: (title: string) => void;
+  onQueueStatus?: (status: {
+    position: number;
+    estimatedWaitMs: number;
+    isQueued: boolean;
+  }) => void;
   onError?: (error: string) => void;
   onClose?: () => void;
 };
@@ -166,6 +171,7 @@ export type ChatRequest = {
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
+  assistantMessageId?: string;
 };
 
 class FatalError extends Error {
@@ -186,6 +192,9 @@ export function streamChat(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(request.assistantMessageId
+        ? { "x-assistant-message-id": request.assistantMessageId }
+        : {}),
     },
     credentials: "include",
     body: JSON.stringify(request),
@@ -306,6 +315,13 @@ function handleStreamEvent(
     case "title_generated":
       callbacks.onTitleGenerated?.(event.title);
       break;
+    case "queue_status":
+      callbacks.onQueueStatus?.({
+        position: event.position,
+        estimatedWaitMs: event.estimatedWaitMs,
+        isQueued: event.isQueued,
+      });
+      break;
     case "error":
       callbacks.onError?.(event.error);
       break;
@@ -364,6 +380,26 @@ export async function fetchConversation(
   } catch (error) {
     logger.error({ error }, "Failed to fetch conversation");
     return null;
+  }
+}
+
+export async function deleteServerMessage(
+  workspaceId: string,
+  messageId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    return response.ok;
+  } catch (error) {
+    logger.error({ error }, "Failed to delete message");
+    return false;
   }
 }
 

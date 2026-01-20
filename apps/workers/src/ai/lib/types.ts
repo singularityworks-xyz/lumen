@@ -1,4 +1,8 @@
-import type { ActionInstructionData, WorkspaceSnapshot } from "@lumen/ai/types";
+import type {
+  ActionInstructionData,
+  PendingAction,
+  WorkspaceSnapshot,
+} from "@lumen/ai/types";
 
 export type TextPart = {
   type: "text";
@@ -9,14 +13,17 @@ export type ToolCallPart = {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
-  input: Record<string, unknown>;
+  args: Record<string, unknown>;
+  // NOTE: Despite AI SDK docs saying 'args', openai-compatible provider reads 'input'
+  input?: Record<string, unknown>;
 };
 
 export type ToolResultPart = {
   type: "tool-result";
   toolCallId: string;
   toolName: string;
-  output: { type: "json"; value: unknown };
+  output: { type: "json"; value: unknown } | { type: "text"; text: string };
+  isError?: boolean;
 };
 
 export type ContentPart = TextPart | ToolCallPart | ToolResultPart;
@@ -51,6 +58,21 @@ export type StreamResult =
       instruction: ActionInstructionData;
       message: string;
       modelUsed: string;
+    }
+  | {
+      type: "confirmation_required";
+      messageId: string;
+      action: PendingAction;
+      modelUsed: string;
+    }
+  | {
+      type: "usage";
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
+      modelUsed: string;
     };
 
 export type StreamContext = {
@@ -72,7 +94,7 @@ export type StreamOptions = {
 export type ToolCallInfo = {
   toolCallId: string;
   toolName: string;
-  input: unknown;
+  input: Record<string, unknown>; // From stream event (uses 'input')
   output?: unknown;
 };
 

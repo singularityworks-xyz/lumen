@@ -127,6 +127,7 @@ export type ConversationWithMessages = {
     contextSnapshot: unknown;
     requiresConfirmation: boolean;
     pendingAction: unknown;
+    metadata: unknown;
     confirmedAt: Date | null;
     createdAt: Date;
   }>;
@@ -136,15 +137,22 @@ export type ConversationWithMessages = {
 };
 
 export async function getOrCreateConversation(
-  workspaceId: string
+  workspaceId: string,
+  userId: string
 ): Promise<ConversationWithMessages> {
   const span = tracer.startSpan("ai.getOrCreateConversation");
   span.setAttribute("ai.workspace_id", workspaceId);
+  span.setAttribute("ai.user_id", userId);
 
   try {
     // Try to find existing conversation
     let conversation = await prisma.aiConversation.findUnique({
-      where: { workspaceId },
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId,
+        },
+      },
       include: {
         messages: {
           orderBy: { createdAt: "asc" },
@@ -157,6 +165,7 @@ export async function getOrCreateConversation(
       conversation = await prisma.aiConversation.create({
         data: {
           workspaceId,
+          userId,
           messageCount: 0,
         },
         include: {
@@ -169,6 +178,7 @@ export async function getOrCreateConversation(
       logger.info("Created new AI conversation", {
         conversationId: conversation.id,
         workspaceId,
+        userId,
       });
     }
 
@@ -197,6 +207,7 @@ export async function addMessage(
     contextSnapshot?: unknown;
     requiresConfirmation?: boolean;
     pendingAction?: unknown;
+    metadata?: unknown;
   }
 ): Promise<{ message: AiMessage; titleWillGenerate?: boolean }> {
   const span = tracer.startSpan("ai.addMessage");
@@ -223,6 +234,7 @@ export async function addMessage(
           contextSnapshot: message.contextSnapshot ?? undefined,
           requiresConfirmation: message.requiresConfirmation ?? false,
           pendingAction: message.pendingAction ?? undefined,
+          metadata: message.metadata ?? undefined,
         },
       });
 
@@ -254,6 +266,7 @@ export async function addMessage(
       requiresConfirmation: result.createdMessage.requiresConfirmation,
       pendingAction: result.createdMessage
         .pendingAction as AiMessage["pendingAction"],
+      metadata: result.createdMessage.metadata as AiMessage["metadata"],
       confirmedAt: result.createdMessage.confirmedAt?.toISOString(),
       createdAt: result.createdMessage.createdAt.toISOString(),
     };
@@ -372,6 +385,50 @@ export async function getConversationContext(
   }
 }
 
+export async function deleteMessage(
+  conversationId: string,
+  messageId: string
+): Promise<void> {
+  const span = tracer.startSpan("ai.deleteMessage");
+  span.setAttributes({
+    "ai.conversation_id": conversationId,
+    "ai.message_id": messageId,
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Check if message exists and belongs to conversation
+      const message = await tx.aiMessage.findUnique({
+        where: { id: messageId },
+        select: { conversationId: true },
+      });
+
+      if (!message || message.conversationId !== conversationId) {
+        return;
+      }
+
+      await tx.aiMessage.delete({
+        where: { id: messageId },
+      });
+
+      // Update message count
+      await tx.aiConversation.update({
+        where: { id: conversationId },
+        data: {
+          messageCount: { decrement: 1 },
+        },
+      });
+    });
+
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
+  } catch (error) {
+    recordSpanError(span, error);
+    span.end();
+    throw error;
+  }
+}
+
 export async function clearConversation(conversationId: string): Promise<void> {
   const span = tracer.startSpan("ai.clearConversation");
   span.setAttribute("ai.conversation_id", conversationId);
@@ -429,6 +486,7 @@ export async function toApiMessages(
       contextSnapshot: m.contextSnapshot as AiMessage["contextSnapshot"],
       requiresConfirmation: m.requiresConfirmation,
       pendingAction: m.pendingAction as AiMessage["pendingAction"],
+      metadata: m.metadata as AiMessage["metadata"],
       confirmedAt: m.confirmedAt?.toISOString(),
       createdAt: m.createdAt.toISOString(),
     }))

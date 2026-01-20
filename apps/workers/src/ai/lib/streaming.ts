@@ -36,6 +36,7 @@ export async function* streamWithFallback(
 
   for (let step = 0; step < MAX_STEPS; step++) {
     let stepFinished = false;
+    let stepRequiresConfirmation = false;
     const toolCallsInStep: ToolCallInfo[] = [];
     let fullContentInStep = "";
 
@@ -91,11 +92,19 @@ export async function* streamWithFallback(
             fullContentInStep += chunk;
             yield { type: "chunk", chunk, modelUsed: modelName };
           } else if (part.type === "tool-call") {
+            // AI SDK stream events use 'input', but message format uses 'args'
             const toolCallPart = part as unknown as {
               toolCallId: string;
               toolName: string;
+              // Stream event property name
               input: unknown;
             };
+
+            logger.debug("Tool-call stream event", {
+              toolCallId: toolCallPart.toolCallId,
+              toolName: toolCallPart.toolName,
+              hasInput: toolCallPart.input !== undefined,
+            });
 
             yield {
               type: "tool_call",
@@ -121,8 +130,25 @@ export async function* streamWithFallback(
               };
             }
 
+            // Check if tool requires confirmation
+            if (toolResult.requiresConfirmation) {
+              stepRequiresConfirmation = true;
+              yield {
+                type: "confirmation_required",
+                messageId,
+                action: {
+                  tool: toolCallPart.toolName,
+                  params: toolCallPart.input as Record<string, unknown>,
+                  description: `Confirm ${toolCallPart.toolName}`,
+                },
+                modelUsed: modelName,
+              };
+            }
+
             toolCallsInStep.push({
-              ...toolCallPart,
+              toolCallId: toolCallPart.toolCallId,
+              toolName: toolCallPart.toolName,
+              input: toolCallPart.input as Record<string, unknown>,
               output: toolResult,
             });
 
@@ -151,6 +177,24 @@ export async function* streamWithFallback(
               modelUsed: modelName,
             };
           }
+        }
+
+        try {
+          const usage = await result.usage;
+          yield {
+            type: "usage",
+            usage: {
+              promptTokens: usage.inputTokens ?? 0,
+              completionTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
+            },
+            modelUsed: modelName,
+          };
+        } catch (e) {
+          logger.warn("Failed to get usage stats", {
+            error: e instanceof Error ? e.message : "Unknown",
+            model: modelName,
+          });
         }
 
         modelSpan.addEvent("ai.stream_complete");
@@ -222,28 +266,50 @@ export async function* streamWithFallback(
       }
 
       for (const tc of toolCallsInStep) {
-        assistantContent.push({
-          type: "tool-call" as const,
+        // IMPORTANT: The openai-compatible provider reads 'input', not 'args'!
+        // But AI SDK Core expects 'args' for type validation.
+        // We provide both to satisfy everyone.
+        const toolCallContent: ToolCallPart = {
+          type: "tool-call",
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
-          input: tc.input as Record<string, unknown>,
+          args: tc.input,
+          input: tc.input,
+        };
+        logger.info("Adding tool-call to assistant message", {
+          toolCallId: tc.toolCallId,
+          toolName: tc.toolName,
         });
+        assistantContent.push(toolCallContent);
       }
 
-      messages.push({
-        role: "assistant",
+      const assistantMsg = {
+        role: "assistant" as const,
         content: assistantContent,
+      };
+      logger.info(`Assistant message for step ${step + 1}`, {
+        contentLength: assistantContent.length,
       });
+      messages.push(assistantMsg);
 
-      messages.push({
-        role: "tool",
+      const toolMsg = {
+        role: "tool" as const,
         content: toolCallsInStep.map((tc) => ({
           type: "tool-result" as const,
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
           output: { type: "json" as const, value: tc.output },
         })),
+      };
+      logger.info(`Tool message for step ${step + 1}`, {
+        toolCallCount: toolCallsInStep.length,
       });
+      messages.push(toolMsg);
+
+      if (stepRequiresConfirmation) {
+        logger.info("Stopping stream due to confirmation requirement");
+        return;
+      }
     } else {
       return;
     }

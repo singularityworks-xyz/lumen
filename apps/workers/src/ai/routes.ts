@@ -1,9 +1,11 @@
 import {
   type ActionInstructionData,
   buildSystemPrompt,
+  classifyToolIntent,
   getToolsForMessage,
   type StreamEvent,
   type ToolExecutionResult,
+  type ToolSelection,
 } from "@lumen/ai";
 import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
@@ -15,10 +17,12 @@ import {
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { getCollaborator } from "../collab/helpers";
+import { env } from "../env";
 import { toHeaders } from "../utils/headers";
 import {
   addMessage,
   clearConversation,
+  deleteMessage,
   getOrCreateConversation,
   toApiMessages,
 } from "./chats/conversation-service";
@@ -127,7 +131,21 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return { error: "AI features are not configured" };
         }
 
-        const messageId = generateMessageId();
+        const rawMessageId = headers["x-assistant-message-id"];
+        let messageId: string | undefined;
+
+        if (typeof rawMessageId === "string") {
+          const trimmed = rawMessageId.trim();
+          // Basic validation: ensure it's not empty and reasonably sized
+          if (trimmed.length > 0 && trimmed.length < 100) {
+            messageId = trimmed;
+          }
+        }
+
+        if (!messageId) {
+          messageId = generateMessageId();
+        }
+
         span.setAttribute("ai.message_id", messageId);
 
         logger.info("Starting AI chat", {
@@ -196,7 +214,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               workspaceId,
             });
           } else {
-            conversation = await getOrCreateConversation(workspaceId);
+            conversation = await getOrCreateConversation(
+              workspaceId,
+              session.user.id
+            );
             span.setAttribute("ai.conversation_id", conversation.id);
 
             const userMessageId = generateMessageId();
@@ -219,15 +240,29 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             content: message,
           });
 
+          // Find last assistant message for context
+          const lastAssistantMessage = history
+            ?.slice()
+            .reverse()
+            .find((m) => m.role === "assistant")?.content;
+
           span.addEvent("ai.stream_start");
 
           return (async function* () {
             let modelUsed = "unknown";
             let fullContent = "";
             let hasToolCalls = false;
+            let totalUsage:
+              | {
+                  promptTokens: number;
+                  completionTokens: number;
+                  totalTokens: number;
+                }
+              | undefined;
             const toolCalls: Array<{
-              toolCallId: string;
-              toolName: string;
+              id: string;
+              name: string;
+              arguments: Record<string, unknown>;
               timestamp: string;
               instruction?: ActionInstructionData;
               result?: ToolExecutionResult;
@@ -240,8 +275,47 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               };
               yield sse({ event: "message", data: startEvent });
 
+              // Use LLM-based tool classification with queue management
+              // Falls back to keyword matching if queue is full or LLM fails
+              let tools: ToolSelection["tools"] = null;
+              let classificationInfo:
+                | { intent: string; confidence: string; model: string }
+                | undefined;
+
               try {
-                const tools = getToolsForMessage(message);
+                if (env.CEREBRAS_API_KEY) {
+                  try {
+                    const { selection, classification, queueStatus } =
+                      await classifyToolIntent(
+                        message,
+                        env.CEREBRAS_API_KEY,
+                        lastAssistantMessage
+                      );
+                    tools = selection.tools;
+                    classificationInfo = {
+                      intent: classification.intent,
+                      confidence: classification.confidence,
+                      model: "llama3.1-8b",
+                    };
+
+                    // Notify frontend if request was queued
+                    if (queueStatus.isQueued) {
+                      const queueEvent: StreamEvent = {
+                        type: "queue_status",
+                        position: queueStatus.position,
+                        estimatedWaitMs: queueStatus.estimatedWaitMs,
+                        isQueued: queueStatus.isQueued,
+                      };
+                      yield sse({ event: "message", data: queueEvent });
+                    }
+                  } catch {
+                    // Fallback to keyword-based selection
+                    tools = getToolsForMessage(message);
+                  }
+                } else {
+                  tools = getToolsForMessage(message);
+                }
+
                 const streamCtx = {
                   workspaceId,
                   userId: session.user.id,
@@ -268,8 +342,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   } else if (part.type === "tool_call") {
                     hasToolCalls = true;
                     toolCalls.push({
-                      toolCallId: part.toolCallId,
-                      toolName: part.toolName,
+                      id: part.toolCallId,
+                      name: part.toolName,
+                      arguments: part.input,
                       timestamp: new Date().toISOString(),
                     });
                     const toolEvent: StreamEvent = {
@@ -281,7 +356,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   } else if (part.type === "tool_result") {
                     // Update existing tool call with result
                     const existingToolCall = toolCalls.find(
-                      (tc) => tc.toolCallId === part.toolCallId
+                      (tc) => tc.id === part.toolCallId
                     );
                     if (existingToolCall) {
                       existingToolCall.result =
@@ -298,7 +373,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     hasToolCalls = true;
                     // Update existing tool call with instruction
                     const existingToolCall = toolCalls.find(
-                      (tc) => tc.toolCallId === part.toolCallId
+                      (tc) => tc.id === part.toolCallId
                     );
                     if (existingToolCall) {
                       existingToolCall.instruction = part.instruction;
@@ -311,6 +386,15 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       message: part.message,
                     };
                     yield sse({ event: "message", data: actionEvent });
+                  } else if (part.type === "confirmation_required") {
+                    const confirmEvent: StreamEvent = {
+                      type: "confirmation_required",
+                      messageId: part.messageId,
+                      action: part.action,
+                    };
+                    yield sse({ event: "message", data: confirmEvent });
+                  } else if (part.type === "usage") {
+                    totalUsage = part.usage;
                   }
                 }
               } catch (streamError) {
@@ -392,6 +476,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   role: "assistant",
                   content: fullContent,
                   createdAt: new Date().toISOString(),
+                  metadata: {
+                    usage: totalUsage,
+                    duration: streamDuration,
+                    model: modelUsed,
+                    classifier: classificationInfo,
+                  },
                 },
               };
               yield sse({ event: "message", data: completeEvent });
@@ -406,6 +496,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                       role: "assistant",
                       content: fullContent,
                       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                      metadata: {
+                        usage: totalUsage,
+                        duration: streamDuration,
+                        model: modelUsed,
+                        classifier: classificationInfo,
+                      },
                     }
                   );
 
@@ -413,11 +509,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   for (const toolCall of toolCalls) {
                     if (toolCall.result) {
                       await addMessage(conversation.id, {
-                        id: `tool_${toolCall.toolCallId}`,
+                        id: `tool_${toolCall.id}`,
                         role: "tool",
                         content: JSON.stringify(toolCall.result),
-                        toolCallId: toolCall.toolCallId,
-                        toolName: toolCall.toolName,
+                        toolCallId: toolCall.id,
+                        toolName: toolCall.name,
                       });
                     }
                   }
@@ -670,7 +766,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       }
 
       try {
-        const conversation = await getOrCreateConversation(workspaceId);
+        const conversation = await getOrCreateConversation(
+          workspaceId,
+          session.user.id
+        );
         const messages = await toApiMessages(conversation.messages);
         return {
           id: conversation.id,
@@ -693,6 +792,80 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     {
       params: t.Object({
         workspaceId: t.String(),
+      }),
+    }
+  )
+
+  .delete(
+    "/api/ai/conversation/:workspaceId/messages/:messageId",
+    async ({ params, headers, set }) => {
+      const { workspaceId, messageId } = params;
+
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+      }
+
+      const workspaceAccess = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      });
+
+      if (!workspaceAccess) {
+        set.status = 404;
+        return { error: "Workspace not found" };
+      }
+
+      const isOwner = workspaceAccess.ownerId === session.user.id;
+      if (!isOwner) {
+        const collaborator = await getCollaborator(
+          workspaceId,
+          session.user.id
+        );
+        if (!collaborator) {
+          set.status = 403;
+          return { error: "Access denied" };
+        }
+      }
+
+      try {
+        const conversation = await prisma.aiConversation.findUnique({
+          where: {
+            workspaceId_userId: {
+              workspaceId,
+              userId: session.user.id,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          await deleteMessage(conversation.id, messageId);
+          logger.info("Message deleted", {
+            workspaceId,
+            messageId,
+            userId: session.user.id,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to delete message", {
+          workspaceId,
+          messageId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+        set.status = 500;
+        return { error: "Failed to delete message" };
+      }
+    },
+    {
+      params: t.Object({
+        workspaceId: t.String(),
+        messageId: t.String(),
       }),
     }
   )
@@ -739,7 +912,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
       try {
         const conversation = await prisma.aiConversation.findUnique({
-          where: { workspaceId },
+          where: {
+            workspaceId_userId: {
+              workspaceId,
+              userId: session.user.id,
+            },
+          },
           select: { id: true },
         });
 

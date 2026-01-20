@@ -3,3 +3,5 @@ export * from "./definitions";
 export * from "./executors";
 export * from "./router";
 export * from "./schemas";
+export * from "./tool-classifier";
+export * from "./types";

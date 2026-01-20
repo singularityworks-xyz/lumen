@@ -41,6 +41,21 @@ export type AiMessage = {
   confirmedAt?: string;
   isStreaming?: boolean;
   error?: string;
+  metadata?: {
+    usage?: {
+      tokens?: number;
+      totalTokens?: number;
+      inputTokens?: number;
+      outputTokens?: number;
+    };
+    duration?: number;
+    model?: string;
+    classifier?: {
+      intent: string;
+      confidence: string;
+      model: string;
+    };
+  };
   createdAt: string;
 };
 
@@ -66,6 +81,7 @@ export type StreamEventType =
   | "confirmation_required"
   | "message_complete"
   | "title_generated"
+  | "queue_status"
   | "error";
 
 export type StreamEvent =
@@ -82,6 +98,12 @@ export type StreamEvent =
   | { type: "confirmation_required"; messageId: string; action: PendingAction }
   | { type: "message_complete"; message: AiMessage }
   | { type: "title_generated"; title: string }
+  | {
+      type: "queue_status";
+      position: number;
+      estimatedWaitMs: number;
+      isQueued: boolean;
+    }
   | { type: "error"; error: string };
 
 // Action instruction data returned from server for local workspace execution.

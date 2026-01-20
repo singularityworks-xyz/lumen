@@ -1,7 +1,7 @@
 "use client";
 
 import type { ActionInstruction } from "@lumen/ai/tools";
-import type { ContextSnapshot } from "@lumen/ai/types";
+import type { ContextSnapshot, PendingAction } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
 import { createLogger } from "@lumen/logger";
 import { PulsingBorder } from "@paper-design/shaders-react";
@@ -23,9 +23,14 @@ import { executeActionInstruction } from "../lib/action-executor";
 import {
   buildWorkspaceSnapshotIfNeeded,
   clearServerConversation,
+  deleteServerMessage,
   fetchConversation,
   streamChat,
 } from "../lib/api-client";
+import {
+  generateLocalTitle,
+  shouldGenerateLocalTitle,
+} from "../lib/local-title-generator";
 import { useAiStore } from "../store/ai-store";
 import { AiOptInDialog } from "./ai-opt-in-dialog";
 import { DotLoader } from "./animations/dot-loader";
@@ -138,16 +143,28 @@ export const AiDrawerContent = memo(
     const appendStreamChunk = useAiStore((state) => state.appendStreamChunk);
     const completeStream = useAiStore((state) => state.completeStream);
     const clearConversation = useAiStore((state) => state.clearConversation);
+    const deleteMessage = useAiStore((state) => state.deleteMessage);
     const cancelStream = useAiStore((state) => state.cancelStream);
     const setStreamError = useAiStore((state) => state.setStreamError);
     const setTitle = useAiStore((state) => state.setTitle);
+    const setClassifying = useAiStore((state) => state.setClassifying);
+    const confirmAction = useAiStore((state) => state.confirmAction);
+    const setRequiresConfirmation = useAiStore(
+      (state) => state.setRequiresConfirmation
+    );
+    const resolveAction = useAiStore((state) => state.resolveAction);
     const loadServerConversation = useAiStore(
       (state) => state.loadServerConversation
     );
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Memoize messages with stable empty array fallback
-    const messagesList = useMemo(() => messages ?? [], [messages]);
+    // Filter out "tool" role messages since they contain raw JSON for the API
+    // and are already displayed via ToolCallFlow in the assistant message
+    const messagesList = useMemo(
+      () => (messages ?? []).filter((m) => m.role !== "tool"),
+      [messages]
+    );
 
     const currentContext: ContextSnapshot = useMemo(
       () => ({
@@ -164,6 +181,29 @@ export const AiDrawerContent = memo(
       () => getSuggestionsForContext(currentContext),
       [currentContext]
     );
+
+    // Execute pending actions when confirmed
+    useEffect(() => {
+      for (const msg of messagesList) {
+        if (msg.requiresConfirmation && msg.confirmedAt && msg.pendingAction) {
+          const store = useKanbanStore.getState();
+          const instruction = {
+            type: msg.pendingAction.tool,
+            ...msg.pendingAction.params,
+          };
+
+          try {
+            // @ts-expect-error - Dynamic instruction type
+            executeActionInstruction(store, instruction);
+            logger.info("Executed confirmed action via effect");
+          } catch (e) {
+            logger.error({ error: e }, "Failed to execute action via effect");
+          } finally {
+            resolveAction(workspaceId, msg.id);
+          }
+        }
+      }
+    }, [messagesList, workspaceId, resolveAction]);
 
     // Auto-scroll to bottom on new messages
     // biome-ignore lint/correctness/useExhaustiveDependencies: Only scroll on message count change
@@ -234,6 +274,184 @@ export const AiDrawerContent = memo(
       isClearing,
     ]);
 
+    const handleRegenerate = useCallback(
+      async (messageId: string) => {
+        const conv = useAiStore.getState().conversations[workspaceId];
+        if (!conv) {
+          return;
+        }
+
+        const msgIndex = conv.messages.findIndex((m) => m.id === messageId);
+        if (msgIndex === -1) {
+          return;
+        }
+
+        // Find preceding user message
+        let userMsgIndex = -1;
+        for (let i = msgIndex - 1; i >= 0; i--) {
+          if (conv.messages[i]?.role === "user") {
+            userMsgIndex = i;
+            break;
+          }
+        }
+
+        if (userMsgIndex === -1) {
+          return;
+        }
+
+        const userMsg = conv.messages[userMsgIndex];
+        if (!userMsg) {
+          return;
+        }
+
+        // Prepare history: all messages up to userMsg (inclusive)
+        // Include toolCalls for proper AI SDK message formatting
+        const history = conv.messages.slice(0, userMsgIndex + 1).map((m) => ({
+          role: m.role as "user" | "assistant" | "tool",
+          content: m.content,
+          toolCalls: m.toolCalls,
+          toolCallId: m.toolCallId,
+          toolName: m.toolName,
+          toolResult: m.toolResult,
+        }));
+
+        // Delete the assistant message being regenerated
+        deleteMessage(workspaceId, messageId);
+
+        if (isSharedWorkspace) {
+          try {
+            await deleteServerMessage(workspaceId, messageId);
+          } catch (error) {
+            logger.warn({ error }, "Failed to delete message from server");
+          }
+        }
+
+        // Start streaming
+        const assistantId = addAssistantMessage(workspaceId, "");
+        setClassifying(workspaceId, true);
+
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        try {
+          abortControllerRef.current = streamChat(
+            {
+              workspaceId,
+              message: userMsg.content,
+              context: userMsg.contextSnapshot || currentContext,
+              workspaceSnapshot: buildWorkspaceSnapshotIfNeeded(
+                workspaceId,
+                userMsg.content
+              ),
+              history,
+              ephemeral: !isSharedWorkspace,
+              assistantMessageId: assistantId,
+            },
+            {
+              onContentDelta: (chunk) => {
+                setClassifying(workspaceId, false);
+                appendStreamChunk(workspaceId, assistantId, chunk);
+              },
+              onToolCallStart: (toolName, toolCallId) => {
+                setClassifying(workspaceId, false);
+                logger.debug({ toolName, toolCallId }, "Tool call started");
+                useAiStore
+                  .getState()
+                  .appendToolCall(
+                    workspaceId,
+                    assistantId,
+                    toolName,
+                    toolCallId
+                  );
+              },
+              onToolCallResult: (toolCallId, result) => {
+                setClassifying(workspaceId, false);
+                useAiStore
+                  .getState()
+                  .updateToolResult(
+                    workspaceId,
+                    assistantId,
+                    toolCallId,
+                    result
+                  );
+              },
+              onActionInstruction: (_toolCallId, instruction, message) => {
+                setClassifying(workspaceId, false);
+                logger.debug({ message }, "Action instruction received");
+                const store = useKanbanStore.getState();
+                const resultMessage = executeActionInstruction(
+                  store,
+                  instruction as ActionInstruction
+                );
+                logger.info({ resultMessage }, "Action executed");
+              },
+              onConfirmationRequired: (_messageId, action) => {
+                setClassifying(workspaceId, false);
+                cancelStream();
+                setRequiresConfirmation(
+                  workspaceId,
+                  assistantId,
+                  action as PendingAction
+                );
+              },
+              onMessageComplete: (completedMessage) => {
+                setClassifying(workspaceId, false);
+                completeStream(workspaceId, assistantId, completedMessage);
+                abortControllerRef.current = null;
+
+                if (!isSharedWorkspace) {
+                  const currentConv =
+                    useAiStore.getState().conversations[workspaceId];
+                  const msgCount = currentConv?.messages.length ?? 0;
+                  const currentTitle = currentConv?.title ?? null;
+
+                  if (shouldGenerateLocalTitle(msgCount, currentTitle)) {
+                    const firstUserMsg = currentConv?.messages.find(
+                      (m) => m.role === "user"
+                    );
+                    if (firstUserMsg?.content) {
+                      const generatedTitle = generateLocalTitle(
+                        firstUserMsg.content
+                      );
+                      setTitle(workspaceId, generatedTitle);
+                    }
+                  }
+                }
+              },
+              onTitleGenerated: (title) => {
+                setTitle(workspaceId, title);
+              },
+              onError: (error) => {
+                setClassifying(workspaceId, false);
+                setStreamError(workspaceId, assistantId, error);
+                abortControllerRef.current = null;
+              },
+            }
+          );
+        } catch (error) {
+          setClassifying(workspaceId, false);
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to regenerate";
+          setStreamError(workspaceId, assistantId, errorMessage);
+        }
+      },
+      [
+        workspaceId,
+        deleteMessage,
+        addAssistantMessage,
+        currentContext,
+        isSharedWorkspace,
+        appendStreamChunk,
+        completeStream,
+        setStreamError,
+        setTitle,
+        setClassifying,
+        cancelStream,
+        setRequiresConfirmation,
+      ]
+    );
+
     const handleSend = useCallback(() => {
       const content = inputValue.trim();
       if (!content || isStreaming) {
@@ -241,14 +459,21 @@ export const AiDrawerContent = memo(
       }
 
       setInputValue("");
+      setClassifying(workspaceId, true);
       sendMessage(workspaceId, content, currentContext);
       const assistantId = addAssistantMessage(workspaceId, "");
 
       // Convert messages to history format for the API, including the new message
+      // Include toolCalls for proper AI SDK message formatting
+      // Use raw 'messages' (not filtered messagesList) to include tool role messages for context
       const history = [
-        ...messagesList.map((msg) => ({
+        ...(messages ?? []).map((msg) => ({
           role: msg.role as "user" | "assistant" | "tool",
           content: msg.content,
+          toolCalls: msg.toolCalls,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          toolResult: msg.toolResult,
         })),
         { role: "user" as const, content },
       ];
@@ -272,12 +497,28 @@ export const AiDrawerContent = memo(
             history,
             // For local workspaces, don't persist conversation to server DB
             ephemeral: !isSharedWorkspace,
+            assistantMessageId: assistantId,
           },
           {
+            onQueueStatus: ({ isQueued }) => {
+              if (!isQueued) {
+                // If not queued, we might still be classifying or generating.
+                // Don't turn off classifying yet, wait for content/tools.
+                // Actually, if queue_status says false, it means we passed the queue.
+                // But we are still classifying inside the worker.
+                // So keep it true.
+              }
+            },
+            // Don't turn off on message_start because that happens before classification
+            onMessageStart: () => {
+              // no-op
+            },
             onContentDelta: (chunk) => {
+              setClassifying(workspaceId, false);
               appendStreamChunk(workspaceId, assistantId, chunk);
             },
             onToolCallStart: (toolName, toolCallId) => {
+              setClassifying(workspaceId, false);
               logger.debug({ toolName, toolCallId }, "Tool call started");
               useAiStore
                 .getState()
@@ -289,6 +530,7 @@ export const AiDrawerContent = memo(
                 .updateToolResult(workspaceId, assistantId, toolCallId, result);
             },
             onActionInstruction: (_toolCallId, instruction, message) => {
+              setClassifying(workspaceId, false);
               // Execute action instructions locally for ephemeral workspaces
               logger.debug({ message }, "Action instruction received");
               const store = useKanbanStore.getState();
@@ -298,20 +540,57 @@ export const AiDrawerContent = memo(
               );
               logger.info({ resultMessage }, "Action executed");
             },
-            onMessageComplete: () => {
-              completeStream(workspaceId, assistantId);
+            onConfirmationRequired: (_messageId, action) => {
+              setClassifying(workspaceId, false);
+              cancelStream();
+              setRequiresConfirmation(
+                workspaceId,
+                assistantId,
+                action as PendingAction
+              );
+            },
+            onMessageComplete: (completedMessage) => {
+              setClassifying(workspaceId, false);
+              completeStream(workspaceId, assistantId, completedMessage);
               abortControllerRef.current = null;
+
+              // For local/ephemeral workspaces, generate title client-side
+              if (!isSharedWorkspace) {
+                const currentConv =
+                  useAiStore.getState().conversations[workspaceId];
+                const msgCount = currentConv?.messages.length ?? 0;
+                const currentTitle = currentConv?.title ?? null;
+
+                if (shouldGenerateLocalTitle(msgCount, currentTitle)) {
+                  // Find first user message
+                  const firstUserMsg = currentConv?.messages.find(
+                    (m) => m.role === "user"
+                  );
+                  if (firstUserMsg?.content) {
+                    const generatedTitle = generateLocalTitle(
+                      firstUserMsg.content
+                    );
+                    setTitle(workspaceId, generatedTitle);
+                    logger.debug(
+                      { generatedTitle },
+                      "Generated local title for ephemeral workspace"
+                    );
+                  }
+                }
+              }
             },
             onTitleGenerated: (title) => {
               setTitle(workspaceId, title);
             },
             onError: (error) => {
+              setClassifying(workspaceId, false);
               setStreamError(workspaceId, assistantId, error);
               abortControllerRef.current = null;
             },
           }
         );
       } catch (error) {
+        setClassifying(workspaceId, false);
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";
         setStreamError(workspaceId, assistantId, errorMessage);
@@ -322,13 +601,16 @@ export const AiDrawerContent = memo(
       isSharedWorkspace,
       workspaceId,
       currentContext,
-      messagesList,
+      messages,
       sendMessage,
       addAssistantMessage,
       appendStreamChunk,
       completeStream,
+      cancelStream,
       setStreamError,
       setTitle,
+      setClassifying,
+      setRequiresConfirmation,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
@@ -603,17 +885,34 @@ export const AiDrawerContent = memo(
           </AnimatePresence>
           <div
             className={cn(
-              "flex items-center justify-between px-4 py-3",
+              "flex items-center justify-between gap-3 px-4 py-3",
               "border-border/50 border-b",
               "bg-linear-to-b from-muted/50 to-transparent"
             )}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <LarityOrb size="md" speed={isStreaming ? 0.8 : 0.4} />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate font-semibold text-foreground text-sm">
+              <div className="group relative min-w-0 flex-1">
+                <h3 className="max-w-45 truncate font-semibold text-foreground text-sm">
                   {conversationTitle || "Larity — Work, illuminated"}
                 </h3>
+                {conversationTitle && conversationTitle.length > 20 && (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute top-full left-0 z-50 mt-2",
+                      "max-w-70 rounded-lg px-3 py-2",
+                      "bg-card/98 backdrop-blur-xl",
+                      "border border-border/50",
+                      "opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+                      "shadow-[0_4px_12px_rgba(0,0,0,0.15)]",
+                      "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
+                    )}
+                  >
+                    <p className="font-medium text-foreground text-xs">
+                      {conversationTitle}
+                    </p>
+                  </div>
+                )}
                 <p className="text-[10px] text-muted-foreground">
                   {isOffline ? (
                     <span className="flex items-center gap-1 text-yellow-500">
@@ -628,7 +927,7 @@ export const AiDrawerContent = memo(
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {!isSharedWorkspace && isAiEnabled && (
                 <div className="relative">
                   <button
@@ -752,6 +1051,7 @@ export const AiDrawerContent = memo(
                     index={index}
                     key={message.id}
                     message={message}
+                    onRegenerate={handleRegenerate}
                     workspaceId={workspaceId}
                   />
                 ))}
@@ -843,50 +1143,92 @@ export const AiDrawerContent = memo(
           />
 
           <div className={cn("border-border/30 border-t px-3 py-2")}>
-            <div className="flex items-end gap-2">
-              <textarea
-                aria-label={
-                  isOffline ? "Message input (offline)" : "Message input"
-                }
-                className={cn(
-                  "flex-1 resize-none rounded-xl px-3 py-2",
-                  "max-h-24 min-h-9",
-                  "bg-muted/40 text-xs",
-                  "border border-border/40",
-                  "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
-                  "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
-                  "placeholder:text-muted-foreground/50",
-                  "focus:border-border/60 focus:outline-none",
-                  "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_3px_rgba(0,0,0,0.1)]",
-                  "dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_3px_rgba(0,0,0,0.2)]",
-                  "disabled:opacity-50",
-                  "overflow-hidden",
-                  "not-focus:overflow-hidden",
-                  "focus:overflow-y-auto",
-                  "scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
-                )}
-                disabled={isStreaming}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  e.target.style.height = "auto";
-                  const newHeight = Math.min(e.target.scrollHeight, 96);
-                  e.target.style.height = `${newHeight}px`;
-                  e.target.style.overflowY =
-                    e.target.scrollHeight > 96 ? "auto" : "hidden";
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={isOffline ? "Offline..." : "Message Larity..."}
-                ref={inputRef}
-                rows={1}
-                value={inputValue}
-              />
-              <SendButton
-                isDisabled={!inputValue.trim() || isOffline}
-                isStreaming={isStreaming}
-                onCancel={handleCancel}
-                onSend={handleSend}
-              />
-            </div>
+            {messagesList.length > 0 &&
+            messagesList.at(-1)?.requiresConfirmation &&
+            !messagesList.at(-1)?.confirmedAt ? (
+              <div className="flex gap-2">
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center rounded-lg px-3 py-1.5",
+                    "bg-primary font-medium text-primary-foreground text-xs",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.2)]",
+                    "transition-all duration-200 hover:bg-primary/90"
+                  )}
+                  onClick={() => {
+                    const lastMsg = messagesList.at(-1);
+                    if (lastMsg) {
+                      confirmAction(workspaceId, lastMsg.id, true);
+                    }
+                  }}
+                  type="button"
+                >
+                  Confirm
+                </button>
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center rounded-lg px-3 py-1.5",
+                    "bg-muted/80 font-medium text-muted-foreground text-xs",
+                    "border border-border/50",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.1)]",
+                    "transition-all duration-200 hover:bg-muted hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    const lastMsg = messagesList.at(-1);
+                    if (lastMsg) {
+                      confirmAction(workspaceId, lastMsg.id, false);
+                    }
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <textarea
+                  aria-label={
+                    isOffline ? "Message input (offline)" : "Message input"
+                  }
+                  className={cn(
+                    "flex-1 resize-none rounded-xl px-3 py-2",
+                    "max-h-24 min-h-9",
+                    "bg-muted/40 text-xs",
+                    "border border-border/40",
+                    "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                    "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                    "placeholder:text-muted-foreground/50",
+                    "focus:border-border/60 focus:outline-none",
+                    "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_3px_rgba(0,0,0,0.1)]",
+                    "dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_3px_rgba(0,0,0,0.2)]",
+                    "disabled:opacity-50",
+                    "overflow-hidden",
+                    "not-focus:overflow-hidden",
+                    "focus:overflow-y-auto",
+                    "scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
+                  )}
+                  disabled={isStreaming}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    e.target.style.height = "auto";
+                    const newHeight = Math.min(e.target.scrollHeight, 96);
+                    e.target.style.height = `${newHeight}px`;
+                    e.target.style.overflowY =
+                      e.target.scrollHeight > 96 ? "auto" : "hidden";
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isOffline ? "Offline..." : "Message Larity..."}
+                  ref={inputRef}
+                  rows={1}
+                  value={inputValue}
+                />
+                <SendButton
+                  isDisabled={!inputValue.trim() || isOffline}
+                  isStreaming={isStreaming}
+                  onCancel={handleCancel}
+                  onSend={handleSend}
+                />
+              </div>
+            )}
             <p className="mt-1.5 text-center text-[9px] text-muted-foreground/40">
               Enter to send · Shift+Enter for new line · AI can make mistakes
             </p>

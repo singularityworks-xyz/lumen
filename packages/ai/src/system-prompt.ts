@@ -67,7 +67,7 @@ You have access to tools that allow you to:
 
 ### Tool Usage Guidelines
 - Use query tools to gather information before taking actions
-- For destructive actions (delete), always confirm with the user first
+- For destructive actions (delete), invoke the tool directly. This will trigger a system-level confirmation UI for the user. Do not ask for confirmation in text, as the tool handles this safety check.
 - When the user asks to do something, use the appropriate tool directly
 - Summarize what you did after completing an action`;
 

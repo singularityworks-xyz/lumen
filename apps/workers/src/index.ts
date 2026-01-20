@@ -27,7 +27,11 @@ const app = new Elysia()
       origin: origins,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-assistant-message-id",
+      ],
       exposeHeaders: ["Set-Cookie"],
     })
   )
