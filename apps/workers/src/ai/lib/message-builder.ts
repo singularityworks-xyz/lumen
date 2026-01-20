@@ -1,9 +1,20 @@
+import { createLogger } from "@lumen/logger";
 import type {
   AiSdkMessage,
   HistoryMessage,
   TextPart,
   ToolCallPart,
 } from "./types";
+
+const logger = createLogger({ name: "ai:message-builder" });
+
+function parseToolResult(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return content;
+  }
+}
 
 export function buildMessagesFromHistory(
   history: HistoryMessage[]
@@ -17,7 +28,10 @@ export function buildMessagesFromHistory(
         content: msg.content,
       });
     } else if (msg.role === "assistant") {
-      if (msg.toolCalls && msg.toolCalls.length > 0) {
+      // Check if toolCalls exists and has valid entries with id and name
+      const validToolCalls = msg.toolCalls?.filter((tc) => tc?.id && tc?.name);
+
+      if (validToolCalls && validToolCalls.length > 0) {
         const assistantContent: Array<TextPart | ToolCallPart> = [];
 
         // Add text content if any
@@ -29,12 +43,12 @@ export function buildMessagesFromHistory(
         }
 
         // Add tool calls
-        for (const tc of msg.toolCalls) {
+        for (const tc of validToolCalls) {
           assistantContent.push({
             type: "tool-call" as const,
             toolCallId: tc.id,
             toolName: tc.name,
-            input: tc.arguments as Record<string, unknown>,
+            input: tc.arguments ?? {},
           });
         }
 
@@ -43,6 +57,7 @@ export function buildMessagesFromHistory(
           content: assistantContent,
         });
       } else {
+        // No valid tool calls, just use content
         messages.push({
           role: "assistant",
           content: msg.content,
@@ -51,6 +66,13 @@ export function buildMessagesFromHistory(
     } else if (msg.role === "tool") {
       // Tool result message
       if (msg.toolCallId && msg.toolName) {
+        // Get the result from toolResult if available, otherwise parse from content
+        // (Server stores tool results in content as JSON string)
+        const resultValue =
+          msg.toolResult !== undefined
+            ? msg.toolResult
+            : parseToolResult(msg.content);
+
         messages.push({
           role: "tool",
           content: [
@@ -58,15 +80,21 @@ export function buildMessagesFromHistory(
               type: "tool-result" as const,
               toolCallId: msg.toolCallId,
               toolName: msg.toolName,
-              output: { type: "json" as const, value: msg.toolResult },
+              output: { type: "json" as const, value: resultValue },
             },
           ],
         });
       } else {
-        messages.push({
-          role: "tool",
-          content: msg.content,
-        });
+        // Missing toolCallId or toolName - log warning and skip this message
+        // This prevents malformed tool messages from corrupting the conversation
+        logger.warn(
+          {
+            role: msg.role,
+            hasToolCallId: !!msg.toolCallId,
+            hasToolName: !!msg.toolName,
+          },
+          "Skipping tool message with missing toolCallId or toolName"
+        );
       }
     }
   }

@@ -153,7 +153,12 @@ export const AiDrawerContent = memo(
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Memoize messages with stable empty array fallback
-    const messagesList = useMemo(() => messages ?? [], [messages]);
+    // Filter out "tool" role messages since they contain raw JSON for the API
+    // and are already displayed via ToolCallFlow in the assistant message
+    const messagesList = useMemo(
+      () => (messages ?? []).filter((m) => m.role !== "tool"),
+      [messages]
+    );
 
     const currentContext: ContextSnapshot = useMemo(
       () => ({
@@ -271,9 +276,14 @@ export const AiDrawerContent = memo(
         }
 
         // Prepare history: all messages up to userMsg (inclusive)
+        // Include toolCalls for proper AI SDK message formatting
         const history = conv.messages.slice(0, userMsgIndex + 1).map((m) => ({
           role: m.role as "user" | "assistant" | "tool",
           content: m.content,
+          toolCalls: m.toolCalls,
+          toolCallId: m.toolCallId,
+          toolName: m.toolName,
+          toolResult: m.toolResult,
         }));
 
         // Delete the assistant message being regenerated
@@ -403,10 +413,16 @@ export const AiDrawerContent = memo(
       const assistantId = addAssistantMessage(workspaceId, "");
 
       // Convert messages to history format for the API, including the new message
+      // Include toolCalls for proper AI SDK message formatting
+      // Use raw 'messages' (not filtered messagesList) to include tool role messages for context
       const history = [
-        ...messagesList.map((msg) => ({
+        ...(messages ?? []).map((msg) => ({
           role: msg.role as "user" | "assistant" | "tool",
           content: msg.content,
+          toolCalls: msg.toolCalls,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          toolResult: msg.toolResult,
         })),
         { role: "user" as const, content },
       ];
@@ -505,7 +521,7 @@ export const AiDrawerContent = memo(
       isSharedWorkspace,
       workspaceId,
       currentContext,
-      messagesList,
+      messages,
       sendMessage,
       addAssistantMessage,
       appendStreamChunk,

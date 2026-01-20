@@ -38,6 +38,10 @@ const QUERY_KEYWORDS = [
   "recent",
   "activity",
   "changes",
+  "name",
+  "workspace",
+  "tell",
+  "give",
 ];
 
 const BOARD_KEYWORDS = ["board", "boards", "kanban"];

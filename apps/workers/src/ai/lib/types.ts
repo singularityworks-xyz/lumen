@@ -9,6 +9,7 @@ export type ToolCallPart = {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
+  // NOTE: Despite AI SDK docs saying 'args', openai-compatible provider reads 'input'
   input: Record<string, unknown>;
 };
 
@@ -16,7 +17,8 @@ export type ToolResultPart = {
   type: "tool-result";
   toolCallId: string;
   toolName: string;
-  output: { type: "json"; value: unknown };
+  output: { type: "json"; value: unknown } | { type: "text"; text: string };
+  isError?: boolean;
 };
 
 export type ContentPart = TextPart | ToolCallPart | ToolResultPart;
@@ -81,7 +83,7 @@ export type StreamOptions = {
 export type ToolCallInfo = {
   toolCallId: string;
   toolName: string;
-  input: unknown;
+  input: Record<string, unknown>; // From stream event (uses 'input')
   output?: unknown;
 };
 

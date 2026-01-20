@@ -91,11 +91,19 @@ export async function* streamWithFallback(
             fullContentInStep += chunk;
             yield { type: "chunk", chunk, modelUsed: modelName };
           } else if (part.type === "tool-call") {
+            // AI SDK stream events use 'input', but message format uses 'args'
             const toolCallPart = part as unknown as {
               toolCallId: string;
               toolName: string;
+              // Stream event property name
               input: unknown;
             };
+
+            logger.debug("Tool-call stream event", {
+              toolCallId: toolCallPart.toolCallId,
+              toolName: toolCallPart.toolName,
+              hasInput: toolCallPart.input !== undefined,
+            });
 
             yield {
               type: "tool_call",
@@ -122,7 +130,9 @@ export async function* streamWithFallback(
             }
 
             toolCallsInStep.push({
-              ...toolCallPart,
+              toolCallId: toolCallPart.toolCallId,
+              toolName: toolCallPart.toolName,
+              input: toolCallPart.input as Record<string, unknown>,
               output: toolResult,
             });
 
@@ -158,9 +168,9 @@ export async function* streamWithFallback(
           yield {
             type: "usage",
             usage: {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens,
+              promptTokens: usage.inputTokens ?? 0,
+              completionTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
             },
             modelUsed: modelName,
           };
@@ -240,28 +250,45 @@ export async function* streamWithFallback(
       }
 
       for (const tc of toolCallsInStep) {
-        assistantContent.push({
-          type: "tool-call" as const,
+        // IMPORTANT: The openai-compatible provider reads 'input', not 'args'!
+        // Despite ToolCallPart interface saying 'args', the provider uses 'input'
+        const toolCallContent: ToolCallPart = {
+          type: "tool-call",
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
-          input: tc.input as Record<string, unknown>,
+          input: tc.input,
+        };
+        logger.info("Adding tool-call to assistant message", {
+          toolCallId: tc.toolCallId,
+          toolName: tc.toolName,
+          inputType: typeof tc.input,
+          inputValue: JSON.stringify(tc.input),
         });
+        assistantContent.push(toolCallContent);
       }
 
-      messages.push({
-        role: "assistant",
+      const assistantMsg = {
+        role: "assistant" as const,
         content: assistantContent,
+      };
+      logger.info("Assistant message for step 2", {
+        message: JSON.stringify(assistantMsg),
       });
+      messages.push(assistantMsg);
 
-      messages.push({
-        role: "tool",
+      const toolMsg = {
+        role: "tool" as const,
         content: toolCallsInStep.map((tc) => ({
           type: "tool-result" as const,
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
           output: { type: "json" as const, value: tc.output },
         })),
+      };
+      logger.info("Tool message for step 2", {
+        message: JSON.stringify(toolMsg),
       });
+      messages.push(toolMsg);
     } else {
       return;
     }

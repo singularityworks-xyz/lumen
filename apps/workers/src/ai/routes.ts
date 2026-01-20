@@ -237,8 +237,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 }
               | undefined;
             const toolCalls: Array<{
-              toolCallId: string;
-              toolName: string;
+              id: string;
+              name: string;
+              arguments: Record<string, unknown>;
               timestamp: string;
               instruction?: ActionInstructionData;
               result?: ToolExecutionResult;
@@ -279,8 +280,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   } else if (part.type === "tool_call") {
                     hasToolCalls = true;
                     toolCalls.push({
-                      toolCallId: part.toolCallId,
-                      toolName: part.toolName,
+                      id: part.toolCallId,
+                      name: part.toolName,
+                      arguments: part.input,
                       timestamp: new Date().toISOString(),
                     });
                     const toolEvent: StreamEvent = {
@@ -292,7 +294,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   } else if (part.type === "tool_result") {
                     // Update existing tool call with result
                     const existingToolCall = toolCalls.find(
-                      (tc) => tc.toolCallId === part.toolCallId
+                      (tc) => tc.id === part.toolCallId
                     );
                     if (existingToolCall) {
                       existingToolCall.result =
@@ -309,7 +311,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     hasToolCalls = true;
                     // Update existing tool call with instruction
                     const existingToolCall = toolCalls.find(
-                      (tc) => tc.toolCallId === part.toolCallId
+                      (tc) => tc.id === part.toolCallId
                     );
                     if (existingToolCall) {
                       existingToolCall.instruction = part.instruction;
@@ -436,11 +438,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   for (const toolCall of toolCalls) {
                     if (toolCall.result) {
                       await addMessage(conversation.id, {
-                        id: `tool_${toolCall.toolCallId}`,
+                        id: `tool_${toolCall.id}`,
                         role: "tool",
                         content: JSON.stringify(toolCall.result),
-                        toolCallId: toolCall.toolCallId,
-                        toolName: toolCall.toolName,
+                        toolCallId: toolCall.id,
+                        toolName: toolCall.name,
                       });
                     }
                   }
