@@ -20,5 +20,20 @@ config :presence, PresenceWeb.Endpoint,
 # Do not print debug messages in production
 config :logger, level: :info
 
+# OpenTelemetry Configuration (Production Only)
+config :opentelemetry,
+  resource: [
+    service: %{
+      name: "presence-service",
+      version: "1.0.0",
+      namespace: "lumen"
+    },
+    deployment: %{
+      environment: :prod
+    }
+  ],
+  span_processor: :batch,
+  traces_exporter: :otlp
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

@@ -45,8 +45,16 @@ config :presence, PresenceWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :presence, dev_routes: true
 
-# Do not include metadata nor timestamps in development logs
-config :logger, :default_formatter, format: "[$level] $message\n"
+# Development logging - console only, no timestamps for cleaner output
+config :logger,
+  level: :debug,
+  backends: [:console],
+  format: "[$level] $message\n"
+
+# Disable OpenTelemetry in development
+config :opentelemetry,
+  traces_exporter: :none,
+  processors: []
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

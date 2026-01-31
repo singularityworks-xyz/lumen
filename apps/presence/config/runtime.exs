@@ -28,14 +28,13 @@ config :presence,
   upstash_redis_rest_token: System.get_env("UPSTASH_REDIS_REST_TOKEN"),
   better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3002"
 
-# OpenTelemetry OTLP Configuration
-config :opentelemetry_exporter,
-  otlp_protocol: :http_protobuf,
-  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
-  otlp_headers: [{"x-api-key", System.get_env("OTEL_API_KEY", "")}]
-
-# Production sampling configuration
+# OpenTelemetry OTLP Configuration (Production Only)
 if config_env() == :prod do
+  config :opentelemetry_exporter,
+    otlp_protocol: :http_protobuf,
+    otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
+    otlp_headers: [{"x-api-key", System.get_env("OTEL_API_KEY", "")}]
+
   config :opentelemetry,
     sampler:
       {:parent_based,

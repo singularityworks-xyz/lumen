@@ -11,8 +11,10 @@ defmodule Presence.Application do
     # Initialize JWKS cache for JWT verification
     Presence.Token.init_cache()
 
-    # Initialize OpenTelemetry instrumentation
-    setup_opentelemetry()
+    # Initialize OpenTelemetry instrumentation (production only)
+    if Application.get_env(:opentelemetry, :traces_exporter) == :otlp do
+      setup_opentelemetry()
+    end
 
     # Attach telemetry handlers
     Presence.Telemetry.attach_handlers()
