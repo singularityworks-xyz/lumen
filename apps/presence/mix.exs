@@ -44,7 +44,6 @@ defmodule Presence.MixProject do
       {:jose, "~> 1.11"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:redix, "~> 1.5"},
       {:httpoison, "~> 2.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       # OpenTelemetry

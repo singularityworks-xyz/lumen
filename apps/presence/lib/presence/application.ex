@@ -17,13 +17,10 @@ defmodule Presence.Application do
     # Attach telemetry handlers
     Presence.Telemetry.attach_handlers()
 
-    redis_url = Application.get_env(:presence, :redis_url) || "redis://localhost:6379"
-
     children = [
       PresenceWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
-      {Redix, host: redis_url},
       PresenceWeb.Endpoint
     ]
 

@@ -36,7 +36,9 @@ config :logger, :default_formatter,
     :user_name,
     :service,
     :error,
-    :url
+    :url,
+    :body,
+    :channel
   ]
 
 # Use Jason for JSON parsing in Phoenix
