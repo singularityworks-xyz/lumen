@@ -1,6 +1,5 @@
 import { createLogger } from "@lumen/logger";
 import { isTauri } from "@lumen/native-bridge";
-import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   ChevronDown,
@@ -15,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -32,8 +31,8 @@ import {
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
 import { env } from "@/src/env";
-import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban/store";
+import { usePresence } from "@/src/features/presence/hooks/use-presence";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 
@@ -665,186 +664,98 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 const CollaboratorsList = memo(
   ({
     workspaceId,
-    apiUrl,
     open,
   }: {
     workspaceId: string | null;
     apiUrl: string;
     open: boolean;
   }) => {
-    const { user: authUser } = useAuth();
-    const {
-      collaborators: onlineCollaborators,
-      isCollaborating,
-      localUser: collabLocalUser,
-    } = useCollaboration();
+    const { user: authUser, session } = useAuth();
 
-    // Use TanStack Query for caching collaborators data
-    const { data: apiMembers = [], isLoading } = useQuery({
-      queryKey: ["workspace-collaborators", workspaceId],
-      queryFn: async () => {
-        const response = await fetch(
-          `${apiUrl}/api/workspaces/${workspaceId}/collaborators`,
-          { credentials: "include" }
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch collaborators");
-        }
-        const data = await response.json();
-        return (data.collaborators || []) as Array<{
-          id: string;
-          name: string | null;
-          image: string | null;
-          role: string;
-        }>;
-      },
-      enabled: !!workspaceId && open,
-      staleTime: 30 * 1000, // Consider data stale after 30 seconds
-      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    // Use presence service for real-time online users
+    const { users: onlineUsers, isConnected } = usePresence({
+      workspaceId: workspaceId || "",
+      userId: authUser?.id || "",
+      token: session?.token || "",
+      userName: authUser?.name || "",
+      userAvatar: authUser?.image || undefined,
+      enabled: !!workspaceId && !!authUser && !!session?.token && open,
     });
-
-    // Build combined members list from WS + API data
-    const { allMembers, onlineIds } = useMemo(() => {
-      const ids = new Set<string>();
-      const onlineMembers: Array<{
-        id: string;
-        name: string;
-        image: string | null;
-        role: string;
-        color?: string;
-      }> = [];
-
-      // Add current user if collaborating
-      if (isCollaborating && authUser) {
-        ids.add(authUser.id);
-        onlineMembers.push({
-          id: authUser.id,
-          name: authUser.name || "You",
-          image: authUser.image || null,
-          role: "owner",
-          color: collabLocalUser?.color, // Use the local user's cursor color
-        });
-      }
-
-      // Add WebSocket collaborators
-      for (const c of onlineCollaborators) {
-        if (!ids.has(c.id)) {
-          ids.add(c.id);
-          onlineMembers.push({
-            id: c.id,
-            name: c.name,
-            image: null,
-            role: c.role,
-            color: c.color,
-          });
-        }
-      }
-
-      // Merge with API data for images and past members
-      const members = [...onlineMembers];
-
-      for (const apiMember of apiMembers) {
-        if (ids.has(apiMember.id)) {
-          // Update online member with API image if available
-          const existing = members.find((m) => m.id === apiMember.id);
-          if (existing && apiMember.image) {
-            existing.image = apiMember.image;
-          }
-        } else {
-          members.push({
-            id: apiMember.id,
-            name: apiMember.name || "Unknown",
-            image: apiMember.image,
-            role: apiMember.role,
-          });
-        }
-      }
-
-      return { allMembers: members, onlineIds: ids };
-    }, [
-      isCollaborating,
-      authUser,
-      collabLocalUser,
-      onlineCollaborators,
-      apiMembers,
-    ]);
 
     if (!workspaceId) {
       return null;
     }
 
-    if (isLoading && allMembers.length === 0) {
+    if (!isConnected && onlineUsers.length === 0) {
       return (
         <div className="space-y-2 pt-2">
           <Skeleton className="h-3 w-20" />
           <div className="flex gap-2">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <Skeleton className="h-8 w-8 rounded-lg" />
             <Skeleton className="h-8 w-8 rounded-lg" />
           </div>
         </div>
       );
     }
 
-    if (allMembers.length === 0) {
+    if (onlineUsers.length === 0) {
       return null;
     }
 
     return (
       <div className="pt-2">
         <h3 className="mb-2 font-medium text-muted-foreground text-xs">
-          Members
+          Online ({onlineUsers.length})
         </h3>
         <div className="flex flex-wrap gap-2">
           <TooltipProvider delayDuration={0}>
-            {allMembers.map((member) => {
-              const isOnline = onlineIds.has(member.id);
-              const cursorColor = member.color;
+            {onlineUsers.map((member) => {
+              const isCurrentUser = member.id === authUser?.id;
+              const statusColor =
+                member.status === "online"
+                  ? "#22c55e"
+                  : member.status === "idle"
+                    ? "#f59e0b"
+                    : "#6b7280";
+
               return (
                 <Tooltip key={member.id}>
                   <TooltipTrigger asChild>
                     <div
-                      className={`relative transition-all ${isOnline ? "" : "grayscale hover:grayscale-0"}`}
+                      className={`relative transition-all ${isCurrentUser ? "rounded-lg ring-2 ring-primary/50" : ""}`}
                     >
                       <Avatar
-                        className={`h-8 w-8 cursor-help rounded-lg ring-2 ring-background ${isOnline ? "hover:scale-110" : "border border-border/50 bg-muted"}`}
-                        style={
-                          isOnline && cursorColor
-                            ? { border: `2px solid ${cursorColor}` }
-                            : isOnline
-                              ? { border: "2px solid hsl(var(--primary))" }
-                              : undefined
+                        className={
+                          "h-8 w-8 cursor-help rounded-lg ring-2 ring-background hover:scale-110"
                         }
+                        style={{ border: `2px solid ${statusColor}` }}
                       >
-                        <AvatarImage src={member.image || ""} />
+                        <AvatarImage src={member.avatar || ""} />
                         <AvatarFallback
                           className="rounded-lg text-[10px]"
-                          style={
-                            cursorColor
-                              ? {
-                                  backgroundColor: `${cursorColor}20`,
-                                  color: cursorColor,
-                                }
-                              : undefined
-                          }
+                          style={{
+                            backgroundColor: `${statusColor}20`,
+                            color: statusColor,
+                          }}
                         >
                           {member.name?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      {isOnline && (
-                        <span
-                          className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background"
-                          style={{ backgroundColor: cursorColor || "#22c55e" }}
-                        />
-                      )}
+                      <span
+                        className="absolute -right-0.5 -bottom-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background"
+                        style={{ backgroundColor: statusColor }}
+                      />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     <p className="text-xs">
                       {member.name}
-                      {member.role === "owner" && " (Owner)"}
-                      {isOnline && " • Online"}
+                      {isCurrentUser && " (You)"}
+                      {" • "}
+                      {member.status === "online"
+                        ? "Online"
+                        : member.status === "idle"
+                          ? "Idle"
+                          : "Away"}
                     </p>
                   </TooltipContent>
                 </Tooltip>

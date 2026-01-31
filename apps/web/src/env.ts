@@ -21,6 +21,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_API_URL: z.url().default("http://localhost:3002"),
+    NEXT_PUBLIC_PRESENCE_WS_URL: z.url().default("ws://localhost:4000"),
   },
   clientPrefix: "NEXT_PUBLIC_",
   runtimeEnv: {
@@ -32,6 +33,7 @@ export const env = createEnv({
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_PRESENCE_WS_URL: process.env.NEXT_PUBLIC_PRESENCE_WS_URL,
   },
   emptyStringAsUndefined: true,
   skipValidation: false,
