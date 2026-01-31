@@ -64,8 +64,8 @@
       },
     },
     "apps/presence": {
-      "name": "presence",
-      "version": "0.1.0",
+      "name": "@lumen/presence",
+      "version": "1.0.0",
     },
     "apps/web": {
       "name": "@lumen/web",
@@ -550,6 +550,8 @@
     "@lumen/native": ["@lumen/native@workspace:apps/native"],
 
     "@lumen/native-bridge": ["@lumen/native-bridge@workspace:packages/native-bridge"],
+
+    "@lumen/presence": ["@lumen/presence@workspace:apps/presence"],
 
     "@lumen/web": ["@lumen/web@workspace:apps/web"],
 
@@ -1810,8 +1812,6 @@
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
-
-    "presence": ["presence@workspace:apps/presence"],
 
     "prettier": ["prettier@3.7.4", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-v6UNi1+3hSlVvv8fSaoUbggEM5VErKmmpGA7Pl3HF8V6uKY7rvClBOJlH6yNwQtfTueNkGVpOv/mtWL9L4bgRA=="],
 
