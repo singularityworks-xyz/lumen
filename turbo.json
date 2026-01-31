@@ -33,5 +33,18 @@
       "cache": false,
       "persistent": true
     }
+  },
+  "globalDependencies": [".env"],
+  "pipeline": {
+    "presence#build": {
+      "dependsOn": [],
+      "inputs": ["lib/**/*.ex", "config/**/*.exs", "mix.exs", "mix.lock"],
+      "outputs": ["_build/**/*"],
+      "cache": true
+    },
+    "presence#dev": {
+      "cache": false,
+      "persistent": true
+    }
   }
 }

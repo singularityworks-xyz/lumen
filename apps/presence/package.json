@@ -1,0 +1,13 @@
+{
+  "name": "presence",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "mix phx.server",
+    "build": "mix compile",
+    "check": "mix compile --warnings-as-errors && mix format --check-formatted",
+    "format": "mix format",
+    "deps": "mix deps.get",
+    "test": "mix test"
+  }
+}

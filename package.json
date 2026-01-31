@@ -7,19 +7,25 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "postinstall": "bun run db:gen",
+    "postinstall": "bun run db:gen && bun run presence:deps",
     "dev": "turbo run dev",
     "dev:web": "concurrently --names \"web,workers\" --prefix-colors \"blue,red\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\"",
     "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
+    "dev:full": "concurrently --names \"web,workers,presence\" --prefix-colors \"blue,red,green\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\" \"cd apps/presence && mix phx.server\"",
     "otel:up": "docker compose -f local/docker/docker-compose.otel.yml up -d",
     "otel:down": "docker compose -f local/docker/docker-compose.otel.yml down",
-    "check": "ultracite fix --unsafe",
+    "check": "ultracite fix --unsafe && bun run presence:check",
     "check-types": "turbo run check-types",
     "dep:check": "bunx sherif@latest --fix",
     "dep:up": "bunx taze major -w",
     "check:ci": "biome ci .",
     "db:gen": "cd packages/db && bun prisma generate",
-    "db:push": "cd packages/db && bun prisma db push"
+    "db:push": "cd packages/db && bun prisma db push",
+    "presence:deps": "cd apps/presence && mix deps.get",
+    "presence:check": "cd apps/presence && mix compile --warnings-as-errors && mix format --check-formatted && mix credo --strict",
+    "presence:format": "cd apps/presence && mix format",
+    "presence:dev": "cd apps/presence && mix phx.server",
+    "presence:build": "cd apps/presence && mix compile"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
