@@ -14,10 +14,7 @@ config :presence, PresenceWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "Tz/1hr8XCsaqSQX4G3E06kpUZO3NrJ8i9fNUsrtmIXX4zNS+WKEb0VD76ZETvKSZ",
-  watchers: [
-    esbuild: {Esbuild, :install_and_run, [:presence, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:presence, ~w(--watch)]}
-  ]
+  watchers: []
 
 # ## SSL Support
 #
@@ -46,10 +43,7 @@ config :presence, PresenceWeb.Endpoint,
 config :presence, dev_routes: true
 
 # Development logging - console only, no timestamps for cleaner output
-config :logger,
-  level: :debug,
-  backends: [:console],
-  format: "[$level] $message\n"
+config :logger, level: :debug
 
 # Disable OpenTelemetry in development
 config :opentelemetry,

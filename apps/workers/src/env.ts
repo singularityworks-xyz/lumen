@@ -28,7 +28,7 @@ export const env = createEnv({
     OTEL_ENABLED: z
       .string()
       .transform((v) => v === "true")
-      .default("false"),
+      .default(false),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     DATABASE_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),

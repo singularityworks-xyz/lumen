@@ -12,7 +12,10 @@ defmodule PresenceWeb.Endpoint do
   ]
 
   socket("/socket", PresenceWeb.UserSocket,
-    websocket: true,
+    websocket: [
+      connect_info: [:peer_data, :x_headers],
+      check_origin: false
+    ],
     longpoll: false
   )
 
