@@ -8,6 +8,9 @@ defmodule Presence.Application do
 
   @impl true
   def start(_type, _args) do
+    # Initialize JWKS cache for JWT verification
+    Presence.Token.init_cache()
+
     # Initialize OpenTelemetry instrumentation
     setup_opentelemetry()
 

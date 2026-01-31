@@ -27,7 +27,7 @@ config :presence,
   redis_host: System.get_env("UPSTASH_REDIS_HOST") || System.get_env("REDIS_HOST", "localhost"),
   redis_port: String.to_integer(System.get_env("UPSTASH_REDIS_PORT") || System.get_env("REDIS_PORT", "6379")),
   redis_password: System.get_env("UPSTASH_REDIS_PASSWORD") || System.get_env("REDIS_PASSWORD"),
-  jwt_secret: System.get_env("JWT_SECRET") || System.get_env("BETTER_AUTH_SECRET")
+  better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3000"
 
 # OpenTelemetry OTLP Configuration
 config :opentelemetry_exporter,

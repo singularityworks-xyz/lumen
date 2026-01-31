@@ -1,15 +1,180 @@
 defmodule Presence.Token do
   @moduledoc """
-  JWT token verification for user authentication.
+  JWT token verification using JWKS from Better Auth.
+  Fetches and caches public keys from Better Auth's JWKS endpoint.
   """
 
+  require Logger
+
+  @jwks_cache_table :jwks_cache
+  @jwks_cache_ttl_ms 60 * 60 * 1000
+
   @doc """
-  Verify a JWT token and return the claims.
+  Initialize the JWKS cache ETS table.
+  Called during application startup.
   """
-  def verify(token, secret) do
-    claims = JOSE.JWT.verify(token, secret)
-    {:ok, claims}
+  def init_cache do
+    if :ets.whereis(@jwks_cache_table) == :undefined do
+      :ets.new(@jwks_cache_table, [:named_table, :public, read_concurrency: true])
+      Logger.info("JWKS cache initialized")
+    end
+
+    :ok
+  end
+
+  @doc """
+  Verify a JWT token using JWKS from Better Auth.
+  """
+  def verify(token) do
+    with {:ok, jwks} <- get_jwks(),
+         {:ok, claims} <- verify_with_jwks(token, jwks) do
+      {:ok, claims}
+    else
+      {:error, reason} ->
+        Logger.warning("JWT verification failed", reason: inspect(reason))
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Fetch JWKS from Better Auth and cache it.
+  """
+  def fetch_jwks do
+    base_url = Application.get_env(:presence, :better_auth_url)
+    jwks_url = "#{base_url}/api/auth/jwks"
+
+    Logger.debug("Fetching JWKS from #{jwks_url}")
+
+    case HTTPoison.get(jwks_url) do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, jwks} ->
+            cache_jwks(jwks)
+            {:ok, jwks}
+
+          {:error, reason} ->
+            Logger.error("Failed to parse JWKS JSON", reason: inspect(reason))
+            {:error, :invalid_jwks}
+        end
+
+      {:ok, %{status_code: status}} ->
+        Logger.error("Failed to fetch JWKS", status: status, url: jwks_url)
+        {:error, :jwks_fetch_failed}
+
+      {:error, reason} ->
+        Logger.error("HTTP error fetching JWKS", reason: inspect(reason), url: jwks_url)
+        {:error, :jwks_fetch_failed}
+    end
+  end
+
+  defp get_jwks do
+    case lookup_cached_jwks() do
+      {:ok, jwks} ->
+        {:ok, jwks}
+
+      {:error, :expired} ->
+        fetch_jwks()
+
+      {:error, :not_found} ->
+        fetch_jwks()
+    end
+  end
+
+  defp lookup_cached_jwks do
+    case :ets.lookup(@jwks_cache_table, :jwks) do
+      [{:jwks, jwks, timestamp}] ->
+        if fresh?(timestamp) do
+          {:ok, jwks}
+        else
+          {:error, :expired}
+        end
+
+      [] ->
+        {:error, :not_found}
+    end
+  end
+
+  defp cache_jwks(jwks) do
+    timestamp = System.monotonic_time(:millisecond)
+    :ets.insert(@jwks_cache_table, {:jwks, jwks, timestamp})
+    :ets.insert(@jwks_cache_table, {:last_fetch, timestamp})
+    Logger.debug("JWKS cached successfully")
+  end
+
+  defp fresh?(timestamp) do
+    now = System.monotonic_time(:millisecond)
+    now - timestamp < @jwks_cache_ttl_ms
+  end
+
+  defp verify_with_jwks(token, jwks) do
+    # Find the key matching the token's kid (key ID)
+    with {:ok, header} <- decode_header(token),
+         kid <- Map.get(header, "kid"),
+         key <- find_key(jwks, kid),
+         {:ok, claims} <- verify_token_with_key(token, key) do
+      {:ok, claims}
+    else
+      nil ->
+        {:error, :key_not_found}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp decode_header(token) do
+    case String.split(token, ".") do
+      [header_b64 | _] ->
+        case Base.url_decode64(header_b64, padding: false) do
+          {:ok, header_json} -> Jason.decode(header_json)
+          :error -> {:error, :invalid_header}
+        end
+
+      _ ->
+        {:error, :invalid_token_format}
+    end
+  end
+
+  defp find_key(%{"keys" => keys}, kid) do
+    Enum.find(keys, fn key -> key["kid"] == kid end)
+  end
+
+  defp verify_token_with_key(token, key) do
+    # Convert JWK to format JOSE expects
+    jwk = JOSE.JWK.from_map(key)
+    base_url = Application.get_env(:presence, :better_auth_url)
+
+    # Verify signature, issuer, and audience
+    case JOSE.JWT.verify(jwk, token) do
+      {true, %JOSE.JWT{fields: claims}, _} ->
+        # Verify issuer and audience match Better Auth URL
+        with {:ok} <- verify_issuer(claims, base_url),
+             {:ok} <- verify_audience(claims, base_url) do
+          {:ok, claims}
+        end
+
+      {false, _, _} ->
+        {:error, :invalid_signature}
+    end
   rescue
-    _ -> {:error, :invalid_token}
+    error ->
+      Logger.error("JWT verification error", error: inspect(error))
+      {:error, :verification_failed}
+  end
+
+  defp verify_issuer(claims, expected_issuer) do
+    case Map.get(claims, "iss") do
+      ^expected_issuer -> {:ok}
+      nil -> {:error, :missing_issuer}
+      actual -> {:error, {:invalid_issuer, actual, expected_issuer}}
+    end
+  end
+
+  defp verify_audience(claims, expected_audience) do
+    case Map.get(claims, "aud") do
+      ^expected_audience -> {:ok}
+      nil -> {:error, :missing_audience}
+      actual -> {:error, {:invalid_audience, actual, expected_audience}}
+    end
   end
 end

@@ -61,9 +61,7 @@ defmodule PresenceWeb.UserSocket do
   def id(socket), do: "user_socket:#{socket.assigns.user_id}"
 
   defp verify_token(token) do
-    secret = Application.get_env(:presence, :jwt_secret)
-
-    case Presence.Token.verify(token, secret) do
+    case Presence.Token.verify(token) do
       {:ok, claims} ->
         {:ok,
          %{
