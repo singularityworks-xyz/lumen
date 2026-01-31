@@ -15,7 +15,6 @@ defmodule Presence.MixProject do
   end
 
   # Configuration for the OTP application.
-  #
   # Type `mix help compile.app` for more information.
   def application do
     [
@@ -35,15 +34,10 @@ defmodule Presence.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
-  #
   # Type `mix help deps` for examples and options.
   defp deps do
     [
       {:phoenix, "~> 1.8.3"},
-      {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
-      {:heroicons,
-       github: "tailwindlabs/heroicons", tag: "v2.2.0", sparse: "optimized", app: false, compile: false, depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
@@ -72,15 +66,8 @@ defmodule Presence.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.build"],
-      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind presence", "esbuild presence"],
-      "assets.deploy": [
-        "tailwind presence --minify",
-        "esbuild presence --minify",
-        "phx.digest"
-      ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      setup: ["deps.get"],
+      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format"]
     ]
   end
 end
