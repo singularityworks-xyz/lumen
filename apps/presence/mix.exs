@@ -51,7 +51,16 @@ defmodule Presence.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:redix, "~> 1.5"},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      # OpenTelemetry
+      {:opentelemetry, "~> 1.3"},
+      {:opentelemetry_api, "~> 1.4"},
+      {:opentelemetry_exporter, "~> 1.6"},
+      {:opentelemetry_semantic_conventions, "~> 1.27"},
+      {:opentelemetry_phoenix, "~> 2.0"},
+      {:opentelemetry_bandit, "~> 0.3"},
+      # Structured Logging
+      {:logger_json, "~> 7.0"}
     ]
   end
 

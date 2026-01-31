@@ -29,6 +29,26 @@ config :presence,
   redis_password: System.get_env("UPSTASH_REDIS_PASSWORD") || System.get_env("REDIS_PASSWORD"),
   jwt_secret: System.get_env("JWT_SECRET") || System.get_env("BETTER_AUTH_SECRET")
 
+# OpenTelemetry OTLP Configuration
+config :opentelemetry_exporter,
+  otlp_protocol: :http_protobuf,
+  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
+  otlp_headers: [{"x-api-key", System.get_env("OTEL_API_KEY", "")}]
+
+# Production sampling configuration
+if config_env() == :prod do
+  config :opentelemetry,
+    sampler:
+      {:parent_based,
+       %{
+         root: {:trace_id_ratio_based, 0.10},
+         remote_parent_sampled: :always_on,
+         remote_parent_not_sampled: :always_off,
+         local_parent_sampled: :always_on,
+         local_parent_not_sampled: :always_off
+       }}
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

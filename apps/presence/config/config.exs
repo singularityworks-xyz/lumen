@@ -45,10 +45,37 @@ config :tailwind,
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [
+    :request_id,
+    :trace_id,
+    :span_id,
+    :user_id,
+    :workspace_id,
+    :status,
+    :duration_ms,
+    :idle_duration_ms,
+    :reason,
+    :user_name,
+    :service
+  ]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+# OpenTelemetry Configuration
+config :opentelemetry,
+  resource: [
+    service: %{
+      name: "presence-service",
+      version: "0.1.0",
+      namespace: "lumen"
+    },
+    deployment: %{
+      environment: config_env()
+    }
+  ],
+  span_processor: :batch,
+  traces_exporter: :otlp
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

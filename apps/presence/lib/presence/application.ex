@@ -4,9 +4,16 @@ defmodule Presence.Application do
   @moduledoc false
 
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
+    # Initialize OpenTelemetry instrumentation
+    setup_opentelemetry()
+
+    # Attach telemetry handlers
+    Presence.Telemetry.attach_handlers()
+
     children = [
       PresenceWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
@@ -39,5 +46,17 @@ defmodule Presence.Application do
 
   defp redis_password do
     Application.get_env(:presence, :redis_password)
+  end
+
+  defp setup_opentelemetry do
+    # Setup Bandit HTTP server instrumentation
+    OpentelemetryBandit.setup()
+
+    # Setup Phoenix instrumentation
+    OpentelemetryPhoenix.setup(adapter: :bandit)
+
+    Logger.info("OpenTelemetry instrumentation initialized",
+      service: "presence-service"
+    )
   end
 end
