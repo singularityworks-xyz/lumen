@@ -17,11 +17,13 @@ defmodule Presence.Application do
     # Attach telemetry handlers
     Presence.Telemetry.attach_handlers()
 
+    redis_url = Application.get_env(:presence, :redis_url) || "redis://localhost:6379"
+
     children = [
       PresenceWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
-      {Redix, name: :redix, host: redis_host(), port: redis_port(), password: redis_password(), ssl: true},
+      {Redix, host: redis_url},
       PresenceWeb.Endpoint
     ]
 
@@ -37,18 +39,6 @@ defmodule Presence.Application do
   def config_change(changed, _new, removed) do
     PresenceWeb.Endpoint.config_change(changed, removed)
     :ok
-  end
-
-  defp redis_host do
-    Application.get_env(:presence, :redis_host) || "localhost"
-  end
-
-  defp redis_port do
-    Application.get_env(:presence, :redis_port) || 6379
-  end
-
-  defp redis_password do
-    Application.get_env(:presence, :redis_password)
   end
 
   defp setup_opentelemetry do

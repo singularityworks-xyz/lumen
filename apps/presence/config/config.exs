@@ -34,7 +34,9 @@ config :logger, :default_formatter,
     :idle_duration_ms,
     :reason,
     :user_name,
-    :service
+    :service,
+    :error,
+    :url
   ]
 
 # Use Jason for JSON parsing in Phoenix

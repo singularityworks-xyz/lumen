@@ -23,10 +23,11 @@ end
 config :presence, PresenceWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 # Redis configuration
+# Upstash provides a Redis URL in format: rediss://default:PASSWORD@HOST.upstash.io:PORT
+redis_url = System.get_env("UPSTASH_REDIS_URL") || System.get_env("REDIS_URL", "redis://localhost:6379")
+
 config :presence,
-  redis_host: System.get_env("UPSTASH_REDIS_HOST") || System.get_env("REDIS_HOST", "localhost"),
-  redis_port: String.to_integer(System.get_env("UPSTASH_REDIS_PORT") || System.get_env("REDIS_PORT", "6379")),
-  redis_password: System.get_env("UPSTASH_REDIS_PASSWORD") || System.get_env("REDIS_PASSWORD"),
+  redis_url: redis_url,
   better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3000"
 
 # OpenTelemetry OTLP Configuration
