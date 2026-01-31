@@ -170,8 +170,8 @@ export class PresenceManager {
     >;
 
     for (const [userId, data] of Object.entries(presenceMap)) {
-      if (data.metas && data.metas.length > 0) {
-        const meta = data.metas[0];
+      const meta = data.metas?.[0];
+      if (meta) {
         users.push({
           id: userId,
           name: meta.name,
