@@ -2,7 +2,7 @@ name: Deploy Presence Service
 
 on:
   push:
-    branches: [main]
+    branches: [origin]
     paths:
       - "apps/presence/**"
       - ".github/workflows/presence-deploy.yml"
