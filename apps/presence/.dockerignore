@@ -1,0 +1,67 @@
+# Docker build artifacts
+_build/
+deps/
+*.ez
+
+# Generated on crash or exit
+erl_crash.dump
+
+# Static artifacts
+node_modules/
+
+# Dev/test files
+.elixir_ls/
+.lexical/
+.fetch
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+cover/
+*.coverdata
+
+# Local dev files
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temp files
+tmp/
+temp/
+
+# Release artifacts (we build fresh)
+rel/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+!Dockerfile
+
+# Turborepo
+.turbo/

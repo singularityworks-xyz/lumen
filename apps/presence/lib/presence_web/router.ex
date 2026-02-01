@@ -5,6 +5,8 @@ defmodule PresenceWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  get("/health", PresenceWeb.HealthController, :index)
+
   scope "/api", PresenceWeb do
     pipe_through(:api)
   end

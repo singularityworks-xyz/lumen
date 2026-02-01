@@ -11,27 +11,28 @@ end
 # and secrets from environment variables or elsewhere. Do not define
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
-
 # ## Using releases
-#
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
-#
 #     PHX_SERVER=true bin/presence start
-#
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
   config :presence, PresenceWeb.Endpoint, server: true
 end
 
-config :presence, PresenceWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+config :presence, PresenceWeb.Endpoint,
+  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 # Redis configuration (Upstash REST API)
 config :presence,
   upstash_redis_rest_url: System.get_env("UPSTASH_REDIS_REST_URL"),
   upstash_redis_rest_token: System.get_env("UPSTASH_REDIS_REST_TOKEN"),
-  better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3002"
+  better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3002",
+  # Workers API URL for fetching workspace members (Phase 1)
+  workers_api_url: System.get_env("WORKERS_API_URL") || "http://localhost:3002",
+  # Internal API key for webhook authentication (Phase 2)
+  internal_api_key: System.get_env("INTERNAL_API_KEY")
 
 # OpenTelemetry OTLP Configuration (Production Only)
 if config_env() == :prod do
@@ -79,36 +80,4 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0}
     ],
     secret_key_base: secret_key_base
-
-  # ## SSL Support
-  #
-  # To get SSL working, you will need to add the `https` key
-  # to your endpoint configuration:
-  #
-  #     config :presence, PresenceWeb.Endpoint,
-  #       https: [
-  #         ...,
-  #         port: 443,
-  #         cipher_suite: :strong,
-  #         keyfile: System.get_env("SOME_APP_SSL_KEY_PATH"),
-  #         certfile: System.get_env("SOME_APP_SSL_CERT_PATH")
-  #       ]
-  #
-  # The `cipher_suite` is set to `:strong` to support only the
-  # latest and more secure SSL ciphers. This means old browsers
-  # and clients may not be supported. You can set it to
-  # `:compatible` for wider support.
-  #
-  # `:keyfile` and `:certfile` expect an absolute path to the key
-  # and cert in disk or a relative path inside priv, for example
-  # "priv/ssl/server.key". For all supported SSL configuration
-  # options, see https://hexdocs.pm/plug/Plug.SSL.html#configure/1
-  #
-  # We also recommend setting `force_ssl` in your config/prod.exs,
-  # ensuring no data is ever sent via http, always redirecting to https:
-  #
-  #     config :presence, PresenceWeb.Endpoint,
-  #       force_ssl: [hsts: true]
-  #
-  # Check `Plug.SSL` for all available options in `force_ssl`.
 end

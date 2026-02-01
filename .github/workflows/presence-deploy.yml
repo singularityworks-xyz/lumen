@@ -1,0 +1,97 @@
+name: Deploy Presence Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/presence/**"
+      - ".github/workflows/presence-deploy.yml"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/lumen-presence
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for ARM64 builds)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/presence
+          file: ./apps/presence/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger Dokploy deployment via webhook
+        if: success()
+        run: |
+          curl -X POST '${{ secrets.DOKPLOY_WEBHOOK_URL }}' \
+            --fail --silent --show-error
+
+      - name: Wait for deployment health check
+        if: success()
+        run: |
+          echo "Waiting 30s for container to start..."
+          sleep 30
+
+          echo "Checking health endpoint..."
+          for i in {1..10}; do
+            if curl -sf "${{ secrets.PRESENCE_HEALTH_URL }}/health" > /dev/null; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/10 failed, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+  cleanup-old-images:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Delete old package versions (keep last 3)
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: lumen-presence
+          package-type: container
+          min-versions-to-keep: 3
+          delete-only-untagged-versions: false
