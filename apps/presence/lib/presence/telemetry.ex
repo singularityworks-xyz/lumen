@@ -2,7 +2,7 @@ defmodule Presence.Telemetry do
   @moduledoc """
   Telemetry handlers for presence operations and OpenTelemetry integration.
 
-  Handles telemetry events and logs them using the Presence.Logger module.
+  Handles telemetry events and logs them using the Logger module.
   Also emits metrics via Presence.Metrics for collection.
   """
 
@@ -32,7 +32,7 @@ defmodule Presence.Telemetry do
   def handle_event([:presence, :track], measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements[:duration], :native, :millisecond)
 
-    Presence.Logger.info("User tracked in presence",
+    Logger.info("User tracked in presence",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       status: metadata[:status],
@@ -59,7 +59,7 @@ defmodule Presence.Telemetry do
         0
       end
 
-    Presence.Logger.info("User status updated",
+    Logger.info("User status updated",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       status: metadata[:status],
@@ -81,7 +81,7 @@ defmodule Presence.Telemetry do
         0
       end
 
-    Presence.Logger.info("User joined workspace",
+    Logger.info("User joined workspace",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       duration_ms: duration_ms
@@ -103,11 +103,17 @@ defmodule Presence.Telemetry do
         0
       end
 
-    Presence.Logger.info("User left workspace",
+    Logger.info("User left workspace",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       duration_ms: duration_ms
     )
+
+    # Decrement connection count
+    Presence.Metrics.decrement_connections(%{
+      user_id: metadata[:user_id],
+      workspace_id: metadata[:workspace_id]
+    })
 
     # Record session duration if available
     if metadata[:session_duration_ms] do
@@ -119,7 +125,7 @@ defmodule Presence.Telemetry do
   end
 
   def handle_event([:presence, :idle, :transition], _measurements, metadata, _config) do
-    Presence.Logger.info("User transitioned to idle",
+    Logger.info("User transitioned to idle",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       previous_status: metadata[:previous_status]

@@ -48,7 +48,7 @@ defmodule PresenceWeb.Plugs.MetricsPlug do
 
     # Log slow requests (over 1 second)
     if duration_ms > 1000 do
-      Presence.Logger.warn("Slow HTTP request",
+      Logger.warning("Slow HTTP request",
         method: method,
         route: route,
         status: status,
@@ -58,7 +58,7 @@ defmodule PresenceWeb.Plugs.MetricsPlug do
 
     # Log errors (5xx status codes)
     if status >= 500 do
-      Presence.Logger.error("HTTP request error",
+      Logger.error("HTTP request error",
         method: method,
         route: route,
         status: status,
@@ -72,10 +72,10 @@ defmodule PresenceWeb.Plugs.MetricsPlug do
   defp normalize_path(path) do
     path
     # Replace UUIDs
-    |> String.replace(~r/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, ":id")
+    |> String.replace(~r/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, ":id", global: true)
     # Replace numeric IDs (but not version numbers like v1, v2)
-    |> String.replace(~r/(?<!v)\/[0-9]+/, "/:id")
+    |> String.replace(~r/(?<!v)\/[0-9]+/, "/:id", global: true)
     # Replace hex strings longer than 8 chars (likely hashes)
-    |> String.replace(~r/[0-9a-f]{16,}/i, ":hash")
+    |> String.replace(~r/[0-9a-f]{16,}/i, ":hash", global: true)
   end
 end

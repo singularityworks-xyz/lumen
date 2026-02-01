@@ -78,7 +78,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.redis.publish.total",
         event_name: [:presence, :redis, :publish],
         measurement: :count,
-        tags: [:event_type],
+        tags: [:workspace_id, :event_type],
         description: "Total number of Redis publish operations"
       ),
       Telemetry.Metrics.counter("presence.redis.errors.total",

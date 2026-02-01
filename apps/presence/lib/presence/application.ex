@@ -50,6 +50,9 @@ defmodule Presence.Application do
     # Setup Phoenix instrumentation
     OpentelemetryPhoenix.setup(adapter: :bandit)
 
+    # Note: opentelemetry_logger_metadata automatically injects trace_id and span_id
+    # into Logger metadata when inside an OpenTelemetry span context
+
     Logger.info("OpenTelemetry instrumentation initialized",
       service: "lumen-presence"
     )

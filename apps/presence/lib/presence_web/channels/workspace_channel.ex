@@ -6,6 +6,7 @@ defmodule PresenceWeb.WorkspaceChannel do
   """
   use Phoenix.Channel
 
+  require Logger
   require Presence.Tracer, as: PresenceTracer
 
   alias Presence.Tracer, as: PresenceTracer
@@ -26,7 +27,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     PresenceTracer.set_workspace_context(workspace_id)
 
-    Presence.Logger.info("User joining workspace",
+    Logger.info("User joining workspace",
       user_id: socket.assigns.user_id,
       workspace_id: workspace_id
     )
@@ -76,7 +77,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     socket =
       if Tracker.should_mark_idle?(last_activity) && socket.assigns.status == "online" do
-        Presence.Logger.info("User marked idle due to inactivity",
+        Logger.info("User marked idle due to inactivity",
           user_id: socket.assigns.user_id,
           workspace_id: socket.assigns.workspace_id,
           idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
@@ -118,7 +119,7 @@ defmodule PresenceWeb.WorkspaceChannel do
   # Group all handle_in clauses together
   @impl true
   def handle_in("status_update", %{"status" => status}, socket) do
-    Presence.Logger.debug("Status update received",
+    Logger.debug("Status update received",
       user_id: socket.assigns.user_id,
       workspace_id: socket.assigns.workspace_id,
       status: status
@@ -140,7 +141,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     socket =
       if socket.assigns.status == "idle" do
-        Presence.Logger.info("User returned from idle",
+        Logger.info("User returned from idle",
           user_id: socket.assigns.user_id,
           workspace_id: socket.assigns.workspace_id
         )
@@ -156,7 +157,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
   @impl true
   def terminate(_reason, socket) do
-    Presence.Logger.info("User disconnected from workspace",
+    Logger.info("User disconnected from workspace",
       user_id: socket.assigns.user_id,
       workspace_id: socket.assigns.workspace_id
     )

@@ -11,11 +11,15 @@ config :logger,
     :user_id,
     :workspace_id,
     :status,
+    :previous_status,
     :duration_ms,
     :service,
     :error,
     :error_type,
-    :operation
+    :operation,
+    :stacktrace,
+    :method,
+    :route
   ]
 
 # OpenTelemetry Configuration (Production Only)

@@ -65,7 +65,7 @@ defmodule Presence.Tracker do
         workspace_id: workspace_id
       })
 
-      Presence.Logger.info("User tracked in presence",
+      Logger.info("User tracked in presence",
         user_id: user_id,
         workspace_id: workspace_id,
         status: "online",
@@ -107,7 +107,7 @@ defmodule Presence.Tracker do
         user_id: user_id
       })
 
-      Presence.Logger.info("User status updated",
+      Logger.info("User status updated",
         user_id: user_id,
         status: status,
         duration_ms: duration_ms

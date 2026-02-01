@@ -16,6 +16,8 @@ defmodule Presence.Metrics do
 
   require Logger
 
+  require Logger
+
   @doc """
   Record a user connection (track event).
   """
@@ -129,6 +131,12 @@ defmodule Presence.Metrics do
     |> Enum.map(fn {_topic, presences} -> map_size(presences) end)
     |> Enum.sum()
   rescue
-    _ -> 0
+    e ->
+      Logger.error("Failed to get active user count",
+        error: inspect(e),
+        stacktrace: __STACKTRACE__
+      )
+
+      0
   end
 end
