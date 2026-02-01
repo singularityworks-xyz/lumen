@@ -34,8 +34,9 @@ const getInitials = (name: string): string =>
     .join("")
     .toUpperCase();
 
-interface TaskModalNodeData {
+export interface TaskModalNodeData {
   modalId: string;
+  [key: string]: unknown;
 }
 
 type TaskModalNodeProps = NodeProps<Node<TaskModalNodeData>>;

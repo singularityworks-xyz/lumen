@@ -17,16 +17,41 @@ export const ColumnDragContext = createContext<ColumnDragContextType>({
 
 export const useColumnDragContext = () => useContext(ColumnDragContext);
 export type KanbanNode = Node<BoardNode["data"]>;
-export type AreaNode = Node<{ areaId: string }>;
-export type TaskModalNode = Node<{ modalId: string }>;
-export type EditBoardModalNode = Node<{ modalId: string }>;
-export type TaskDetailModalNode = Node<{ modalId: string }>;
-export type BoardQuickActionsNode = Node<{ boardId: string }>;
-export type TaskQuickActionsNode = Node<{ taskId: string }>;
-export type ColumnQuickActionsNode = Node<{ columnId: string }>;
-export type BoardDialogNode = Node<{ dialogId: string }>;
-export type ConnectionDialogNode = Node<{ boardId: string }>;
-export type ColumnDialogNode = Node<{ columnId: string; dialogId: string }>;
+export type AreaNode = Node<{ areaId: string; [key: string]: unknown }>;
+export type TaskModalNode = Node<{ modalId: string; [key: string]: unknown }>;
+export type EditBoardModalNode = Node<{
+  modalId: string;
+  [key: string]: unknown;
+}>;
+export type TaskDetailModalNode = Node<{
+  modalId: string;
+  [key: string]: unknown;
+}>;
+export type BoardQuickActionsNode = Node<{
+  boardId: string;
+  [key: string]: unknown;
+}>;
+export type TaskQuickActionsNode = Node<{
+  taskId: string;
+  [key: string]: unknown;
+}>;
+export type ColumnQuickActionsNode = Node<{
+  columnId: string;
+  [key: string]: unknown;
+}>;
+export type BoardDialogNode = Node<{
+  dialogId: string;
+  [key: string]: unknown;
+}>;
+export type ConnectionDialogNode = Node<{
+  boardId: string;
+  [key: string]: unknown;
+}>;
+export type ColumnDialogNode = Node<{
+  columnId: string;
+  dialogId: string;
+  [key: string]: unknown;
+}>;
 
 export type CanvasNode =
   | AreaNode
@@ -45,6 +70,7 @@ export type CanvasNode =
         comments: unknown[];
         centroid: { x: number; y: number };
         isSingle: boolean;
+        [key: string]: unknown;
       },
       "commentCluster"
     >;

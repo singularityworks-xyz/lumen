@@ -10,8 +10,9 @@ import { cn } from "@/src/lib/utils";
 import type { Comment } from "../../kanban/types";
 import { CommentDialog } from "./comment-dialog";
 
-interface CommentNodeData {
+export interface CommentNodeData {
   comment: Comment;
+  [key: string]: unknown;
 }
 
 export const CommentNode = memo(

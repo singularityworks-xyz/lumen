@@ -27,8 +27,9 @@ import { ConnectionConfigSection } from "./connection-config-section";
 type HandlePosition = "top" | "right" | "bottom" | "left";
 type LineStyle = "solid" | "dotted";
 
-interface ConnectionDialogNodeData {
+export interface ConnectionDialogNodeData {
   boardId: string;
+  [key: string]: unknown;
 }
 
 type ConnectionDialogNodeProps = NodeProps<Node<ConnectionDialogNodeData>>;

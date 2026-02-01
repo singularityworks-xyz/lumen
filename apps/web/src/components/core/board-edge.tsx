@@ -11,6 +11,7 @@ import { useKanbanStore } from "@/src/features/kanban/store";
 export interface BoardEdgeData {
   label?: string;
   lineStyle: "solid" | "dotted";
+  [key: string]: unknown;
 }
 
 export type BoardEdge = Edge<BoardEdgeData>;

@@ -34,8 +34,9 @@ import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
-interface ColumnQuickActionsNodeData {
+export interface ColumnQuickActionsNodeData {
   columnId: string;
+  [key: string]: unknown;
 }
 
 type ColumnQuickActionsNodeProps = NodeProps<Node<ColumnQuickActionsNodeData>>;

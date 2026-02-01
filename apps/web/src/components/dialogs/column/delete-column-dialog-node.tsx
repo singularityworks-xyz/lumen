@@ -17,9 +17,10 @@ import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
-interface DeleteColumnDialogNodeData {
+export interface DeleteColumnDialogNodeData {
   columnId: string;
   dialogId: string;
+  [key: string]: unknown;
 }
 
 type DeleteColumnDialogNodeProps = NodeProps<Node<DeleteColumnDialogNodeData>>;

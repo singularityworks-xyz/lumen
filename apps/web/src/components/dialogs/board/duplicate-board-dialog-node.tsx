@@ -26,8 +26,9 @@ const getInitials = (name: string): string =>
     .join("")
     .toUpperCase();
 
-interface DuplicateBoardDialogNodeData {
+export interface DuplicateBoardDialogNodeData {
   dialogId: string;
+  [key: string]: unknown;
 }
 
 type DuplicateBoardDialogNodeProps = NodeProps<

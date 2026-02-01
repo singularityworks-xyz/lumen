@@ -360,6 +360,7 @@ export interface BoardNode {
   data: {
     boardId: string;
     isSelected: boolean;
+    [key: string]: unknown;
   };
   width?: number;
   height?: number;
