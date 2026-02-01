@@ -11,9 +11,9 @@ import { cn } from "@/src/lib/utils";
 import { TaskDetailForm } from "./task-detail-form";
 import { TaskViewForm } from "./task-view-form";
 
-type TaskDetailModalNodeData = {
+interface TaskDetailModalNodeData {
   modalId: string;
-};
+}
 
 type TaskDetailModalNodeProps = NodeProps<Node<TaskDetailModalNodeData>>;
 

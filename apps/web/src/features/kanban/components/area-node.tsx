@@ -11,9 +11,9 @@ import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import { ICON_MAP } from "../utils/color-icon-utils";
 
-type AreaNodeData = {
+interface AreaNodeData {
   areaId: string;
-};
+}
 
 type AreaNodeProps = NodeProps<Node<AreaNodeData>>;
 

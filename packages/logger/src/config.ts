@@ -1,12 +1,12 @@
 import { env } from "./env";
 
-export type OtelConfig = {
+export interface OtelConfig {
   enabled: boolean;
   endpoint: string;
   headers: Record<string, string>;
   serviceName: string;
   environment: string;
-};
+}
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";

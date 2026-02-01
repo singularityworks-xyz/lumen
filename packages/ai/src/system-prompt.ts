@@ -1,4 +1,4 @@
-export type SystemPromptContext = {
+export interface SystemPromptContext {
   userName?: string;
   workspaceId?: string;
   workspaceName?: string;
@@ -12,7 +12,7 @@ export type SystemPromptContext = {
   currentBoardName?: string;
   currentBoardId?: string;
   selectedTaskCount?: number;
-};
+}
 
 const CORE_IDENTITY = `You are **Larity**, an AI assistant created by **Singularity Works (SW)**.
 

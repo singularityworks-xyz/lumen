@@ -38,10 +38,10 @@ import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
 
 const logger = createLogger({ name: "profile-modal" });
 
-type ProfileModalProps = {
+interface ProfileModalProps {
   open: boolean;
   onClose: () => void;
-};
+}
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const {
@@ -670,16 +670,15 @@ const CollaboratorsList = memo(
     apiUrl: string;
     open: boolean;
   }) => {
-    const { user: authUser, session } = useAuth();
+    const { user: authUser } = useAuth();
 
     // Use presence service for real-time online users
     const { users: onlineUsers, isConnected } = usePresence({
       workspaceId: workspaceId || "",
       userId: authUser?.id || "",
-      token: session?.token || "",
       userName: authUser?.name || "",
       userAvatar: authUser?.image || undefined,
-      enabled: !!workspaceId && !!authUser && !!session?.token && open,
+      enabled: !!workspaceId && !!authUser && open,
     });
 
     if (!workspaceId) {

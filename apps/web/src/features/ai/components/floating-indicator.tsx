@@ -6,12 +6,12 @@ import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 import LarityOrb from "./animations/larity-orb";
 
-type FloatingIndicatorProps = {
+interface FloatingIndicatorProps {
   onClick: () => void;
   isOpen: boolean;
   hasMessages: boolean;
   isOffline: boolean;
-};
+}
 
 export const FloatingIndicator = memo(
   ({ onClick, isOpen, hasMessages, isOffline }: FloatingIndicatorProps) => (

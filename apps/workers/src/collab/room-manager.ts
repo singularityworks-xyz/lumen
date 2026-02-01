@@ -20,16 +20,16 @@ const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 export const MESSAGE_WORKSPACE_DELETED = 3;
 
-export type CollaboratorInfo = {
+export interface CollaboratorInfo {
   id: string;
   name: string;
   email: string;
   image?: string | null;
   role: Role;
   color: string;
-};
+}
 
-export type WsConnection = {
+export interface WsConnection {
   id: string;
   ws: {
     send: (data: Uint8Array) => void;
@@ -38,9 +38,9 @@ export type WsConnection = {
   user: CollaboratorInfo;
   workspaceId: string;
   awarenessClientId: number;
-};
+}
 
-type Room = {
+interface Room {
   workspaceId: string;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
@@ -48,7 +48,7 @@ type Room = {
   persistenceTimeout: ReturnType<typeof setTimeout> | null;
   cleanupTimeout: ReturnType<typeof setTimeout> | null;
   lastModified: number;
-};
+}
 
 class RoomManager {
   private readonly rooms = new Map<string, Room>();

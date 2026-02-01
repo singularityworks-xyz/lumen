@@ -1,8 +1,8 @@
 import { useLogoAnimation } from "../animations/logo-animation";
 
-type LogoProps = {
+interface LogoProps {
   onClick?: () => void;
-};
+}
 
 export function Logo({ onClick }: LogoProps) {
   const { displayText, showCursor, triggerHoverAnimation, handleMouseLeave } =

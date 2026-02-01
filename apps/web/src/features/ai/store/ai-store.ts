@@ -12,7 +12,7 @@ import { immer } from "zustand/middleware/immer";
 const logger = createLogger({ name: "[client] ai/store" });
 const tracer = getTracer("lumen-ai");
 
-export type WorkspaceAiState = {
+export interface WorkspaceAiState {
   messages: AiMessage[];
   title: string | null;
   isStreaming: boolean;
@@ -20,9 +20,9 @@ export type WorkspaceAiState = {
   streamingMessageId: string | null;
   streamVersion: number;
   lastActiveAt: string;
-};
+}
 
-export type AiState = {
+export interface AiState {
   conversations: Record<string, WorkspaceAiState>;
   isDrawerOpen: boolean;
   isOffline: boolean;
@@ -36,9 +36,9 @@ export type AiState = {
   }>;
 
   currentStreamId: string | null;
-};
+}
 
-export type AiActions = {
+export interface AiActions {
   openDrawer: () => void;
   closeDrawer: () => void;
   toggleDrawer: () => void;
@@ -126,7 +126,7 @@ export type AiActions = {
     messages: AiMessage[],
     title: string | null
   ) => void;
-};
+}
 
 export type AiStore = AiState & AiActions;
 

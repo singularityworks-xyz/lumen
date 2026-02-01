@@ -4,9 +4,9 @@ import { Plus } from "lucide-react";
 import { memo, useState } from "react";
 import { useKanbanStore } from "../store/kanban-store";
 
-type AddColumnPlaceholderProps = {
+interface AddColumnPlaceholderProps {
   boardId: string;
-};
+}
 
 export const AddColumnPlaceholder = memo(
   ({ boardId }: AddColumnPlaceholderProps) => {

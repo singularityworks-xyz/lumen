@@ -27,12 +27,12 @@ import { cn } from "@/src/lib/utils";
 
 type ViewMode = "sprawled" | "stacked";
 
-type CommentClusterDialogProps = {
+interface CommentClusterDialogProps {
   comments: Comment[];
   onClose: () => void;
   screenPosition: { x: number; y: number };
   zoom: number;
-};
+}
 
 // Helper to get/set view mode preference per cluster
 // Uses the first comment ID as a stable identifier since cluster IDs change when comments are added/removed
@@ -59,14 +59,14 @@ function getStableClusterId(comments: Comment[]): string {
   return sorted[0]?.id ?? "unknown";
 }
 
-type SplitButtonProps = {
+interface SplitButtonProps {
   viewMode: ViewMode;
   onViewToggle: () => void;
   onClose: () => void;
   isVisible: boolean;
   isClosing: boolean;
   transitionDelay: string;
-};
+}
 
 function SplitButton({
   viewMode,
@@ -149,7 +149,7 @@ function SplitButton({
   );
 }
 
-type CommentCardProps = {
+interface CommentCardProps {
   comment: Comment;
   index: number;
   totalCount: number;
@@ -164,7 +164,7 @@ type CommentCardProps = {
   viewMode: ViewMode;
   stackColumn?: "left" | "right";
   onClose?: () => void;
-};
+}
 
 function CommentCard({
   comment,

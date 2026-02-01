@@ -15,7 +15,7 @@ import { cn } from "@/src/lib/utils";
 type HandlePosition = "top" | "right" | "bottom" | "left";
 type LineStyle = "solid" | "dotted";
 
-type ConnectionConfigSectionProps = {
+interface ConnectionConfigSectionProps {
   sourceHandle: HandlePosition;
   targetHandle: HandlePosition;
   lineStyle: LineStyle;
@@ -27,7 +27,7 @@ type ConnectionConfigSectionProps = {
   onShowArrowChange: (show: boolean) => void;
   onLabelChange: (label: string) => void;
   compact?: boolean;
-};
+}
 
 const handlePositions: {
   value: HandlePosition;

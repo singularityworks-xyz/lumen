@@ -24,12 +24,12 @@ const frames = [
   [],
 ];
 
-type SendButtonProps = {
+interface SendButtonProps {
   isStreaming: boolean;
   isDisabled: boolean;
   onSend: () => void;
   onCancel: () => void;
-};
+}
 
 export const SendButton = memo(
   ({ isStreaming, isDisabled, onSend, onCancel }: SendButtonProps) => (

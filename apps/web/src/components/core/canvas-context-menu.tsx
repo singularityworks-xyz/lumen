@@ -6,11 +6,11 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
 
-type ContextMenuProps = {
+interface ContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-};
+}
 
 const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
   const { screenToFlowPosition } = useReactFlow();

@@ -4,7 +4,7 @@ import { Grid3X3 } from "lucide-react";
 import { memo, useCallback } from "react";
 import { useKanbanStore } from "@/src/features/kanban";
 
-type SelectionContextMenuProps = {
+interface SelectionContextMenuProps {
   x: number;
   y: number;
   width: number;
@@ -12,7 +12,7 @@ type SelectionContextMenuProps = {
   screenX: number;
   screenY: number;
   onClose: () => void;
-};
+}
 
 export const SelectionContextMenu = memo(
   ({

@@ -54,11 +54,11 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-type CollaborationWrapperProps = {
+interface CollaborationWrapperProps {
   children: ReactNode;
   apiUrl?: string;
   enabled?: boolean;
-};
+}
 
 export function CollaborationWrapper({
   children,

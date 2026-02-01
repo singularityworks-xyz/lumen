@@ -12,29 +12,31 @@ defmodule Presence.RedisPubSub do
     url = get_redis_url()
     token = get_redis_token()
 
-    # Upstash REST API uses Redis commands in a pipeline format
-    # PUBLISH command to broadcast to a channel
-    commands = [
-      ["PUBLISH", channel, Jason.encode!(payload)]
-    ]
+    if url == "" or token == "" do
+      Logger.warning("Redis not configured, skipping broadcast", channel: channel)
+      {:error, :not_configured}
+    else
+      # Upstash REST API: POST to base URL with flat array for single command
+      command = ["PUBLISH", channel, Jason.encode!(payload)]
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Content-Type", "application/json"}
-    ]
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Content-Type", "application/json"}
+      ]
 
-    case HTTPoison.post(url, Jason.encode!(commands), headers) do
-      {:ok, %{status_code: 200, body: body}} ->
-        Logger.debug("Redis PUBLISH successful", channel: channel)
-        {:ok, Jason.decode!(body)}
+      case Req.post(url, json: command, headers: headers) do
+        {:ok, %{status: 200, body: body}} ->
+          Logger.debug("Redis PUBLISH successful", channel: channel)
+          {:ok, body}
 
-      {:ok, %{status_code: status, body: body}} ->
-        Logger.error("Redis PUBLISH failed", status: status, body: body)
-        {:error, :publish_failed}
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Redis PUBLISH failed", status: status, body: inspect(body))
+          {:error, :publish_failed}
 
-      {:error, reason} ->
-        Logger.error("Redis PUBLISH HTTP error", reason: inspect(reason))
-        {:error, :http_error}
+        {:error, reason} ->
+          Logger.error("Redis PUBLISH HTTP error", reason: inspect(reason))
+          {:error, :http_error}
+      end
     end
   end
 
@@ -53,26 +55,31 @@ defmodule Presence.RedisPubSub do
   @doc """
   Execute a Redis command via Upstash REST API.
   """
-  def command(commands) when is_list(commands) do
+  def command(cmd) when is_list(cmd) do
     url = get_redis_url()
     token = get_redis_token()
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Content-Type", "application/json"}
-    ]
+    if url == "" or token == "" do
+      Logger.warning("Redis not configured, skipping command")
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Content-Type", "application/json"}
+      ]
 
-    case HTTPoison.post(url, Jason.encode!(commands), headers) do
-      {:ok, %{status_code: 200, body: body}} ->
-        {:ok, Jason.decode!(body)}
+      case Req.post(url, json: cmd, headers: headers) do
+        {:ok, %{status: 200, body: body}} ->
+          {:ok, body}
 
-      {:ok, %{status_code: status, body: body}} ->
-        Logger.error("Redis command failed", status: status, body: body)
-        {:error, :command_failed}
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Redis command failed", status: status, body: inspect(body))
+          {:error, :command_failed}
 
-      {:error, reason} ->
-        Logger.error("Redis command HTTP error", reason: inspect(reason))
-        {:error, :http_error}
+        {:error, reason} ->
+          Logger.error("Redis command HTTP error", reason: inspect(reason))
+          {:error, :http_error}
+      end
     end
   end
 

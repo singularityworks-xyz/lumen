@@ -22,7 +22,7 @@ import { cn } from "@/src/lib/utils";
 
 const MENTION_SEARCH_REGEX = /^[a-zA-Z0-9]*$/;
 
-type ChatBubbleProps = {
+interface ChatBubbleProps {
   message: ChatMessage;
   isOwn: boolean;
   index: number;
@@ -31,7 +31,7 @@ type ChatBubbleProps = {
   knownUserColors: Map<string, string>;
   onDelete: (messageId: string) => void;
   isHighlighted: boolean;
-};
+}
 
 const ChatBubble = memo(
   ({
@@ -275,9 +275,9 @@ const ChatBubble = memo(
 
 ChatBubble.displayName = "ChatBubble";
 
-type DiscussionTabProps = {
+interface DiscussionTabProps {
   workspaceId: string;
-};
+}
 
 export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);

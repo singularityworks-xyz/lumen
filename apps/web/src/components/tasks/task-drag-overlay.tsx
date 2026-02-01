@@ -8,14 +8,14 @@ import type { Task } from "@/src/features/kanban";
 import { useCachedProfileImage } from "@/src/hooks/use-cached-profile-image";
 import { cn } from "@/src/lib/utils";
 
-type TaskDragOverlayProps = {
+interface TaskDragOverlayProps {
   task: Task;
   collaborator: Collaborator & {
     image?: string | null;
   };
   cursorX?: number;
   cursorY?: number;
-};
+}
 
 export const TaskDragOverlay = memo<TaskDragOverlayProps>(
   ({ collaborator, cursorX = 0, cursorY = 0, task }) => {

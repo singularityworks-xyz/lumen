@@ -39,9 +39,9 @@ const buttonSpring = {
   damping: 17,
 };
 
-export type MobileNavbarProps = {
+export interface MobileNavbarProps {
   position?: "top" | "bottom";
-};
+}
 
 export const MobileNavbar = memo(
   ({ position = "bottom" }: MobileNavbarProps) => {

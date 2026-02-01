@@ -4,7 +4,7 @@ import { memo } from "react";
 import type { Collaborator } from "@/src/features/collab/collab-provider";
 import { cn } from "@/src/lib/utils";
 
-type CollaboratorSelectionOverlayProps = {
+interface CollaboratorSelectionOverlayProps {
   // We can optionally pass flowToScreenPosition if we need screen coords,
   // but if we render this inside React Flow viewport, we can use flow coords directly.
   // Assuming this is rendered INSIDE React Flow zoom pane:
@@ -12,7 +12,7 @@ type CollaboratorSelectionOverlayProps = {
   // Wait, React Flow's onSelectionDrag usually gives Flow coordinates? No, often screen/client.
   // Canvas.tsx logic must normalize.
   collaborators: Collaborator[];
-};
+}
 
 export const CollaboratorSelectionOverlay =
   memo<CollaboratorSelectionOverlayProps>(({ collaborators }) => {

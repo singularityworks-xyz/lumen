@@ -1,18 +1,18 @@
 import type { SessionModel, UserModel } from "@lumen/db";
 
-export type AuthSession = {
+export interface AuthSession {
   user: UserModel;
   session: SessionModel;
-};
+}
 
-export type AuthContext = {
+export interface AuthContext {
   user: UserModel;
   session: SessionModel;
-};
+}
 
-export type SignInResponse = {
+export interface SignInResponse {
   success: boolean;
   user?: UserModel;
   session?: SessionModel;
   error?: string;
-};
+}

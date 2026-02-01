@@ -5,14 +5,14 @@ import gsap from "gsap";
 import { useEffect, useRef, useState } from "react";
 import { DotLoader } from "./dot-loader";
 
-export type DotFlowProps = {
+export interface DotFlowProps {
   items: {
     title: string;
     frames: number[][];
     duration?: number;
     repeatCount?: number;
   }[];
-};
+}
 
 export const DotFlow = ({ items }: DotFlowProps) => {
   const containerRef = useRef<HTMLDivElement>(null);

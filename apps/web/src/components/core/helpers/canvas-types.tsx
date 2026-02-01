@@ -4,12 +4,12 @@ import type { Node } from "@xyflow/react";
 import { createContext, useContext } from "react";
 import type { BoardNode } from "@/src/features/kanban/types";
 
-type ColumnDragContextType = {
+interface ColumnDragContextType {
   activeColumnData: {
     columnId: string;
     sourceBoardId: string;
   } | null;
-};
+}
 
 export const ColumnDragContext = createContext<ColumnDragContextType>({
   activeColumnData: null,

@@ -9,11 +9,11 @@ const YOUTUBE_PATTERNS = [
   /(?:https?:\/\/)?youtu\.be\/([^&\n?#]+)/,
 ];
 
-type VideoModalProps = {
+interface VideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   videoUrl?: string;
-};
+}
 
 export const VideoModal = ({ isOpen, onClose, videoUrl }: VideoModalProps) => {
   const [mounted, setMounted] = useState(false);

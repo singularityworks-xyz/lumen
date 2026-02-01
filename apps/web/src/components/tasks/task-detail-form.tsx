@@ -42,13 +42,13 @@ import {
   ScaledSelectValue,
 } from "../scaled-dropdown";
 
-type TaskDetailFormProps = {
+interface TaskDetailFormProps {
   modalId: string;
   task: Task;
   boardId: string;
   onSaved?: () => void;
   onCancel?: () => void;
-};
+}
 
 const PRIORITY_CONFIG = {
   low: { label: "Low", color: "bg-emerald-500", textColor: "text-emerald-500" },

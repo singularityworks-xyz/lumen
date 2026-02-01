@@ -10,10 +10,10 @@ import type { HTMLAttributes, Ref } from "react";
 import { useCallback, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
-export type XIconHandle = {
+export interface XIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
-};
+}
 
 interface XIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;

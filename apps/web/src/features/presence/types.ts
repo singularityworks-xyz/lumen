@@ -1,19 +1,19 @@
-export type PresenceUser = {
+export interface PresenceUser {
   id: string;
   name: string;
   avatar?: string;
   status: "online" | "idle" | "away";
   joinedAt: number;
-};
+}
 
-export type PresenceState = {
+export interface PresenceState {
   users: Map<string, PresenceUser>;
   currentUser: PresenceUser | null;
   isConnected: boolean;
-};
+}
 
-export type PresenceMessage = {
+export interface PresenceMessage {
   topic: string;
   event: string;
   payload: unknown;
-};
+}

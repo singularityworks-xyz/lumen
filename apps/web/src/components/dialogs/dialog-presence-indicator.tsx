@@ -3,9 +3,9 @@
 import { memo } from "react";
 import type { Collaborator } from "@/src/features/collab";
 
-type DialogPresenceIndicatorProps = {
+interface DialogPresenceIndicatorProps {
   activeCollaborator: Collaborator;
-};
+}
 
 export const DialogPresenceIndicator = memo<DialogPresenceIndicatorProps>(
   ({ activeCollaborator }) => (

@@ -4,11 +4,11 @@ import { Check, CircleDashed, Hammer, Search, X } from "lucide-react";
 import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 
-type ToolIndicatorProps = {
+interface ToolIndicatorProps {
   toolName: string;
   status: "pending" | "success" | "error";
   className?: string;
-};
+}
 
 export const ToolIndicator = memo(
   ({ toolName, status, className }: ToolIndicatorProps) => {

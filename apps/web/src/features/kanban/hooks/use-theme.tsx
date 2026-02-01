@@ -6,10 +6,10 @@ import { create } from "zustand";
 
 export type Theme = "light" | "dark";
 
-type ThemeIndicatorStore = {
+interface ThemeIndicatorStore {
   showIndicator: boolean;
   setShowIndicator: (show: boolean) => void;
-};
+}
 
 const useThemeIndicatorStore = create<ThemeIndicatorStore>((set) => ({
   showIndicator: false,

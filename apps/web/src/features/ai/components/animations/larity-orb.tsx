@@ -6,11 +6,11 @@ import { cn } from "@/src/lib/utils";
 
 export type LarityOrbSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-type LarityOrbProps = {
+interface LarityOrbProps {
   size?: LarityOrbSize;
   className?: string;
   speed?: number;
-};
+}
 
 const sizeMap: Record<LarityOrbSize, { dimension: number; pixelSize: number }> =
   {

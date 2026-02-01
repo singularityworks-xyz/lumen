@@ -8,7 +8,7 @@ import { useAiStore } from "../store/ai-store";
 import { AiDrawerContent } from "./ai-drawer-content";
 import { FloatingIndicator } from "./floating-indicator";
 
-export type AiDrawerProps = {
+export interface AiDrawerProps {
   workspaceId: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,7 +16,7 @@ export type AiDrawerProps = {
   onSwitchToComments?: () => void;
   boardCount?: number;
   commentCount?: number;
-};
+}
 
 export const AiDrawer = memo(
   ({

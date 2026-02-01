@@ -11,7 +11,7 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { cn } from "@/src/lib/utils";
 
-type RenameWorkspaceDialogProps = {
+interface RenameWorkspaceDialogProps {
   currentName: string;
   workspaceId: string;
   onRename: (newName: string) => void;
@@ -22,7 +22,7 @@ type RenameWorkspaceDialogProps = {
   onPositionChange?: (position: { x: number; y: number }) => void;
   initialValue?: string;
   onInputChange?: (value: string) => void;
-};
+}
 
 const DIALOG_WIDTH = 380;
 

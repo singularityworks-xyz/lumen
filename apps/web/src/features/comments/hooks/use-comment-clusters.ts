@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import type { Comment } from "@/src/features/kanban/types";
 
-export type CommentCluster = {
+export interface CommentCluster {
   id: string;
   comments: Comment[];
   centroid: { x: number; y: number };
   isSingle: boolean;
-};
+}
 
 const CLUSTER_RADIUS = 80;
 

@@ -3,14 +3,14 @@
 import { memo, type RefObject } from "react";
 import type { Collaborator } from "@/src/features/collab/collab-provider";
 
-type CollaboratorSelectionOverlayScreenProps = {
+interface CollaboratorSelectionOverlayScreenProps {
   collaborators: Collaborator[];
   containerRef: RefObject<HTMLDivElement | null>;
   flowToScreenPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
   };
-};
+}
 
 export const CollaboratorSelectionOverlayScreen =
   memo<CollaboratorSelectionOverlayScreenProps>(

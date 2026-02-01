@@ -1,14 +1,14 @@
 import type { ChatMessage } from "@lumen/yjs-shared";
 import type { KanbanStore } from "../types";
 
-export type ChatMention = {
+export interface ChatMention {
   userId: string;
   userName: string;
   startIndex: number;
   endIndex: number;
-};
+}
 
-export type ChatSlice = {
+export interface ChatSlice {
   chatMessages: {
     byId: Record<string, ChatMessage>;
     allIds: string[];
@@ -30,7 +30,7 @@ export type ChatSlice = {
   ) => void;
   deleteChatMessage: (id: string) => void;
   getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
-};
+}
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,

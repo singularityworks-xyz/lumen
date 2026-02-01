@@ -7,7 +7,7 @@ import type { Collaborator } from "@/src/features/collab";
 import { useCachedProfileImage } from "@/src/hooks/use-cached-profile-image";
 import { cn } from "@/src/lib/utils";
 
-type CollaboratorColumnDragOverlayProps = {
+interface CollaboratorColumnDragOverlayProps {
   columnName: string;
   taskCount: number;
   collaborator: Collaborator & {
@@ -15,7 +15,7 @@ type CollaboratorColumnDragOverlayProps = {
   };
   cursorX?: number;
   cursorY?: number;
-};
+}
 
 export const CollaboratorColumnDragOverlay =
   memo<CollaboratorColumnDragOverlayProps>(

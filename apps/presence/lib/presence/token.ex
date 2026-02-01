@@ -45,19 +45,13 @@ defmodule Presence.Token do
 
     Logger.debug("Fetching JWKS from #{jwks_url}")
 
-    case HTTPoison.get(jwks_url) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, jwks} ->
-            cache_jwks(jwks)
-            {:ok, jwks}
+    case Req.get(jwks_url) do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        # Req auto-decodes JSON
+        cache_jwks(body)
+        {:ok, body}
 
-          {:error, reason} ->
-            Logger.error("Failed to parse JWKS JSON", reason: inspect(reason))
-            {:error, :invalid_jwks}
-        end
-
-      {:ok, %{status_code: status}} ->
+      {:ok, %{status: status}} ->
         Logger.error("Failed to fetch JWKS", status: status, url: jwks_url)
         {:error, :jwks_fetch_failed}
 

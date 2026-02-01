@@ -13,13 +13,13 @@
   "devDependencies": {
     "@lumen/configs": "workspace:^",
     "@lumen/logger": "workspace:^",
-    "@types/node": "^25.0.9",
+    "@types/node": "^25.1.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.10",
+    "@ai-sdk/openai-compatible": "^2.0.25",
     "@cerebras/cerebras_cloud_sdk": "^1.64.1",
-    "ai": "^6.0.34",
-    "zod": "^4.3.5"
+    "ai": "^6.0.66",
+    "zod": "^4.3.6"
   }
 }

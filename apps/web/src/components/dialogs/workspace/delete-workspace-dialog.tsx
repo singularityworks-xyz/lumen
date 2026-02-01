@@ -13,7 +13,7 @@ import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 
-type DeleteWorkspaceDialogProps = {
+interface DeleteWorkspaceDialogProps {
   workspaceName: string;
 
   onConfirm: () => Promise<boolean>;
@@ -22,7 +22,7 @@ type DeleteWorkspaceDialogProps = {
 
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
-};
+}
 
 const DIALOG_WIDTH = 420;
 

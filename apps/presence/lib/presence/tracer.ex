@@ -68,8 +68,12 @@ defmodule Presence.Tracer do
   """
   def current_trace_id do
     case OpenTelemetry.Tracer.current_span_ctx() do
-      :undefined -> nil
-      span_ctx -> OpenTelemetry.Span.trace_id(span_ctx) |> Base.encode16(case: :lower)
+      :undefined ->
+        nil
+
+      span_ctx ->
+        trace_id = OpenTelemetry.Span.trace_id(span_ctx)
+        format_id(trace_id, 32)
     end
   end
 
@@ -78,8 +82,24 @@ defmodule Presence.Tracer do
   """
   def current_span_id do
     case OpenTelemetry.Tracer.current_span_ctx() do
-      :undefined -> nil
-      span_ctx -> OpenTelemetry.Span.span_id(span_ctx) |> Base.encode16(case: :lower)
+      :undefined ->
+        nil
+
+      span_ctx ->
+        span_id = OpenTelemetry.Span.span_id(span_ctx)
+        format_id(span_id, 16)
     end
+  end
+
+  # Convert integer ID to hex string with proper padding
+  defp format_id(id, length) when is_integer(id) do
+    id
+    |> Integer.to_string(16)
+    |> String.downcase()
+    |> String.pad_leading(length, "0")
+  end
+
+  defp format_id(id, _length) when is_binary(id) do
+    Base.encode16(id, case: :lower)
   end
 end

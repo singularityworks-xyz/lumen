@@ -27,11 +27,11 @@ import { useKanbanStore } from "../store/kanban-store";
 import type { DenormalizedColumn, Task } from "../types";
 import { ICON_MAP } from "../utils/color-icon-utils";
 
-type KanbanColumnProps = {
+interface KanbanColumnProps {
   column: DenormalizedColumn;
   boardId: string;
   onOpenTaskDetail?: (taskId: string, screenX: number, screenY: number) => void;
-};
+}
 
 export const KanbanColumn = memo(
   ({ column, boardId, onOpenTaskDetail }: KanbanColumnProps) => {

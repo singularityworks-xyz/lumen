@@ -11,10 +11,10 @@ import type { DenormalizedBoard } from "../types";
 import { AddColumnPlaceholder } from "./add-column-placeholder";
 import { KanbanColumn } from "./kanban-column";
 
-type KanbanBoardProps = {
+interface KanbanBoardProps {
   board: DenormalizedBoard;
   onOpenTaskDetail?: (taskId: string, screenX: number, screenY: number) => void;
-};
+}
 
 export const KanbanBoard = memo(
   ({ board, onOpenTaskDetail }: KanbanBoardProps) => {

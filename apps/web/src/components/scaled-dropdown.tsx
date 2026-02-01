@@ -8,16 +8,16 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { cn } from "@/src/lib/utils";
 
-type ModalScaleContextValue = {
+interface ModalScaleContextValue {
   zIndex: number;
-};
+}
 
 const ModalScaleContext = createContext<ModalScaleContextValue | null>(null);
 
-type ModalScaleProviderProps = {
+interface ModalScaleProviderProps {
   children: ReactNode;
   zIndex: number;
-};
+}
 
 function ModalScaleProvider({ children, zIndex }: ModalScaleProviderProps) {
   const value = useMemo(() => ({ zIndex }), [zIndex]);

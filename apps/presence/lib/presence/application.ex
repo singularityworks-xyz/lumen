@@ -23,6 +23,7 @@ defmodule Presence.Application do
       PresenceWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
+      Presence.Tracker,
       PresenceWeb.Endpoint
     ]
 

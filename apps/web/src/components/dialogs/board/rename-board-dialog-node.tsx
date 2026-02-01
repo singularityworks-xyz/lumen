@@ -28,9 +28,9 @@ const getInitials = (name: string): string =>
     .join("")
     .toUpperCase();
 
-type RenameBoardDialogNodeData = {
+interface RenameBoardDialogNodeData {
   dialogId: string;
-};
+}
 
 type RenameBoardDialogNodeProps = NodeProps<Node<RenameBoardDialogNodeData>>;
 

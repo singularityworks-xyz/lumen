@@ -4,14 +4,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Collaborator } from "./collab-provider";
 
-type CursorOverlayProps = {
+interface CursorOverlayProps {
   collaborators: Collaborator[];
   flowToScreenPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
   };
   onNavigateToUser?: (position: { x: number; y: number }) => void;
-};
+}
 
 const EDGE_PADDING = 60;
 const VIEWPORT_MARGIN = 50;
@@ -74,14 +74,14 @@ const DirectionArrow = memo(
 
 DirectionArrow.displayName = "DirectionArrow";
 
-type CollaboratorDisplayProps = {
+interface CollaboratorDisplayProps {
   collaborator: Collaborator;
   flowToScreenPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
   };
   onNavigate?: (position: { x: number; y: number }) => void;
-};
+}
 
 // Check if position is within viewport
 function isInViewport(x: number, y: number): boolean {

@@ -11,7 +11,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 const logger = createLogger({ name: "[client] ai/api-client" });
 const API_BASE = env.NEXT_PUBLIC_API_URL;
 
-export type ChatStreamCallbacks = {
+export interface ChatStreamCallbacks {
   onMessageStart?: (messageId: string) => void;
   onContentDelta?: (content: string) => void;
   onToolCallStart?: (toolName: string, toolCallId: string) => void;
@@ -31,9 +31,9 @@ export type ChatStreamCallbacks = {
   }) => void;
   onError?: (error: string) => void;
   onClose?: () => void;
-};
+}
 
-export type TaskSnapshot = {
+export interface TaskSnapshot {
   id: string;
   title: string;
   description?: string;
@@ -44,9 +44,9 @@ export type TaskSnapshot = {
   dueDate?: string;
   tags?: string[];
   assignedTo?: string;
-};
+}
 
-export type ColumnSnapshot = {
+export interface ColumnSnapshot {
   id: string;
   name: string;
   description?: string;
@@ -54,21 +54,21 @@ export type ColumnSnapshot = {
   accentColor?: string;
   icon?: string;
   tasks: TaskSnapshot[];
-};
+}
 
-export type BoardSnapshot = {
+export interface BoardSnapshot {
   id: string;
   name: string;
   description?: string;
   accentColor?: string;
   icon?: string;
   columns: ColumnSnapshot[];
-};
+}
 
-export type WorkspaceSnapshot = {
+export interface WorkspaceSnapshot {
   name: string;
   boards: BoardSnapshot[];
-};
+}
 
 export function buildWorkspaceSnapshot(
   workspaceId: string
@@ -163,7 +163,7 @@ export function buildWorkspaceSnapshotIfNeeded(
   return buildWorkspaceSnapshot(workspaceId);
 }
 
-export type ChatRequest = {
+export interface ChatRequest {
   workspaceId: string;
   message: string;
   context?: ContextSnapshot;
@@ -172,7 +172,7 @@ export type ChatRequest = {
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
   assistantMessageId?: string;
-};
+}
 
 class FatalError extends Error {
   constructor(message: string) {
@@ -348,7 +348,7 @@ export async function checkAiHealth(): Promise<{
   }
 }
 
-export type ConversationResponse = {
+export interface ConversationResponse {
   id: string;
   workspaceId: string;
   title: string | null;
@@ -356,7 +356,7 @@ export type ConversationResponse = {
   messages: AiMessage[];
   lastActiveAt: string;
   createdAt: string;
-};
+}
 
 export async function fetchConversation(
   workspaceId: string

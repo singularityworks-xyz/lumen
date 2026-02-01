@@ -1,28 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getJwtToken } from "@/src/lib/auth-client";
 import { PresenceManager } from "../presence-manager";
 import type { PresenceUser } from "../types";
 
-type UsePresenceOptions = {
+interface UsePresenceOptions {
   workspaceId: string;
   userId: string;
-  token: string;
   userName: string;
   userAvatar?: string;
   enabled?: boolean;
-};
+}
 
-type UsePresenceReturn = {
+interface UsePresenceReturn {
   users: PresenceUser[];
   isConnected: boolean;
   currentUser: PresenceUser | null;
-};
+}
 
 export function usePresence({
   workspaceId,
   userId,
-  token,
   userName,
   userAvatar,
   enabled = true,
@@ -40,21 +39,33 @@ export function usePresence({
   }, []);
 
   useEffect(() => {
-    if (!(enabled && workspaceId && userId && token)) {
+    if (!(enabled && workspaceId && userId)) {
       return;
     }
 
-    managerRef.current = new PresenceManager({
-      workspaceId,
-      userId,
-      token,
-      userName,
-      userAvatar,
-      onPresenceUpdate: handlePresenceUpdate,
-      onConnectionChange: handleConnectionChange,
-    });
+    let cancelled = false;
+
+    async function connect() {
+      const token = await getJwtToken();
+      if (cancelled || !token) {
+        return;
+      }
+
+      managerRef.current = new PresenceManager({
+        workspaceId,
+        userId,
+        token,
+        userName,
+        userAvatar,
+        onPresenceUpdate: handlePresenceUpdate,
+        onConnectionChange: handleConnectionChange,
+      });
+    }
+
+    connect();
 
     return () => {
+      cancelled = true;
       managerRef.current?.disconnect();
       managerRef.current = null;
     };
@@ -62,7 +73,6 @@ export function usePresence({
     enabled,
     workspaceId,
     userId,
-    token,
     userName,
     userAvatar,
     handlePresenceUpdate,

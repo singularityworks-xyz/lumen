@@ -3,11 +3,11 @@
 import { memo } from "react";
 import type { Collaborator } from "@/src/features/collab";
 
-type TaskDragPresenceIndicatorProps = {
+interface TaskDragPresenceIndicatorProps {
   collaborator: Collaborator & {
     image?: string | null;
   };
-};
+}
 
 export const TaskDragPresenceIndicator = memo<TaskDragPresenceIndicatorProps>(
   ({ collaborator }) => (

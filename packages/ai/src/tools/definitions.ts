@@ -21,13 +21,13 @@ import {
 export type ToolCategory = "query" | "action";
 export type DestructiveLevel = "none" | "low" | "high";
 
-export type ToolMetadata = {
+export interface ToolMetadata {
   name: string;
   category: ToolCategory;
   destructive: DestructiveLevel;
   requiresConfirmation: boolean;
   description: string;
-};
+}
 
 // Tool descriptions as constants for type safety
 const DESCRIPTIONS = {

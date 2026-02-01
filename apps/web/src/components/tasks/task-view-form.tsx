@@ -20,12 +20,12 @@ import { Checkbox } from "@/src/components/ui/checkbox";
 import { type Column, type Task, useKanbanStore } from "@/src/features/kanban";
 import { cn } from "@/src/lib/utils";
 
-type TaskViewFormProps = {
+interface TaskViewFormProps {
   modalId: string;
   task: Task;
   boardId: string;
   onEdit: () => void;
-};
+}
 
 const PRIORITY_CONFIG = {
   low: {

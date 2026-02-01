@@ -14,6 +14,9 @@ defmodule PresenceWeb.WorkspaceChannel do
 
   @idle_check_interval 30_000
 
+  # Intercept presence_diff to broadcast to clients
+  intercept(["presence_diff"])
+
   @impl true
   def join("workspace:" <> workspace_id, _payload, socket) do
     # Set trace context for the channel
@@ -42,6 +45,9 @@ defmodule PresenceWeb.WorkspaceChannel do
         status: "online"
       })
 
+    # Send initial presence state after a short delay to ensure tracking is complete
+    send(self(), :after_join)
+
     broadcast_presence_event("user_joined", socket)
     schedule_idle_check()
 
@@ -52,6 +58,20 @@ defmodule PresenceWeb.WorkspaceChannel do
     )
 
     {:ok, assign(socket, :status, "online")}
+  end
+
+  @impl true
+  def handle_info(:after_join, socket) do
+    # Push the current presence state to the newly joined client
+    push(socket, "presence_state", Tracker.list(socket.topic))
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_out("presence_diff", diff, socket) do
+    # Push presence diffs to all clients
+    push(socket, "presence_diff", diff)
+    {:noreply, socket}
   end
 
   @impl true

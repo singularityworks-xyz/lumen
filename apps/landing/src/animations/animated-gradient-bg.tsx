@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import type React from "react";
 import { useEffect, useRef } from "react";
 
-type AnimatedGradientBackgroundProps = {
+interface AnimatedGradientBackgroundProps {
   /**
    * Initial size of the radial gradient, defining the starting width.
    * @default 110
@@ -60,7 +60,7 @@ type AnimatedGradientBackgroundProps = {
    * @default 0
    */
   topOffset?: number;
-};
+}
 
 /**
  * AnimatedGradientBackground

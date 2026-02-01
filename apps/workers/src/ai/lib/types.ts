@@ -4,34 +4,34 @@ import type {
   WorkspaceSnapshot,
 } from "@lumen/ai/types";
 
-export type TextPart = {
+export interface TextPart {
   type: "text";
   text: string;
-};
+}
 
-export type ToolCallPart = {
+export interface ToolCallPart {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
   // NOTE: Despite AI SDK docs saying 'args', openai-compatible provider reads 'input'
   input?: Record<string, unknown>;
-};
+}
 
-export type ToolResultPart = {
+export interface ToolResultPart {
   type: "tool-result";
   toolCallId: string;
   toolName: string;
   output: { type: "json"; value: unknown } | { type: "text"; text: string };
   isError?: boolean;
-};
+}
 
 export type ContentPart = TextPart | ToolCallPart | ToolResultPart;
 
-export type AiSdkMessage = {
+export interface AiSdkMessage {
   role: "user" | "assistant" | "tool";
   content: string | ContentPart[];
-};
+}
 
 export type StreamResult =
   | {
@@ -75,30 +75,30 @@ export type StreamResult =
       modelUsed: string;
     };
 
-export type StreamContext = {
+export interface StreamContext {
   workspaceId: string;
   userId: string;
   snapshot?: WorkspaceSnapshot;
   // If true, action tools return instructions instead of executing (for local workspaces)
   ephemeral?: boolean;
-};
+}
 
-export type StreamOptions = {
+export interface StreamOptions {
   systemPrompt: string;
   messages: AiSdkMessage[];
   messageId: string;
   tools: Record<string, unknown> | null;
   ctx: StreamContext;
-};
+}
 
-export type ToolCallInfo = {
+export interface ToolCallInfo {
   toolCallId: string;
   toolName: string;
   input: Record<string, unknown>; // From stream event (uses 'input')
   output?: unknown;
-};
+}
 
-export type HistoryMessage = {
+export interface HistoryMessage {
   role: "user" | "assistant" | "tool";
   content: string;
   toolCalls?: Array<{
@@ -109,4 +109,4 @@ export type HistoryMessage = {
   toolCallId?: string;
   toolName?: string;
   toolResult?: unknown;
-};
+}

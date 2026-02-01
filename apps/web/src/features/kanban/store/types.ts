@@ -20,12 +20,12 @@ import type {
   Workspace,
 } from "../types";
 
-export type ColumnUiState = {
+export interface ColumnUiState {
   isBottomExpanded: boolean;
   bottomView: "finished" | "trash";
-};
+}
 
-export type KanbanState = {
+export interface KanbanState {
   workspaces: EntityMap<Workspace>;
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
@@ -134,9 +134,9 @@ export type KanbanState = {
   // Track drag origins for areas - used to offset contained boards during drag
   areaDragOrigins: Record<string, { originX: number; originY: number }>;
   lastActiveDrawerTab: "comments" | "discussion";
-};
+}
 
-export type KanbanActions = {
+export interface KanbanActions {
   // Workspace actions
   setCurrentWorkspace: (workspaceId: string | null) => void;
   addWorkspace: (name: string, description?: string) => string;
@@ -591,6 +591,6 @@ export type KanbanActions = {
   deleteChatMessage: (id: string) => void;
   getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
   setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
-};
+}
 
 export type KanbanStore = KanbanState & KanbanActions;

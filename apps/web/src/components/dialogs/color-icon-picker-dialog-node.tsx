@@ -21,12 +21,12 @@ import {
 } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
 
-type ColorIconPickerDialogNodeData = {
+interface ColorIconPickerDialogNodeData {
   dialogId: string;
   columnId?: string;
   sourceDialogId: string;
   targetType?: "board" | "column";
-};
+}
 
 type ColorIconPickerDialogNodeProps = NodeProps<
   Node<ColorIconPickerDialogNodeData>

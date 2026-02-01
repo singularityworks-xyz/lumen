@@ -1,9 +1,18 @@
 import { createLogger } from "@lumen/logger";
-import type { PresenceMessage, PresenceUser } from "./types";
+import type { PresenceUser } from "./types";
 
 const logger = createLogger({ name: "presence:manager" });
 
-type PresenceManagerOptions = {
+// Phoenix Socket message format: [join_ref, ref, topic, event, payload]
+type PhoenixMessage = [
+  string | null, // join_ref
+  string, // ref
+  string, // topic
+  string, // event
+  unknown, // payload
+];
+
+interface PresenceManagerOptions {
   workspaceId: string;
   userId: string;
   token: string;
@@ -11,21 +20,26 @@ type PresenceManagerOptions = {
   userAvatar?: string;
   onPresenceUpdate: (users: PresenceUser[]) => void;
   onConnectionChange?: (isConnected: boolean) => void;
-};
+}
 
 export class PresenceManager {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private phoenixHeartbeatInterval: NodeJS.Timeout | null = null;
   private idleCheckInterval: NodeJS.Timeout | null = null;
   private lastActivity: number = Date.now();
   private status: "online" | "idle" | "away" = "online";
   private readonly options: PresenceManagerOptions;
+  private messageRef = 0;
+  private joinRef: string | null = null;
+  private joined = false;
 
   // Idle threshold: 5 minutes
   private readonly IDLE_THRESHOLD = 5 * 60 * 1000;
   private readonly HEARTBEAT_INTERVAL = 30_000; // 30s
+  private readonly PHOENIX_HEARTBEAT_INTERVAL = 30_000; // 30s
 
   constructor(options: PresenceManagerOptions) {
     this.options = options;
@@ -34,8 +48,17 @@ export class PresenceManager {
     this.connect();
   }
 
+  private nextRef(): string {
+    this.messageRef += 1;
+    return String(this.messageRef);
+  }
+
+  private get topic(): string {
+    return `workspace:${this.options.workspaceId}`;
+  }
+
   private connect() {
-    const wsUrl = `${process.env.NEXT_PUBLIC_PRESENCE_WS_URL}/socket`;
+    const wsUrl = `${process.env.NEXT_PUBLIC_PRESENCE_WS_URL}/socket/websocket?token=${encodeURIComponent(this.options.token)}&vsn=2.0.0`;
     logger.debug("Connecting to presence service", { url: wsUrl });
 
     this.ws = new WebSocket(wsUrl);
@@ -43,14 +66,14 @@ export class PresenceManager {
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       logger.info("Connected to presence service");
+      this.startPhoenixHeartbeat();
       this.joinWorkspace();
-      this.startHeartbeat();
       this.options.onConnectionChange?.(true);
     };
 
     this.ws.onmessage = (event) => {
       try {
-        const msg: PresenceMessage = JSON.parse(event.data);
+        const msg: PhoenixMessage = JSON.parse(event.data);
         this.handleMessage(msg);
       } catch (error) {
         logger.error("Failed to parse presence message", { error });
@@ -60,6 +83,8 @@ export class PresenceManager {
     this.ws.onclose = () => {
       logger.warn("Disconnected from presence service");
       this.cleanup();
+      this.joined = false;
+      this.joinRef = null;
       this.options.onConnectionChange?.(false);
       this.handleDisconnect();
     };
@@ -70,14 +95,15 @@ export class PresenceManager {
   }
 
   private joinWorkspace() {
-    this.send({
-      topic: `workspace:${this.options.workspaceId}`,
-      event: "phx_join",
-      payload: {
-        user_id: this.options.userId,
-        token: this.options.token,
-      },
-    });
+    this.joinRef = this.nextRef();
+    this.push("phx_join", {});
+  }
+
+  private startPhoenixHeartbeat() {
+    this.phoenixHeartbeatInterval = setInterval(() => {
+      // Phoenix heartbeat uses special "phoenix" topic
+      this.sendRaw([null, this.nextRef(), "phoenix", "heartbeat", {}]);
+    }, this.PHOENIX_HEARTBEAT_INTERVAL);
   }
 
   private setupActivityTracking() {
@@ -106,27 +132,21 @@ export class PresenceManager {
   }
 
   private setStatus(status: "online" | "idle" | "away") {
-    if (this.status === status) {
+    if (this.status === status || !this.joined) {
       return;
     }
     this.status = status;
 
-    this.send({
-      topic: `workspace:${this.options.workspaceId}`,
-      event: "status_update",
-      payload: { status },
-    });
+    this.push("status_update", { status });
 
     logger.debug("Status updated", { status });
   }
 
   private startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
-      this.send({
-        topic: `workspace:${this.options.workspaceId}`,
-        event: "activity_ping",
-        payload: { timestamp: Date.now() },
-      });
+      if (this.joined) {
+        this.push("activity_ping", { timestamp: Date.now() });
+      }
     }, this.HEARTBEAT_INTERVAL);
 
     // Check idle status periodically
@@ -138,16 +158,53 @@ export class PresenceManager {
     }, 10_000); // Check every 10s
   }
 
-  private handleMessage(msg: PresenceMessage) {
-    switch (msg.event) {
-      case "presence_state":
-      case "presence_diff": {
-        const users = this.parsePresencePayload(msg.payload);
+  private handleMessage(msg: PhoenixMessage) {
+    const [, ref, , event, payload] = msg;
+
+    switch (event) {
+      case "phx_reply": {
+        // Handle join reply
+        const replyPayload = payload as {
+          status: string;
+          response?: unknown;
+        };
+        if (ref === this.joinRef && replyPayload.status === "ok") {
+          this.joined = true;
+          logger.info("Joined workspace channel", {
+            topic: this.topic,
+          });
+          this.startHeartbeat();
+        } else if (replyPayload.status === "error") {
+          logger.error("Channel error", { payload: replyPayload });
+        }
+        break;
+      }
+      case "presence_state": {
+        const users = this.parsePresencePayload(payload);
         this.options.onPresenceUpdate(users);
         break;
       }
+      case "presence_diff": {
+        // For diff, we'd need to maintain state - for now just handle as full update
+        const diffPayload = payload as { joins?: unknown; leaves?: unknown };
+        if (diffPayload.joins) {
+          const users = this.parsePresencePayload(diffPayload.joins);
+          if (users.length > 0) {
+            logger.debug("Users joined", { users });
+          }
+        }
+        break;
+      }
+      case "phx_error": {
+        logger.error("Phoenix channel error", { payload });
+        break;
+      }
+      case "phx_close": {
+        logger.info("Phoenix channel closed");
+        break;
+      }
       default:
-        logger.debug("Unhandled presence event", { event: msg.event });
+        logger.debug("Unhandled presence event", { event, payload });
     }
   }
 
@@ -202,7 +259,11 @@ export class PresenceManager {
     }
   }
 
-  private send(msg: PresenceMessage) {
+  private push(event: string, payload: unknown) {
+    this.sendRaw([this.joinRef, this.nextRef(), this.topic, event, payload]);
+  }
+
+  private sendRaw(msg: PhoenixMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }
@@ -225,9 +286,15 @@ export class PresenceManager {
   private cleanup() {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.phoenixHeartbeatInterval) {
+      clearInterval(this.phoenixHeartbeatInterval);
+      this.phoenixHeartbeatInterval = null;
     }
     if (this.idleCheckInterval) {
       clearInterval(this.idleCheckInterval);
+      this.idleCheckInterval = null;
     }
   }
 

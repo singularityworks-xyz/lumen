@@ -34,7 +34,7 @@ import { type CollaboratorInfo, roomManager } from "./room-manager";
 
 const logger = createLogger({ name: "collab:routes" });
 
-type WsData = {
+interface WsData {
   params: { workspaceId: string };
   query: { stateVector?: string };
   user?: {
@@ -47,10 +47,10 @@ type WsData = {
   initialStateVector?: Uint8Array;
   connectionId?: string;
   connectionStartTime?: number;
-};
+}
 
 // Auth data structure for pending authentication
-type PendingAuthEntry = {
+interface PendingAuthEntry {
   user: {
     id: string;
     name?: string | null;
@@ -62,7 +62,7 @@ type PendingAuthEntry = {
   connectionId: string;
   timestamp: number;
   connectionStartTime: number;
-};
+}
 
 // Store pending auth data as queues per workspace to ensure FIFO ordering
 // This fixes the race condition where concurrent connections could get mismatched auth data

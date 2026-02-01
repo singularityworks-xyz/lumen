@@ -17,11 +17,11 @@ import {
 } from "../scaled-dropdown";
 import { CreateTaskForm } from "./create-task-form";
 
-type DraggableTaskModalProps = {
+interface DraggableTaskModalProps {
   modalState: CreateTaskModalState;
   screenPosition: { x: number; y: number };
   zoom: number;
-};
+}
 
 const MODAL_WIDTH = 400;
 

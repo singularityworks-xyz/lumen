@@ -7,13 +7,13 @@ import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
 import LarityOrb from "./animations/larity-orb";
 
-type AiOptInDialogProps = {
+interface AiOptInDialogProps {
   workspaceId: string;
   workspaceName: string;
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-};
+}
 
 export const AiOptInDialog = memo(
   ({

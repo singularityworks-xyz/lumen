@@ -13,11 +13,11 @@ import type { Comment } from "@/src/features/kanban/types";
 import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 
-type CommentDialogProps = {
+interface CommentDialogProps {
   comment: Comment;
   onClose: () => void;
   anchorRect: DOMRect | null;
-};
+}
 
 export function CommentDialog({
   comment,

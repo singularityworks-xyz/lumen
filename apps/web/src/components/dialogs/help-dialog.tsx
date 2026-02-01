@@ -9,10 +9,10 @@ import {
   DialogTitle,
 } from "@/src/components/ui/dialog";
 
-type HelpDialogProps = {
+interface HelpDialogProps {
   open: boolean;
   onClose: () => void;
-};
+}
 
 const Kbd = ({ children }: { children: React.ReactNode }) => (
   <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border-2 border-border/50 bg-muted px-1.5 font-medium font-mono text-[10px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">

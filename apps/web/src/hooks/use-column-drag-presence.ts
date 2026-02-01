@@ -6,9 +6,9 @@ import {
   useCollaboration,
 } from "@/src/features/collab";
 
-type ColumnDragAwarenessState = {
+interface ColumnDragAwarenessState {
   draggingColumn?: DraggingColumnState;
-};
+}
 
 // Hook to manage column drag presence - broadcasts when local user is dragging and reads when other users are dragging columns.
 export function useColumnDragPresence() {

@@ -41,18 +41,18 @@ const customTheme: { [key: string]: React.CSSProperties } = {
 const camelCaseRegex = /([A-Z])/g;
 const firstCharRegex = /^./;
 
-type ToolCall = {
+interface ToolCall {
   id: string;
   name: string;
   arguments?: Record<string, unknown>;
   result?: unknown;
-};
+}
 
-type ToolCallFlowProps = {
+interface ToolCallFlowProps {
   toolCalls: ToolCall[];
   toolResult?: unknown;
   className?: string;
-};
+}
 
 export const ToolCallFlow = memo(
   ({ toolCalls, toolResult, className }: ToolCallFlowProps) => {
