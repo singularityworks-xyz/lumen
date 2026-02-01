@@ -4,13 +4,7 @@ import type { PresenceUser } from "./types";
 const logger = createLogger({ name: "presence:manager" });
 
 // Phoenix Socket message format: [join_ref, ref, topic, event, payload]
-type PhoenixMessage = [
-  string | null, // join_ref
-  string, // ref
-  string, // topic
-  string, // event
-  unknown, // payload
-];
+type PhoenixMessage = [string | null, string, string, string, unknown];
 
 interface PresenceManagerOptions {
   workspaceId: string;
@@ -36,10 +30,13 @@ export class PresenceManager {
   private joinRef: string | null = null;
   private joined = false;
 
+  // Internal state to track presence
+  private readonly presenceState: Map<string, PresenceUser> = new Map();
+
   // Idle threshold: 5 minutes
   private readonly IDLE_THRESHOLD = 5 * 60 * 1000;
-  private readonly HEARTBEAT_INTERVAL = 30_000; // 30s
-  private readonly PHOENIX_HEARTBEAT_INTERVAL = 30_000; // 30s
+  private readonly HEARTBEAT_INTERVAL = 30_000;
+  private readonly PHOENIX_HEARTBEAT_INTERVAL = 30_000;
 
   constructor(options: PresenceManagerOptions) {
     this.options = options;
@@ -85,6 +82,7 @@ export class PresenceManager {
       this.cleanup();
       this.joined = false;
       this.joinRef = null;
+      this.presenceState.clear();
       this.options.onConnectionChange?.(false);
       this.handleDisconnect();
     };
@@ -180,19 +178,41 @@ export class PresenceManager {
         break;
       }
       case "presence_state": {
+        // Full state - replace everything
+        this.presenceState.clear();
         const users = this.parsePresencePayload(payload);
-        this.options.onPresenceUpdate(users);
+        for (const user of users) {
+          this.presenceState.set(user.id, user);
+        }
+        this.notifyPresenceUpdate();
         break;
       }
       case "presence_diff": {
-        // For diff, we'd need to maintain state - for now just handle as full update
+        // Incremental update - apply joins and leaves
         const diffPayload = payload as { joins?: unknown; leaves?: unknown };
-        if (diffPayload.joins) {
-          const users = this.parsePresencePayload(diffPayload.joins);
-          if (users.length > 0) {
-            logger.debug("Users joined", { users });
+
+        // Handle leaves first
+        if (diffPayload.leaves) {
+          const leavingUsers = this.parsePresencePayload(diffPayload.leaves);
+          for (const user of leavingUsers) {
+            this.presenceState.delete(user.id);
+            logger.debug("User left", { userId: user.id, name: user.name });
           }
         }
+
+        // Then handle joins (could be new users or updates)
+        if (diffPayload.joins) {
+          const joiningUsers = this.parsePresencePayload(diffPayload.joins);
+          for (const user of joiningUsers) {
+            this.presenceState.set(user.id, user);
+            logger.debug("User joined/updated", {
+              userId: user.id,
+              name: user.name,
+            });
+          }
+        }
+
+        this.notifyPresenceUpdate();
         break;
       }
       case "phx_error": {
@@ -206,6 +226,11 @@ export class PresenceManager {
       default:
         logger.debug("Unhandled presence event", { event, payload });
     }
+  }
+
+  private notifyPresenceUpdate() {
+    const users = Array.from(this.presenceState.values());
+    this.options.onPresenceUpdate(users);
   }
 
   private parsePresencePayload(payload: unknown): PresenceUser[] {
@@ -300,6 +325,7 @@ export class PresenceManager {
 
   disconnect() {
     this.cleanup();
+    this.presenceState.clear();
     this.ws?.close();
     logger.info("Disconnected from presence service");
   }

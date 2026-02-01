@@ -60,6 +60,7 @@ defmodule PresenceWeb.WorkspaceChannel do
     {:ok, assign(socket, :status, "online")}
   end
 
+  # Group all handle_info clauses together
   @impl true
   def handle_info(:after_join, socket) do
     # Push the current presence state to the newly joined client
@@ -67,14 +68,6 @@ defmodule PresenceWeb.WorkspaceChannel do
     {:noreply, socket}
   end
 
-  @impl true
-  def handle_out("presence_diff", diff, socket) do
-    # Push presence diffs to all clients
-    push(socket, "presence_diff", diff)
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_info(:check_idle, socket) do
     last_activity = socket.assigns.last_activity
 
@@ -94,6 +87,14 @@ defmodule PresenceWeb.WorkspaceChannel do
   end
 
   @impl true
+  def handle_out("presence_diff", diff, socket) do
+    # Push presence diffs to all clients
+    push(socket, "presence_diff", diff)
+    {:noreply, socket}
+  end
+
+  # Group all handle_in clauses together
+  @impl true
   def handle_in("status_update", %{"status" => status}, socket) do
     Logger.debug("Status update received",
       user_id: socket.assigns.user_id,
@@ -111,7 +112,6 @@ defmodule PresenceWeb.WorkspaceChannel do
     {:noreply, socket}
   end
 
-  @impl true
   def handle_in("activity_ping", _payload, socket) do
     now = System.monotonic_time(:millisecond)
     Tracker.update_activity(socket, socket.assigns.user_id)

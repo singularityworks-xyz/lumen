@@ -2,13 +2,15 @@
 
 import { type ReactNode, useEffect } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
+import { PresenceProvider } from "@/src/features/presence/presence-provider";
 import { CollaborationProvider, useCollaboration } from "./collab-provider";
 import { useTaskDialogSync } from "./hooks/use-task-dialog-sync";
 import { useYjsSync } from "./hooks/use-yjs-sync";
 
 // Connects to WebSocket and enables sync when workspace is available and shared
 function YjsSyncEnabler({ children }: { children: ReactNode }) {
-  const { doc, connectionState, connect, disconnect } = useCollaboration();
+  const { doc, connectionState, connect, disconnect, localUser } =
+    useCollaboration();
   const currentWorkspaceId = useKanbanStore((s) => s.currentWorkspaceId);
   const currentWorkspace = useKanbanStore((s) =>
     s.currentWorkspaceId ? s.workspaces.byId[s.currentWorkspaceId] : null
@@ -51,6 +53,23 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   // Dedicated task detail modal sync (handles ownership and prevents race conditions)
   // Pass currentWorkspaceId so it can track workspace changes and avoid syncing stale modals
   useTaskDialogSync(doc, isConnected, currentWorkspaceId);
+
+  // Wrap with PresenceProvider when workspace is shared and we have user info
+  // This maintains the presence connection at the workspace level
+  if (currentWorkspaceId && isSharedWorkspace && localUser) {
+    return (
+      <PresenceProvider
+        enabled={isConnected}
+        userAvatar={localUser.image ?? undefined}
+        userId={localUser.id}
+        userName={localUser.name}
+        workspaceId={currentWorkspaceId}
+      >
+        {children}
+      </PresenceProvider>
+    );
+  }
+
   return <>{children}</>;
 }
 

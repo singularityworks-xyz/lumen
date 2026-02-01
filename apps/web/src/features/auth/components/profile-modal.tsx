@@ -32,9 +32,9 @@ import {
 } from "@/src/components/ui/tooltip";
 import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store";
-import { usePresence } from "@/src/features/presence/hooks/use-presence";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
+import { usePresenceContext } from "../../presence/presence-provider";
 
 const logger = createLogger({ name: "profile-modal" });
 
@@ -664,7 +664,6 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
 const CollaboratorsList = memo(
   ({
     workspaceId,
-    open,
   }: {
     workspaceId: string | null;
     apiUrl: string;
@@ -672,14 +671,8 @@ const CollaboratorsList = memo(
   }) => {
     const { user: authUser } = useAuth();
 
-    // Use presence service for real-time online users
-    const { users: onlineUsers, isConnected } = usePresence({
-      workspaceId: workspaceId || "",
-      userId: authUser?.id || "",
-      userName: authUser?.name || "",
-      userAvatar: authUser?.image || undefined,
-      enabled: !!workspaceId && !!authUser && open,
-    });
+    // Use presence context for real-time online users (connection maintained at workspace level)
+    const { users: onlineUsers, isConnected } = usePresenceContext();
 
     if (!workspaceId) {
       return null;

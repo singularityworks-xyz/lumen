@@ -67,7 +67,7 @@ defmodule PresenceWeb.UserSocket do
          %{
            id: claims["sub"],
            name: claims["name"],
-           avatar: claims["avatar"]
+           avatar: claims["image"]
          }}
 
       {:error, reason} ->
