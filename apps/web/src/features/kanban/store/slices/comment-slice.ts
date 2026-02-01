@@ -1,7 +1,7 @@
 import type { Comment } from "../../types";
 import type { KanbanStore } from "../types";
 
-export type CommentSlice = {
+export interface CommentSlice {
   comments: {
     byId: Record<string, Comment>;
     allIds: string[];
@@ -53,7 +53,7 @@ export type CommentSlice = {
   getRepliesForComment: (parentId: string) => Comment[];
   lastActiveDrawerTab: "comments" | "discussion";
   setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
-};
+}
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,

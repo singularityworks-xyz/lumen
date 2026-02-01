@@ -40,9 +40,9 @@ Guidelines:
 
 Respond with ONLY the title, nothing else.`;
 
-export type TitleGenerationInput = {
+export interface TitleGenerationInput {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
-};
+}
 
 // Internal function that actually generates the title
 // This is wrapped by the queue for rate limiting

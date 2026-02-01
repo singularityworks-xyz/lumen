@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": [".env"],
   "globalEnv": [
     "NEXT_PUBLIC_API_URL",
     "OTEL_ENABLED",
@@ -30,6 +31,15 @@
       "cache": true
     },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "presence#build": {
+      "inputs": ["lib/**/*.ex", "config/**/*.exs", "mix.exs", "mix.lock"],
+      "outputs": ["_build/**/*"],
+      "cache": true
+    },
+    "presence#dev": {
       "cache": false,
       "persistent": true
     }

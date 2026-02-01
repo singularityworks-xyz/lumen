@@ -15,14 +15,14 @@ import {
   useShowWelcomeScreen,
 } from "@/src/features/kanban/store/selectors";
 
-type Command = {
+interface Command {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   action: () => void;
   shortcut?: string;
   disabled?: boolean;
-};
+}
 
 const CommandButton = ({
   cmd,

@@ -10,10 +10,10 @@ import type { HTMLAttributes, RefObject } from "react";
 import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
-export type SquarePenIconHandle = {
+export interface SquarePenIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
-};
+}
 
 interface SquarePenIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;

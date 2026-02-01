@@ -110,7 +110,7 @@ async function generateTitleAsync(
   }
 }
 
-export type ConversationWithMessages = {
+export interface ConversationWithMessages {
   id: string;
   workspaceId: string;
   title: string | null;
@@ -134,7 +134,7 @@ export type ConversationWithMessages = {
   lastActiveAt: Date;
   createdAt: Date;
   updatedAt: Date;
-};
+}
 
 export async function getOrCreateConversation(
   workspaceId: string,

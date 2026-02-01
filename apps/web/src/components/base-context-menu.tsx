@@ -5,22 +5,22 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
-export type ContextMenuItem = {
+export interface ContextMenuItem {
   id: string;
   label: string;
   icon: LucideIcon;
   onClick: () => void;
   variant?: "default" | "destructive";
   showDividerAfter?: boolean;
-};
+}
 
-type BaseContextMenuProps = {
+interface BaseContextMenuProps {
   x: number;
   y: number;
   items: ContextMenuItem[];
   onClose: () => void;
   width?: string;
-};
+}
 
 export const BaseContextMenu = memo(
   ({ x, y, items, onClose, width = "w-44" }: BaseContextMenuProps) => {

@@ -50,12 +50,12 @@ const thinkingFrames = [
   [],
 ];
 
-type MessageBubbleProps = {
+interface MessageBubbleProps {
   message: AiMessage;
   index: number;
   workspaceId: string;
   onRegenerate?: (messageId: string) => void;
-};
+}
 
 export const MessageBubble = memo(
   ({ message, index, onRegenerate }: MessageBubbleProps) => {

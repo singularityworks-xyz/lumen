@@ -9,10 +9,10 @@ import type { HTMLAttributes, Ref } from "react";
 import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
-export type PlusIconHandle = {
+export interface PlusIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
-};
+}
 
 interface PlusIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;

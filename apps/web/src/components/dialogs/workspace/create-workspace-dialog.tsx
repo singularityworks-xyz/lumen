@@ -11,10 +11,10 @@ import { Label } from "@/src/components/ui/label";
 import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
 
-type CreateWorkspaceDialogProps = {
+interface CreateWorkspaceDialogProps {
   onCreate: (name: string, description?: string) => void;
   onClose: () => void;
-};
+}
 
 const DIALOG_WIDTH = 420;
 

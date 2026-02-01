@@ -8,13 +8,13 @@ const logger = createLogger({ name: "collab:entity-sync" });
 
 // Generic entity synchronization helper.
 // Provides type-safe bidirectional sync between Y.Map and EntityMap.
-export type EntitySyncOptions<T extends { id: string }> = {
+export interface EntitySyncOptions<T extends { id: string }> {
   mapName: string;
   schema: z.ZodType<T>;
   entityName: string;
-};
+}
 
-export type EntitySync<T extends { id: string }> = {
+export interface EntitySync<T extends { id: string }> {
   // Apply Y.Map data to EntityMap (Yjs -> Zustand)
   applyFromYjs: (yMap: Y.Map<unknown>) => EntityMap<T>;
   // Set a single entity in Y.Map (Zustand -> Yjs)
@@ -25,7 +25,7 @@ export type EntitySync<T extends { id: string }> = {
   batchSetInYjs: (doc: Y.Doc, entities: T[]) => void;
   // Initialize Y.Map from EntityMap if empty
   initializeYjs: (doc: Y.Doc, entityMap: EntityMap<T>) => void;
-};
+}
 
 export function createEntitySync<T extends { id: string }>(
   options: EntitySyncOptions<T>

@@ -29,13 +29,13 @@ import {
   ScaledSelectValue,
 } from "../scaled-dropdown";
 
-type CreateTaskFormProps = {
+interface CreateTaskFormProps {
   modalId: string;
   modalState: CreateTaskModalState;
   selectedColumnId: string;
   onColumnChange?: (columnId: string) => void;
   selectedBoardColumns?: Column[];
-};
+}
 
 const PRIORITY_CONFIG = {
   low: { label: "Low", color: "bg-emerald-500", textColor: "text-emerald-500" },

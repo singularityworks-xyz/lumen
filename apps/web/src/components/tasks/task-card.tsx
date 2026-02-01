@@ -16,13 +16,13 @@ import { Checkbox } from "@/src/components/ui/checkbox";
 import { type Task, useKanbanStore } from "@/src/features/kanban";
 import { useTaskDragPresence } from "@/src/hooks/use-task-drag-presence";
 
-type TaskCardProps = {
+interface TaskCardProps {
   task: Task;
   boardId: string;
   onDragStart: (task: Task) => void;
   isSelected: boolean;
   onOpenDetail?: (taskId: string, screenX: number, screenY: number) => void;
-};
+}
 
 export const TaskCard = memo(
   ({ task, boardId, onDragStart, isSelected, onOpenDetail }: TaskCardProps) => {

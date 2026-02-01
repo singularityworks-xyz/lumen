@@ -30,10 +30,11 @@ const getInitials = (name: string): string =>
     .join("")
     .toUpperCase();
 
-type RenameColumnDialogNodeData = {
+export interface RenameColumnDialogNodeData {
   columnId: string;
   dialogId: string;
-};
+  [key: string]: unknown;
+}
 
 type RenameColumnDialogNodeProps = NodeProps<Node<RenameColumnDialogNodeData>>;
 

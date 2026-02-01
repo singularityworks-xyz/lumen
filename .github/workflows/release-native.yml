@@ -32,10 +32,10 @@ jobs:
             container: ""
             args: "--target x86_64-apple-darwin"
             rust-targets: "x86_64-apple-darwin"
-          # Linux x86_64
+          # Linux x86_64 - AppImage only
           - platform: "ubuntu-22.04"
             container: ""
-            args: ""
+            args: "--bundles appimage"
             rust-targets: ""
           # Windows x86_64
           - platform: "windows-latest"
@@ -112,7 +112,7 @@ jobs:
             - **Windows:** `.msi` or `.exe` installer
             - **macOS Intel:** `x64.dmg` or `.app`
             - **macOS Apple Silicon:** `aarch64.dmg` or `.app`
-            - **Linux:** `.deb`, `.rpm`, or `.AppImage`
+            - **Linux:** `.AppImage`
           releaseDraft: false
           prerelease: false
           includeDebug: false

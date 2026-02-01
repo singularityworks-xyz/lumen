@@ -135,7 +135,7 @@ function KanbanPageContent() {
         }
       }
     },
-    [shareToken, router, workspaces.byId, setCurrentWorkspace, apiUrl]
+    [shareToken, router, workspaces.byId, setCurrentWorkspace]
   );
 
   useEffect(() => {

@@ -12,11 +12,11 @@ import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban/store";
 import { ProfileModal } from "./profile-modal";
 
-type UserButtonProps = {
+interface UserButtonProps {
   size?: "sm" | "md";
   className?: string;
   showLabel?: boolean;
-};
+}
 
 export const UserButton = memo(
   ({ size = "md", className, showLabel = true }: UserButtonProps) => {

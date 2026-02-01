@@ -21,9 +21,9 @@ export function getModelFallbackChain(
   return [primary, ...FALLBACK_MODELS.filter((m) => m !== primary)];
 }
 
-export type CerebrasProviderOptions = {
+export interface CerebrasProviderOptions {
   apiKey: string;
-};
+}
 
 export function createCerebrasProvider(options: CerebrasProviderOptions) {
   const provider = createOpenAICompatible({
@@ -61,7 +61,7 @@ export function isCerebrasConfigured(apiKey: string | undefined): boolean {
   return !!apiKey && apiKey.length > 0;
 }
 
-export type JsonSchema = {
+export interface JsonSchema {
   type: "object" | "array" | "string" | "number" | "integer" | "boolean";
   properties?: Record<string, JsonSchema>;
   items?: JsonSchema;
@@ -71,16 +71,16 @@ export type JsonSchema = {
   $defs?: Record<string, JsonSchema>;
   $ref?: string;
   description?: string;
-};
+}
 
-export type StructuredOutputFormat = {
+export interface StructuredOutputFormat {
   type: "json_schema";
   json_schema: {
     name: string;
     strict: boolean;
     schema: JsonSchema;
   };
-};
+}
 
 export function createJsonSchemaFormat(
   name: string,

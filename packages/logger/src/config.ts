@@ -1,12 +1,12 @@
 import { env } from "./env";
 
-export type OtelConfig = {
+export interface OtelConfig {
   enabled: boolean;
   endpoint: string;
   headers: Record<string, string>;
   serviceName: string;
   environment: string;
-};
+}
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -45,9 +45,7 @@ export function getOtelConfig(defaultServiceName: string): OtelConfig {
 
   const environment = env.NODE_ENV;
   const enabled = env.OTEL_ENABLED;
-  const endpoint =
-    env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-    (environment === "production" ? "" : "http://localhost:4318");
+  const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT || "";
   const headers = parseHeaders(env.OTEL_EXPORTER_OTLP_HEADERS);
   const serviceName = defaultServiceName;
 

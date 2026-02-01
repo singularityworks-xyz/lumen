@@ -1,15 +1,15 @@
 export type { BoardQuickActionsState, ChatMessage } from "@lumen/yjs-shared";
 
-export type Profile = {
+export interface Profile {
   id: string;
   email: string;
   full_name: string;
   avatar_url?: string;
   role: "admin" | "employee";
   created_at: string;
-};
+}
 
-export type Task = {
+export interface Task {
   id: string;
   board_id: string;
   column_id: string;
@@ -26,17 +26,17 @@ export type Task = {
   tags?: string[];
   checklists?: Checklist[];
   status: "todo" | "done" | "trash";
-};
+}
 
-export type Checklist = {
+export interface Checklist {
   id: string;
   task_id: string;
   title: string;
   completed: boolean;
   position: number;
-};
+}
 
-export type Column = {
+export interface Column {
   id: string;
   board_id: string;
   name: string;
@@ -46,9 +46,9 @@ export type Column = {
   progressValue?: number;
   accentColor?: string;
   icon?: string;
-};
+}
 
-export type Comment = {
+export interface Comment {
   id: string;
   x: number;
   y: number;
@@ -64,9 +64,9 @@ export type Comment = {
   lastEditorImage?: string;
   parentId?: string;
   replyCount?: number;
-};
+}
 
-export type Board = {
+export interface Board {
   id: string;
   name: string;
   description?: string;
@@ -76,9 +76,9 @@ export type Board = {
   column_ids: string[];
   accentColor?: string;
   icon?: string;
-};
+}
 
-export type BoardConnection = {
+export interface BoardConnection {
   id: string;
   source_board_id: string;
   target_board_id: string;
@@ -88,9 +88,9 @@ export type BoardConnection = {
   targetHandle: "top" | "right" | "bottom" | "left";
   showArrow: boolean;
   created_at: string;
-};
+}
 
-export type WorkspaceDialogState = {
+export interface WorkspaceDialogState {
   taskDetailModals: Record<string, TaskDetailModalState>;
   createTaskModals: Record<string, CreateTaskModalState>;
   boardQuickActions: Record<
@@ -157,9 +157,9 @@ export type WorkspaceDialogState = {
   selectedTaskIds: string[];
   selectedBoardId: string | null;
   selectedBoardIds: string[];
-};
+}
 
-export type Workspace = {
+export interface Workspace {
   id: string;
   name: string;
   description?: string;
@@ -179,26 +179,26 @@ export type Workspace = {
   shareToken?: string;
   savedDialogState?: WorkspaceDialogState;
   aiEnabled?: boolean;
-};
+}
 
-export type EntityMap<T> = {
+export interface EntityMap<T> {
   byId: Record<string, T>;
   allIds: string[];
-};
+}
 
-export type ViewportState = {
+export interface ViewportState {
   x: number;
   y: number;
   zoom: number;
-};
+}
 
-export type CanvasState = {
+export interface CanvasState {
   viewport: ViewportState;
   focusedBoardId: string | null;
   lastInteractionTime: number;
-};
+}
 
-export type BoardPosition = {
+export interface BoardPosition {
   id: string;
   x: number;
   y: number;
@@ -208,9 +208,9 @@ export type BoardPosition = {
   userResized?: boolean;
   lastUserWidth?: number;
   lastUserHeight?: number;
-};
+}
 
-export type Area = {
+export interface Area {
   id: string;
   name: string;
   workspace_id: string;
@@ -218,29 +218,29 @@ export type Area = {
   icon?: string;
   board_ids: string[];
   created_at: string;
-};
+}
 
-export type AreaPosition = {
+export interface AreaPosition {
   id: string;
   x: number;
   y: number;
   width: number;
   height: number;
   zIndex: number;
-};
+}
 
 export type InteractionMode = "drag" | "select";
 
-export type CreateTaskModalFormData = {
+export interface CreateTaskModalFormData {
   title: string;
   description: string;
   priority: Task["priority"];
   progress: number;
   dueDate: string;
   tags: string;
-};
+}
 
-export type CreateTaskModalState = {
+export interface CreateTaskModalState {
   id: string;
   boardId: string;
   columnId: string;
@@ -257,23 +257,23 @@ export type CreateTaskModalState = {
   sourceType?: "board-menu" | "board-header" | "column-menu" | "column-header";
   formData: CreateTaskModalFormData;
   zIndex: number;
-};
+}
 
-export type EditBoardModalFormData = {
+export interface EditBoardModalFormData {
   name: string;
   description: string;
-};
+}
 
-export type EditBoardModalState = {
+export interface EditBoardModalState {
   id: string;
   boardId: string;
   position: { x: number; y: number };
   sourcePosition?: { x: number; y: number };
   formData: EditBoardModalFormData;
   zIndex: number;
-};
+}
 
-export type TaskDetailModalState = {
+export interface TaskDetailModalState {
   id: string;
   taskId: string;
   boardId: string;
@@ -293,7 +293,7 @@ export type TaskDetailModalState = {
   draftChecklists?: Checklist[];
   draftLastUpdatedBy?: string;
   draftLastUpdatedAt?: number;
-};
+}
 
 export type BoardDialogType =
   | "rename"
@@ -302,7 +302,7 @@ export type BoardDialogType =
   | "properties"
   | "color-icon-picker";
 
-export type BoardDialogState = {
+export interface BoardDialogState {
   id: string;
   type: BoardDialogType;
   boardId: string;
@@ -323,14 +323,14 @@ export type BoardDialogState = {
   sourceDialogId?: string;
   expandedColumnId?: string | null;
   activeTab?: "progress" | "style";
-};
+}
 
 export type ConnectionDialogState = {
   boardId: string;
   position: { x: number; y: number };
 } | null;
 
-export type UIState = {
+export interface UIState {
   showCommandPalette: boolean;
   showMiniMap: boolean;
   createTaskModals: Record<string, CreateTaskModalState>;
@@ -339,9 +339,9 @@ export type UIState = {
   selectedBoardIds: string[];
   selectedTaskIds: string[];
   draggedTaskId: string | null;
-};
+}
 
-export type PersistedState = {
+export interface PersistedState {
   workspaces: EntityMap<Workspace>;
   boards: EntityMap<Board>;
   columns: EntityMap<Column>;
@@ -351,21 +351,22 @@ export type PersistedState = {
   boardConnections: EntityMap<BoardConnection>;
   currentWorkspaceId: string | null;
   canvas: CanvasState;
-};
+}
 
-export type BoardNode = {
+export interface BoardNode {
   id: string;
   type: "board";
   position: { x: number; y: number };
   data: {
     boardId: string;
     isSelected: boolean;
+    [key: string]: unknown;
   };
   width?: number;
   height?: number;
-};
+}
 
-export type DenormalizedBoard = {
+export interface DenormalizedBoard {
   id: string;
   name: string;
   description?: string;
@@ -375,9 +376,9 @@ export type DenormalizedBoard = {
   columns: DenormalizedColumn[];
   accentColor?: string;
   icon?: string;
-};
+}
 
-export type DenormalizedColumn = {
+export interface DenormalizedColumn {
   id: string;
   board_id: string;
   name: string;
@@ -387,4 +388,4 @@ export type DenormalizedColumn = {
   progressValue?: number;
   accentColor?: string;
   icon?: string;
-};
+}

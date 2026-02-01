@@ -1,9 +1,9 @@
 import { memo } from "react";
 import type { Collaborator } from "@/src/features/collab";
 
-type BoardPresenceIndicatorProps = {
+interface BoardPresenceIndicatorProps {
   activeCollaborator: Collaborator;
-};
+}
 
 export const BoardPresenceIndicator = memo<BoardPresenceIndicatorProps>(
   ({ activeCollaborator }) => (

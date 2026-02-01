@@ -11,7 +11,7 @@ import { useKanbanStore } from "../kanban/store";
 
 const logger = createLogger({ name: "collab:join-handler" });
 
-export type JoinSuccessData = {
+export interface JoinSuccessData {
   workspaceId: string;
   role: string;
   workspaceName?: string;
@@ -21,13 +21,13 @@ export type JoinSuccessData = {
     image: string | null;
     email: string;
   };
-};
+}
 
-type JoinHandlerProps = {
+interface JoinHandlerProps {
   shareToken: string | null;
   onJoinSuccess?: (data: JoinSuccessData) => void;
   onJoinError?: (error: string) => void;
-};
+}
 
 type JoinState = "idle" | "validating" | "joining" | "success" | "error";
 
@@ -96,7 +96,7 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [shareToken, apiUrl, onJoinError]);
+  }, [shareToken, onJoinError]);
 
   const joinWorkspace = useCallback(() => {
     if (!(shareToken && isAuthenticated && workspaceInfo)) {
@@ -154,14 +154,7 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [
-    shareToken,
-    isAuthenticated,
-    workspaceInfo,
-    apiUrl,
-    onJoinSuccess,
-    onJoinError,
-  ]);
+  }, [shareToken, isAuthenticated, workspaceInfo, onJoinSuccess, onJoinError]);
 
   // Start validation when share token is present
   useEffect(() => {

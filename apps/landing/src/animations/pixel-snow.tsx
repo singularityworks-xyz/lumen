@@ -13,7 +13,7 @@ import {
 import fragmentShader from "./shaders/pixel-snow.frag?raw";
 import vertexShader from "./shaders/pixel-snow.vert?raw";
 
-type PixelSnowProps = {
+interface PixelSnowProps {
   color?: string;
   flakeSize?: number;
   minFlakeSize?: number;
@@ -28,7 +28,7 @@ type PixelSnowProps = {
   direction?: number;
   className?: string;
   style?: React.CSSProperties;
-};
+}
 
 export default function PixelSnow({
   color = "#ffffff",

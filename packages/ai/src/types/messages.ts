@@ -1,33 +1,33 @@
 export type AiMessageRole = "user" | "assistant" | "tool";
 
-export type ToolCall = {
+export interface ToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
-};
+}
 
-export type ToolResult = {
+export interface ToolResult {
   toolCallId: string;
   result: unknown;
   error?: string;
-};
+}
 
-export type PendingAction = {
+export interface PendingAction {
   tool: string;
   params: Record<string, unknown>;
   description: string;
-};
+}
 
-export type ContextSnapshot = {
+export interface ContextSnapshot {
   currentBoardId: string | null;
   selectedTaskIds: string[];
   selectedBoardIds: string[];
   viewportCenter: { x: number; y: number };
   viewportZoom: number;
-};
+}
 
-export type AiMessage = {
+export interface AiMessage {
   id: string;
   role: AiMessageRole;
   content: string;
@@ -57,9 +57,9 @@ export type AiMessage = {
     };
   };
   createdAt: string;
-};
+}
 
-export type AiConversation = {
+export interface AiConversation {
   id: string;
   workspaceId: string;
   title?: string;
@@ -70,7 +70,7 @@ export type AiConversation = {
   lastActiveAt: string;
   createdAt: string;
   updatedAt: string;
-};
+}
 
 export type StreamEventType =
   | "message_start"
@@ -108,7 +108,7 @@ export type StreamEvent =
 
 // Action instruction data returned from server for local workspace execution.
 // These instructions are executed client-side because the server can't access local Yjs state.
-export type ActionInstructionData = {
+export interface ActionInstructionData {
   type:
     | "createTask"
     | "updateTask"
@@ -121,15 +121,15 @@ export type ActionInstructionData = {
     | "bulkUpdateTasks"
     | "bulkDeleteTasks";
   [key: string]: unknown;
-};
+}
 
-export type ChatRequest = {
+export interface ChatRequest {
   workspaceId: string;
   message: string;
   context: ContextSnapshot;
-};
+}
 
-export type ChatResponse = {
+export interface ChatResponse {
   messageId: string;
   conversationId: string;
-};
+}

@@ -8,9 +8,9 @@ import { CollaborationWrapper } from "@/src/features/collab";
 import { useTheme } from "@/src/features/kanban/hooks/use-theme";
 import { ThemeProvider } from "./theme-provider";
 
-type AppProvidersProps = {
+interface AppProvidersProps {
   children: ReactNode;
-};
+}
 
 function ThemeIndicatorWrapper() {
   const { theme, showIndicator, hideIndicator } = useTheme();

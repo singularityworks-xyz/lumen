@@ -3,7 +3,7 @@ import { isTauri } from "./platform";
 
 const logger = createLogger({ name: "native-bridge:store" });
 
-type StoreInstance = {
+interface StoreInstance {
   get: <T>(key: string) => Promise<T | null>;
   set: (key: string, value: unknown) => Promise<void>;
   delete: (key: string) => Promise<boolean>;
@@ -11,7 +11,7 @@ type StoreInstance = {
   keys: () => Promise<string[]>;
   clear: () => Promise<void>;
   save: () => Promise<void>;
-};
+}
 
 let storeInstance: StoreInstance | null = null;
 

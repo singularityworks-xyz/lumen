@@ -8,10 +8,11 @@ import {
 import { useState } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
 
-export type BoardEdgeData = {
+export interface BoardEdgeData {
   label?: string;
   lineStyle: "solid" | "dotted";
-};
+  [key: string]: unknown;
+}
 
 export type BoardEdge = Edge<BoardEdgeData>;
 

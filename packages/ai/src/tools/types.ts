@@ -2,21 +2,21 @@ import type { actionTools, allTools, queryTools } from "./definitions";
 
 export type ToolIntent = "none" | "query" | "action" | "both";
 
-export type ToolSelection = {
+export interface ToolSelection {
   intent: ToolIntent;
   tools: typeof allTools | typeof queryTools | typeof actionTools | null;
   reason: string;
-};
+}
 
-export type ClassificationResult = {
+export interface ClassificationResult {
   intent: ToolIntent;
   confidence: "high" | "medium" | "low";
   reason: string;
   suggestedTools?: string[];
-};
+}
 
-export type QueueStatus = {
+export interface QueueStatus {
   position: number;
   estimatedWaitMs: number;
   isQueued: boolean;
-};
+}

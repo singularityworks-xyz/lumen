@@ -8,13 +8,13 @@ const WINDOW_SIZE_MS = 60_000;
 
 export type Priority = "high" | "normal" | "low";
 
-type QueueStatus = {
+interface QueueStatus {
   position: number;
   estimatedWaitMs: number;
   queueLength: number;
-};
+}
 
-type QueuedRequest<T> = {
+interface QueuedRequest<T> {
   id: string;
   priority: Priority;
   execute: () => Promise<T>;
@@ -22,7 +22,7 @@ type QueuedRequest<T> = {
   reject: (error: Error) => void;
   addedAt: number;
   workspaceId?: string;
-};
+}
 
 const UPSTASH_REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;

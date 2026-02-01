@@ -3,10 +3,10 @@
 import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 
-type SuggestionChipProps = {
+interface SuggestionChipProps {
   label: string;
   onClick: () => void;
-};
+}
 
 export const SuggestionChip = memo(
   ({ label, onClick }: SuggestionChipProps) => (

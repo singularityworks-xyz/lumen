@@ -5,11 +5,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { memo, useEffect, useState } from "react";
 import type { Theme } from "../features/kanban/hooks/use-theme";
 
-type ThemeIndicatorProps = {
+interface ThemeIndicatorProps {
   theme: Theme;
   show: boolean;
   onHide: () => void;
-};
+}
 
 export const ThemeIndicator = memo(
   ({ theme, show, onHide }: ThemeIndicatorProps) => {

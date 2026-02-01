@@ -3,7 +3,7 @@
 
 import type { TaskStatus } from "../schemas";
 
-export type CreateTaskInstruction = {
+export interface CreateTaskInstruction {
   type: "createTask";
   boardId: string;
   columnId?: string;
@@ -11,9 +11,9 @@ export type CreateTaskInstruction = {
   description?: string;
   priority?: "low" | "medium" | "high";
   dueDate?: string;
-};
+}
 
-export type UpdateTaskInstruction = {
+export interface UpdateTaskInstruction {
   type: "updateTask";
   taskId: string;
   updates: {
@@ -23,50 +23,50 @@ export type UpdateTaskInstruction = {
     status?: TaskStatus;
     dueDate?: string | null;
   };
-};
+}
 
-export type DeleteTaskInstruction = {
+export interface DeleteTaskInstruction {
   type: "deleteTask";
   taskId: string;
-};
+}
 
-export type MoveTaskInstruction = {
+export interface MoveTaskInstruction {
   type: "moveTask";
   taskId: string;
   columnId?: string;
   boardId?: string;
   position?: number;
-};
+}
 
-export type CreateBoardInstruction = {
+export interface CreateBoardInstruction {
   type: "createBoard";
   name: string;
   description?: string;
   position?: { x: number; y: number };
-};
+}
 
-export type UpdateBoardInstruction = {
+export interface UpdateBoardInstruction {
   type: "updateBoard";
   boardId: string;
   updates: {
     name?: string;
     description?: string;
   };
-};
+}
 
-export type DeleteBoardInstruction = {
+export interface DeleteBoardInstruction {
   type: "deleteBoard";
   boardId: string;
-};
+}
 
-export type CreateColumnInstruction = {
+export interface CreateColumnInstruction {
   type: "createColumn";
   boardId: string;
   name: string;
   position?: number;
-};
+}
 
-export type BulkUpdateTasksInstruction = {
+export interface BulkUpdateTasksInstruction {
   type: "bulkUpdateTasks";
   taskIds: string[];
   updates: {
@@ -75,12 +75,12 @@ export type BulkUpdateTasksInstruction = {
     dueDate?: string | null;
     columnId?: string;
   };
-};
+}
 
-export type BulkDeleteTasksInstruction = {
+export interface BulkDeleteTasksInstruction {
   type: "bulkDeleteTasks";
   taskIds: string[];
-};
+}
 
 export type ActionInstruction =
   | CreateTaskInstruction
@@ -96,8 +96,8 @@ export type ActionInstruction =
 
 // Result of building an action instruction from tool params.
 // The instruction can be executed client-side for local workspaces.
-export type ActionInstructionResult = {
+export interface ActionInstructionResult {
   success: true;
   instruction: ActionInstruction;
   message: string;
-};
+}

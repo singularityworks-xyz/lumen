@@ -224,13 +224,13 @@ export function isValidHexColor(color: string): boolean {
   return HEX_COLOR_REGEX.test(color);
 }
 
-type ColorPickerProps = {
+interface ColorPickerProps {
   value: string;
   onChange: (color: string) => void;
   customColors?: string[];
   onAddCustomColor?: (color: string) => void;
   className?: string;
-};
+}
 
 export function ColorPicker({
   value,
@@ -336,12 +336,12 @@ export function ColorPicker({
   );
 }
 
-type IconPickerProps = {
+interface IconPickerProps {
   value: string;
   onChange: (icon: string) => void;
   accentColor?: string;
   className?: string;
-};
+}
 
 export function IconPicker({
   value,
@@ -479,13 +479,13 @@ export function incrementIconUsage(
   };
 }
 
-type QuickColorPickerProps = {
+interface QuickColorPickerProps {
   value: string;
   onChange: (color: string) => void;
   colorUsage?: Record<string, number>;
   onMoreClick?: () => void;
   className?: string;
-};
+}
 
 export function QuickColorPicker({
   value,
@@ -526,14 +526,14 @@ export function QuickColorPicker({
   );
 }
 
-type QuickIconPickerProps = {
+interface QuickIconPickerProps {
   value: string;
   onChange: (icon: string) => void;
   iconUsage?: Record<string, number>;
   accentColor?: string;
   onMoreClick?: () => void;
   className?: string;
-};
+}
 
 export function QuickIconPicker({
   value,

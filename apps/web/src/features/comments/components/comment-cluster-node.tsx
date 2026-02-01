@@ -20,11 +20,12 @@ import type { Comment } from "../../kanban/types";
 import { useCommentUIStore } from "../stores/comment-ui-store";
 import { CommentClusterDialog } from "./comment-cluster-dialog";
 
-type CommentClusterNodeData = {
+export interface CommentClusterNodeData {
   comments: Comment[];
   centroid: { x: number; y: number };
   isSingle: boolean;
-};
+  [key: string]: unknown;
+}
 
 export const CommentClusterNode = memo(
   ({ data, selected, id }: NodeProps<Node<CommentClusterNodeData>>) => {

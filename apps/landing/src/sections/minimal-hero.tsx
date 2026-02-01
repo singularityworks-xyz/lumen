@@ -305,11 +305,11 @@ const SnakeArrowBottomLeft = ({ className }: { className?: string }) => (
   </svg>
 );
 
-type FeatureProps = {
+interface FeatureProps {
   title: string;
   tagline: string;
   icon: React.ReactNode;
-};
+}
 
 const features: FeatureProps[] = [
   {
@@ -339,9 +339,9 @@ const features: FeatureProps[] = [
   },
 ];
 
-type MinimalHeroProps = {
+interface MinimalHeroProps {
   onWatchDemo?: () => void;
-};
+}
 
 export const MinimalHero = ({ onWatchDemo }: MinimalHeroProps) => {
   return (

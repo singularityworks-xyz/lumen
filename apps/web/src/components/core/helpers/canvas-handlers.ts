@@ -14,12 +14,12 @@ import { useColumnDragPresence } from "@/src/hooks/use-column-drag-presence";
 import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import type { CanvasNode } from "./canvas-types";
 
-type UseColumnDragHandlersProps = {
+interface UseColumnDragHandlersProps {
   columns: KanbanStore["columns"];
   boards: KanbanStore["boards"];
   moveColumn: KanbanStore["moveColumn"];
   moveColumnToBoard: KanbanStore["moveColumnToBoard"];
-};
+}
 
 export function useColumnDragHandlers({
   columns,
@@ -163,14 +163,14 @@ export function useColumnDragHandlers({
   };
 }
 
-type UseKeyboardHandlersProps = {
+interface UseKeyboardHandlersProps {
   interactionMode: string;
   setInteractionMode: (mode: "drag" | "select") => void;
   clearBoardSelection: () => void;
   localEdges: BoardEdge[];
   removeConnection: (id: string) => void;
   showWelcomeScreen: boolean;
-};
+}
 
 export function useKeyboardHandlers({
   interactionMode,
@@ -374,11 +374,11 @@ export function useSelectionHandlers(
   };
 }
 
-type UseEdgeHandlersProps = {
+interface UseEdgeHandlersProps {
   onEdgesChange: (changes: Parameters<OnEdgesChange<BoardEdge>>[0]) => void;
   addConnection: KanbanStore["addConnection"];
   removeConnection: KanbanStore["removeConnection"];
-};
+}
 
 export function useEdgeHandlers({
   onEdgesChange,
@@ -431,14 +431,14 @@ export function useViewportHandlers(setViewport: KanbanStore["setViewport"]) {
   return { handleMoveEnd };
 }
 
-type CommentCluster = {
+interface CommentCluster {
   id: string;
   centroid: { x: number; y: number };
   comments: Array<{ id: string; x: number; y: number }>;
   isSingle: boolean;
-};
+}
 
-type UseNodeDragHandlersProps = {
+interface UseNodeDragHandlersProps {
   isCollaborating: boolean;
   screenToFlowPosition: (pos: { x: number; y: number }) => {
     x: number;
@@ -449,7 +449,7 @@ type UseNodeDragHandlersProps = {
   finalizeBoardDrag: (id: string) => void;
   finalizeCommentsDrag: (ids: string[]) => void;
   commentClusters: CommentCluster[];
-};
+}
 
 export function useNodeDragHandlers({
   isCollaborating,

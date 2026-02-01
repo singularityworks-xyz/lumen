@@ -34,9 +34,10 @@ import {
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
-type BoardPropertiesDialogNodeData = {
+export interface BoardPropertiesDialogNodeData {
   dialogId: string;
-};
+  [key: string]: unknown;
+}
 
 type BoardPropertiesDialogNodeProps = NodeProps<
   Node<BoardPropertiesDialogNodeData>

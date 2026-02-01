@@ -6,7 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
-type SharedWorkspaceQuickActionsProps = {
+interface SharedWorkspaceQuickActionsProps {
   workspaceId: string;
   workspaceName: string;
   ownerName: string;
@@ -16,7 +16,7 @@ type SharedWorkspaceQuickActionsProps = {
   position: { x: number; y: number };
   onPositionChange: (position: { x: number; y: number }) => void;
   getButtonRect: () => DOMRect | null;
-};
+}
 
 const DIALOG_WIDTH = 220;
 

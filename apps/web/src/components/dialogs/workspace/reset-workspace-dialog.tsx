@@ -13,7 +13,7 @@ import { Checkbox } from "@/src/components/ui/checkbox";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 
-type ResetWorkspaceDialogProps = {
+interface ResetWorkspaceDialogProps {
   workspaceName: string;
   workspaceId: string;
   taskCount: number;
@@ -25,7 +25,7 @@ type ResetWorkspaceDialogProps = {
   quickActionsPosition?: { x: number; y: number };
   position?: { x: number; y: number };
   onPositionChange?: (position: { x: number; y: number }) => void;
-};
+}
 
 const DIALOG_WIDTH = 420;
 

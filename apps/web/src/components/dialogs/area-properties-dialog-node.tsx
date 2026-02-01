@@ -13,9 +13,10 @@ import {
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
-type AreaPropertiesDialogNodeData = {
+export interface AreaPropertiesDialogNodeData {
   dialogId: string;
-};
+  [key: string]: unknown;
+}
 
 type AreaPropertiesDialogNodeProps = NodeProps<
   Node<AreaPropertiesDialogNodeData>

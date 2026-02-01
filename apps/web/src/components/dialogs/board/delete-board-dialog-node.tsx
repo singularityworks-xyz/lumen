@@ -26,9 +26,10 @@ const getInitials = (name: string): string =>
     .join("")
     .toUpperCase();
 
-type DeleteBoardDialogNodeData = {
+export interface DeleteBoardDialogNodeData {
   dialogId: string;
-};
+  [key: string]: unknown;
+}
 
 type DeleteBoardDialogNodeProps = NodeProps<Node<DeleteBoardDialogNodeData>>;
 

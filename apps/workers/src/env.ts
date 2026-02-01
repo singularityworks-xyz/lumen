@@ -24,10 +24,11 @@ export const env = createEnv({
     GITHUB_CLIENT_ID: z.string(),
     GITHUB_CLIENT_SECRET: z.string(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    // OTEL - disabled by default in development
     OTEL_ENABLED: z
       .string()
-      .transform((v) => v !== "false")
-      .default(true),
+      .transform((v) => v === "true")
+      .default(false),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     DATABASE_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),

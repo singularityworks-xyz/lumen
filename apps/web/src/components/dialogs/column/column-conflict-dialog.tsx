@@ -7,7 +7,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { cn } from "@/src/lib/utils";
 
-type ColumnConflictDialogProps = {
+interface ColumnConflictDialogProps {
   boardName: string;
   columnName: string;
   isShaking?: boolean;
@@ -15,7 +15,7 @@ type ColumnConflictDialogProps = {
   onRenameAndMove: (newName: string) => void;
   onReplaceExisting: () => void;
   onClose: () => void;
-};
+}
 
 const DIALOG_WIDTH = 440;
 

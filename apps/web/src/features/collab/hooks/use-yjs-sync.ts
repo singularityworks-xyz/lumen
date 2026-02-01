@@ -47,7 +47,7 @@ import { useKanbanStore } from "@/src/features/kanban";
 const logger = createLogger({ name: "collab:yjs-sync" });
 const POSITION_THROTTLE_MS = 14;
 
-export type YjsSyncActions = {
+export interface YjsSyncActions {
   // Sync a board change to Yjs
   syncBoard: (board: Board) => void;
   // Delete a board from Yjs
@@ -88,7 +88,7 @@ export type YjsSyncActions = {
   syncChatMessage: (message: ChatMessage) => void;
   // Delete a chat message from Yjs
   deleteChatMessage: (id: string) => void;
-};
+}
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
 export function useYjsSync(
@@ -464,7 +464,7 @@ export function useYjsSync(
       const currConnDialog = state.connectionDialog;
 
       // Full connection dialog type for syncing
-      type ConnDialogSync = {
+      interface ConnDialogSync {
         id: string;
         boardId: string;
         position: { x: number; y: number };
@@ -476,7 +476,7 @@ export function useYjsSync(
         showArrow?: boolean;
         label?: string;
         searchQuery?: string;
-      };
+      }
 
       // Convert to record format for diffing (using boardId as key)
       const prevConnDialogMap: Record<string, ConnDialogSync> = {};

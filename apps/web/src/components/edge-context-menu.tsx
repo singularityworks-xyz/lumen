@@ -6,12 +6,12 @@ import { memo, useCallback } from "react";
 import { useKanbanStore } from "../features/kanban/store";
 import { BaseContextMenu, type ContextMenuItem } from "./base-context-menu";
 
-type EdgeContextMenuProps = {
+interface EdgeContextMenuProps {
   edgeId: string;
   x: number;
   y: number;
   onClose: () => void;
-};
+}
 
 export const EdgeContextMenu = memo(
   ({ edgeId, x, y, onClose }: EdgeContextMenuProps) => {

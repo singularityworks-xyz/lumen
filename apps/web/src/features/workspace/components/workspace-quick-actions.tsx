@@ -14,7 +14,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
-type WorkspaceQuickActionsProps = {
+interface WorkspaceQuickActionsProps {
   workspaceId: string;
   workspaceName: string;
   isDefaultWorkspace: boolean;
@@ -26,7 +26,7 @@ type WorkspaceQuickActionsProps = {
   position: { x: number; y: number };
   onPositionChange: (position: { x: number; y: number }) => void;
   getButtonRect: () => DOMRect | null;
-};
+}
 
 const DIALOG_WIDTH = 200;
 

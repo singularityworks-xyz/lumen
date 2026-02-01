@@ -5,10 +5,10 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/src/lib/utils";
 
-type MarkdownRendererProps = {
+interface MarkdownRendererProps {
   content: string;
   className?: string;
-};
+}
 
 // Regex patterns for tool call JSON artifacts that the model might output as text
 const TOOL_CALL_PATTERN =

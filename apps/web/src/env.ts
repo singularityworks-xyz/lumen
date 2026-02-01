@@ -11,16 +11,17 @@ export const env = createEnv({
     NEXT_TELEMETRY_DISABLED: z.string().default("1"),
     TURBO_TELEMETRY_DISABLED: z.string().default("1"),
     BETTER_AUTH_TELEMETRY: z.string().default("0"),
-    // OTEL
+    // OTEL - disabled by default in development
     OTEL_ENABLED: z
       .string()
-      .transform((v) => v !== "false")
-      .default(true),
+      .transform((v) => v === "true")
+      .default(false),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_API_URL: z.url().default("http://localhost:3002"),
+    NEXT_PUBLIC_PRESENCE_WS_URL: z.url().default("ws://localhost:4000"),
   },
   clientPrefix: "NEXT_PUBLIC_",
   runtimeEnv: {
@@ -32,6 +33,7 @@ export const env = createEnv({
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_PRESENCE_WS_URL: process.env.NEXT_PUBLIC_PRESENCE_WS_URL,
   },
   emptyStringAsUndefined: true,
   skipValidation: false,

@@ -10,10 +10,10 @@ import type { HTMLAttributes, RefObject } from "react";
 import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
-export type DeleteIconHandle = {
+export interface DeleteIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
-};
+}
 
 interface DeleteIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;

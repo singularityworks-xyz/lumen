@@ -42,14 +42,14 @@ function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   return btoa(binaryString);
 }
 
-export type CursorPosition = {
+export interface CursorPosition {
   x: number;
   y: number;
   viewportX?: number;
   viewportY?: number;
-};
+}
 
-export type OpenDialog = {
+export interface OpenDialog {
   id: string;
   type:
     | "quick-actions"
@@ -63,24 +63,24 @@ export type OpenDialog = {
   dialogType?: string;
   position?: { x: number; y: number };
   data?: Record<string, unknown>;
-};
+}
 
-export type DraggingTaskState = {
+export interface DraggingTaskState {
   taskId: string;
   fromColumnId: string;
   fromBoardId: string;
   cursorX?: number;
   cursorY?: number;
-};
+}
 
-export type DraggingColumnState = {
+export interface DraggingColumnState {
   columnId: string;
   sourceBoardId: string;
   cursorX?: number;
   cursorY?: number;
-};
+}
 
-export type Collaborator = {
+export interface Collaborator {
   id: string;
   name: string;
   color: string;
@@ -93,7 +93,7 @@ export type Collaborator = {
   draggingTask?: DraggingTaskState;
   draggingColumn?: DraggingColumnState;
   isTyping?: boolean;
-};
+}
 
 export type ConnectionState =
   | "disconnected"
@@ -101,7 +101,7 @@ export type ConnectionState =
   | "connected"
   | "error";
 
-export type CollaborationContextType = {
+export interface CollaborationContextType {
   doc: Y.Doc | null;
   awareness: awarenessProtocol.Awareness | null;
   connectionState: ConnectionState;
@@ -114,7 +114,7 @@ export type CollaborationContextType = {
   updateSelection: (selectedIds: string[]) => void;
   updateOpenDialogs: (dialogs: OpenDialog[]) => void;
   updateIsTyping: (isTyping: boolean) => void;
-};
+}
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
   null
@@ -148,11 +148,11 @@ export function getColorForUser(userId: string): string {
   return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length] ?? "#3b82f6";
 }
 
-type CollaborationProviderProps = {
+interface CollaborationProviderProps {
   children: ReactNode;
   apiUrl?: string;
   enabled?: boolean;
-};
+}
 
 export function CollaborationProvider({
   children,

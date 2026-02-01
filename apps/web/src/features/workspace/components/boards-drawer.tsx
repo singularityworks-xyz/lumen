@@ -19,18 +19,18 @@ import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
 import LarityOrb from "../../ai/components/animations/larity-orb";
 
-type BoardStats = {
+interface BoardStats {
   board: Board;
   totalTasks: number;
   completedTasks: number;
   connections: number;
-};
+}
 
-type BoardCardProps = {
+interface BoardCardProps {
   stats: BoardStats;
   index: number;
   onClick: () => void;
-};
+}
 
 const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
   const { board, totalTasks, completedTasks, connections } = stats;
@@ -193,11 +193,11 @@ const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
   );
 });
 
-type FloatingIndicatorProps = {
+interface FloatingIndicatorProps {
   onClick: () => void;
   boardCount: number;
   isOpen: boolean;
-};
+}
 
 const FloatingIndicator = memo(
   ({ onClick, boardCount, isOpen }: FloatingIndicatorProps) => (
@@ -252,14 +252,14 @@ const FloatingIndicator = memo(
   )
 );
 
-type BoardsDrawerContentProps = {
+interface BoardsDrawerContentProps {
   boardStats: BoardStats[];
   onClose: () => void;
   onSwitchToComments?: () => void;
   onSwitchToAi?: () => void;
   commentCount?: number;
   onBoardClick: (boardId: string) => void;
-};
+}
 
 const BoardsDrawerContent = memo(
   ({
@@ -469,13 +469,13 @@ const BoardsDrawerContent = memo(
   }
 );
 
-export type BoardsDrawerProps = {
+export interface BoardsDrawerProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSwitchToComments?: () => void;
   onSwitchToAi?: () => void;
   commentCount?: number;
-};
+}
 
 export const BoardsDrawer = memo(
   ({

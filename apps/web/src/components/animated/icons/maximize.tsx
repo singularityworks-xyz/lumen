@@ -10,10 +10,10 @@ import type { HTMLAttributes, RefObject } from "react";
 import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/src/lib/utils";
 
-export type MaximizeIconHandle = {
+export interface MaximizeIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
-};
+}
 
 const DEFAULT_TRANSITION: Transition = {
   type: "spring",

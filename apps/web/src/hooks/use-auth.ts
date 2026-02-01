@@ -14,7 +14,7 @@ import { env } from "../env";
 
 const logger = createLogger({ name: "use-auth" });
 
-type User = {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -22,9 +22,9 @@ type User = {
   image?: string | null;
   createdAt: Date;
   updatedAt: Date;
-};
+}
 
-type Session = {
+interface Session {
   id: string;
   userId: string;
   token: string;
@@ -33,9 +33,9 @@ type Session = {
   userAgent?: string | null;
   createdAt: Date;
   updatedAt: Date;
-};
+}
 
-export type UseAuthReturn = {
+export interface UseAuthReturn {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
@@ -44,7 +44,7 @@ export type UseAuthReturn = {
   signInWithGitHub: (callbackURL?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   exchangeManualToken: (token: string) => Promise<boolean>;
-};
+}
 
 function exchangeTokenForSession(token: string): Promise<boolean> {
   return withSpanAsync("auth.exchangeToken", async (span) => {

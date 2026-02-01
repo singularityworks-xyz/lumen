@@ -4,12 +4,12 @@ import { env } from "./env";
 
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
-export type LoggerOptions = {
+export interface LoggerOptions {
   name?: string;
   level?: LogLevel;
   base?: Record<string, unknown>;
   pretty?: boolean;
-};
+}
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -103,7 +103,7 @@ function formatServerLog(
   }
 }
 
-export type Logger = {
+export interface Logger {
   trace(
     msg: string | Record<string, unknown>,
     obj?: string | Record<string, unknown>
@@ -129,7 +129,7 @@ export type Logger = {
     obj?: string | Record<string, unknown>
   ): void;
   child(bindings: Record<string, unknown>): Logger;
-};
+}
 
 class CustomLogger implements Logger {
   name: string;

@@ -34,9 +34,10 @@ import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
 import { cn } from "@/src/lib/utils";
 
-type BoardQuickActionsNodeData = {
+export interface BoardQuickActionsNodeData {
   boardId: string;
-};
+  [key: string]: unknown;
+}
 
 type BoardQuickActionsNodeProps = NodeProps<Node<BoardQuickActionsNodeData>>;
 

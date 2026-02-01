@@ -12,11 +12,11 @@ export const STORAGE_VERSION = 1;
 export const getStorageKey = (): string => StorageKeys.kanbanStore();
 export const STORAGE_KEY = "lumen-kanban-store";
 
-type VersionedData<T> = {
+interface VersionedData<T> {
   version: number;
   data: T;
   timestamp: number;
-};
+}
 
 // Migration lock to prevent concurrent migration attempts
 let migrationInProgress: Promise<void> | null = null;

@@ -4,17 +4,17 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { type Collaborator, useCollaboration } from "@/src/features/collab";
 import type { Task } from "@/src/features/kanban";
 
-export type DraggingTaskState = {
+export interface DraggingTaskState {
   taskId: string;
   fromColumnId: string;
   fromBoardId: string;
   cursorX?: number;
   cursorY?: number;
-};
+}
 
-type TaskDragAwarenessState = {
+interface TaskDragAwarenessState {
   draggingTask?: DraggingTaskState;
-};
+}
 
 /**
  * Hook to manage task drag presence - broadcasts when local user is dragging
