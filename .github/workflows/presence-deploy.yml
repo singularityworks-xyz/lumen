@@ -54,10 +54,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Trigger Dokploy deployment via webhook
+      - name: Trigger Dokploy deployment via API
         if: success()
         run: |
-          curl -X POST '${{ secrets.DOKPLOY_WEBHOOK_URL }}' \
+          curl -X 'POST' \
+            '${{ secrets.DOKPLOY_API_URL }}/api/application.deploy' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -H 'x-api-key: ${{ secrets.DOKPLOY_API_TOKEN }}' \
+            -d '{"applicationId": "${{ secrets.DOKPLOY_APP_ID }}"}' \
             --fail --silent --show-error
 
       - name: Wait for deployment health check
