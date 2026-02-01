@@ -51,7 +51,7 @@ defmodule Presence.Application do
     OpentelemetryPhoenix.setup(adapter: :bandit)
 
     Logger.info("OpenTelemetry instrumentation initialized",
-      service: "presence-service"
+      service: "lumen-presence"
     )
   end
 end

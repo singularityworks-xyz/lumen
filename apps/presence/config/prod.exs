@@ -22,7 +22,7 @@ config :logger,
 config :opentelemetry,
   resource: [
     service: %{
-      name: "presence-service",
+      name: "lumen-presence",
       version: "1.0.0",
       namespace: "lumen"
     },

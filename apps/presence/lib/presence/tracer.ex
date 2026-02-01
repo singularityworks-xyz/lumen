@@ -14,7 +14,7 @@ defmodule Presence.Tracer do
       OpenTelemetry.Tracer.with_span unquote(operation_name) do
         # Set default attributes
         OpenTelemetry.Tracer.set_attributes([
-          {"service.name", "presence-service"},
+          {"service.name", "lumen-presence"},
           {"operation", unquote(operation_name)}
         ])
 

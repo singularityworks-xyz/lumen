@@ -121,6 +121,6 @@ defmodule Presence.Logger do
   end
 
   defp add_service_context(metadata) do
-    Keyword.put_new(metadata, :service, "presence-service")
+    Keyword.put_new(metadata, :service, "lumen-presence")
   end
 end
