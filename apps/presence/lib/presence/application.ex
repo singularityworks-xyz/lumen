@@ -18,9 +18,11 @@ defmodule Presence.Application do
 
     # Attach telemetry handlers
     Presence.Telemetry.attach_handlers()
+    Presence.TelemetryMetrics.attach_handlers()
 
     children = [
       PresenceWeb.Telemetry,
+      Presence.TelemetryMetrics,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
       Presence.Tracker,
