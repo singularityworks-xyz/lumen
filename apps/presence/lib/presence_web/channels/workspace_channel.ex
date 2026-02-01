@@ -71,19 +71,22 @@ defmodule PresenceWeb.WorkspaceChannel do
   def handle_info(:check_idle, socket) do
     last_activity = socket.assigns.last_activity
 
-    if Tracker.should_mark_idle?(last_activity) && socket.assigns.status == "online" do
-      Logger.info("User marked idle due to inactivity",
-        user_id: socket.assigns.user_id,
-        workspace_id: socket.assigns.workspace_id,
-        idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
-      )
+    socket =
+      if Tracker.should_mark_idle?(last_activity) && socket.assigns.status == "online" do
+        Logger.info("User marked idle due to inactivity",
+          user_id: socket.assigns.user_id,
+          workspace_id: socket.assigns.workspace_id,
+          idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
+        )
 
-      Tracker.update_status(socket, socket.assigns.user_id, "idle")
-      {:noreply, assign(socket, :status, "idle")}
-    else
-      schedule_idle_check()
-      {:noreply, socket}
-    end
+        Tracker.update_status(socket, socket.assigns.user_id, "idle")
+        assign(socket, :status, "idle")
+      else
+        socket
+      end
+
+    schedule_idle_check()
+    {:noreply, socket}
   end
 
   @impl true

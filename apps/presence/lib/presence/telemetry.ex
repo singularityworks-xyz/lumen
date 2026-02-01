@@ -26,10 +26,12 @@ defmodule Presence.Telemetry do
   Handle presence telemetry events.
   """
   def handle_event([:presence, :track], measurements, metadata, _config) do
+    duration_ms = System.convert_time_unit(measurements[:duration], :native, :millisecond)
+
     Logger.info("User tracked in presence",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
-      duration_ms: measurements[:duration] / 1_000_000
+      duration_ms: duration_ms
     )
   end
 

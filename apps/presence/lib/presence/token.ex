@@ -141,9 +141,11 @@ defmodule Presence.Token do
     # Verify signature, issuer, and audience
     case JOSE.JWT.verify(jwk, token) do
       {true, %JOSE.JWT{fields: claims}, _} ->
-        # Verify issuer and audience match Better Auth URL
+        # Verify issuer, audience, and temporal claims
         with {:ok} <- verify_issuer(claims, base_url),
-             {:ok} <- verify_audience(claims, base_url) do
+             {:ok} <- verify_audience(claims, base_url),
+             {:ok} <- verify_expiration(claims),
+             {:ok} <- verify_not_before(claims) do
           {:ok, claims}
         end
 
@@ -151,8 +153,8 @@ defmodule Presence.Token do
         {:error, :invalid_signature}
     end
   rescue
-    error ->
-      Logger.error("JWT verification error", error: inspect(error))
+    e ->
+      Logger.error("JWT verification error", error: inspect(e))
       {:error, :verification_failed}
   end
 
@@ -169,6 +171,45 @@ defmodule Presence.Token do
       ^expected_audience -> {:ok}
       nil -> {:error, :missing_audience}
       actual -> {:error, {:invalid_audience, actual, expected_audience}}
+    end
+  end
+
+  defp verify_expiration(claims) do
+    now = System.system_time(:second)
+
+    case Map.get(claims, "exp") do
+      nil ->
+        {:error, :missing_expiration}
+
+      exp when is_number(exp) ->
+        if exp > now do
+          {:ok}
+        else
+          {:error, :token_expired}
+        end
+
+      _ ->
+        {:error, :invalid_expiration}
+    end
+  end
+
+  defp verify_not_before(claims) do
+    now = System.system_time(:second)
+
+    case Map.get(claims, "nbf") do
+      nil ->
+        # nbf is optional, allow if not present
+        {:ok}
+
+      nbf when is_number(nbf) ->
+        if nbf <= now do
+          {:ok}
+        else
+          {:error, :token_not_yet_valid}
+        end
+
+      _ ->
+        {:error, :invalid_not_before}
     end
   end
 end

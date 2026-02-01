@@ -18,6 +18,11 @@ defmodule Presence.Tracer do
           {"operation", unquote(operation_name)}
         ])
 
+        Logger.metadata(
+          trace_id: Presence.Tracer.current_trace_id(),
+          span_id: Presence.Tracer.current_span_id()
+        )
+
         # Set custom attributes
         OpenTelemetry.Tracer.set_attributes(unquote(attrs))
 
@@ -26,10 +31,10 @@ defmodule Presence.Tracer do
           OpenTelemetry.Tracer.set_attribute("result", "success")
           result
         rescue
-          error ->
-            OpenTelemetry.Tracer.record_exception(error)
+          e ->
+            OpenTelemetry.Tracer.record_exception(e, __STACKTRACE__)
             OpenTelemetry.Tracer.set_attribute("result", "error")
-            reraise error, __STACKTRACE__
+            reraise e, __STACKTRACE__
         end
       end
     end

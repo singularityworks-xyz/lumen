@@ -9,8 +9,6 @@ defmodule PresenceWeb.UserSocket do
   require OpenTelemetry.Tracer
   require Presence.Tracer, as: PresenceTracer
 
-  alias Presence.Tracer, as: PresenceTracer
-
   channel("workspace:*", PresenceWeb.WorkspaceChannel)
 
   @impl true
@@ -61,17 +59,17 @@ defmodule PresenceWeb.UserSocket do
   def id(socket), do: "user_socket:#{socket.assigns.user_id}"
 
   defp verify_token(token) do
-    case Presence.Token.verify(token) do
-      {:ok, claims} ->
-        {:ok,
-         %{
-           id: claims["sub"],
-           name: claims["name"],
-           avatar: claims["image"]
-         }}
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, claims} <- Presence.Token.verify(token),
+         %{"sub" => user_id} <- claims,
+         true <- is_binary(user_id) and user_id != "" do
+      {:ok,
+       %{
+         id: user_id,
+         name: claims["name"],
+         avatar: claims["image"]
+       }}
+    else
+      _ -> {:error, :invalid_claims}
     end
   end
 end
