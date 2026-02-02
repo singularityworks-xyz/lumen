@@ -54,9 +54,9 @@ config :presence,
 if config_env() == :prod do
   config :presence, env: :prod
 
-  # Configure OTLP exporter for traces and logs
-  # Uses the same endpoint for all signals (traces, logs, metrics)
-  # The Erlang/Elixir OTLP exporter will automatically append /v1/traces, /v1/logs, /v1/metrics
+  # Configure OTLP exporter for traces
+  # Note: OTLP logs export is NOT supported in Erlang/Elixir OpenTelemetry SDK yet.
+  # Logs are output as JSON to stdout with trace_id/span_id for correlation.
   config :opentelemetry_exporter,
     otlp_protocol: :http_protobuf,
     otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
@@ -77,16 +77,9 @@ if config_env() == :prod do
        }},
     resource_detectors: [:otel_resource_env_var, :otel_resource_app_env]
 
-  # Configure OpenTelemetry Logs Exporter (experimental)
-  # This enables sending logs to Grafana Cloud Loki via OTLP
-  config :opentelemetry_experimental,
-    logs_exporter: :otlp
-
   # Configure metrics using experimental API (only when OTel is configured)
-  # Note: logs_exporter is configured above for all production environments
   if System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
     config :opentelemetry_experimental,
-      logs_exporter: :otlp,
       metrics_exporter: :otlp,
       otlp_metrics_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") <> "/v1/metrics"
   end

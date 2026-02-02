@@ -8,7 +8,6 @@ defmodule Presence.Application do
 
   @impl true
   def start(_type, _args) do
-    # Initialize JWKS cache for JWT verification
     Presence.Token.init_cache()
 
     # Initialize OpenTelemetry instrumentation (production only)
@@ -44,23 +43,8 @@ defmodule Presence.Application do
   end
 
   defp setup_opentelemetry do
-    # Setup Bandit HTTP server instrumentation
     OpentelemetryBandit.setup()
-
-    # Setup Phoenix instrumentation
     OpentelemetryPhoenix.setup(adapter: :bandit)
-
-    # Add OpenTelemetry log handler to export logs via OTLP
-    # This sends logs to Grafana Cloud Loki alongside traces
-    :logger.add_handler(:otel_log_handler, :otel_log_handler, %{level: :info})
-
-    # Note: Metrics are now handled automatically by the OpenTelemetry SDK.
-    # The experimental metrics API no longer requires explicit setup.
-    # Note: opentelemetry_logger_metadata automatically injects trace_id and span_id
-    # into Logger metadata when inside an OpenTelemetry span context
-
-    Logger.info("OpenTelemetry instrumentation initialized (traces + logs)",
-      service: "lumen-presence"
-    )
+    Logger.info("OpenTelemetry tracing initialized", service: "lumen-presence")
   end
 end

@@ -35,10 +35,5 @@ config :opentelemetry,
   span_processor: :batch,
   traces_exporter: :otlp
 
-# OpenTelemetry Experimental Configuration
-# Enable logs export via OTLP to send logs to Grafana Cloud Loki
-config :opentelemetry_experimental,
-  logs_exporter: :otlp
-
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
