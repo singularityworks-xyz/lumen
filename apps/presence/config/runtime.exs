@@ -5,6 +5,23 @@ if config_env() in [:dev, :test] do
   Dotenvy.source([".env", ".env.#{config_env()}", ".env.local"])
 end
 
+# Parse OTEL headers from comma-separated key=value format
+parse_otel_headers = fn headers_str ->
+  if headers_str == "" do
+    []
+  else
+    headers_str
+    |> String.split(",")
+    |> Enum.map(fn part ->
+      case String.split(part, "=", parts: 2) do
+        [key, value] -> {String.trim(key), URI.decode(String.trim(value))}
+        _ -> nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -37,11 +54,13 @@ config :presence,
 if config_env() == :prod do
   config :presence, env: :prod
 
-  # Configure OTLP exporter for traces
+  # Configure OTLP exporter for traces and logs
+  # Uses the same endpoint for all signals (traces, logs, metrics)
+  # The Erlang/Elixir OTLP exporter will automatically append /v1/traces, /v1/logs, /v1/metrics
   config :opentelemetry_exporter,
     otlp_protocol: :http_protobuf,
     otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
-    otlp_headers: [{"x-api-key", System.get_env("OTEL_API_KEY", "")}]
+    otlp_headers: parse_otel_headers.(System.get_env("OTEL_EXPORTER_OTLP_HEADERS", ""))
 
   # Configure OpenTelemetry with batch processor and OTLP exporter
   config :opentelemetry,
@@ -58,9 +77,16 @@ if config_env() == :prod do
        }},
     resource_detectors: [:otel_resource_env_var, :otel_resource_app_env]
 
+  # Configure OpenTelemetry Logs Exporter (experimental)
+  # This enables sending logs to Grafana Cloud Loki via OTLP
+  config :opentelemetry_experimental,
+    logs_exporter: :otlp
+
   # Configure metrics using experimental API (only when OTel is configured)
+  # Note: logs_exporter is configured above for all production environments
   if System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
     config :opentelemetry_experimental,
+      logs_exporter: :otlp,
       metrics_exporter: :otlp,
       otlp_metrics_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") <> "/v1/metrics"
   end

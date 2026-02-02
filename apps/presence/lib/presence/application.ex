@@ -50,12 +50,16 @@ defmodule Presence.Application do
     # Setup Phoenix instrumentation
     OpentelemetryPhoenix.setup(adapter: :bandit)
 
+    # Add OpenTelemetry log handler to export logs via OTLP
+    # This sends logs to Grafana Cloud Loki alongside traces
+    :logger.add_handler(:otel_log_handler, :otel_log_handler, %{level: :info})
+
     # Note: Metrics are now handled automatically by the OpenTelemetry SDK.
     # The experimental metrics API no longer requires explicit setup.
     # Note: opentelemetry_logger_metadata automatically injects trace_id and span_id
     # into Logger metadata when inside an OpenTelemetry span context
 
-    Logger.info("OpenTelemetry instrumentation initialized",
+    Logger.info("OpenTelemetry instrumentation initialized (traces + logs)",
       service: "lumen-presence"
     )
   end
