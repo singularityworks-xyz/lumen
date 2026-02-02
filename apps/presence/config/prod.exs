@@ -1,22 +1,32 @@
 import Config
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
-config :presence, PresenceWeb.Endpoint,
-  force_ssl: [
-    rewrite_on: [:x_forwarded_proto],
-    exclude: [hosts: ["localhost", "127.0.0.1"]]
+# Production logging - JSON format for Loki ingestion
+config :logger,
+  level: :info,
+  format: :json,
+  metadata: [
+    :request_id,
+    :trace_id,
+    :span_id,
+    :user_id,
+    :workspace_id,
+    :status,
+    :previous_status,
+    :duration_ms,
+    :service,
+    :error,
+    :error_type,
+    :operation,
+    :stacktrace,
+    :method,
+    :route
   ]
-
-# Do not print debug messages in production
-config :logger, level: :info
 
 # OpenTelemetry Configuration (Production Only)
 config :opentelemetry,
   resource: [
     service: %{
-      name: "presence-service",
+      name: "lumen-presence",
       version: "1.0.0",
       namespace: "lumen"
     },

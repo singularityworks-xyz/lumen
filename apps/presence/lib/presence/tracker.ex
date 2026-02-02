@@ -19,6 +19,8 @@ defmodule Presence.Tracker do
   Track a user joining a workspace.
   """
   def track_user(socket, user_id, workspace_id, metadata) do
+    start_time = System.monotonic_time(:millisecond)
+
     PresenceTracer.trace "presence.track_user",
                          [
                            {"user.id", user_id},
@@ -48,17 +50,26 @@ defmodule Presence.Tracker do
           })
         )
 
-      # Emit telemetry event
+      duration_ms = System.monotonic_time(:millisecond) - start_time
+
+      # Emit telemetry event with actual duration
       :telemetry.execute(
         [:presence, :track],
-        %{duration: 0},
-        %{user_id: user_id, workspace_id: workspace_id}
+        %{duration: System.convert_time_unit(duration_ms, :millisecond, :native)},
+        %{user_id: user_id, workspace_id: workspace_id, status: "online"}
       )
+
+      # Emit metrics
+      Presence.Metrics.record_track_duration(duration_ms, %{
+        user_id: user_id,
+        workspace_id: workspace_id
+      })
 
       Logger.info("User tracked in presence",
         user_id: user_id,
         workspace_id: workspace_id,
-        status: "online"
+        status: "online",
+        duration_ms: duration_ms
       )
 
       result
@@ -69,6 +80,8 @@ defmodule Presence.Tracker do
   Update user status (online/idle/away).
   """
   def update_status(socket, user_id, status) do
+    start_time = System.monotonic_time(:millisecond)
+
     PresenceTracer.trace "presence.update_status",
                          [
                            {"user.id", user_id},
@@ -81,15 +94,23 @@ defmodule Presence.Tracker do
           last_activity: System.monotonic_time(:millisecond)
         })
 
+      duration_ms = System.monotonic_time(:millisecond) - start_time
+
       :telemetry.execute(
         [:presence, :update_status],
-        %{duration: 0},
+        %{duration: System.convert_time_unit(duration_ms, :millisecond, :native)},
         %{user_id: user_id, status: status}
       )
 
+      # Emit status change metric
+      Presence.Metrics.increment_status_change(status, %{
+        user_id: user_id
+      })
+
       Logger.info("User status updated",
         user_id: user_id,
-        status: status
+        status: status,
+        duration_ms: duration_ms
       )
 
       result

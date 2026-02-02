@@ -18,9 +18,11 @@ defmodule Presence.Application do
 
     # Attach telemetry handlers
     Presence.Telemetry.attach_handlers()
+    Presence.TelemetryMetrics.attach_handlers()
 
     children = [
       PresenceWeb.Telemetry,
+      Presence.TelemetryMetrics,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
       Presence.Tracker,
@@ -48,8 +50,11 @@ defmodule Presence.Application do
     # Setup Phoenix instrumentation
     OpentelemetryPhoenix.setup(adapter: :bandit)
 
+    # Note: opentelemetry_logger_metadata automatically injects trace_id and span_id
+    # into Logger metadata when inside an OpenTelemetry span context
+
     Logger.info("OpenTelemetry instrumentation initialized",
-      service: "presence-service"
+      service: "lumen-presence"
     )
   end
 end

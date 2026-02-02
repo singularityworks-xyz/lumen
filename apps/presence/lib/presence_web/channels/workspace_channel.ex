@@ -29,8 +29,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     Logger.info("User joining workspace",
       user_id: socket.assigns.user_id,
-      workspace_id: workspace_id,
-      trace_id: PresenceTracer.current_trace_id()
+      workspace_id: workspace_id
     )
 
     socket =
@@ -71,12 +70,28 @@ defmodule PresenceWeb.WorkspaceChannel do
   def handle_info(:check_idle, socket) do
     last_activity = socket.assigns.last_activity
 
+    # Record idle check metric
+    Presence.Metrics.increment_idle_check(%{
+      workspace_id: socket.assigns.workspace_id
+    })
+
     socket =
       if Tracker.should_mark_idle?(last_activity) && socket.assigns.status == "online" do
         Logger.info("User marked idle due to inactivity",
           user_id: socket.assigns.user_id,
           workspace_id: socket.assigns.workspace_id,
           idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
+        )
+
+        # Emit idle transition telemetry (metric is handled by telemetry handler)
+        :telemetry.execute(
+          [:presence, :idle, :transition],
+          %{},
+          %{
+            user_id: socket.assigns.user_id,
+            workspace_id: socket.assigns.workspace_id,
+            previous_status: "online"
+          }
         )
 
         Tracker.update_status(socket, socket.assigns.user_id, "idle")
@@ -158,6 +173,12 @@ defmodule PresenceWeb.WorkspaceChannel do
   end
 
   defp broadcast_presence_event(event, socket) do
+    # Emit Redis publish metric
+    Presence.Metrics.increment_redis_publish(%{
+      event_type: event,
+      workspace_id: socket.assigns.workspace_id
+    })
+
     Presence.RedisPubSub.broadcast("presence:#{event}", %{
       workspace_id: socket.assigns.workspace_id,
       user_id: socket.assigns.user_id,

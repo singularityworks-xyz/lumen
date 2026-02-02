@@ -42,8 +42,11 @@ config :presence, PresenceWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :presence, dev_routes: true
 
-# Development logging - console only, no timestamps for cleaner output
-config :logger, level: :debug
+# Development logging - pretty console output with colors
+config :logger,
+  level: :debug,
+  format: "[$time] [$level] $message\n",
+  colors: [enabled: true]
 
 # Disable OpenTelemetry in development
 config :opentelemetry,
