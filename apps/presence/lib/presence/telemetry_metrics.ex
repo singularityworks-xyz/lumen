@@ -2,7 +2,8 @@ defmodule Presence.TelemetryMetrics do
   @moduledoc """
   TelemetryMetrics reporter for the presence service.
 
-  Converts Telemetry events into Prometheus metrics.
+  Converts Telemetry events into console output metrics for development and debugging.
+  Uses Telemetry.Metrics.ConsoleReporter to display metrics in the console.
   This module should be started as part of the supervision tree.
   """
 
@@ -30,7 +31,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.connections.total",
         event_name: [:presence, :connections, :total],
         measurement: :count,
-        tags: [:user_id, :workspace_id, :event],
+        tags: [:event],
         description: "Total number of presence connections and disconnections"
       ),
       Telemetry.Metrics.distribution("presence.connection.duration",
@@ -38,7 +39,7 @@ defmodule Presence.TelemetryMetrics do
         measurement: :duration,
         unit: {:millisecond, :second},
         buckets: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 300.0, 600.0, 1800.0, 3600.0],
-        tags: [:user_id, :workspace_id],
+        tags: [],
         description: "Presence session duration in seconds"
       ),
 
@@ -46,7 +47,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.status.changes.total",
         event_name: [:presence, :status, :changes],
         measurement: :count,
-        tags: [:user_id, :workspace_id, :status],
+        tags: [:status],
         description: "Total number of status changes by type"
       ),
 
@@ -56,7 +57,7 @@ defmodule Presence.TelemetryMetrics do
         measurement: :duration,
         unit: {:millisecond, :second},
         buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
-        tags: [:user_id, :workspace_id],
+        tags: [],
         description: "Track operation duration in seconds"
       ),
 
@@ -70,7 +71,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.idle.transitions.total",
         event_name: [:presence, :idle, :transitions],
         measurement: :count,
-        tags: [:user_id, :workspace_id],
+        tags: [],
         description: "Total number of online to idle transitions"
       ),
 
@@ -116,7 +117,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.websocket.messages.total",
         event_name: [:presence, :websocket, :messages],
         measurement: :count,
-        tags: [:type, :workspace_id],
+        tags: [:type],
         description: "Total WebSocket messages by type"
       ),
 

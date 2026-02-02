@@ -16,8 +16,6 @@ defmodule Presence.Metrics do
 
   require Logger
 
-  require Logger
-
   @doc """
   Record a user connection (track event).
   """
@@ -108,7 +106,11 @@ defmodule Presence.Metrics do
   Record HTTP request metrics.
   """
   def record_http_request(duration_ms, metadata \\ %{}) when is_number(duration_ms) do
-    :telemetry.execute([:presence, :http, :request], %{duration: duration_ms}, metadata)
+    :telemetry.execute(
+      [:presence, :http, :request],
+      %{duration: duration_ms, count: 1},
+      metadata
+    )
   end
 
   @doc """
@@ -126,10 +128,9 @@ defmodule Presence.Metrics do
   Get current active user count.
   Returns 0 if tracker not available.
   """
-  def get_active_user_count do
-    Presence.Tracker.list("*")
-    |> Enum.map(fn {_topic, presences} -> map_size(presences) end)
-    |> Enum.sum()
+  def get_active_user_count(topic \\ "workspace:*") do
+    presences = Presence.Tracker.list(topic)
+    map_size(presences)
   rescue
     e ->
       Logger.error("Failed to get active user count",

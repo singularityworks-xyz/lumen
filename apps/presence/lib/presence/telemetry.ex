@@ -39,16 +39,7 @@ defmodule Presence.Telemetry do
       duration_ms: duration_ms
     )
 
-    # Emit metrics
-    Presence.Metrics.increment_connections(%{
-      user_id: metadata[:user_id],
-      workspace_id: metadata[:workspace_id]
-    })
-
-    Presence.Metrics.record_track_duration(duration_ms, %{
-      user_id: metadata[:user_id],
-      workspace_id: metadata[:workspace_id]
-    })
+    # Metrics are emitted by Presence.Tracker.track_user to avoid duplication
   end
 
   def handle_event([:presence, :update_status], measurements, metadata, _config) do
@@ -66,11 +57,7 @@ defmodule Presence.Telemetry do
       duration_ms: duration_ms
     )
 
-    # Emit metrics
-    Presence.Metrics.increment_status_change(metadata[:status], %{
-      user_id: metadata[:user_id],
-      workspace_id: metadata[:workspace_id]
-    })
+    # Metric is emitted by Presence.Tracker.update_status to avoid duplication
   end
 
   def handle_event([:presence, :user_joined], measurements, metadata, _config) do

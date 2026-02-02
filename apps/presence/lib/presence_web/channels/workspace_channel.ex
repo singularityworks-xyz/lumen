@@ -83,12 +83,7 @@ defmodule PresenceWeb.WorkspaceChannel do
           idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
         )
 
-        # Emit idle transition metric and telemetry
-        Presence.Metrics.increment_idle_transition(%{
-          user_id: socket.assigns.user_id,
-          workspace_id: socket.assigns.workspace_id
-        })
-
+        # Emit idle transition telemetry (metric is handled by telemetry handler)
         :telemetry.execute(
           [:presence, :idle, :transition],
           %{},
