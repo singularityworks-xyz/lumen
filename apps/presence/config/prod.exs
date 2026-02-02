@@ -4,20 +4,21 @@ import Config
 # Note: Sensitive identifiers (user_id, workspace_id) and detailed error info
 # are excluded from logs to prevent PII/tenant data exposure. Use trace_id
 # and request_id for correlation with traces where full context is available.
-config :logger,
+config :logger, :default_handler,
   level: :info,
-  format: :json,
-  metadata: [
-    :request_id,
-    :trace_id,
-    :span_id,
-    :status,
-    :previous_status,
-    :duration_ms,
-    :service,
-    :method,
-    :route
-  ]
+  formatter:
+    {LoggerJSON.Formatters.Basic,
+     metadata: [
+       :request_id,
+       :trace_id,
+       :span_id,
+       :status,
+       :previous_status,
+       :duration_ms,
+       :service,
+       :method,
+       :route
+     ]}
 
 # OpenTelemetry Configuration (Production Only)
 config :opentelemetry,
