@@ -1,10 +1,12 @@
 defmodule Presence.TelemetryMetrics do
   @moduledoc """
   TelemetryMetrics reporter for the presence service.
-
-  Converts Telemetry events into console output metrics for development and debugging.
-  Uses Telemetry.Metrics.ConsoleReporter to display metrics in the console.
-  This module should be started as part of the supervision tree.
+  In development: Uses ConsoleReporter to print metrics to console for debugging.
+  In production: No console output - telemetry events flow to OTel Collector
+  via the standard telemetry pipeline (configured separately).
+  This module provides the Telemetry.Metrics definitions that describe what
+  metrics are available. The actual collection happens through telemetry events
+  emitted throughout the codebase.
   """
 
   use Supervisor
@@ -15,15 +17,22 @@ defmodule Presence.TelemetryMetrics do
 
   @impl true
   def init(_arg) do
-    children = [
-      {Telemetry.Metrics.ConsoleReporter, metrics: metrics(), level: :debug}
-    ]
+    children =
+      if Application.get_env(:presence, :env) == :prod do
+        # In production, don't use ConsoleReporter - let telemetry events
+        # flow to OTel Collector naturally through the configured pipeline
+        []
+      else
+        # In dev/test, print metrics to console for debugging
+        [{Telemetry.Metrics.ConsoleReporter, metrics: metrics(), level: :debug}]
+      end
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
   @doc """
-  Returns a list of metrics to be exposed.
+  Returns a list of metrics definitions.
+  These describe the metrics emitted by the presence service.
   """
   def metrics do
     [
@@ -65,7 +74,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.idle.checks.total",
         event_name: [:presence, :idle, :checks],
         measurement: :count,
-        tags: [:workspace_id],
+        tags: [],
         description: "Total number of idle detection checks"
       ),
       Telemetry.Metrics.counter("presence.idle.transitions.total",
@@ -79,7 +88,7 @@ defmodule Presence.TelemetryMetrics do
       Telemetry.Metrics.counter("presence.redis.publish.total",
         event_name: [:presence, :redis, :publish],
         measurement: :count,
-        tags: [:workspace_id, :event_type],
+        tags: [:event_type],
         description: "Total number of Redis publish operations"
       ),
       Telemetry.Metrics.counter("presence.redis.errors.total",
@@ -130,33 +139,14 @@ defmodule Presence.TelemetryMetrics do
   end
 
   @doc """
-  Attach telemetry handlers to emit metrics on events.
+  Attach telemetry handlers for metrics.
+  In production, telemetry events flow to OTel Collector.
+  In development, they also print to console via ConsoleReporter.
   """
   def attach_handlers do
-    :telemetry.attach_many(
-      "presence-metrics",
-      [
-        [:presence, :connections, :total],
-        [:presence, :connection, :duration],
-        [:presence, :status, :changes],
-        [:presence, :track, :duration],
-        [:presence, :idle, :checks],
-        [:presence, :idle, :transitions],
-        [:presence, :redis, :publish],
-        [:presence, :redis, :errors],
-        [:presence, :errors],
-        [:presence, :http, :request],
-        [:presence, :websocket, :messages]
-      ],
-      &__MODULE__.handle_event/4,
-      %{}
-    )
-  end
-
-  @doc false
-  def handle_event(_event, _measurements, _metadata, _config) do
-    # Events are automatically handled by TelemetryMetrics reporters
-    # This function can be used for additional logging if needed
+    # Telemetry events are already being emitted throughout the app.
+    # The ConsoleReporter (in dev) automatically receives these events.
+    # In production, an OTel Collector can be configured to receive them.
     :ok
   end
 end

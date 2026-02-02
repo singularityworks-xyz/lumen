@@ -35,12 +35,18 @@ config :presence,
 
 # OpenTelemetry OTLP Configuration (Production Only)
 if config_env() == :prod do
+  config :presence, env: :prod
+
+  # Configure OTLP exporter for traces
   config :opentelemetry_exporter,
     otlp_protocol: :http_protobuf,
     otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
     otlp_headers: [{"x-api-key", System.get_env("OTEL_API_KEY", "")}]
 
+  # Configure OpenTelemetry with batch processor and OTLP exporter
   config :opentelemetry,
+    span_processor: :batch,
+    traces_exporter: :otlp,
     sampler:
       {:parent_based,
        %{
@@ -49,7 +55,15 @@ if config_env() == :prod do
          remote_parent_not_sampled: :always_off,
          local_parent_sampled: :always_on,
          local_parent_not_sampled: :always_off
-       }}
+       }},
+    resource_detectors: [:otel_resource_env_var, :otel_resource_app_env]
+
+  # Configure metrics using experimental API (only when OTel is configured)
+  if System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
+    config :opentelemetry_experimental,
+      metrics_exporter: :otlp,
+      otlp_metrics_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") <> "/v1/metrics"
+  end
 end
 
 if config_env() == :prod do

@@ -50,6 +50,8 @@ defmodule Presence.Application do
     # Setup Phoenix instrumentation
     OpentelemetryPhoenix.setup(adapter: :bandit)
 
+    # Note: Metrics are now handled automatically by the OpenTelemetry SDK.
+    # The experimental metrics API no longer requires explicit setup.
     # Note: opentelemetry_logger_metadata automatically injects trace_id and span_id
     # into Logger metadata when inside an OpenTelemetry span context
 

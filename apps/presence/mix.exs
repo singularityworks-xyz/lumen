@@ -54,6 +54,8 @@ defmodule Presence.MixProject do
       {:opentelemetry_phoenix, "~> 2.0"},
       {:opentelemetry_bandit, "~> 0.3"},
       {:opentelemetry_logger_metadata, "~> 0.2"},
+      {:opentelemetry_api_experimental, "~> 0.5"},
+      {:opentelemetry_experimental, "~> 0.5"},
       {:logger_json, "~> 7.0"}
     ]
   end
