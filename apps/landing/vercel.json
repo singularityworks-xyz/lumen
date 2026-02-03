@@ -1,5 +1,5 @@
 {
   "buildCommand": "bun turbo build --filter=@lumen/landing",
-  "outputDirectory": "dist",
+  "outputDirectory": "apps/landing/dist",
   "installCommand": "bun install"
 }
