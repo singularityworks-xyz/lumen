@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "bun turbo build --filter=@lumen/landing",
-  "outputDirectory": "apps/landing/dist",
-  "installCommand": "bun install"
+  "outputDirectory": "apps/landing/dist"
 }
