@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./logger": "./src/logger.ts",

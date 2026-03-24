@@ -8,6 +8,7 @@
   "scripts": {
     "build": "turbo run build",
     "postinstall": "bun run db:gen",
+    "prepare": "lefthook install",
     "dev": "turbo run dev",
     "dev:web": "concurrently --names \"web,workers\" --prefix-colors \"blue,red\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\"",
     "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
@@ -16,6 +17,7 @@
     "otel:down": "docker compose -f local/docker/docker-compose.otel.yml down",
     "check": "ultracite fix --unsafe && cd apps/presence && mix format && mix compile --warnings-as-errors && mix credo --strict",
     "check:ci": "biome ci . && cd apps/presence && mix format --check-formatted && mix compile --warnings-as-errors && mix credo --strict",
+    "check:rust": "cd apps/native/src-tauri && cargo fmt --all --check && cargo clippy --all-targets --all-features -- -D warnings",
     "check-types": "turbo run check-types",
     "dep:check": "bunx sherif@latest --fix",
     "dep:up": "bunx taze major -w",
@@ -33,6 +35,7 @@
     "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
     "concurrently": "^9.2.1",
+    "lefthook": "^1.13.6",
     "lint-staged": "^16.4.0",
     "turbo": "^2.8.20",
     "typescript": "^6.0.2",

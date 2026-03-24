@@ -21,6 +21,10 @@ const tracer = getTracer("lumen-ai");
 const SUMMARIZATION_THRESHOLD = 50;
 const summarizationInProgress = new Set<string>();
 
+function readOptionalJsonField<T>(value: unknown): T | undefined {
+  return value == null ? undefined : (value as T);
+}
+
 async function triggerAutoSummarization(conversationId: string): Promise<void> {
   // Avoid duplicate summarization runs
   if (summarizationInProgress.has(conversationId)) {
@@ -258,15 +262,21 @@ export async function addMessage(
       id: result.createdMessage.id,
       role: result.createdMessage.role as "user" | "assistant" | "tool",
       content: result.createdMessage.content,
-      toolCalls: result.createdMessage.toolCalls as AiMessage["toolCalls"],
+      toolCalls: readOptionalJsonField<AiMessage["toolCalls"]>(
+        result.createdMessage.toolCalls
+      ),
       toolCallId: result.createdMessage.toolCallId ?? undefined,
       toolName: result.createdMessage.toolName ?? undefined,
-      contextSnapshot: result.createdMessage
-        .contextSnapshot as AiMessage["contextSnapshot"],
+      contextSnapshot: readOptionalJsonField<AiMessage["contextSnapshot"]>(
+        result.createdMessage.contextSnapshot
+      ),
       requiresConfirmation: result.createdMessage.requiresConfirmation,
-      pendingAction: result.createdMessage
-        .pendingAction as AiMessage["pendingAction"],
-      metadata: result.createdMessage.metadata as AiMessage["metadata"],
+      pendingAction: readOptionalJsonField<AiMessage["pendingAction"]>(
+        result.createdMessage.pendingAction
+      ),
+      metadata: readOptionalJsonField<AiMessage["metadata"]>(
+        result.createdMessage.metadata
+      ),
       confirmedAt: result.createdMessage.confirmedAt?.toISOString(),
       createdAt: result.createdMessage.createdAt.toISOString(),
     };
@@ -480,13 +490,17 @@ export async function toApiMessages(
       id: m.id,
       role: m.role as "user" | "assistant" | "tool",
       content: await decryptContent(m.content),
-      toolCalls: m.toolCalls as AiMessage["toolCalls"],
+      toolCalls: readOptionalJsonField<AiMessage["toolCalls"]>(m.toolCalls),
       toolCallId: m.toolCallId ?? undefined,
       toolName: m.toolName ?? undefined,
-      contextSnapshot: m.contextSnapshot as AiMessage["contextSnapshot"],
+      contextSnapshot: readOptionalJsonField<AiMessage["contextSnapshot"]>(
+        m.contextSnapshot
+      ),
       requiresConfirmation: m.requiresConfirmation,
-      pendingAction: m.pendingAction as AiMessage["pendingAction"],
-      metadata: m.metadata as AiMessage["metadata"],
+      pendingAction: readOptionalJsonField<AiMessage["pendingAction"]>(
+        m.pendingAction
+      ),
+      metadata: readOptionalJsonField<AiMessage["metadata"]>(m.metadata),
       confirmedAt: m.confirmedAt?.toISOString(),
       createdAt: m.createdAt.toISOString(),
     }))

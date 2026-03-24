@@ -1,0 +1,32 @@
+min_version: "1.12.0"
+output:
+  - execution
+  - failure
+
+pre-commit:
+  parallel: true
+  commands:
+    staged-js:
+      glob: "*.{js,jsx,ts,tsx,cjs,mjs,json,jsonc,css,scss,md,mdx}"
+      run: bunx ultracite check {staged_files}
+    staged-elixir:
+      glob: "apps/presence/**"
+      run: bash ./.lefthook/pre-commit/check-elixir.sh {staged_files}
+    staged-rust:
+      glob: "apps/native/src-tauri/**/*.rs"
+      run: bash ./.lefthook/pre-commit/check-rust.sh {staged_files}
+
+commit-msg:
+  commands:
+    validate-style:
+      run: bash ./.lefthook/commit-msg/validate-style.sh {1}
+
+pre-push:
+  parallel: true
+  commands:
+    lint-and-elixir:
+      run: bun run check:ci
+    typecheck:
+      run: bun run check-types
+    rust:
+      run: bun run check:rust
