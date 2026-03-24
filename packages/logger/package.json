@@ -11,8 +11,8 @@
   },
   "devDependencies": {
     "@lumen/configs": "workspace:^",
-    "@types/node": "^25.1.0",
-    "typescript": "^5.9.3"
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -20,14 +20,14 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.208.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.208.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.208.0",
-    "@opentelemetry/host-metrics": "^0.38.2",
+    "@opentelemetry/host-metrics": "^0.38.3",
     "@opentelemetry/instrumentation": "^0.208.0",
-    "@opentelemetry/resources": "^2.5.0",
+    "@opentelemetry/resources": "^2.6.0",
     "@opentelemetry/sdk-logs": "^0.208.0",
-    "@opentelemetry/sdk-metrics": "^2.5.0",
-    "@opentelemetry/sdk-trace-node": "^2.5.0",
-    "@opentelemetry/semantic-conventions": "^1.39.0",
-    "@t3-oss/env-core": "^0.13.10",
+    "@opentelemetry/sdk-metrics": "^2.6.0",
+    "@opentelemetry/sdk-trace-node": "^2.6.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@t3-oss/env-core": "^0.13.11",
     "zod": "^4.3.6"
   }
 }
