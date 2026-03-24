@@ -16,10 +16,20 @@ pre-commit:
       glob: "apps/native/src-tauri/**/*.rs"
       run: bash ./.lefthook/pre-commit/check-rust.sh {staged_files}
 
+prepare-commit-msg:
+  commands:
+    autobump:
+      run: bun run version:autobump
+
 commit-msg:
   commands:
     validate-style:
       run: bash ./.lefthook/commit-msg/validate-style.sh {1}
+
+post-commit:
+  commands:
+    clear-autobump-state:
+      run: bun run version:autobump:cleanup
 
 pre-push:
   parallel: true

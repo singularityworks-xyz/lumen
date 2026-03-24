@@ -1,3 +1,5 @@
+const WEB_VERSION = "1.0.2";
+
 export async function register() {
   // Only initialize OTEL on the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME === "nodejs") {
@@ -6,7 +8,9 @@ export async function register() {
       const { createLogger } = await import("@lumen/logger");
       const { PrismaInstrumentation } = await import("@prisma/instrumentation");
       const logger = createLogger({ name: "instrumentation" });
-      const initialized = initOtel("lumen-web", [new PrismaInstrumentation()]);
+      const initialized = initOtel("lumen-web", [new PrismaInstrumentation()], {
+        serviceVersion: WEB_VERSION,
+      });
       logger.info("[instrumentation] OpenTelemetry initialized:", {
         initialized,
         endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ? "set" : "not set",
