@@ -285,7 +285,9 @@ export function CollaborationProvider({
       logger.info("Connecting to workspace", { workspaceId });
       setConnectionState("connecting");
 
-      const { getJwtToken, authClient } = await import("@/src/lib/auth-client");
+      const { getCurrentUser, getJwtToken } = await import(
+        "@/src/lib/auth-client"
+      );
       const token = await getJwtToken();
       if (!token) {
         const err = new Error("Failed to get JWT token for WebSocket");
@@ -295,8 +297,7 @@ export function CollaborationProvider({
         return;
       }
 
-      const sessionResult = await authClient.getSession();
-      const sessionUser = sessionResult.data?.user;
+      const sessionUser = await getCurrentUser();
       if (sessionUser) {
         const userColor = getColorForUser(sessionUser.id);
         localUserInfoRef.current = {

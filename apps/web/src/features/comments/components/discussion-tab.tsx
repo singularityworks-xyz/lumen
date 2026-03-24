@@ -77,14 +77,21 @@ const ChatBubble = memo(
       );
 
       const parts = message.content.split(pattern);
+      let searchIndex = 0;
 
-      return parts.map((part, i) => {
+      return parts.map((part) => {
+        const partStart = message.content.indexOf(part, searchIndex);
+
+        if (partStart !== -1) {
+          searchIndex = partStart + part.length;
+        }
+
         const color = knownUserColors.get(part);
         if (color) {
           return (
             <span
               className="font-medium underline underline-offset-2"
-              key={`${i}-${part}`}
+              key={`${message.id}-${partStart}-${part}`}
               style={{ color, textDecorationColor: color }}
             >
               {part}
@@ -93,7 +100,7 @@ const ChatBubble = memo(
         }
         return part;
       });
-    }, [message.content, knownUserColors]);
+    }, [message.content, knownUserColors, message.id]);
 
     const onlineAuthor = collaborators.find((c) => c.id === message.authorId);
     const authorName = onlineAuthor?.name ?? message.authorName ?? "Unknown";

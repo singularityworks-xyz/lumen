@@ -154,7 +154,7 @@ function NativeAuthCallbackContent() {
               </p>
               <div className="flex items-center gap-2 rounded-lg bg-white/10 p-3">
                 <code className="flex-1 truncate text-white/80 text-xs">
-                  {token.substring(0, 20)}...
+                  {token.slice(0, 20)}...
                 </code>
                 <button
                   className="rounded bg-white/20 px-3 py-1 text-white text-xs transition-colors hover:bg-white/30"

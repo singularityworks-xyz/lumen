@@ -10,8 +10,8 @@ defmodule Presence.Application do
   def start(_type, _args) do
     Presence.Token.init_cache()
 
-    # Initialize OpenTelemetry instrumentation (production only)
-    if Application.get_env(:opentelemetry, :traces_exporter) == :otlp do
+    # Initialize OpenTelemetry instrumentation only when explicitly enabled.
+    if otel_enabled?() do
       setup_opentelemetry()
     end
 
@@ -46,5 +46,10 @@ defmodule Presence.Application do
     OpentelemetryBandit.setup()
     OpentelemetryPhoenix.setup(adapter: :bandit)
     Logger.info("OpenTelemetry tracing initialized", service: "lumen-presence")
+  end
+
+  defp otel_enabled? do
+    Application.get_env(:presence, :otel_enabled, false) and
+      Application.get_env(:opentelemetry, :traces_exporter) == :otlp
   end
 end

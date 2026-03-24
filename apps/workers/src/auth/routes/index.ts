@@ -172,7 +172,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
             select: { sessionToken: true, expiresAt: true },
           });
           addSpanEvent("token.deleted", {
-            token: `${token.substring(0, 8)}...`,
+            token: `${token.slice(0, 8)}...`,
           });
         } catch (err) {
           // P2025 = Record not found (already used or never existed)
@@ -279,7 +279,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
           logger.debug("Session token extraction result", {
             hasSessionToken: !!sessionToken,
             tokenPreview: sessionToken
-              ? `${sessionToken.substring(0, 20)}...`
+              ? `${sessionToken.slice(0, 20)}...`
               : null,
           });
 

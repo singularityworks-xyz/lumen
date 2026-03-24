@@ -61,7 +61,7 @@ export function useJoinWorkspace({
     setError(null);
 
     return withSpanAsync("share.validateToken", async (span) => {
-      span.setAttribute("share.token", `${shareToken.substring(0, 8)}...`);
+      span.setAttribute("share.token", `${shareToken.slice(0, 8)}...`);
 
       try {
         const response = await fetch(`${apiUrl}/api/share/${shareToken}`);

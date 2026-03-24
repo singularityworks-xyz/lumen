@@ -22,6 +22,18 @@ parse_otel_headers = fn headers_str ->
   end
 end
 
+parse_boolean_env = fn name, default ->
+  case System.get_env(name, default) do
+    value when value in ["1", "true", "TRUE"] -> true
+    _ -> false
+  end
+end
+
+otel_enabled = parse_boolean_env.("OTEL_ENABLED", "false")
+
+telemetry_console_reporter_enabled =
+  parse_boolean_env.("PRESENCE_TELEMETRY_CONSOLE_REPORTER", "false")
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -48,10 +60,12 @@ config :presence,
   # Workers API URL for fetching workspace members (Phase 1)
   workers_api_url: System.get_env("WORKERS_API_URL") || "http://localhost:3002",
   # Internal API key for webhook authentication (Phase 2)
-  internal_api_key: System.get_env("INTERNAL_API_KEY")
+  internal_api_key: System.get_env("INTERNAL_API_KEY"),
+  telemetry_console_reporter: telemetry_console_reporter_enabled,
+  otel_enabled: otel_enabled
 
-# OpenTelemetry OTLP Configuration (Production Only)
-if config_env() == :prod do
+# OpenTelemetry OTLP Configuration (Production Only, opt-in via OTEL_ENABLED)
+if config_env() == :prod and otel_enabled do
   config :presence, env: :prod
 
   # Configure OTLP exporter for traces
@@ -83,6 +97,10 @@ if config_env() == :prod do
       metrics_exporter: :otlp,
       otlp_metrics_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") <> "/v1/metrics"
   end
+else
+  config :opentelemetry,
+    traces_exporter: :none,
+    processors: []
 end
 
 if config_env() == :prod do
