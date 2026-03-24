@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.12",
+  "version": "0.4.13",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
