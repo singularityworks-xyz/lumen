@@ -29,10 +29,12 @@ jobs:
           APP_VERSION=$(python3 -c 'import json; print(json.load(open("apps/workers/package.json"))["version"])')
           ROOT_VERSION=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
 
-          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
-          echo "root_version=${ROOT_VERSION}" >> $GITHUB_OUTPUT
-          echo "tag_name=workers-v${APP_VERSION}" >> $GITHUB_OUTPUT
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          {
+            echo "app_version=${APP_VERSION}"
+            echo "root_version=${ROOT_VERSION}"
+            echo "tag_name=workers-v${APP_VERSION}"
+            echo "sha_short=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU (for ARM64 builds)
         uses: docker/setup-qemu-action@v3

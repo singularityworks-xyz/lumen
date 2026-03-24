@@ -83,7 +83,8 @@ export interface AiActions {
   loadServerConversation: (
     workspaceId: string,
     messages: AiMessage[],
-    title: string | null
+    title: string | null,
+    lastActiveAt?: string | null
   ) => void;
   openDrawer: () => void;
   queueMessageForSync: (
@@ -545,16 +546,17 @@ export const useAiStore = create<AiStore>()(
         });
       },
 
-      loadServerConversation: (workspaceId, messages, title) => {
+      loadServerConversation: (workspaceId, messages, title, lastActiveAt) => {
         set((state) => {
           if (!state.conversations[workspaceId]) {
             state.conversations[workspaceId] = createEmptyConversation();
           }
           const conv = state.conversations[workspaceId];
 
-          // Get latest timestamp from incoming messages
+          // Prefer server-provided lastActiveAt, fall back to last message timestamp
           const incomingLastActive =
-            messages.length > 0 ? messages.at(-1)?.createdAt : null;
+            lastActiveAt ??
+            (messages.length > 0 ? messages.at(-1)?.createdAt : null);
 
           // Get latest timestamp from existing conversation
           const existingLastActive =
@@ -593,7 +595,7 @@ export const useAiStore = create<AiStore>()(
           }
 
           // Ensure lastActiveAt is set to the latest timestamp
-          const latestTimestamp =
+          conv.lastActiveAt =
             incomingLastActive && existingLastActive
               ? incomingLastActive > existingLastActive
                 ? incomingLastActive
@@ -601,7 +603,6 @@ export const useAiStore = create<AiStore>()(
               : incomingLastActive ||
                 existingLastActive ||
                 new Date().toISOString();
-          conv.lastActiveAt = latestTimestamp;
         });
       },
     })),

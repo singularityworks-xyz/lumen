@@ -69,10 +69,7 @@ export function buildMessagesFromHistory(
       if (msg.toolCallId && msg.toolName) {
         // Get the result from toolResult if available, otherwise parse from content
         // (Server stores tool results in content as JSON string)
-        const resultValue =
-          msg.toolResult === undefined
-            ? parseToolResult(msg.content)
-            : msg.toolResult;
+        const resultValue = msg.toolResult ?? parseToolResult(msg.content);
 
         messages.push({
           role: "tool",

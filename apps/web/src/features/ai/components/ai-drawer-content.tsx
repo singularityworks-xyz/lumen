@@ -242,7 +242,8 @@ export const AiDrawerContent = memo(
             loadServerConversation(
               workspaceId,
               serverConversation.messages,
-              serverConversation.title
+              serverConversation.title,
+              serverConversation.lastActiveAt
             );
           }
         } catch (error) {

@@ -451,21 +451,9 @@ function incrementVersion(version: string) {
   }
 
   const [, major, minor, patch] = match;
-  let nextMajor = Number(major);
-  let nextMinor = Number(minor);
-  let nextPatch = Number(patch) + 1;
+  const nextPatch = Number(patch) + 1;
 
-  if (nextPatch >= 10) {
-    nextPatch = 0;
-    nextMinor += 1;
-  }
-
-  if (nextMinor >= 10) {
-    nextMinor = 0;
-    nextMajor += 1;
-  }
-
-  return `${nextMajor}.${nextMinor}.${nextPatch}`;
+  return `${major}.${minor}.${nextPatch}`;
 }
 
 function hasOverlap(
