@@ -1,19 +1,19 @@
 export interface PresenceUser {
-  id: string;
-  name: string;
   avatar?: string;
-  status: "online" | "idle" | "away";
+  id: string;
   joinedAt: number;
+  name: string;
+  status: "online" | "idle" | "away";
 }
 
 export interface PresenceState {
-  users: Map<string, PresenceUser>;
   currentUser: PresenceUser | null;
   isConnected: boolean;
+  users: Map<string, PresenceUser>;
 }
 
 export interface PresenceMessage {
-  topic: string;
   event: string;
   payload: unknown;
+  topic: string;
 }

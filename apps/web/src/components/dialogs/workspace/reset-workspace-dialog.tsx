@@ -14,17 +14,17 @@ import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 
 interface ResetWorkspaceDialogProps {
-  workspaceName: string;
-  workspaceId: string;
-  taskCount: number;
   boardCount: number;
   columnCount: number;
-  onConfirm: (options: { clearBoardsAndColumns: boolean }) => void;
-  onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
-  quickActionsPosition?: { x: number; y: number };
-  position?: { x: number; y: number };
+  onClose: () => void;
+  onConfirm: (options: { clearBoardsAndColumns: boolean }) => void;
   onPositionChange?: (position: { x: number; y: number }) => void;
+  position?: { x: number; y: number };
+  quickActionsPosition?: { x: number; y: number };
+  taskCount: number;
+  workspaceId: string;
+  workspaceName: string;
 }
 
 const DIALOG_WIDTH = 420;
@@ -184,17 +184,17 @@ export const ResetWorkspaceDialog = memo(
                 <p>
                   This will delete{" "}
                   <span className="font-semibold">
-                    {taskCount} task{taskCount !== 1 ? "s" : ""}
+                    {taskCount} task{taskCount === 1 ? "" : "s"}
                   </span>
                   {clearBoardsAndColumns && (
                     <>
                       ,{" "}
                       <span className="font-semibold">
-                        {boardCount} board{boardCount !== 1 ? "s" : ""}
+                        {boardCount} board{boardCount === 1 ? "" : "s"}
                       </span>
                       , and{" "}
                       <span className="font-semibold">
-                        {columnCount} column{columnCount !== 1 ? "s" : ""}
+                        {columnCount} column{columnCount === 1 ? "" : "s"}
                       </span>
                     </>
                   )}{" "}
@@ -225,8 +225,8 @@ export const ResetWorkspaceDialog = memo(
                   Also clear boards and columns
                 </span>
                 <span className="text-muted-foreground text-xs">
-                  {boardCount} board{boardCount !== 1 ? "s" : ""} and{" "}
-                  {columnCount} column{columnCount !== 1 ? "s" : ""} will be
+                  {boardCount} board{boardCount === 1 ? "" : "s"} and{" "}
+                  {columnCount} column{columnCount === 1 ? "" : "s"} will be
                   removed
                 </span>
               </div>

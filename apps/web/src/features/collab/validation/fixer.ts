@@ -182,15 +182,15 @@ export function fixColumnTaskIds(state: KanbanState): KanbanState {
     const validColumnTaskIds = column.task_ids.filter((id) =>
       validTaskIds.has(id)
     );
-    if (validColumnTaskIds.length !== column.task_ids.length) {
+    if (validColumnTaskIds.length === column.task_ids.length) {
+      fixedColumns[column.id] = column;
+    } else {
       fixedColumns[column.id] = { ...column, task_ids: validColumnTaskIds };
       fixedCount += 1;
       logger.warn("Fixed column task_ids", {
         columnId: column.id,
         removed: column.task_ids.length - validColumnTaskIds.length,
       });
-    } else {
-      fixedColumns[column.id] = column;
     }
   }
 
@@ -214,15 +214,15 @@ export function fixBoardColumnIds(state: KanbanState): KanbanState {
     const validBoardColumnIds = board.column_ids.filter((id) =>
       validColumnIds.has(id)
     );
-    if (validBoardColumnIds.length !== board.column_ids.length) {
+    if (validBoardColumnIds.length === board.column_ids.length) {
+      fixedBoards[board.id] = board;
+    } else {
       fixedBoards[board.id] = { ...board, column_ids: validBoardColumnIds };
       fixedCount += 1;
       logger.warn("Fixed board column_ids", {
         boardId: board.id,
         removed: board.column_ids.length - validBoardColumnIds.length,
       });
-    } else {
-      fixedBoards[board.id] = board;
     }
   }
 
@@ -246,15 +246,15 @@ export function fixAreaBoardIds(state: KanbanState): KanbanState {
     const validAreaBoardIds = area.board_ids.filter((id) =>
       validBoardIds.has(id)
     );
-    if (validAreaBoardIds.length !== area.board_ids.length) {
+    if (validAreaBoardIds.length === area.board_ids.length) {
+      fixedAreas[area.id] = area;
+    } else {
       fixedAreas[area.id] = { ...area, board_ids: validAreaBoardIds };
       fixedCount += 1;
       logger.warn("Fixed area board_ids", {
         areaId: area.id,
         removed: area.board_ids.length - validAreaBoardIds.length,
       });
-    } else {
-      fixedAreas[area.id] = area;
     }
   }
 

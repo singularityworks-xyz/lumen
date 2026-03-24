@@ -5,7 +5,7 @@ export function useConnectionStatus(): {
   isOffline: boolean;
 } {
   const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true
+    typeof navigator === "undefined" ? true : navigator.onLine
   );
 
   useEffect(() => {

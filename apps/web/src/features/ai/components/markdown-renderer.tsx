@@ -6,8 +6,8 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/src/lib/utils";
 
 interface MarkdownRendererProps {
-  content: string;
   className?: string;
+  content: string;
 }
 
 // Regex patterns for tool call JSON artifacts that the model might output as text

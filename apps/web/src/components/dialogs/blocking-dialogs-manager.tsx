@@ -18,18 +18,18 @@ import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
 
 export interface BlockingDialog {
+  accentColor?: string;
+  icon?: string | LucideIcon;
   id: string;
   name: string;
-  icon?: string | LucideIcon;
-  accentColor?: string;
   type: string;
 }
 
 interface BlockingDialogsManagerProps {
+  children: React.ReactNode;
   dialogs: BlockingDialog[];
   onCloseAll: () => void;
   onCloseMenu: () => void;
-  children: React.ReactNode;
 }
 
 export const BlockingDialogsManager = memo(

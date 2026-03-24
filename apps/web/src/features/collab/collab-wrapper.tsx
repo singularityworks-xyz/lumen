@@ -74,8 +74,8 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
 }
 
 interface CollaborationWrapperProps {
-  children: ReactNode;
   apiUrl?: string;
+  children: ReactNode;
   enabled?: boolean;
 }
 

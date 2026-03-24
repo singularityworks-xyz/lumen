@@ -12,21 +12,21 @@ import { useKanbanStore } from "../kanban/store";
 const logger = createLogger({ name: "collab:join-handler" });
 
 export interface JoinSuccessData {
-  workspaceId: string;
-  role: string;
-  workspaceName?: string;
   owner?: {
     id: string;
     name: string | null;
     image: string | null;
     email: string;
   };
+  role: string;
+  workspaceId: string;
+  workspaceName?: string;
 }
 
 interface JoinHandlerProps {
-  shareToken: string | null;
-  onJoinSuccess?: (data: JoinSuccessData) => void;
   onJoinError?: (error: string) => void;
+  onJoinSuccess?: (data: JoinSuccessData) => void;
+  shareToken: string | null;
 }
 
 type JoinState = "idle" | "validating" | "joining" | "success" | "error";

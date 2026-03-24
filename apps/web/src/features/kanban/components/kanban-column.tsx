@@ -28,8 +28,8 @@ import type { DenormalizedColumn, Task } from "../types";
 import { ICON_MAP } from "../utils/color-icon-utils";
 
 interface KanbanColumnProps {
-  column: DenormalizedColumn;
   boardId: string;
+  column: DenormalizedColumn;
   onOpenTaskDetail?: (taskId: string, screenX: number, screenY: number) => void;
 }
 

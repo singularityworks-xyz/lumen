@@ -2,10 +2,6 @@ import type { Comment } from "../../types";
 import type { KanbanStore } from "../types";
 
 export interface CommentSlice {
-  comments: {
-    byId: Record<string, Comment>;
-    allIds: string[];
-  };
   addComment: (
     position: { x: number; y: number },
     content: string,
@@ -16,6 +12,15 @@ export interface CommentSlice {
     content: string,
     author: { id: string; name?: string; image?: string }
   ) => void;
+  comments: {
+    byId: Record<string, Comment>;
+    allIds: string[];
+  };
+  finalizeCommentsDrag: (commentIds: string[]) => void;
+  getRepliesForComment: (parentId: string) => Comment[];
+  lastActiveDrawerTab: "comments" | "discussion";
+  removeComment: (id: string) => void;
+  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
   updateComment: (
     id: string,
     updates: Partial<
@@ -48,11 +53,6 @@ export interface CommentSlice {
       >;
     }[]
   ) => void;
-  removeComment: (id: string) => void;
-  finalizeCommentsDrag: (commentIds: string[]) => void;
-  getRepliesForComment: (parentId: string) => Comment[];
-  lastActiveDrawerTab: "comments" | "discussion";
-  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
 }
 
 type SliceCreator = (

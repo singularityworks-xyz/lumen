@@ -4,19 +4,19 @@ export type ToolIntent = "none" | "query" | "action" | "both";
 
 export interface ToolSelection {
   intent: ToolIntent;
-  tools: typeof allTools | typeof queryTools | typeof actionTools | null;
   reason: string;
+  tools: typeof allTools | typeof queryTools | typeof actionTools | null;
 }
 
 export interface ClassificationResult {
-  intent: ToolIntent;
   confidence: "high" | "medium" | "low";
+  intent: ToolIntent;
   reason: string;
   suggestedTools?: string[];
 }
 
 export interface QueueStatus {
-  position: number;
   estimatedWaitMs: number;
   isQueued: boolean;
+  position: number;
 }

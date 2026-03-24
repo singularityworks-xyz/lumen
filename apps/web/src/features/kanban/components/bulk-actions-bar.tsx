@@ -166,7 +166,7 @@ export const BulkActionsBar = memo(() => {
                   <AlertDialogTitle>Delete Tasks</AlertDialogTitle>
                   <AlertDialogDescription>
                     Are you sure you want to delete {selectedCount} task
-                    {selectedCount !== 1 ? "s" : ""}? This action cannot be
+                    {selectedCount === 1 ? "" : "s"}? This action cannot be
                     undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>

@@ -48,46 +48,46 @@ const logger = createLogger({ name: "collab:yjs-sync" });
 const POSITION_THROTTLE_MS = 14;
 
 export interface YjsSyncActions {
-  // Sync a board change to Yjs
-  syncBoard: (board: Board) => void;
-  // Delete a board from Yjs
-  deleteBoard: (id: string) => void;
-  // Sync a column change to Yjs
-  syncColumn: (column: Column) => void;
-  // Delete a column from Yjs
-  deleteColumn: (id: string) => void;
-  // Sync a task change to Yjs
-  syncTask: (task: Task) => void;
-  // Delete a task from Yjs
-  deleteTask: (id: string) => void;
-  // Sync a board position change to YjsMapName
-  syncBoardPosition: (position: BoardPosition) => void;
-  // Delete a board position from Yjs
-  deleteBoardPosition: (id: string) => void;
-  // Sync a board connection to Yjs
-  syncBoardConnection: (connection: BoardConnection) => void;
-  // Delete a board connection from Yjs
-  deleteBoardConnection: (id: string) => void;
-  // Sync an area to Yjs
-  syncArea: (area: Area) => void;
   // Delete an area from Yjs
   deleteArea: (id: string) => void;
-  // Sync an area position to Yjs
-  syncAreaPosition: (position: AreaPosition) => void;
   // Delete an area position from Yjs
   deleteAreaPosition: (id: string) => void;
-  // Sync a workspace to Yjs
-  syncWorkspace: (workspace: Workspace) => void;
-  // Delete a workspace from Yjs
-  deleteWorkspace: (id: string) => void;
-  // Sync a comment to Yjs
-  syncComment: (comment: Comment) => void;
-  // Delete a comment from Yjs
-  deleteComment: (id: string) => void;
-  // Sync a chat message to Yjs
-  syncChatMessage: (message: ChatMessage) => void;
+  // Delete a board from Yjs
+  deleteBoard: (id: string) => void;
+  // Delete a board connection from Yjs
+  deleteBoardConnection: (id: string) => void;
+  // Delete a board position from Yjs
+  deleteBoardPosition: (id: string) => void;
   // Delete a chat message from Yjs
   deleteChatMessage: (id: string) => void;
+  // Delete a column from Yjs
+  deleteColumn: (id: string) => void;
+  // Delete a comment from Yjs
+  deleteComment: (id: string) => void;
+  // Delete a task from Yjs
+  deleteTask: (id: string) => void;
+  // Delete a workspace from Yjs
+  deleteWorkspace: (id: string) => void;
+  // Sync an area to Yjs
+  syncArea: (area: Area) => void;
+  // Sync an area position to Yjs
+  syncAreaPosition: (position: AreaPosition) => void;
+  // Sync a board change to Yjs
+  syncBoard: (board: Board) => void;
+  // Sync a board connection to Yjs
+  syncBoardConnection: (connection: BoardConnection) => void;
+  // Sync a board position change to YjsMapName
+  syncBoardPosition: (position: BoardPosition) => void;
+  // Sync a chat message to Yjs
+  syncChatMessage: (message: ChatMessage) => void;
+  // Sync a column change to Yjs
+  syncColumn: (column: Column) => void;
+  // Sync a comment to Yjs
+  syncComment: (comment: Comment) => void;
+  // Sync a task change to Yjs
+  syncTask: (task: Task) => void;
+  // Sync a workspace to Yjs
+  syncWorkspace: (workspace: Workspace) => void;
 }
 
 // Hook for bidirectional Yjs <-> Zustand synchronization.
@@ -465,17 +465,17 @@ export function useYjsSync(
 
       // Full connection dialog type for syncing
       interface ConnDialogSync {
-        id: string;
         boardId: string;
-        position: { x: number; y: number };
-        selectedTargetId?: string | null;
         editingConnectionId?: string | null;
+        id: string;
+        label?: string;
+        lineStyle?: "solid" | "dotted";
+        position: { x: number; y: number };
+        searchQuery?: string;
+        selectedTargetId?: string | null;
+        showArrow?: boolean;
         sourceHandle?: "top" | "right" | "bottom" | "left";
         targetHandle?: "top" | "right" | "bottom" | "left";
-        lineStyle?: "solid" | "dotted";
-        showArrow?: boolean;
-        label?: string;
-        searchQuery?: string;
       }
 
       // Convert to record format for diffing (using boardId as key)

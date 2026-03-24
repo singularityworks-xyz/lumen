@@ -70,9 +70,9 @@ export function buildMessagesFromHistory(
         // Get the result from toolResult if available, otherwise parse from content
         // (Server stores tool results in content as JSON string)
         const resultValue =
-          msg.toolResult !== undefined
-            ? msg.toolResult
-            : parseToolResult(msg.content);
+          msg.toolResult === undefined
+            ? parseToolResult(msg.content)
+            : msg.toolResult;
 
         messages.push({
           role: "tool",

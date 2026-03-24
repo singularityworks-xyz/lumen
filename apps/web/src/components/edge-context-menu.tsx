@@ -8,9 +8,9 @@ import { BaseContextMenu, type ContextMenuItem } from "./base-context-menu";
 
 interface EdgeContextMenuProps {
   edgeId: string;
+  onClose: () => void;
   x: number;
   y: number;
-  onClose: () => void;
 }
 
 export const EdgeContextMenu = memo(

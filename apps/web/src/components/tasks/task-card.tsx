@@ -17,11 +17,11 @@ import { type Task, useKanbanStore } from "@/src/features/kanban";
 import { useTaskDragPresence } from "@/src/hooks/use-task-drag-presence";
 
 interface TaskCardProps {
-  task: Task;
   boardId: string;
-  onDragStart: (task: Task) => void;
   isSelected: boolean;
+  onDragStart: (task: Task) => void;
   onOpenDetail?: (taskId: string, screenX: number, screenY: number) => void;
+  task: Task;
 }
 
 export const TaskCard = memo(

@@ -2,10 +2,10 @@ import type { ChatMessage } from "@lumen/yjs-shared";
 import type { KanbanStore } from "../types";
 
 export interface ChatMention {
+  endIndex: number;
+  startIndex: number;
   userId: string;
   userName: string;
-  startIndex: number;
-  endIndex: number;
 }
 
 export interface ChatSlice {
@@ -13,6 +13,13 @@ export interface ChatSlice {
     byId: Record<string, ChatMessage>;
     allIds: string[];
   };
+  deleteChatMessage: (id: string) => void;
+  editChatMessage: (
+    id: string,
+    content: string,
+    mentions?: ChatMention[]
+  ) => void;
+  getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
   sendChatMessage: (
     content: string,
     author: { id: string; name: string; image?: string },
@@ -23,13 +30,6 @@ export interface ChatSlice {
       mentions?: ChatMention[];
     }
   ) => void;
-  editChatMessage: (
-    id: string,
-    content: string,
-    mentions?: ChatMention[]
-  ) => void;
-  deleteChatMessage: (id: string) => void;
-  getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
 }
 
 type SliceCreator = (

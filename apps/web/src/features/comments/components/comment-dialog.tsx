@@ -14,9 +14,9 @@ import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 
 interface CommentDialogProps {
+  anchorRect: DOMRect | null;
   comment: Comment;
   onClose: () => void;
-  anchorRect: DOMRect | null;
 }
 
 export function CommentDialog({

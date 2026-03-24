@@ -7,10 +7,10 @@ import { cn } from "@/src/lib/utils";
 import LarityOrb from "./animations/larity-orb";
 
 interface FloatingIndicatorProps {
-  onClick: () => void;
-  isOpen: boolean;
   hasMessages: boolean;
   isOffline: boolean;
+  isOpen: boolean;
+  onClick: () => void;
 }
 
 export const FloatingIndicator = memo(

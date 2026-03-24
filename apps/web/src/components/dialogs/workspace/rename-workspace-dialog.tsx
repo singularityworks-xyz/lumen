@@ -13,15 +13,15 @@ import { cn } from "@/src/lib/utils";
 
 interface RenameWorkspaceDialogProps {
   currentName: string;
-  workspaceId: string;
-  onRename: (newName: string) => void;
-  onClose: () => void;
   getSourceButtonRect: () => DOMRect | null;
-  quickActionsPosition?: { x: number; y: number };
-  position?: { x: number; y: number };
-  onPositionChange?: (position: { x: number; y: number }) => void;
   initialValue?: string;
+  onClose: () => void;
   onInputChange?: (value: string) => void;
+  onPositionChange?: (position: { x: number; y: number }) => void;
+  onRename: (newName: string) => void;
+  position?: { x: number; y: number };
+  quickActionsPosition?: { x: number; y: number };
+  workspaceId: string;
 }
 
 const DIALOG_WIDTH = 380;

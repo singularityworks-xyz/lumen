@@ -12,8 +12,8 @@ import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
 
 interface CreateWorkspaceDialogProps {
-  onCreate: (name: string, description?: string) => void;
   onClose: () => void;
+  onCreate: (name: string, description?: string) => void;
 }
 
 const DIALOG_WIDTH = 420;

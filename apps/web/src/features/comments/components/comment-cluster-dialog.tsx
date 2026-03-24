@@ -60,12 +60,12 @@ function getStableClusterId(comments: Comment[]): string {
 }
 
 interface SplitButtonProps {
-  viewMode: ViewMode;
-  onViewToggle: () => void;
-  onClose: () => void;
-  isVisible: boolean;
   isClosing: boolean;
+  isVisible: boolean;
+  onClose: () => void;
+  onViewToggle: () => void;
   transitionDelay: string;
+  viewMode: ViewMode;
 }
 
 function SplitButton({
@@ -152,18 +152,18 @@ function SplitButton({
 interface CommentCardProps {
   comment: Comment;
   index: number;
-  totalCount: number;
   isClosing: boolean;
+  isFocused: boolean;
   isVisible: boolean;
+  onBringToFront: () => void;
+  onClose?: () => void;
   onDragOut: (
     commentId: string,
     dropPosition: { x: number; y: number }
   ) => void;
-  isFocused: boolean;
-  onBringToFront: () => void;
-  viewMode: ViewMode;
   stackColumn?: "left" | "right";
-  onClose?: () => void;
+  totalCount: number;
+  viewMode: ViewMode;
 }
 
 function CommentCard({

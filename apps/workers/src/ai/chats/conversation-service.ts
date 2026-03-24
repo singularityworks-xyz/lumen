@@ -111,11 +111,9 @@ async function generateTitleAsync(
 }
 
 export interface ConversationWithMessages {
+  createdAt: Date;
   id: string;
-  workspaceId: string;
-  title: string | null;
-  summary: string | null;
-  summaryUpToIndex: number;
+  lastActiveAt: Date;
   messageCount: number;
   messages: Array<{
     id: string;
@@ -131,9 +129,11 @@ export interface ConversationWithMessages {
     confirmedAt: Date | null;
     createdAt: Date;
   }>;
-  lastActiveAt: Date;
-  createdAt: Date;
+  summary: string | null;
+  summaryUpToIndex: number;
+  title: string | null;
   updatedAt: Date;
+  workspaceId: string;
 }
 
 export async function getOrCreateConversation(

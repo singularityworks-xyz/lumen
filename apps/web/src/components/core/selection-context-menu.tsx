@@ -5,13 +5,13 @@ import { memo, useCallback } from "react";
 import { useKanbanStore } from "@/src/features/kanban";
 
 interface SelectionContextMenuProps {
-  x: number;
-  y: number;
-  width: number;
   height: number;
+  onClose: () => void;
   screenX: number;
   screenY: number;
-  onClose: () => void;
+  width: number;
+  x: number;
+  y: number;
 }
 
 export const SelectionContextMenu = memo(

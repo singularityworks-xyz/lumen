@@ -35,6 +35,10 @@ import { type CollaboratorInfo, roomManager } from "./room-manager";
 const logger = createLogger({ name: "collab:routes" });
 
 interface WsData {
+  collaborator?: { role: Role };
+  connectionId?: string;
+  connectionStartTime?: number;
+  initialStateVector?: Uint8Array;
   params: { workspaceId: string };
   query: { stateVector?: string };
   user?: {
@@ -43,25 +47,21 @@ interface WsData {
     email: string;
     image?: string | null;
   };
-  collaborator?: { role: Role };
-  initialStateVector?: Uint8Array;
-  connectionId?: string;
-  connectionStartTime?: number;
 }
 
 // Auth data structure for pending authentication
 interface PendingAuthEntry {
+  collaborator: { role: Role };
+  connectionId: string;
+  connectionStartTime: number;
+  initialStateVector?: Uint8Array;
+  timestamp: number;
   user: {
     id: string;
     name?: string | null;
     email: string;
     image?: string | null;
   };
-  collaborator: { role: Role };
-  initialStateVector?: Uint8Array;
-  connectionId: string;
-  timestamp: number;
-  connectionStartTime: number;
 }
 
 // Store pending auth data as queues per workspace to ensure FIFO ordering

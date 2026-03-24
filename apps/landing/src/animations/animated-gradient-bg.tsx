@@ -4,16 +4,36 @@ import { useEffect, useRef } from "react";
 
 interface AnimatedGradientBackgroundProps {
   /**
-   * Initial size of the radial gradient, defining the starting width.
-   * @default 110
+   * Speed of the breathing animation.
+   * Lower values result in slower animation.
+   * @default 0.02
    */
-  startingGap?: number;
+  animationSpeed?: number;
 
   /**
    * Enables or disables the breathing animation effect.
    * @default false
    */
   Breathing?: boolean;
+
+  /**
+   * Maximum range for the breathing animation in percentage points.
+   * Determines how much the gradient "breathes" by expanding and contracting.
+   * @default 5
+   */
+  breathingRange?: number;
+
+  /**
+   * Additional class names for the gradient container.
+   * @default ""
+   */
+  containerClassName?: string;
+
+  /**
+   * Additional inline styles for the gradient container.
+   * @default {}
+   */
+  containerStyle?: React.CSSProperties;
 
   /**
    * Array of colors to use in the radial gradient.
@@ -28,32 +48,11 @@ interface AnimatedGradientBackgroundProps {
    * @default [35, 50, 60, 70, 80, 90, 100]
    */
   gradientStops?: number[];
-
   /**
-   * Speed of the breathing animation.
-   * Lower values result in slower animation.
-   * @default 0.02
+   * Initial size of the radial gradient, defining the starting width.
+   * @default 110
    */
-  animationSpeed?: number;
-
-  /**
-   * Maximum range for the breathing animation in percentage points.
-   * Determines how much the gradient "breathes" by expanding and contracting.
-   * @default 5
-   */
-  breathingRange?: number;
-
-  /**
-   * Additional inline styles for the gradient container.
-   * @default {}
-   */
-  containerStyle?: React.CSSProperties;
-
-  /**
-   * Additional class names for the gradient container.
-   * @default ""
-   */
-  containerClassName?: string;
+  startingGap?: number;
 
   /**
    * Additional top offset for the gradient container form the top to have a more flexible control over the gradient.

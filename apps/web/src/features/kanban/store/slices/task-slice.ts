@@ -207,7 +207,10 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
       const column = draft.columns.byId[sourceTask.column_id];
       if (column) {
         const sourceIndex = column.task_ids.indexOf(taskId);
-        if (sourceIndex !== -1) {
+        if (sourceIndex === -1) {
+          newTask.position = column.task_ids.length;
+          column.task_ids.push(newTaskId);
+        } else {
           column.task_ids.splice(sourceIndex + 1, 0, newTaskId);
           for (let i = 0; i < column.task_ids.length; i++) {
             const tid = column.task_ids[i];
@@ -218,9 +221,6 @@ export const createTaskSlice: SliceCreator = (set, _get) => ({
               }
             }
           }
-        } else {
-          newTask.position = column.task_ids.length;
-          column.task_ids.push(newTaskId);
         }
       }
     });

@@ -32,9 +32,9 @@ import {
 interface CreateTaskFormProps {
   modalId: string;
   modalState: CreateTaskModalState;
-  selectedColumnId: string;
   onColumnChange?: (columnId: string) => void;
   selectedBoardColumns?: Column[];
+  selectedColumnId: string;
 }
 
 const PRIORITY_CONFIG = {

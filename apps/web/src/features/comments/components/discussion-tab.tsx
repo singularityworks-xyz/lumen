@@ -23,14 +23,14 @@ import { cn } from "@/src/lib/utils";
 const MENTION_SEARCH_REGEX = /^[a-zA-Z0-9]*$/;
 
 interface ChatBubbleProps {
-  message: ChatMessage;
-  isOwn: boolean;
   index: number;
+  isHighlighted: boolean;
+  isOwn: boolean;
+  knownUserColors: Map<string, string>;
+  message: ChatMessage;
+  onDelete: (messageId: string) => void;
   onReply: (message: ChatMessage) => void;
   onReplyClick: (replyId: string) => void;
-  knownUserColors: Map<string, string>;
-  onDelete: (messageId: string) => void;
-  isHighlighted: boolean;
 }
 
 const ChatBubble = memo(

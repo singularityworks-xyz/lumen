@@ -75,12 +75,12 @@ const heartbitFrames = [
 ];
 
 interface AiDrawerContentProps {
-  workspaceId: string;
+  boardCount?: number;
+  commentCount?: number;
   onClose: () => void;
   onSwitchToBoards?: () => void;
   onSwitchToComments?: () => void;
-  boardCount?: number;
-  commentCount?: number;
+  workspaceId: string;
 }
 
 export const AiDrawerContent = memo(

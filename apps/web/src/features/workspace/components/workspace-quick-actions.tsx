@@ -15,17 +15,17 @@ import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
 interface WorkspaceQuickActionsProps {
-  workspaceId: string;
-  workspaceName: string;
+  getButtonRect: () => DOMRect | null;
   isDefaultWorkspace: boolean;
+  onClose: () => void;
+  onDelete: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
+  onDuplicate: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
+  onPositionChange: (position: { x: number; y: number }) => void;
   onRename: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onReset: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
-  onDuplicate: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
-  onDelete: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
-  onClose: () => void;
   position: { x: number; y: number };
-  onPositionChange: (position: { x: number; y: number }) => void;
-  getButtonRect: () => DOMRect | null;
+  workspaceId: string;
+  workspaceName: string;
 }
 
 const DIALOG_WIDTH = 200;

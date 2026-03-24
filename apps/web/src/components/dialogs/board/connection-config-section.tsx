@@ -16,17 +16,17 @@ type HandlePosition = "top" | "right" | "bottom" | "left";
 type LineStyle = "solid" | "dotted";
 
 interface ConnectionConfigSectionProps {
-  sourceHandle: HandlePosition;
-  targetHandle: HandlePosition;
-  lineStyle: LineStyle;
-  showArrow: boolean;
+  compact?: boolean;
   label: string;
-  onSourceHandleChange: (handle: HandlePosition) => void;
-  onTargetHandleChange: (handle: HandlePosition) => void;
+  lineStyle: LineStyle;
+  onLabelChange: (label: string) => void;
   onLineStyleChange: (style: LineStyle) => void;
   onShowArrowChange: (show: boolean) => void;
-  onLabelChange: (label: string) => void;
-  compact?: boolean;
+  onSourceHandleChange: (handle: HandlePosition) => void;
+  onTargetHandleChange: (handle: HandlePosition) => void;
+  showArrow: boolean;
+  sourceHandle: HandlePosition;
+  targetHandle: HandlePosition;
 }
 
 const handlePositions: {

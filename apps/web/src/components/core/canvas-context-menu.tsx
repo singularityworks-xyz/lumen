@@ -7,9 +7,9 @@ import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
 
 interface ContextMenuProps {
+  onClose: () => void;
   x: number;
   y: number;
-  onClose: () => void;
 }
 
 const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {

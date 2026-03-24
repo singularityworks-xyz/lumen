@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
 interface CommentUIState {
-  openClusterId: string | null;
+  clearOpenCluster: () => void;
   focusCommentId: string | null;
   openCluster: (clusterId: string, focusCommentId?: string) => void;
-  clearOpenCluster: () => void;
+  openClusterId: string | null;
 }
 
 export const useCommentUIStore = create<CommentUIState>((set) => ({

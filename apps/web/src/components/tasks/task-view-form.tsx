@@ -21,10 +21,10 @@ import { type Column, type Task, useKanbanStore } from "@/src/features/kanban";
 import { cn } from "@/src/lib/utils";
 
 interface TaskViewFormProps {
-  modalId: string;
-  task: Task;
   boardId: string;
+  modalId: string;
   onEdit: () => void;
+  task: Task;
 }
 
 const PRIORITY_CONFIG = {

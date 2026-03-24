@@ -7,8 +7,8 @@ import { cn } from "@/src/lib/utils";
 export type LarityOrbSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 interface LarityOrbProps {
-  size?: LarityOrbSize;
   className?: string;
+  size?: LarityOrbSize;
   speed?: number;
 }
 

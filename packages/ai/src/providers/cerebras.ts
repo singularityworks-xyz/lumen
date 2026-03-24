@@ -62,24 +62,24 @@ export function isCerebrasConfigured(apiKey: string | undefined): boolean {
 }
 
 export interface JsonSchema {
-  type: "object" | "array" | "string" | "number" | "integer" | "boolean";
-  properties?: Record<string, JsonSchema>;
-  items?: JsonSchema;
-  required?: string[];
-  enum?: string[];
-  additionalProperties?: false;
   $defs?: Record<string, JsonSchema>;
   $ref?: string;
+  additionalProperties?: false;
   description?: string;
+  enum?: string[];
+  items?: JsonSchema;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  type: "object" | "array" | "string" | "number" | "integer" | "boolean";
 }
 
 export interface StructuredOutputFormat {
-  type: "json_schema";
   json_schema: {
     name: string;
     strict: boolean;
     schema: JsonSchema;
   };
+  type: "json_schema";
 }
 
 export function createJsonSchemaFormat(

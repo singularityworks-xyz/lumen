@@ -7,8 +7,8 @@ import { create } from "zustand";
 export type Theme = "light" | "dark";
 
 interface ThemeIndicatorStore {
-  showIndicator: boolean;
   setShowIndicator: (show: boolean) => void;
+  showIndicator: boolean;
 }
 
 const useThemeIndicatorStore = create<ThemeIndicatorStore>((set) => ({

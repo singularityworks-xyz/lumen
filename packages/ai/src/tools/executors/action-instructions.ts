@@ -4,18 +4,18 @@
 import type { TaskStatus } from "../schemas";
 
 export interface CreateTaskInstruction {
-  type: "createTask";
   boardId: string;
   columnId?: string;
-  title: string;
   description?: string;
-  priority?: "low" | "medium" | "high";
   dueDate?: string;
+  priority?: "low" | "medium" | "high";
+  title: string;
+  type: "createTask";
 }
 
 export interface UpdateTaskInstruction {
-  type: "updateTask";
   taskId: string;
+  type: "updateTask";
   updates: {
     title?: string;
     description?: string;
@@ -26,28 +26,28 @@ export interface UpdateTaskInstruction {
 }
 
 export interface DeleteTaskInstruction {
-  type: "deleteTask";
   taskId: string;
+  type: "deleteTask";
 }
 
 export interface MoveTaskInstruction {
-  type: "moveTask";
-  taskId: string;
-  columnId?: string;
   boardId?: string;
+  columnId?: string;
   position?: number;
+  taskId: string;
+  type: "moveTask";
 }
 
 export interface CreateBoardInstruction {
-  type: "createBoard";
-  name: string;
   description?: string;
+  name: string;
   position?: { x: number; y: number };
+  type: "createBoard";
 }
 
 export interface UpdateBoardInstruction {
-  type: "updateBoard";
   boardId: string;
+  type: "updateBoard";
   updates: {
     name?: string;
     description?: string;
@@ -55,20 +55,20 @@ export interface UpdateBoardInstruction {
 }
 
 export interface DeleteBoardInstruction {
-  type: "deleteBoard";
   boardId: string;
+  type: "deleteBoard";
 }
 
 export interface CreateColumnInstruction {
-  type: "createColumn";
   boardId: string;
   name: string;
   position?: number;
+  type: "createColumn";
 }
 
 export interface BulkUpdateTasksInstruction {
-  type: "bulkUpdateTasks";
   taskIds: string[];
+  type: "bulkUpdateTasks";
   updates: {
     priority?: "low" | "medium" | "high";
     status?: TaskStatus;
@@ -78,8 +78,8 @@ export interface BulkUpdateTasksInstruction {
 }
 
 export interface BulkDeleteTasksInstruction {
-  type: "bulkDeleteTasks";
   taskIds: string[];
+  type: "bulkDeleteTasks";
 }
 
 export type ActionInstruction =
@@ -97,7 +97,7 @@ export type ActionInstruction =
 // Result of building an action instruction from tool params.
 // The instruction can be executed client-side for local workspaces.
 export interface ActionInstructionResult {
-  success: true;
   instruction: ActionInstruction;
   message: string;
+  success: true;
 }

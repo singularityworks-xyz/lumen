@@ -3,9 +3,9 @@ import { env } from "./env";
 export interface OtelConfig {
   enabled: boolean;
   endpoint: string;
+  environment: string;
   headers: Record<string, string>;
   serviceName: string;
-  environment: string;
 }
 
 function isBrowser(): boolean {

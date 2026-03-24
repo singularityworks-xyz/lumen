@@ -1,7 +1,7 @@
 .boardContent {
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.5) hsl(var(--muted) / 0.3);
+  scrollbar-width: thin;
 }
 
 .boardContent::-webkit-scrollbar {
@@ -16,11 +16,11 @@
 }
 
 .boardContent::-webkit-scrollbar-thumb {
+  min-width: 30px;
+  min-height: 30px;
   background: hsl(var(--border) / 0.5);
   border-radius: 4px;
   transition: background 0.2s;
-  min-height: 30px;
-  min-width: 30px;
 }
 
 .boardContent::-webkit-scrollbar-thumb:hover {

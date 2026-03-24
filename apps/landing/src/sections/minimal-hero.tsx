@@ -306,9 +306,9 @@ const SnakeArrowBottomLeft = ({ className }: { className?: string }) => (
 );
 
 interface FeatureProps {
-  title: string;
-  tagline: string;
   icon: React.ReactNode;
+  tagline: string;
+  title: string;
 }
 
 const features: FeatureProps[] = [

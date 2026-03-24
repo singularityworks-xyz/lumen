@@ -11,10 +11,10 @@ interface ColumnConflictDialogProps {
   boardName: string;
   columnName: string;
   isShaking?: boolean;
-  targetBoardName: string;
+  onClose: () => void;
   onRenameAndMove: (newName: string) => void;
   onReplaceExisting: () => void;
-  onClose: () => void;
+  targetBoardName: string;
 }
 
 const DIALOG_WIDTH = 440;

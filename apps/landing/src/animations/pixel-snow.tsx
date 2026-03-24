@@ -14,20 +14,20 @@ import fragmentShader from "./shaders/pixel-snow.frag?raw";
 import vertexShader from "./shaders/pixel-snow.vert?raw";
 
 interface PixelSnowProps {
+  brightness?: number;
+  className?: string;
   color?: string;
+  density?: number;
+  depthFade?: number;
+  direction?: number;
+  farPlane?: number;
   flakeSize?: number;
+  gamma?: number;
   minFlakeSize?: number;
   pixelResolution?: number;
   speed?: number;
-  depthFade?: number;
-  farPlane?: number;
-  brightness?: number;
-  gamma?: number;
-  density?: number;
-  variant?: "square" | "round" | "snowflake";
-  direction?: number;
-  className?: string;
   style?: React.CSSProperties;
+  variant?: "square" | "round" | "snowflake";
 }
 
 export default function PixelSnow({

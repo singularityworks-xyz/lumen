@@ -13,9 +13,9 @@ export const getStorageKey = (): string => StorageKeys.kanbanStore();
 export const STORAGE_KEY = "lumen-kanban-store";
 
 interface VersionedData<T> {
-  version: number;
   data: T;
   timestamp: number;
+  version: number;
 }
 
 // Migration lock to prevent concurrent migration attempts

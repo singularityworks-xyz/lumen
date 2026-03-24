@@ -5,9 +5,9 @@ import { env } from "./env";
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export interface LoggerOptions {
-  name?: string;
-  level?: LogLevel;
   base?: Record<string, unknown>;
+  level?: LogLevel;
+  name?: string;
   pretty?: boolean;
 }
 
@@ -104,19 +104,8 @@ function formatServerLog(
 }
 
 export interface Logger {
-  trace(
-    msg: string | Record<string, unknown>,
-    obj?: string | Record<string, unknown>
-  ): void;
+  child(bindings: Record<string, unknown>): Logger;
   debug(
-    msg: string | Record<string, unknown>,
-    obj?: string | Record<string, unknown>
-  ): void;
-  info(
-    msg: string | Record<string, unknown>,
-    obj?: string | Record<string, unknown>
-  ): void;
-  warn(
     msg: string | Record<string, unknown>,
     obj?: string | Record<string, unknown>
   ): void;
@@ -128,7 +117,18 @@ export interface Logger {
     msg: string | Record<string, unknown>,
     obj?: string | Record<string, unknown>
   ): void;
-  child(bindings: Record<string, unknown>): Logger;
+  info(
+    msg: string | Record<string, unknown>,
+    obj?: string | Record<string, unknown>
+  ): void;
+  trace(
+    msg: string | Record<string, unknown>,
+    obj?: string | Record<string, unknown>
+  ): void;
+  warn(
+    msg: string | Record<string, unknown>,
+    obj?: string | Record<string, unknown>
+  ): void;
 }
 
 class CustomLogger implements Logger {

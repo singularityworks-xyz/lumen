@@ -4,8 +4,8 @@ import React, { type JSX, useMemo } from "react";
 import { cn } from "@/src/lib/utils";
 
 interface TextShimmerProps {
-  children: string;
   as?: React.ElementType;
+  children: string;
   className?: string;
   duration?: number;
   spread?: number;
