@@ -5,3 +5,5 @@
 - avoid as any at all costs, try to infer types from functions as much as possible
 - use tailwindcss for styling whenever possible, only resort to custom css if needed
 - run bun run check to check for linting & formatting errors, and bun run check-types to check for errors after making changes
+- use context7 to get the latest docs about the library or package you are using, and to get help with any issues you encounter
+- write tests for your code to ensure it works as expected and to catch any potential bugs early on

@@ -4,8 +4,11 @@ output:
   - failure
 
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
+    autobump:
+      run: bun run version:autobump
+      stage_fixed: true
     staged-js:
       glob: "*.{js,jsx,ts,tsx,cjs,mjs,json,jsonc,css,scss,md,mdx}"
       run: bunx ultracite check {staged_files}
@@ -15,11 +18,6 @@ pre-commit:
     staged-rust:
       glob: "apps/native/src-tauri/**/*.rs"
       run: bash ./.lefthook/pre-commit/check-rust.sh {staged_files}
-
-prepare-commit-msg:
-  commands:
-    autobump:
-      run: bun run version:autobump
 
 commit-msg:
   commands:
