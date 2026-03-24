@@ -13,5 +13,17 @@
         "noNestedTernary": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.{test,spec}.{ts,tsx,js,jsx}", "**/__tests__/**/*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
 }

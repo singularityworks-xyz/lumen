@@ -9,9 +9,9 @@ import {
   addBoardToState,
   addTaskToState,
   createFreshState,
-} from "../../../../../tests/helpers/store-harness";
-import { createBoardSlice } from "../../../src/features/kanban/store/slices/board-slice";
-import type { KanbanStore } from "../../../src/features/kanban/store/types";
+} from "@tests/helpers/store-harness";
+import { createBoardSlice } from "./slices/board-slice";
+import type { KanbanStore } from "./types";
 
 let state: KanbanStore;
 let actions: ReturnType<typeof createBoardSlice>;
@@ -30,20 +30,20 @@ describe("board-slice", () => {
       const wsId = state.currentWorkspaceId ?? "";
       const boardId = actions.addBoard("Test Board", { x: 100, y: 200 });
 
-      const board = state.boards.byId[boardId];
+      const board = state.boards.byId[boardId]!;
       expect(board).toBeDefined();
       expect(board.name).toBe("Test Board");
       expect(board.column_ids).toHaveLength(3);
       expect(state.boards.allIds).toContain(boardId);
 
       for (const colId of board.column_ids) {
-        const col = state.columns.byId[colId];
+        const col = state.columns.byId[colId]!;
         expect(col).toBeDefined();
         expect(col.board_id).toBe(boardId);
         expect(state.columns.allIds).toContain(colId);
       }
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos).toBeDefined();
       expect(pos.x).toBe(100);
       expect(pos.y).toBe(200);
@@ -53,8 +53,8 @@ describe("board-slice", () => {
 
       expect(state.selectedBoardId).toBe(boardId);
       expect(state.canvas.focusedBoardId).toBe(boardId);
-      expect(state.workspaces.byId[wsId].board_ids).toContain(boardId);
-      expect(state.workspaces.byId[wsId].lastFocusedBoardId).toBe(boardId);
+      expect(state.workspaces.byId[wsId]!.board_ids).toContain(boardId);
+      expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(boardId);
     });
 
     it("auto-placement uses selected board when no explicit position", () => {
@@ -64,12 +64,12 @@ describe("board-slice", () => {
         x: 100,
         y: 500,
       });
-      state.boardPositions.byId[existingBoardId].height = 400;
+      state.boardPositions.byId[existingBoardId]!.height = 400;
       state.selectedBoardId = existingBoardId;
 
       const boardId = actions.addBoard("Auto Board");
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.x).toBe(100);
       expect(pos.y).toBe(500 + 400 + 50);
     });
@@ -81,13 +81,13 @@ describe("board-slice", () => {
         x: 200,
         y: 300,
       });
-      state.boardPositions.byId[existingBoardId].height = 350;
-      state.workspaces.byId[wsId].lastFocusedBoardId = existingBoardId;
+      state.boardPositions.byId[existingBoardId]!.height = 350;
+      state.workspaces.byId[wsId]!.lastFocusedBoardId = existingBoardId;
       state.selectedBoardId = null;
 
       const boardId = actions.addBoard("Fallback Board");
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.x).toBe(200);
       expect(pos.y).toBe(300 + 350 + 50);
     });
@@ -99,13 +99,13 @@ describe("board-slice", () => {
         x: 50,
         y: 100,
       });
-      state.boardPositions.byId[lastBoardId].height = 450;
+      state.boardPositions.byId[lastBoardId]!.height = 450;
       state.selectedBoardId = null;
-      state.workspaces.byId[wsId].lastFocusedBoardId = null;
+      state.workspaces.byId[wsId]!.lastFocusedBoardId = null;
 
       const boardId = actions.addBoard("Last Board");
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.x).toBe(50);
       expect(pos.y).toBe(100 + 450 + 50);
     });
@@ -118,7 +118,7 @@ describe("board-slice", () => {
         workspaceId: wsId,
       });
       const taskId = addTaskToState(state, {
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
       });
       state.selectedBoardIds.push(boardId);
@@ -135,7 +135,7 @@ describe("board-slice", () => {
       expect(state.tasks.allIds).not.toContain(taskId);
       expect(state.boardPositions.byId[boardId]).toBeUndefined();
       expect(state.boardPositions.allIds).not.toContain(boardId);
-      expect(state.workspaces.byId[wsId].board_ids).not.toContain(boardId);
+      expect(state.workspaces.byId[wsId]!.board_ids).not.toContain(boardId);
       expect(state.selectedBoardIds).not.toContain(boardId);
     });
 
@@ -164,7 +164,7 @@ describe("board-slice", () => {
         y: 300,
       });
       const _taskId = addTaskToState(state, {
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         title: "Original Task",
       });
@@ -172,29 +172,29 @@ describe("board-slice", () => {
       const newBoardId = actions.duplicateBoard(boardId, "Copy Board");
 
       expect(newBoardId).not.toBeNull();
-      const newBoard = state.boards.byId[newBoardId ?? ""];
+      const newBoard = state.boards.byId[newBoardId!]!;
       expect(newBoard).toBeDefined();
       expect(newBoard.name).toBe("Copy Board");
       expect(newBoard.column_ids).toHaveLength(3);
 
-      const newPos = state.boardPositions.byId[newBoardId ?? ""];
+      const newPos = state.boardPositions.byId[newBoardId!]!;
       expect(newPos.x).toBe(250);
       expect(newPos.y).toBe(350);
 
-      const newColId = newBoard.column_ids[0];
-      const newCol = state.columns.byId[newColId];
+      const newColId = newBoard.column_ids[0]!;
+      const newCol = state.columns.byId[newColId]!;
       expect(newCol).toBeDefined();
-      expect(newCol.board_id).toBe(newBoardId);
+      expect(newCol.board_id).toBe(newBoardId!);
 
       expect(newCol.task_ids).toHaveLength(1);
-      const newTaskId = newCol.task_ids[0];
-      const newTask = state.tasks.byId[newTaskId];
+      const newTaskId = newCol.task_ids[0]!;
+      const newTask = state.tasks.byId[newTaskId]!;
       expect(newTask).toBeDefined();
       expect(newTask.title).toBe("Original Task");
       expect(newTask.column_id).toBe(newColId);
 
-      expect(state.workspaces.byId[wsId].board_ids).toContain(newBoardId);
-      expect(state.workspaces.byId[wsId].lastFocusedBoardId).toBe(newBoardId);
+      expect(state.workspaces.byId[wsId]!.board_ids).toContain(newBoardId!);
+      expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(newBoardId);
     });
 
     it("copies outbound connections only when requested", () => {
@@ -215,7 +215,7 @@ describe("board-slice", () => {
 
       const withoutCopy = actions.duplicateBoard(boardId, "No Connections");
       const withoutCopyConns = state.boardConnections.allIds
-        .map((id) => state.boardConnections.byId[id])
+        .map((id) => state.boardConnections.byId[id]!)
         .filter((c) => c && c.source_board_id === withoutCopy);
       expect(withoutCopyConns).toHaveLength(0);
 
@@ -223,10 +223,10 @@ describe("board-slice", () => {
         copyConnections: true,
       });
       const withCopyConns = state.boardConnections.allIds
-        .map((id) => state.boardConnections.byId[id])
+        .map((id) => state.boardConnections.byId[id]!)
         .filter((c) => c && c.source_board_id === withCopy);
       expect(withCopyConns).toHaveLength(1);
-      expect(withCopyConns[0].target_board_id).toBe(targetBoardId);
+      expect(withCopyConns[0]!.target_board_id).toBe(targetBoardId);
     });
 
     it("returns null when board does not exist", () => {
@@ -245,10 +245,10 @@ describe("board-slice", () => {
         description: "New desc",
       });
 
-      const board = state.boards.byId[boardId];
+      const board = state.boards.byId[boardId]!;
       expect(board.name).toBe("Updated");
       expect(board.description).toBe("New desc");
-      expect(state.workspaces.byId[wsId].lastFocusedBoardId).toBe(boardId);
+      expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(boardId);
     });
   });
 
@@ -258,7 +258,7 @@ describe("board-slice", () => {
 
       actions.updateBoardPosition(boardId, { x: 999, y: 888 });
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.x).toBe(999);
       expect(pos.y).toBe(888);
     });
@@ -270,7 +270,7 @@ describe("board-slice", () => {
 
       actions.updateBoardDimensions(boardId, { width: 500, height: 600 }, true);
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.width).toBe(500);
       expect(pos.height).toBe(600);
       expect(pos.userResized).toBe(true);
@@ -283,7 +283,7 @@ describe("board-slice", () => {
 
       actions.updateBoardDimensions(boardId, { width: 500, height: 600 });
 
-      const pos = state.boardPositions.byId[boardId];
+      const pos = state.boardPositions.byId[boardId]!;
       expect(pos.width).toBe(500);
       expect(pos.height).toBe(600);
       expect(pos.userResized).toBeUndefined();
@@ -294,11 +294,11 @@ describe("board-slice", () => {
     it("increments zIndex", () => {
       const { boardId } = addBoardToState(state);
       const { boardId: board2 } = addBoardToState(state);
-      const initialZ = state.boardPositions.byId[board2].zIndex;
+      const initialZ = state.boardPositions.byId[board2]!.zIndex;
 
       actions.bringBoardToFront(boardId);
 
-      expect(state.boardPositions.byId[boardId].zIndex).toBeGreaterThan(
+      expect(state.boardPositions.byId[boardId]!.zIndex).toBeGreaterThan(
         initialZ
       );
     });
@@ -315,13 +315,13 @@ describe("board-slice", () => {
         name: "Denorm Board",
       });
       const taskId = addTaskToState(state, {
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         title: "Task A",
         position: 1,
       });
       const taskId2 = addTaskToState(state, {
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         title: "Task B",
         position: 0,
@@ -330,14 +330,14 @@ describe("board-slice", () => {
       const result = actions.getDenormalizedBoard(boardId);
 
       expect(result).not.toBeNull();
-      expect(result?.id).toBe(boardId);
-      expect(result?.name).toBe("Denorm Board");
-      expect(result?.columns).toHaveLength(3);
-      const firstCol = result?.columns[0];
-      expect(firstCol.id).toBe(columnIds[0]);
+      expect(result!.id).toBe(boardId);
+      expect(result!.name).toBe("Denorm Board");
+      expect(result!.columns).toHaveLength(3);
+      const firstCol = result!.columns[0]!;
+      expect(firstCol.id).toBe(columnIds[0]!);
       expect(firstCol.tasks).toHaveLength(2);
-      expect(firstCol.tasks[0].id).toBe(taskId2);
-      expect(firstCol.tasks[1].id).toBe(taskId);
+      expect(firstCol.tasks[0]!.id).toBe(taskId2);
+      expect(firstCol.tasks[1]!.id).toBe(taskId);
     });
   });
 
@@ -351,11 +351,11 @@ describe("board-slice", () => {
       });
 
       expect(id).toBeDefined();
-      expect(state.boardDialogs[id]).toBeDefined();
-      expect(state.boardDialogs[id].type).toBe("rename");
-      expect(state.boardDialogs[id].boardId).toBe("board-1");
-      expect(state.boardDialogs[id].boardName).toBe("My Board");
-      expect(state.boardDialogs[id].position).toEqual({ x: 10, y: 20 });
+      expect(state.boardDialogs[id]!).toBeDefined();
+      expect(state.boardDialogs[id]!.type).toBe("rename");
+      expect(state.boardDialogs[id]!.boardId).toBe("board-1");
+      expect(state.boardDialogs[id]!.boardName).toBe("My Board");
+      expect(state.boardDialogs[id]!.position).toEqual({ x: 10, y: 20 });
     });
 
     it("removes dialog", () => {

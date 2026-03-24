@@ -7,10 +7,11 @@
       }
     ],
     "strictNullChecks": true,
-    "types": ["@serwist/next/typings"],
+    "types": ["@serwist/next/typings", "bun-types"],
     "lib": ["dom", "dom.iterable", "esnext", "webworker"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@tests/*": ["../../tests/*"]
     }
   },
   "include": [

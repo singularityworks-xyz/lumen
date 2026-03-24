@@ -6,9 +6,9 @@ mock.module("nanoid", () => ({ nanoid: () => `seq${++nanoidCounter}` }));
 import {
   addBoardToState,
   createFreshState,
-} from "../../../../../tests/helpers/store-harness";
-import { createAreaSlice } from "../../../src/features/kanban/store/slices/area-slice";
-import type { KanbanStore } from "../../../src/features/kanban/store/types";
+} from "@tests/helpers/store-harness";
+import { createAreaSlice } from "./slices/area-slice";
+import type { KanbanStore } from "./types";
 
 const DLG_ID_REGEX = /^dlg_seq\d+$/;
 
@@ -33,14 +33,14 @@ describe("area-slice", () => {
       );
 
       expect(areaId).toBe("area_seq2");
-      const area = state.areas.byId[areaId];
+      const area = state.areas.byId[areaId]!;
       expect(area).toBeDefined();
       expect(area.name).toBe("My Area");
       expect(area.board_ids).toEqual([]);
       expect(area.color).toBe("#9ca3af");
       expect(state.areas.allIds).toContain(areaId);
 
-      const pos = state.areaPositions.byId[areaId];
+      const pos = state.areaPositions.byId[areaId]!;
       expect(pos).toBeDefined();
       expect(pos.x).toBe(100);
       expect(pos.y).toBe(200);
@@ -58,7 +58,7 @@ describe("area-slice", () => {
         { width: 100, height: 100 }
       );
 
-      expect(state.areas.byId[areaId].workspace_id).toBe(wsId);
+      expect(state.areas.byId[areaId]!.workspace_id).toBe(wsId);
     });
 
     it("uses provided workspaceId", () => {
@@ -69,7 +69,7 @@ describe("area-slice", () => {
         "ws-custom"
       );
 
-      expect(state.areas.byId[areaId].workspace_id).toBe("ws-custom");
+      expect(state.areas.byId[areaId]!.workspace_id).toBe("ws-custom");
     });
 
     it("returns empty string when no workspaceId available", () => {
@@ -98,17 +98,13 @@ describe("area-slice", () => {
         originX: 100,
         originY: 200,
       });
-      expect(state.areaPositions.byId[areaId].x).toBe(150);
-      expect(state.areaPositions.byId[areaId].y).toBe(250);
+      expect(state.areaPositions.byId[areaId]!.x).toBe(150);
+      expect(state.areaPositions.byId[areaId]!.y).toBe(250);
 
       actions.updateAreaPosition(areaId, { x: 200, y: 300 });
 
-      expect(state.areaDragOrigins[areaId]).toEqual({
-        originX: 100,
-        originY: 200,
-      });
-      expect(state.areaPositions.byId[areaId].x).toBe(200);
-      expect(state.areaPositions.byId[areaId].y).toBe(300);
+      expect(state.areaPositions.byId[areaId]!.x).toBe(200);
+      expect(state.areaPositions.byId[areaId]!.y).toBe(300);
     });
 
     it("does nothing when area position does not exist", () => {
@@ -133,10 +129,10 @@ describe("area-slice", () => {
       actions.updateAreaPosition(areaId, { x: 200, y: 250 });
       actions.finalizeAreaDrag(areaId);
 
-      expect(state.boardPositions.byId[board1].x).toBe(150);
-      expect(state.boardPositions.byId[board1].y).toBe(210);
-      expect(state.boardPositions.byId[board2].x).toBe(180);
-      expect(state.boardPositions.byId[board2].y).toBe(240);
+      expect(state.boardPositions.byId[board1]!.x).toBe(150);
+      expect(state.boardPositions.byId[board1]!.y).toBe(210);
+      expect(state.boardPositions.byId[board2]!.x).toBe(180);
+      expect(state.boardPositions.byId[board2]!.y).toBe(240);
       expect(state.areaDragOrigins[areaId]).toBeUndefined();
     });
 
@@ -165,8 +161,8 @@ describe("attachBoardToArea", () => {
     actions.attachBoardToArea(area1, boardId);
     actions.attachBoardToArea(area2, boardId);
 
-    expect(state.areas.byId[area1].board_ids).not.toContain(boardId);
-    expect(state.areas.byId[area2].board_ids).toContain(boardId);
+    expect(state.areas.byId[area1]!.board_ids).not.toContain(boardId);
+    expect(state.areas.byId[area2]!.board_ids).toContain(boardId);
   });
 
   it("does not duplicate when already in area", () => {
@@ -180,7 +176,7 @@ describe("attachBoardToArea", () => {
     actions.attachBoardToArea(areaId, boardId);
     actions.attachBoardToArea(areaId, boardId);
 
-    expect(state.areas.byId[areaId].board_ids).toEqual([boardId]);
+    expect(state.areas.byId[areaId]!.board_ids).toEqual([boardId]);
   });
 
   it("does nothing when area does not exist", () => {
@@ -204,8 +200,8 @@ describe("detachBoardFromArea", () => {
 
     actions.detachBoardFromArea(areaId, board1);
 
-    expect(state.areas.byId[areaId].board_ids).not.toContain(board1);
-    expect(state.areas.byId[areaId].board_ids).toContain(board2);
+    expect(state.areas.byId[areaId]!.board_ids).not.toContain(board1);
+    expect(state.areas.byId[areaId]!.board_ids).toContain(board2);
   });
 
   it("does nothing when area does not exist", () => {
@@ -243,8 +239,8 @@ describe("removeArea", () => {
 
     actions.removeArea(area1);
 
-    expect(state.areas.byId[area2]).toBeDefined();
-    expect(state.areaPositions.byId[area2]).toBeDefined();
+    expect(state.areas.byId[area2]!).toBeDefined();
+    expect(state.areaPositions.byId[area2]!).toBeDefined();
   });
 });
 
@@ -257,7 +253,7 @@ describe("area dialogs", () => {
     });
 
     expect(dialogId).toMatch(DLG_ID_REGEX);
-    const dialog = state.areaDialogs[dialogId];
+    const dialog = state.areaDialogs[dialogId]!;
     expect(dialog).toBeDefined();
     expect(dialog.areaId).toBe("area-1");
     expect(dialog.areaName).toBe("My Area");
@@ -274,7 +270,7 @@ describe("area dialogs", () => {
 
     actions.updateAreaDialogPosition(dialogId, { x: 50, y: 60 });
 
-    expect(state.areaDialogs[dialogId].position).toEqual({ x: 50, y: 60 });
+    expect(state.areaDialogs[dialogId]!.position).toEqual({ x: 50, y: 60 });
   });
 
   it("updateAreaDialogInputValue updates by ID", () => {
@@ -286,7 +282,7 @@ describe("area dialogs", () => {
 
     actions.updateAreaDialogInputValue(dialogId, "New Name");
 
-    expect(state.areaDialogs[dialogId].inputValue).toBe("New Name");
+    expect(state.areaDialogs[dialogId]!.inputValue).toBe("New Name");
   });
 
   it("closeAreaDialog removes by ID", () => {

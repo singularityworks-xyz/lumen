@@ -8,9 +8,9 @@ mock.module("nanoid", () => ({
 import {
   addBoardToState,
   createFreshState,
-} from "../../../../../tests/helpers/store-harness";
-import { createModalSlice } from "../../../src/features/kanban/store/slices/modal-slice";
-import type { KanbanStore } from "../../../src/features/kanban/store/types";
+} from "@tests/helpers/store-harness";
+import { createModalSlice } from "./slices/modal-slice";
+import type { KanbanStore } from "./types";
 
 let state: KanbanStore;
 let actions: ReturnType<typeof createModalSlice>;
@@ -29,7 +29,7 @@ describe("modal-slice", () => {
     it("creates new modal on first call", () => {
       const { boardId, columnIds } = addBoardToState(state);
       const result = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         position: { x: 100, y: 200 },
       });
@@ -37,20 +37,20 @@ describe("modal-slice", () => {
       expect(result.isExisting).toBe(false);
       expect(result.position).toEqual({ x: 100, y: 200 });
       expect(state.createTaskModals[result.id]).toBeDefined();
-      expect(state.createTaskModals[result.id].boardId).toBe(boardId);
-      expect(state.createTaskModals[result.id].columnId).toBe(columnIds[0]);
+      expect(state.createTaskModals[result.id]!.boardId).toBe(boardId);
+      expect(state.createTaskModals[result.id]!.columnId).toBe(columnIds[0]!);
     });
 
     it("reuses existing board modal instead of duplicating", () => {
       const { boardId, columnIds } = addBoardToState(state);
       const first = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         position: { x: 100, y: 200 },
       });
 
       const second = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
         position: { x: 300, y: 400 },
       });
@@ -68,16 +68,16 @@ describe("modal-slice", () => {
         boardId: "board-2",
       });
       const first = actions.openCreateTaskModal({
-        columnId: c1[0],
+        columnId: c1[0]!,
         boardId: b1,
       });
       const second = actions.openCreateTaskModal({
-        columnId: c2[0],
+        columnId: c2[0]!,
         boardId: b2,
       });
 
-      expect(state.createTaskModals[second.id].zIndex).toBeGreaterThan(
-        state.createTaskModals[first.id].zIndex
+      expect(state.createTaskModals[second.id]!.zIndex).toBeGreaterThan(
+        state.createTaskModals[first.id]!.zIndex
       );
     });
   });
@@ -86,7 +86,7 @@ describe("modal-slice", () => {
     it("removes the modal", () => {
       const { boardId, columnIds } = addBoardToState(state);
       const { id } = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
       });
 
@@ -108,8 +108,8 @@ describe("modal-slice", () => {
       expect(result.isExisting).toBe(false);
       expect(result.position).toEqual({ x: 50, y: 60 });
       expect(state.taskDetailModals[result.id]).toBeDefined();
-      expect(state.taskDetailModals[result.id].taskId).toBe("task-1");
-      expect(state.taskDetailModals[result.id].boardId).toBe(boardId);
+      expect(state.taskDetailModals[result.id]!.taskId).toBe("task-1");
+      expect(state.taskDetailModals[result.id]!.boardId).toBe(boardId);
     });
 
     it("reuses existing modal for same taskId", () => {
@@ -147,13 +147,13 @@ describe("modal-slice", () => {
     it("updates position", () => {
       const { boardId, columnIds } = addBoardToState(state);
       const { id } = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
       });
 
       actions.updateModalPosition(id, { x: 500, y: 600 });
 
-      expect(state.createTaskModals[id].position).toEqual({ x: 500, y: 600 });
+      expect(state.createTaskModals[id]!.position).toEqual({ x: 500, y: 600 });
     });
   });
 
@@ -161,7 +161,7 @@ describe("modal-slice", () => {
     it("updates form fields", () => {
       const { boardId, columnIds } = addBoardToState(state);
       const { id } = actions.openCreateTaskModal({
-        columnId: columnIds[0],
+        columnId: columnIds[0]!,
         boardId,
       });
 
@@ -171,9 +171,9 @@ describe("modal-slice", () => {
         progress: 50,
       });
 
-      expect(state.createTaskModals[id].formData.title).toBe("New Title");
-      expect(state.createTaskModals[id].formData.priority).toBe("high");
-      expect(state.createTaskModals[id].formData.progress).toBe(50);
+      expect(state.createTaskModals[id]!.formData.title).toBe("New Title");
+      expect(state.createTaskModals[id]!.formData.priority).toBe("high");
+      expect(state.createTaskModals[id]!.formData.progress).toBe(50);
     });
   });
 
@@ -186,20 +186,20 @@ describe("modal-slice", () => {
         boardId: "board-2",
       });
       const { id: id1 } = actions.openCreateTaskModal({
-        columnId: c1[0],
+        columnId: c1[0]!,
         boardId: b1,
       });
       const { id: id2 } = actions.openCreateTaskModal({
-        columnId: c2[0],
+        columnId: c2[0]!,
         boardId: b2,
       });
-      const z1Before = state.createTaskModals[id1].zIndex;
+      const z1Before = state.createTaskModals[id1]!.zIndex;
 
       actions.bringModalToFront(id1);
 
-      expect(state.createTaskModals[id1].zIndex).toBeGreaterThan(z1Before);
-      expect(state.createTaskModals[id1].zIndex).toBeGreaterThan(
-        state.createTaskModals[id2].zIndex
+      expect(state.createTaskModals[id1]!.zIndex).toBeGreaterThan(z1Before);
+      expect(state.createTaskModals[id1]!.zIndex).toBeGreaterThan(
+        state.createTaskModals[id2]!.zIndex
       );
     });
   });
@@ -215,13 +215,13 @@ describe("modal-slice", () => {
         taskId: "task-2",
         boardId,
       });
-      const z1Before = state.taskDetailModals[id1].zIndex;
+      const z1Before = state.taskDetailModals[id1]!.zIndex;
 
       actions.bringTaskDetailModalToFront(id1);
 
-      expect(state.taskDetailModals[id1].zIndex).toBeGreaterThan(z1Before);
-      expect(state.taskDetailModals[id1].zIndex).toBeGreaterThan(
-        state.taskDetailModals[id2].zIndex
+      expect(state.taskDetailModals[id1]!.zIndex).toBeGreaterThan(z1Before);
+      expect(state.taskDetailModals[id1]!.zIndex).toBeGreaterThan(
+        state.taskDetailModals[id2]!.zIndex
       );
     });
   });
@@ -241,12 +241,12 @@ describe("modal-slice", () => {
         draftProgress: 75,
       });
 
-      expect(state.taskDetailModals[id].draftTitle).toBe("Updated Title");
-      expect(state.taskDetailModals[id].draftDescription).toBe(
+      expect(state.taskDetailModals[id]!.draftTitle).toBe("Updated Title");
+      expect(state.taskDetailModals[id]!.draftDescription).toBe(
         "Updated Description"
       );
-      expect(state.taskDetailModals[id].draftPriority).toBe("high");
-      expect(state.taskDetailModals[id].draftProgress).toBe(75);
+      expect(state.taskDetailModals[id]!.draftPriority).toBe("high");
+      expect(state.taskDetailModals[id]!.draftProgress).toBe(75);
     });
   });
 

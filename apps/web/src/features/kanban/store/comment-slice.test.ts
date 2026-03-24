@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 let nanoidCounter = 0;
 mock.module("nanoid", () => ({ nanoid: () => `seq${++nanoidCounter}` }));
 
-import { createFreshState } from "../../../../../tests/helpers/store-harness";
-import { createCommentSlice } from "../../../src/features/kanban/store/slices/comment-slice";
-import type { KanbanStore } from "../../../src/features/kanban/store/types";
+import { createFreshState } from "@tests/helpers/store-harness";
+import { createCommentSlice } from "./slices/comment-slice";
+import type { KanbanStore } from "./types";
 
 function createStore(): {
   state: KanbanStore;

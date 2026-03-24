@@ -8,9 +8,9 @@ mock.module("nanoid", () => ({
 import {
   addBoardToState,
   createFreshState,
-} from "../../../../../tests/helpers/store-harness";
-import { createConnectionSlice } from "../../../src/features/kanban/store/slices/connection-slice";
-import type { KanbanStore } from "../../../src/features/kanban/store/types";
+} from "@tests/helpers/store-harness";
+import { createConnectionSlice } from "./slices/connection-slice";
+import type { KanbanStore } from "./types";
 
 let state: KanbanStore;
 let actions: ReturnType<typeof createConnectionSlice>;
@@ -59,9 +59,9 @@ describe("connection-slice", () => {
       });
 
       expect(connId).toBe("conn_seq1");
-      expect(state.boardConnections.allIds).toContain(connId);
+      expect(state.boardConnections.allIds).toContain(connId!);
 
-      const conn = state.boardConnections.byId[connId];
+      const conn = state.boardConnections.byId[connId!]!;
       expect(conn).toBeDefined();
       expect(conn.source_board_id).toBe(source);
       expect(conn.target_board_id).toBe(target);
@@ -78,7 +78,7 @@ describe("connection-slice", () => {
 
       const connId = actions.addConnection(source, target);
 
-      const conn = state.boardConnections.byId[connId];
+      const conn = state.boardConnections.byId[connId!]!;
       expect(conn.lineStyle).toBe("solid");
       expect(conn.sourceHandle).toBe("bottom");
       expect(conn.targetHandle).toBe("top");
@@ -98,10 +98,10 @@ describe("connection-slice", () => {
 
       actions.removeConnection(conn1 ?? "");
 
-      expect(state.boardConnections.byId[conn1]).toBeUndefined();
+      expect(state.boardConnections.byId[conn1!]).toBeUndefined();
       expect(state.boardConnections.allIds).not.toContain(conn1);
-      expect(state.boardConnections.byId[conn2]).toBeDefined();
-      expect(state.boardConnections.allIds).toContain(conn2);
+      expect(state.boardConnections.byId[conn2!]).toBeDefined();
+      expect(state.boardConnections.allIds).toContain(conn2!);
     });
 
     it("does nothing when connection does not exist", () => {
@@ -124,7 +124,7 @@ describe("connection-slice", () => {
         showArrow: false,
       });
 
-      const conn = state.boardConnections.byId[connId];
+      const conn = state.boardConnections.byId[connId!]!;
       expect(conn.label).toBe("blocks");
       expect(conn.sourceHandle).toBe("left");
       expect(conn.showArrow).toBe(false);
@@ -144,13 +144,13 @@ describe("connection-slice", () => {
       const { boardId: target } = addBoardToState(state);
 
       const connId = actions.addConnection(source, target);
-      expect(state.boardConnections.byId[connId].lineStyle).toBe("solid");
+      expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("solid");
 
       actions.toggleConnectionLineStyle(connId ?? "");
-      expect(state.boardConnections.byId[connId].lineStyle).toBe("dotted");
+      expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("dotted");
 
       actions.toggleConnectionLineStyle(connId ?? "");
-      expect(state.boardConnections.byId[connId].lineStyle).toBe("solid");
+      expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("solid");
     });
 
     it("does nothing when connection does not exist", () => {

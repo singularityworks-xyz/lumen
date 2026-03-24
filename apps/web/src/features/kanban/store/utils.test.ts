@@ -10,8 +10,8 @@ import {
   createDefaultWorkspace,
   createInitialState,
   getNextZIndex,
-} from "@/features/kanban/store/utils";
-import type { BoardPosition, EntityMap } from "@/features/kanban/types";
+} from "@/src/features/kanban/store/utils";
+import type { BoardPosition, EntityMap } from "@/src/features/kanban/types";
 
 beforeEach(() => {
   nanoidCounter = 0;
@@ -26,9 +26,9 @@ describe("getNextZIndex", () => {
   it("returns max plus one with sparse IDs", () => {
     const positions: EntityMap<BoardPosition> = {
       byId: {
-        a: { x: 0, y: 0, zIndex: 5 },
-        b: { x: 1, y: 1, zIndex: 20 },
-        c: { x: 2, y: 2, zIndex: 3 },
+        a: { id: "a", x: 0, y: 0, zIndex: 5 },
+        b: { id: "b", x: 1, y: 1, zIndex: 20 },
+        c: { id: "c", x: 2, y: 2, zIndex: 3 },
       },
       allIds: ["a", "b", "c"],
     };
@@ -38,7 +38,7 @@ describe("getNextZIndex", () => {
   it("ignores gaps in allIds that do not exist in byId", () => {
     const positions: EntityMap<BoardPosition> = {
       byId: {
-        a: { x: 0, y: 0, zIndex: 7 },
+        a: { id: "a", x: 0, y: 0, zIndex: 7 },
       },
       allIds: ["a", "missing"],
     };
@@ -70,14 +70,14 @@ describe("createInitialState", () => {
     const state = createInitialState();
 
     expect(state.workspaces.allIds).toHaveLength(1);
-    const id = state.workspaces.allIds[0];
+    const id = state.workspaces.allIds[0]!;
     expect(state.workspaces.byId[id]).toBeDefined();
-    expect(state.workspaces.byId[id].name).toBe("Default Workspace");
+    expect(state.workspaces.byId[id]!.name).toBe("Default Workspace");
   });
 
   it("sets currentWorkspaceId to the seeded workspace", () => {
     const state = createInitialState();
-    const id = state.workspaces.allIds[0];
+    const id = state.workspaces.allIds[0]!;
 
     expect(state.currentWorkspaceId).toBe(id);
   });

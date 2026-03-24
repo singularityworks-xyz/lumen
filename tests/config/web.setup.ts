@@ -11,13 +11,13 @@ const originalIndexedDB = globalThis.indexedDB;
 beforeEach(() => {
   globalThis.ResizeObserver = class ResizeObserver {
     observe() {
-      /* no-op */
+      // no-op
     }
     unobserve() {
-      /* no-op */
+      // no-op
     }
     disconnect() {
-      /* no-op */
+      // no-op
     }
   };
 
@@ -26,13 +26,13 @@ beforeEach(() => {
     readonly rootMargin = "0px";
     readonly thresholds = [0];
     observe() {
-      /* no-op */
+      // no-op
     }
     unobserve() {
-      /* no-op */
+      // no-op
     }
     disconnect() {
-      /* no-op */
+      // no-op
     }
     takeRecords() {
       return [];
@@ -45,26 +45,26 @@ beforeEach(() => {
       media: query,
       onchange: null,
       addListener: () => {
-        /* no-op */
+        // no-op
       },
       removeListener: () => {
-        /* no-op */
+        // no-op
       },
       addEventListener: () => {
-        /* no-op */
+        // no-op
       },
       removeEventListener: () => {
-        /* no-op */
+        // no-op
       },
       dispatchEvent: () => false,
     }) as unknown as MediaQueryList;
 
   globalThis.HTMLElement.prototype.scrollIntoView = () => {
-    /* no-op */
+    // no-op
   };
   globalThis.HTMLElement.prototype.hasPointerCapture = () => false;
   globalThis.HTMLElement.prototype.releasePointerCapture = () => {
-    /* no-op */
+    // no-op
   };
 });
 

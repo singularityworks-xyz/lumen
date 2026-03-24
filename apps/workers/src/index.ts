@@ -11,7 +11,7 @@ import { collabRoutes } from "./collab";
 import { env } from "./env";
 import { otelMetrics } from "./middleware/otel-metrics";
 
-const WORKERS_VERSION = "1.0.3";
+const WORKERS_VERSION = "1.0.4";
 
 initOtel("lumen-workers", [new PrismaInstrumentation()], {
   serviceVersion: WORKERS_VERSION,
