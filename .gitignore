@@ -40,3 +40,4 @@ dashboards.yaml
 .opencode
 docs/
 lefthook-local.yml
+.git-tmp/

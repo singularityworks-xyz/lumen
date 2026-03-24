@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -18,8 +18,8 @@
     "dev:full": "concurrently --names \"web,workers,presence\" --prefix-colors \"blue,red,green\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\" \"cd apps/presence && mix phx.server\"",
     "otel:up": "docker compose -f local/docker/docker-compose.otel.yml up -d",
     "otel:down": "docker compose -f local/docker/docker-compose.otel.yml down",
-    "check": "ultracite fix --unsafe && cd apps/presence && mix format && mix compile --warnings-as-errors && mix credo --strict",
-    "check:ci": "biome ci . && cd apps/presence && mix format --check-formatted && mix compile --warnings-as-errors && mix credo --strict",
+    "check": "bash ./scripts/quality/run-check.sh",
+    "check:ci": "bash ./scripts/quality/run-check-ci.sh",
     "check:rust": "cd apps/native/src-tauri && cargo fmt --all --check && cargo clippy --all-targets --all-features -- -D warnings",
     "check-types": "turbo run check-types && bunx tsc --noEmit -p scripts/versioning/tsconfig.json",
     "dep:check": "bunx sherif@latest --fix",
