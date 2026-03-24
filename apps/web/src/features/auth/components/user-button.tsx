@@ -13,9 +13,9 @@ import { useKanbanStore } from "../../kanban/store";
 import { ProfileModal } from "./profile-modal";
 
 interface UserButtonProps {
-  size?: "sm" | "md";
   className?: string;
   showLabel?: boolean;
+  size?: "sm" | "md";
 }
 
 export const UserButton = memo(

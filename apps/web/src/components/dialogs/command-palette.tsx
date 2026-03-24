@@ -16,12 +16,12 @@ import {
 } from "@/src/features/kanban/store/selectors";
 
 interface Command {
+  action: () => void;
+  disabled?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  action: () => void;
   shortcut?: string;
-  disabled?: boolean;
 }
 
 const CommandButton = ({

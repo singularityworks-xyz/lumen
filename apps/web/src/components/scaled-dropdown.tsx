@@ -272,7 +272,10 @@ function ScaledPopoverAnchor({
 
 export {
   ModalScaleProvider,
-  useModalScale,
+  ScaledPopover,
+  ScaledPopoverAnchor,
+  ScaledPopoverContent,
+  ScaledPopoverTrigger,
   ScaledSelect,
   ScaledSelectContent,
   ScaledSelectGroup,
@@ -283,8 +286,5 @@ export {
   ScaledSelectSeparator,
   ScaledSelectTrigger,
   ScaledSelectValue,
-  ScaledPopover,
-  ScaledPopoverTrigger,
-  ScaledPopoverContent,
-  ScaledPopoverAnchor,
+  useModalScale,
 };

@@ -43,11 +43,11 @@ import {
 } from "../scaled-dropdown";
 
 interface TaskDetailFormProps {
-  modalId: string;
-  task: Task;
   boardId: string;
-  onSaved?: () => void;
+  modalId: string;
   onCancel?: () => void;
+  onSaved?: () => void;
+  task: Task;
 }
 
 const PRIORITY_CONFIG = {

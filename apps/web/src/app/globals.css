@@ -143,8 +143,8 @@
 
 .native-app,
 .native-app body {
-  scrollbar-width: none;
   -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .native-app::-webkit-scrollbar,

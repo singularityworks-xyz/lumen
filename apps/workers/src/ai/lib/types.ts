@@ -5,32 +5,32 @@ import type {
 } from "@lumen/ai/types";
 
 export interface TextPart {
-  type: "text";
   text: string;
+  type: "text";
 }
 
 export interface ToolCallPart {
-  type: "tool-call";
-  toolCallId: string;
-  toolName: string;
   args: Record<string, unknown>;
   // NOTE: Despite AI SDK docs saying 'args', openai-compatible provider reads 'input'
   input?: Record<string, unknown>;
+  toolCallId: string;
+  toolName: string;
+  type: "tool-call";
 }
 
 export interface ToolResultPart {
-  type: "tool-result";
+  isError?: boolean;
+  output: { type: "json"; value: unknown } | { type: "text"; text: string };
   toolCallId: string;
   toolName: string;
-  output: { type: "json"; value: unknown } | { type: "text"; text: string };
-  isError?: boolean;
+  type: "tool-result";
 }
 
 export type ContentPart = TextPart | ToolCallPart | ToolResultPart;
 
 export interface AiSdkMessage {
-  role: "user" | "assistant" | "tool";
   content: string | ContentPart[];
+  role: "user" | "assistant" | "tool";
 }
 
 export type StreamResult =
@@ -76,37 +76,37 @@ export type StreamResult =
     };
 
 export interface StreamContext {
-  workspaceId: string;
-  userId: string;
-  snapshot?: WorkspaceSnapshot;
   // If true, action tools return instructions instead of executing (for local workspaces)
   ephemeral?: boolean;
+  snapshot?: WorkspaceSnapshot;
+  userId: string;
+  workspaceId: string;
 }
 
 export interface StreamOptions {
-  systemPrompt: string;
-  messages: AiSdkMessage[];
-  messageId: string;
-  tools: Record<string, unknown> | null;
   ctx: StreamContext;
+  messageId: string;
+  messages: AiSdkMessage[];
+  systemPrompt: string;
+  tools: Record<string, unknown> | null;
 }
 
 export interface ToolCallInfo {
-  toolCallId: string;
-  toolName: string;
   input: Record<string, unknown>; // From stream event (uses 'input')
   output?: unknown;
+  toolCallId: string;
+  toolName: string;
 }
 
 export interface HistoryMessage {
-  role: "user" | "assistant" | "tool";
   content: string;
+  role: "user" | "assistant" | "tool";
+  toolCallId?: string;
   toolCalls?: Array<{
     id: string;
     name: string;
     arguments: Record<string, unknown>;
   }>;
-  toolCallId?: string;
   toolName?: string;
   toolResult?: unknown;
 }

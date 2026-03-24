@@ -9,18 +9,18 @@ const WINDOW_SIZE_MS = 60_000;
 export type Priority = "high" | "normal" | "low";
 
 interface QueueStatus {
-  position: number;
   estimatedWaitMs: number;
+  position: number;
   queueLength: number;
 }
 
 interface QueuedRequest<T> {
+  addedAt: number;
+  execute: () => Promise<T>;
   id: string;
   priority: Priority;
-  execute: () => Promise<T>;
-  resolve: (value: T) => void;
   reject: (error: Error) => void;
-  addedAt: number;
+  resolve: (value: T) => void;
   workspaceId?: string;
 }
 

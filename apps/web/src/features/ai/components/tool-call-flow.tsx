@@ -42,16 +42,16 @@ const camelCaseRegex = /([A-Z])/g;
 const firstCharRegex = /^./;
 
 interface ToolCall {
+  arguments?: Record<string, unknown>;
   id: string;
   name: string;
-  arguments?: Record<string, unknown>;
   result?: unknown;
 }
 
 interface ToolCallFlowProps {
+  className?: string;
   toolCalls: ToolCall[];
   toolResult?: unknown;
-  className?: string;
 }
 
 export const ToolCallFlow = memo(

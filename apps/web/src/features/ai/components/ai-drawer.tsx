@@ -9,13 +9,13 @@ import { AiDrawerContent } from "./ai-drawer-content";
 import { FloatingIndicator } from "./floating-indicator";
 
 export interface AiDrawerProps {
-  workspaceId: string;
+  boardCount?: number;
+  commentCount?: number;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSwitchToBoards?: () => void;
   onSwitchToComments?: () => void;
-  boardCount?: number;
-  commentCount?: number;
+  workspaceId: string;
 }
 
 export const AiDrawer = memo(

@@ -8,13 +8,13 @@ import { useCachedProfileImage } from "@/src/hooks/use-cached-profile-image";
 import { cn } from "@/src/lib/utils";
 
 interface CollaboratorColumnDragOverlayProps {
-  columnName: string;
-  taskCount: number;
   collaborator: Collaborator & {
     image?: string | null;
   };
+  columnName: string;
   cursorX?: number;
   cursorY?: number;
+  taskCount: number;
 }
 
 export const CollaboratorColumnDragOverlay =

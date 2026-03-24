@@ -21,33 +21,33 @@ const MESSAGE_AWARENESS = 1;
 export const MESSAGE_WORKSPACE_DELETED = 3;
 
 export interface CollaboratorInfo {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
-  role: Role;
   color: string;
+  email: string;
+  id: string;
+  image?: string | null;
+  name: string;
+  role: Role;
 }
 
 export interface WsConnection {
+  awarenessClientId: number;
   id: string;
+  user: CollaboratorInfo;
+  workspaceId: string;
   ws: {
     send: (data: Uint8Array) => void;
     close: () => void;
   };
-  user: CollaboratorInfo;
-  workspaceId: string;
-  awarenessClientId: number;
 }
 
 interface Room {
-  workspaceId: string;
-  doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
-  connections: Map<string, WsConnection>;
-  persistenceTimeout: ReturnType<typeof setTimeout> | null;
   cleanupTimeout: ReturnType<typeof setTimeout> | null;
+  connections: Map<string, WsConnection>;
+  doc: Y.Doc;
   lastModified: number;
+  persistenceTimeout: ReturnType<typeof setTimeout> | null;
+  workspaceId: string;
 }
 
 class RoomManager {

@@ -10,8 +10,8 @@ import {
 } from "@/src/components/ui/dialog";
 
 interface HelpDialogProps {
-  open: boolean;
   onClose: () => void;
+  open: boolean;
 }
 
 const Kbd = ({ children }: { children: React.ReactNode }) => (

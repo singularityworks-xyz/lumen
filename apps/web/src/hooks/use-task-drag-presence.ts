@@ -5,11 +5,11 @@ import { type Collaborator, useCollaboration } from "@/src/features/collab";
 import type { Task } from "@/src/features/kanban";
 
 export interface DraggingTaskState {
-  taskId: string;
-  fromColumnId: string;
-  fromBoardId: string;
   cursorX?: number;
   cursorY?: number;
+  fromBoardId: string;
+  fromColumnId: string;
+  taskId: string;
 }
 
 interface TaskDragAwarenessState {

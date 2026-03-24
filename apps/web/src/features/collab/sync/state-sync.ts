@@ -120,8 +120,8 @@ export function applyYjsToState(
   // they should be removed (they were deleted by another collaborator)
   // NOTE: We pass the raw Yjs map to check for existence even if validation failed
   interface MergeOptions<T> {
-    filterFn?: (item: T) => boolean;
     belongsToWorkspaceFn?: (item: T) => boolean;
+    filterFn?: (item: T) => boolean;
     rawYjsMap?: Y.Map<unknown>;
   }
 

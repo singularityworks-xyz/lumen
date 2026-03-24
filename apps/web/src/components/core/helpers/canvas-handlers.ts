@@ -15,8 +15,8 @@ import { useSelectionPresence } from "@/src/hooks/use-selection-presence";
 import type { CanvasNode } from "./canvas-types";
 
 interface UseColumnDragHandlersProps {
-  columns: KanbanStore["columns"];
   boards: KanbanStore["boards"];
+  columns: KanbanStore["columns"];
   moveColumn: KanbanStore["moveColumn"];
   moveColumnToBoard: KanbanStore["moveColumnToBoard"];
 }
@@ -164,11 +164,11 @@ export function useColumnDragHandlers({
 }
 
 interface UseKeyboardHandlersProps {
-  interactionMode: string;
-  setInteractionMode: (mode: "drag" | "select") => void;
   clearBoardSelection: () => void;
+  interactionMode: string;
   localEdges: BoardEdge[];
   removeConnection: (id: string) => void;
+  setInteractionMode: (mode: "drag" | "select") => void;
   showWelcomeScreen: boolean;
 }
 
@@ -375,8 +375,8 @@ export function useSelectionHandlers(
 }
 
 interface UseEdgeHandlersProps {
-  onEdgesChange: (changes: Parameters<OnEdgesChange<BoardEdge>>[0]) => void;
   addConnection: KanbanStore["addConnection"];
+  onEdgesChange: (changes: Parameters<OnEdgesChange<BoardEdge>>[0]) => void;
   removeConnection: KanbanStore["removeConnection"];
 }
 
@@ -432,23 +432,23 @@ export function useViewportHandlers(setViewport: KanbanStore["setViewport"]) {
 }
 
 interface CommentCluster {
-  id: string;
   centroid: { x: number; y: number };
   comments: Array<{ id: string; x: number; y: number }>;
+  id: string;
   isSingle: boolean;
 }
 
 interface UseNodeDragHandlersProps {
+  commentClusters: CommentCluster[];
+  finalizeAreaDrag: (id: string) => void;
+  finalizeBoardDrag: (id: string) => void;
+  finalizeCommentsDrag: (ids: string[]) => void;
   isCollaborating: boolean;
   screenToFlowPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
   };
   updateCursor: (pos: { x: number; y: number } | null) => void;
-  finalizeAreaDrag: (id: string) => void;
-  finalizeBoardDrag: (id: string) => void;
-  finalizeCommentsDrag: (ids: string[]) => void;
-  commentClusters: CommentCluster[];
 }
 
 export function useNodeDragHandlers({

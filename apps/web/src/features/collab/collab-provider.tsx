@@ -43,14 +43,18 @@ function uint8ArrayToBase64(uint8Array: Uint8Array): string {
 }
 
 export interface CursorPosition {
-  x: number;
-  y: number;
   viewportX?: number;
   viewportY?: number;
+  x: number;
+  y: number;
 }
 
 export interface OpenDialog {
+  data?: Record<string, unknown>;
+  dialogType?: string;
   id: string;
+  position?: { x: number; y: number };
+  targetId: string;
   type:
     | "quick-actions"
     | "board-dialog"
@@ -59,40 +63,36 @@ export interface OpenDialog {
     | "connection-dialog"
     | "create-task"
     | "area-dialog";
-  targetId: string;
-  dialogType?: string;
-  position?: { x: number; y: number };
-  data?: Record<string, unknown>;
 }
 
 export interface DraggingTaskState {
-  taskId: string;
-  fromColumnId: string;
-  fromBoardId: string;
   cursorX?: number;
   cursorY?: number;
+  fromBoardId: string;
+  fromColumnId: string;
+  taskId: string;
 }
 
 export interface DraggingColumnState {
   columnId: string;
-  sourceBoardId: string;
   cursorX?: number;
   cursorY?: number;
+  sourceBoardId: string;
 }
 
 export interface Collaborator {
-  id: string;
-  name: string;
   color: string;
-  role: "owner" | "editor" | "viewer";
-  image?: string | null;
   cursor?: CursorPosition;
+  draggingColumn?: DraggingColumnState;
+  draggingTask?: DraggingTaskState;
+  id: string;
+  image?: string | null;
+  isTyping?: boolean;
+  name: string;
+  openDialogs?: OpenDialog[];
+  role: "owner" | "editor" | "viewer";
   selection?: string[];
   selectionBox?: { x: number; y: number; width: number; height: number } | null;
-  openDialogs?: OpenDialog[];
-  draggingTask?: DraggingTaskState;
-  draggingColumn?: DraggingColumnState;
-  isTyping?: boolean;
 }
 
 export type ConnectionState =
@@ -102,18 +102,18 @@ export type ConnectionState =
   | "error";
 
 export interface CollaborationContextType {
-  doc: Y.Doc | null;
   awareness: awarenessProtocol.Awareness | null;
-  connectionState: ConnectionState;
   collaborators: Collaborator[];
+  connect: (workspaceId: string) => void;
+  connectionState: ConnectionState;
+  disconnect: () => void;
+  doc: Y.Doc | null;
   isCollaborating: boolean;
   localUser: Collaborator | null;
-  connect: (workspaceId: string) => void;
-  disconnect: () => void;
   updateCursor: (position: CursorPosition | null) => void;
-  updateSelection: (selectedIds: string[]) => void;
-  updateOpenDialogs: (dialogs: OpenDialog[]) => void;
   updateIsTyping: (isTyping: boolean) => void;
+  updateOpenDialogs: (dialogs: OpenDialog[]) => void;
+  updateSelection: (selectedIds: string[]) => void;
 }
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -149,8 +149,8 @@ export function getColorForUser(userId: string): string {
 }
 
 interface CollaborationProviderProps {
-  children: ReactNode;
   apiUrl?: string;
+  children: ReactNode;
   enabled?: boolean;
 }
 
@@ -285,7 +285,9 @@ export function CollaborationProvider({
       logger.info("Connecting to workspace", { workspaceId });
       setConnectionState("connecting");
 
-      const { getJwtToken, authClient } = await import("@/src/lib/auth-client");
+      const { getCurrentUser, getJwtToken } = await import(
+        "@/src/lib/auth-client"
+      );
       const token = await getJwtToken();
       if (!token) {
         const err = new Error("Failed to get JWT token for WebSocket");
@@ -295,8 +297,7 @@ export function CollaborationProvider({
         return;
       }
 
-      const sessionResult = await authClient.getSession();
-      const sessionUser = sessionResult.data?.user;
+      const sessionUser = await getCurrentUser();
       if (sessionUser) {
         const userColor = getColorForUser(sessionUser.id);
         localUserInfoRef.current = {

@@ -225,11 +225,11 @@ export function isValidHexColor(color: string): boolean {
 }
 
 interface ColorPickerProps {
-  value: string;
-  onChange: (color: string) => void;
+  className?: string;
   customColors?: string[];
   onAddCustomColor?: (color: string) => void;
-  className?: string;
+  onChange: (color: string) => void;
+  value: string;
 }
 
 export function ColorPicker({
@@ -337,10 +337,10 @@ export function ColorPicker({
 }
 
 interface IconPickerProps {
-  value: string;
-  onChange: (icon: string) => void;
   accentColor?: string;
   className?: string;
+  onChange: (icon: string) => void;
+  value: string;
 }
 
 export function IconPicker({
@@ -480,11 +480,11 @@ export function incrementIconUsage(
 }
 
 interface QuickColorPickerProps {
-  value: string;
-  onChange: (color: string) => void;
-  colorUsage?: Record<string, number>;
-  onMoreClick?: () => void;
   className?: string;
+  colorUsage?: Record<string, number>;
+  onChange: (color: string) => void;
+  onMoreClick?: () => void;
+  value: string;
 }
 
 export function QuickColorPicker({
@@ -527,12 +527,12 @@ export function QuickColorPicker({
 }
 
 interface QuickIconPickerProps {
-  value: string;
-  onChange: (icon: string) => void;
-  iconUsage?: Record<string, number>;
   accentColor?: string;
-  onMoreClick?: () => void;
   className?: string;
+  iconUsage?: Record<string, number>;
+  onChange: (icon: string) => void;
+  onMoreClick?: () => void;
+  value: string;
 }
 
 export function QuickIconPicker({

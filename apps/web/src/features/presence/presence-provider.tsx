@@ -15,9 +15,9 @@ import { PresenceManager } from "./presence-manager";
 import type { PresenceUser } from "./types";
 
 interface PresenceContextValue {
-  users: PresenceUser[];
-  isConnected: boolean;
   currentUser: PresenceUser | null;
+  isConnected: boolean;
+  users: PresenceUser[];
 }
 
 const PresenceContext = createContext<PresenceContextValue>({
@@ -27,12 +27,12 @@ const PresenceContext = createContext<PresenceContextValue>({
 });
 
 interface PresenceProviderProps {
-  workspaceId: string;
+  children: React.ReactNode;
+  enabled?: boolean;
+  userAvatar?: string;
   userId: string;
   userName: string;
-  userAvatar?: string;
-  enabled?: boolean;
-  children: React.ReactNode;
+  workspaceId: string;
 }
 
 export const PresenceProvider = memo(

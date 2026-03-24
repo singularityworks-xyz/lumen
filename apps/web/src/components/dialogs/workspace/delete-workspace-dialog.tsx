@@ -14,14 +14,14 @@ import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { cn } from "@/src/lib/utils";
 
 interface DeleteWorkspaceDialogProps {
-  workspaceName: string;
+  getSourceButtonRect: () => DOMRect | null;
+  onClose: () => void;
 
   onConfirm: () => Promise<boolean>;
-  onClose: () => void;
-  getSourceButtonRect: () => DOMRect | null;
+  onPositionChange?: (position: { x: number; y: number }) => void;
 
   position?: { x: number; y: number };
-  onPositionChange?: (position: { x: number; y: number }) => void;
+  workspaceName: string;
 }
 
 const DIALOG_WIDTH = 420;

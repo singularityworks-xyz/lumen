@@ -170,7 +170,7 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
                 backgroundColor: `${area.color}40`,
                 color: area.color,
               }}
-              title={`${area.board_ids.length} board${area.board_ids.length !== 1 ? "s" : ""} attached`}
+              title={`${area.board_ids.length} board${area.board_ids.length === 1 ? "" : "s"} attached`}
             >
               <Layout className="h-3 w-3" />
               {area.board_ids.length}

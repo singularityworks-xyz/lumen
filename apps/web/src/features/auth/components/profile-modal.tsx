@@ -39,8 +39,8 @@ import { usePresenceContext } from "../../presence/presence-provider";
 const logger = createLogger({ name: "profile-modal" });
 
 interface ProfileModalProps {
-  open: boolean;
   onClose: () => void;
+  open: boolean;
 }
 
 export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {

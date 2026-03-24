@@ -60,12 +60,12 @@ function getStableClusterId(comments: Comment[]): string {
 }
 
 interface SplitButtonProps {
-  viewMode: ViewMode;
-  onViewToggle: () => void;
-  onClose: () => void;
-  isVisible: boolean;
   isClosing: boolean;
+  isVisible: boolean;
+  onClose: () => void;
+  onViewToggle: () => void;
   transitionDelay: string;
+  viewMode: ViewMode;
 }
 
 function SplitButton({
@@ -152,18 +152,18 @@ function SplitButton({
 interface CommentCardProps {
   comment: Comment;
   index: number;
-  totalCount: number;
   isClosing: boolean;
+  isFocused: boolean;
   isVisible: boolean;
+  onBringToFront: () => void;
+  onClose?: () => void;
   onDragOut: (
     commentId: string,
     dropPosition: { x: number; y: number }
   ) => void;
-  isFocused: boolean;
-  onBringToFront: () => void;
-  viewMode: ViewMode;
   stackColumn?: "left" | "right";
-  onClose?: () => void;
+  totalCount: number;
+  viewMode: ViewMode;
 }
 
 function CommentCard({
@@ -841,7 +841,7 @@ export function CommentClusterDialog({
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     getClusterViewMode(clusterId)
   );
@@ -1005,9 +1005,9 @@ export function CommentClusterDialog({
                   comment={comment}
                   index={index}
                   isClosing={isClosing}
-                  isFocused={focusedIndex === index}
+                  isFocused={focusedId === comment.id}
                   isVisible={isVisible}
-                  onBringToFront={() => setFocusedIndex(index)}
+                  onBringToFront={() => setFocusedId(comment.id)}
                   onClose={isSingle ? handleClose : undefined}
                   onDragOut={handleDragOut}
                   totalCount={comments.length}
@@ -1019,48 +1019,42 @@ export function CommentClusterDialog({
         ) : (
           <>
             <div className="absolute top-1/2 left-1/2">
-              {leftColumnComments.map((comment, index) => {
-                const originalIndex = sortedComments.indexOf(comment);
-                return (
-                  <div className="pointer-events-auto" key={comment.id}>
-                    <CommentCard
-                      comment={comment}
-                      index={index}
-                      isClosing={isClosing}
-                      isFocused={focusedIndex === originalIndex}
-                      isVisible={isVisible}
-                      onBringToFront={() => setFocusedIndex(originalIndex)}
-                      onClose={isSingle ? handleClose : undefined}
-                      onDragOut={handleDragOut}
-                      stackColumn="left"
-                      totalCount={leftColumnComments.length}
-                      viewMode={viewMode}
-                    />
-                  </div>
-                );
-              })}
+              {leftColumnComments.map((comment, index) => (
+                <div className="pointer-events-auto" key={comment.id}>
+                  <CommentCard
+                    comment={comment}
+                    index={index}
+                    isClosing={isClosing}
+                    isFocused={focusedId === comment.id}
+                    isVisible={isVisible}
+                    onBringToFront={() => setFocusedId(comment.id)}
+                    onClose={isSingle ? handleClose : undefined}
+                    onDragOut={handleDragOut}
+                    stackColumn="left"
+                    totalCount={leftColumnComments.length}
+                    viewMode={viewMode}
+                  />
+                </div>
+              ))}
             </div>
             <div className="absolute top-1/2 left-1/2">
-              {rightColumnComments.map((comment, index) => {
-                const originalIndex = sortedComments.indexOf(comment);
-                return (
-                  <div className="pointer-events-auto" key={comment.id}>
-                    <CommentCard
-                      comment={comment}
-                      index={index}
-                      isClosing={isClosing}
-                      isFocused={focusedIndex === originalIndex}
-                      isVisible={isVisible}
-                      onBringToFront={() => setFocusedIndex(originalIndex)}
-                      onClose={isSingle ? handleClose : undefined}
-                      onDragOut={handleDragOut}
-                      stackColumn="right"
-                      totalCount={rightColumnComments.length}
-                      viewMode={viewMode}
-                    />
-                  </div>
-                );
-              })}
+              {rightColumnComments.map((comment, index) => (
+                <div className="pointer-events-auto" key={comment.id}>
+                  <CommentCard
+                    comment={comment}
+                    index={index}
+                    isClosing={isClosing}
+                    isFocused={focusedId === comment.id}
+                    isVisible={isVisible}
+                    onBringToFront={() => setFocusedId(comment.id)}
+                    onClose={isSingle ? handleClose : undefined}
+                    onDragOut={handleDragOut}
+                    stackColumn="right"
+                    totalCount={rightColumnComments.length}
+                    viewMode={viewMode}
+                  />
+                </div>
+              ))}
             </div>
           </>
         )}

@@ -85,8 +85,8 @@ interface CollaboratorDisplayProps {
 
 // Check if position is within viewport
 function isInViewport(x: number, y: number): boolean {
-  const width = typeof window !== "undefined" ? window.innerWidth : 0;
-  const height = typeof window !== "undefined" ? window.innerHeight : 0;
+  const width = typeof window === "undefined" ? 0 : window.innerWidth;
+  const height = typeof window === "undefined" ? 0 : window.innerHeight;
   return (
     x >= -VIEWPORT_MARGIN &&
     x <= width + VIEWPORT_MARGIN &&

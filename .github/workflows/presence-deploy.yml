@@ -22,6 +22,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Read presence version metadata
+        id: version
+        shell: bash
+        run: |
+          APP_VERSION=$(python3 -c 'import json; print(json.load(open("apps/presence/package.json"))["version"])')
+          ROOT_VERSION=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
+
+          {
+            echo "app_version=${APP_VERSION}"
+            echo "root_version=${ROOT_VERSION}"
+            echo "tag_name=presence-v${APP_VERSION}"
+            echo "sha_short=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU (for ARM64 builds)
         uses: docker/setup-qemu-action@v3
 
@@ -41,8 +55,17 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
+            type=raw,value=${{ steps.version.outputs.tag_name }}
+            type=sha,prefix=presence-sha-
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=lumen-presence
+            org.opencontainers.image.version=${{ steps.version.outputs.app_version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.description=Lumen presence service image
+            io.lumen.app=presence
+            io.lumen.app-version=${{ steps.version.outputs.app_version }}
+            io.lumen.root-version=${{ steps.version.outputs.root_version }}
 
       - name: Build and push Docker image (multi-arch)
         uses: useblacksmith/build-push-action@v2

@@ -50,6 +50,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Linux dependencies
         if: matrix.platform == 'blacksmith-4vcpu-ubuntu-2204'
@@ -89,13 +91,32 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Get commit info
-        id: commit
+      - name: Get release metadata
+        id: release
         shell: bash
         run: |
+          APP_VERSION=$(node -p 'require("./apps/native/package.json").version')
+          ROOT_VERSION=$(node -p 'require("./package.json").version')
+          TAG_NAME="native-v${APP_VERSION}"
+          PREVIOUS_TAG=$(git tag --list 'native-v*' --sort=-v:refname | grep -Fxv "$TAG_NAME" | head -n 1 || true)
+
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "sha_full=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "root_version=${ROOT_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "previous_tag=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
+
+          {
+            echo "commit_list<<EOF"
+            if [ -n "$PREVIOUS_TAG" ]; then
+              git log --pretty='- `%h` %s' "${PREVIOUS_TAG}..HEAD"
+            else
+              git log --pretty='- `%h` %s'
+            fi
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -107,14 +128,20 @@ jobs:
           projectPath: apps/native
           tauriScript: bun tauri
           args: ${{ matrix.args }}
-          tagName: v${{ steps.commit.outputs.sha_short }}
-          releaseName: ${{ steps.commit.outputs.message }}
+          tagName: ${{ steps.release.outputs.tag_name }}
+          releaseName: Lumen Native v${{ steps.release.outputs.app_version }}
           releaseBody: |
-            ## Release from commit `${{ steps.commit.outputs.sha_short }}`
+            ## Native Release `${{ steps.release.outputs.tag_name }}`
 
+            **Native Version:** ${{ steps.release.outputs.app_version }}
+            **Root Version:** ${{ steps.release.outputs.root_version }}
             **Branch:** ${{ github.ref_name }}
-            **Commit:** ${{ steps.commit.outputs.sha_full }}
-            **Message:** ${{ steps.commit.outputs.message }}
+            **Commit:** ${{ steps.release.outputs.sha_full }}
+            **Latest Commit Message:** ${{ steps.release.outputs.message }}
+            **Previous Native Tag:** ${{ steps.release.outputs.previous_tag || 'none' }}
+
+            ### Changes Since Previous Native Release
+            ${{ steps.release.outputs.commit_list }}
 
             ---
 

@@ -1,46 +1,40 @@
 export type AiMessageRole = "user" | "assistant" | "tool";
 
 export interface ToolCall {
+  arguments: Record<string, unknown>;
   id: string;
   name: string;
-  arguments: Record<string, unknown>;
   result?: unknown;
 }
 
 export interface ToolResult {
-  toolCallId: string;
-  result: unknown;
   error?: string;
+  result: unknown;
+  toolCallId: string;
 }
 
 export interface PendingAction {
-  tool: string;
-  params: Record<string, unknown>;
   description: string;
+  params: Record<string, unknown>;
+  tool: string;
 }
 
 export interface ContextSnapshot {
   currentBoardId: string | null;
-  selectedTaskIds: string[];
   selectedBoardIds: string[];
+  selectedTaskIds: string[];
   viewportCenter: { x: number; y: number };
   viewportZoom: number;
 }
 
 export interface AiMessage {
-  id: string;
-  role: AiMessageRole;
-  content: string;
-  toolCalls?: ToolCall[];
-  toolCallId?: string;
-  toolName?: string;
-  toolResult?: unknown;
-  contextSnapshot?: ContextSnapshot;
-  requiresConfirmation?: boolean;
-  pendingAction?: PendingAction;
   confirmedAt?: string;
-  isStreaming?: boolean;
+  content: string;
+  contextSnapshot?: ContextSnapshot;
+  createdAt: string;
   error?: string;
+  id: string;
+  isStreaming?: boolean;
   metadata?: {
     usage?: {
       tokens?: number;
@@ -56,20 +50,26 @@ export interface AiMessage {
       model: string;
     };
   };
-  createdAt: string;
+  pendingAction?: PendingAction;
+  requiresConfirmation?: boolean;
+  role: AiMessageRole;
+  toolCallId?: string;
+  toolCalls?: ToolCall[];
+  toolName?: string;
+  toolResult?: unknown;
 }
 
 export interface AiConversation {
+  createdAt: string;
   id: string;
-  workspaceId: string;
-  title?: string;
+  lastActiveAt: string;
+  messageCount: number;
   messages: AiMessage[];
   summary?: string;
   summaryUpToIndex?: number;
-  messageCount: number;
-  lastActiveAt: string;
-  createdAt: string;
+  title?: string;
   updatedAt: string;
+  workspaceId: string;
 }
 
 export type StreamEventType =
@@ -124,12 +124,12 @@ export interface ActionInstructionData {
 }
 
 export interface ChatRequest {
-  workspaceId: string;
-  message: string;
   context: ContextSnapshot;
+  message: string;
+  workspaceId: string;
 }
 
 export interface ChatResponse {
-  messageId: string;
   conversationId: string;
+  messageId: string;
 }

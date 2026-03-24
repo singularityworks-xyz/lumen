@@ -21,15 +21,15 @@ import LarityOrb from "../../ai/components/animations/larity-orb";
 
 interface BoardStats {
   board: Board;
-  totalTasks: number;
   completedTasks: number;
   connections: number;
+  totalTasks: number;
 }
 
 interface BoardCardProps {
-  stats: BoardStats;
   index: number;
   onClick: () => void;
+  stats: BoardStats;
 }
 
 const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
@@ -194,9 +194,9 @@ const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
 });
 
 interface FloatingIndicatorProps {
-  onClick: () => void;
   boardCount: number;
   isOpen: boolean;
+  onClick: () => void;
 }
 
 const FloatingIndicator = memo(
@@ -254,11 +254,11 @@ const FloatingIndicator = memo(
 
 interface BoardsDrawerContentProps {
   boardStats: BoardStats[];
-  onClose: () => void;
-  onSwitchToComments?: () => void;
-  onSwitchToAi?: () => void;
   commentCount?: number;
   onBoardClick: (boardId: string) => void;
+  onClose: () => void;
+  onSwitchToAi?: () => void;
+  onSwitchToComments?: () => void;
 }
 
 const BoardsDrawerContent = memo(
@@ -470,11 +470,11 @@ const BoardsDrawerContent = memo(
 );
 
 export interface BoardsDrawerProps {
+  commentCount?: number;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSwitchToComments?: () => void;
   onSwitchToAi?: () => void;
-  commentCount?: number;
+  onSwitchToComments?: () => void;
 }
 
 export const BoardsDrawer = memo(

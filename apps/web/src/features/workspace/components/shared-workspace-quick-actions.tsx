@@ -7,15 +7,15 @@ import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
 interface SharedWorkspaceQuickActionsProps {
+  getButtonRect: () => DOMRect | null;
+  onClose: () => void;
+  onLeave: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
+  onPositionChange: (position: { x: number; y: number }) => void;
+  ownerImage?: string;
+  ownerName: string;
+  position: { x: number; y: number };
   workspaceId: string;
   workspaceName: string;
-  ownerName: string;
-  ownerImage?: string;
-  onLeave: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
-  onClose: () => void;
-  position: { x: number; y: number };
-  onPositionChange: (position: { x: number; y: number }) => void;
-  getButtonRect: () => DOMRect | null;
 }
 
 const DIALOG_WIDTH = 220;

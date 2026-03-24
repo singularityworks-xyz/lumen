@@ -19,15 +19,15 @@ import { cn } from "@/src/lib/utils";
 import { DiscussionTab } from "./discussion-tab";
 
 interface CommentBubbleProps {
-  comment: Comment;
-  isOwn: boolean;
   authorColor?: string;
-  authorName: string;
   authorImage?: string | null;
+  authorName: string;
+  comment: Comment;
   index: number;
-  replyCount?: number;
+  isOwn: boolean;
   isReply?: boolean;
   onClick?: () => void;
+  replyCount?: number;
 }
 
 const CommentBubble = memo(
@@ -169,9 +169,9 @@ const CommentBubble = memo(
 CommentBubble.displayName = "CommentBubble";
 
 interface FloatingIndicatorProps {
-  onClick: () => void;
   commentCount: number;
   isOpen: boolean;
+  onClick: () => void;
 }
 
 const FloatingIndicator = memo(
@@ -230,14 +230,14 @@ const FloatingIndicator = memo(
 type DrawerTab = "comments" | "discussion";
 
 interface CommentsDrawerContentProps {
-  comments: Comment[];
-  onClose: () => void;
-  localUserId?: string;
-  workspaceId: string;
-  onSwitchToBoards?: () => void;
-  onSwitchToAi?: () => void;
   boardCount?: number;
+  comments: Comment[];
+  localUserId?: string;
+  onClose: () => void;
   onCommentClick?: (comment: Comment) => void;
+  onSwitchToAi?: () => void;
+  onSwitchToBoards?: () => void;
+  workspaceId: string;
 }
 
 const CommentsDrawerContent = memo(
@@ -639,12 +639,12 @@ const CommentsDrawerContent = memo(
 );
 
 export interface CommentsDrawerProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSwitchToBoards?: () => void;
-  onSwitchToAi?: () => void;
   boardCount?: number;
+  isOpen: boolean;
   onCommentClick?: (comment: Comment) => void;
+  onOpenChange: (open: boolean) => void;
+  onSwitchToAi?: () => void;
+  onSwitchToBoards?: () => void;
 }
 
 export const CommentsDrawer = memo(

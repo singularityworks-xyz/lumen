@@ -1,17 +1,17 @@
 export interface SystemPromptContext {
-  userName?: string;
-  workspaceId?: string;
-  workspaceName?: string;
-  isShared?: boolean;
-  totalMembers?: number;
   collaborators?: Array<{
     name: string;
     role?: "owner" | "admin" | "member" | "viewer";
   }>;
+  currentBoardId?: string;
 
   currentBoardName?: string;
-  currentBoardId?: string;
+  isShared?: boolean;
   selectedTaskCount?: number;
+  totalMembers?: number;
+  userName?: string;
+  workspaceId?: string;
+  workspaceName?: string;
 }
 
 const CORE_IDENTITY = `You are **Larity**, an AI assistant created by **Singularity Works (SW)**.

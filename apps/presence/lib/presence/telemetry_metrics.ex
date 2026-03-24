@@ -1,9 +1,14 @@
 defmodule Presence.TelemetryMetrics do
   @moduledoc """
   TelemetryMetrics reporter for the presence service.
-  In development: Uses ConsoleReporter to print metrics to console for debugging.
+
+  The console reporter is disabled by default so local development logs stay
+  readable. Set `PRESENCE_TELEMETRY_CONSOLE_REPORTER=true` to opt in when you
+  want to inspect raw telemetry events locally.
+
   In production: No console output - telemetry events flow to OTel Collector
   via the standard telemetry pipeline (configured separately).
+
   This module provides the Telemetry.Metrics definitions that describe what
   metrics are available. The actual collection happens through telemetry events
   emitted throughout the codebase.
@@ -18,13 +23,11 @@ defmodule Presence.TelemetryMetrics do
   @impl true
   def init(_arg) do
     children =
-      if Application.get_env(:presence, :env) == :prod do
-        # In production, don't use ConsoleReporter - let telemetry events
-        # flow to OTel Collector naturally through the configured pipeline
-        []
-      else
-        # In dev/test, print metrics to console for debugging
+      if console_reporter_enabled?() do
+        # Opt-in reporter for local telemetry debugging.
         [{Telemetry.Metrics.ConsoleReporter, metrics: metrics(), level: :debug}]
+      else
+        []
       end
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -141,12 +144,17 @@ defmodule Presence.TelemetryMetrics do
   @doc """
   Attach telemetry handlers for metrics.
   In production, telemetry events flow to OTel Collector.
-  In development, they also print to console via ConsoleReporter.
+  When explicitly enabled in development, they also print to console via
+  ConsoleReporter.
   """
   def attach_handlers do
     # Telemetry events are already being emitted throughout the app.
-    # The ConsoleReporter (in dev) automatically receives these events.
+    # The ConsoleReporter (when enabled) automatically receives these events.
     # In production, an OTel Collector can be configured to receive them.
     :ok
+  end
+
+  defp console_reporter_enabled? do
+    Application.get_env(:presence, :telemetry_console_reporter, false)
   end
 end

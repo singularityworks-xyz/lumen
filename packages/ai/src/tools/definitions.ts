@@ -22,11 +22,11 @@ export type ToolCategory = "query" | "action";
 export type DestructiveLevel = "none" | "low" | "high";
 
 export interface ToolMetadata {
-  name: string;
   category: ToolCategory;
-  destructive: DestructiveLevel;
-  requiresConfirmation: boolean;
   description: string;
+  destructive: DestructiveLevel;
+  name: string;
+  requiresConfirmation: boolean;
 }
 
 // Tool descriptions as constants for type safety

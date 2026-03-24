@@ -1,111 +1,110 @@
 export type { BoardQuickActionsState, ChatMessage } from "@lumen/yjs-shared";
 
 export interface Profile {
-  id: string;
+  avatar_url?: string;
+  created_at: string;
   email: string;
   full_name: string;
-  avatar_url?: string;
+  id: string;
   role: "admin" | "employee";
-  created_at: string;
 }
 
 export interface Task {
-  id: string;
+  assigned_to?: string;
   board_id: string;
+  checklists?: Checklist[];
   column_id: string;
-  title: string;
+  created_at: string;
+  created_by: string;
   description?: string;
+  due_date?: string;
+  id: string;
+  position: number;
   priority: "low" | "medium" | "high";
   progress: number;
-  position: number;
-  due_date?: string;
-  created_by: string;
-  assigned_to?: string;
-  created_at: string;
-  updated_at: string;
-  tags?: string[];
-  checklists?: Checklist[];
   status: "todo" | "done" | "trash";
+  tags?: string[];
+  title: string;
+  updated_at: string;
 }
 
 export interface Checklist {
+  completed: boolean;
   id: string;
+  position: number;
   task_id: string;
   title: string;
-  completed: boolean;
-  position: number;
 }
 
 export interface Column {
-  id: string;
-  board_id: string;
-  name: string;
-  description?: string;
-  position: number;
-  task_ids: string[];
-  progressValue?: number;
   accentColor?: string;
+  board_id: string;
+  description?: string;
   icon?: string;
+  id: string;
+  name: string;
+  position: number;
+  progressValue?: number;
+  task_ids: string[];
 }
 
 export interface Comment {
-  id: string;
-  x: number;
-  y: number;
-  content: string;
   authorId: string;
-  authorName?: string;
   authorImage?: string;
-  workspaceId: string;
+  authorName?: string;
+  content: string;
   createdAt: string;
-  updatedAt: string;
+  id: string;
   lastEditedById?: string;
-  lastEditorName?: string;
   lastEditorImage?: string;
+  lastEditorName?: string;
   parentId?: string;
   replyCount?: number;
+  updatedAt: string;
+  workspaceId: string;
+  x: number;
+  y: number;
 }
 
 export interface Board {
+  accentColor?: string;
+  column_ids: string[];
+  created_at: string;
+  created_by: string;
+  description?: string;
+  icon?: string;
   id: string;
   name: string;
-  description?: string;
   workspace_id: string;
-  created_by: string;
-  created_at: string;
-  column_ids: string[];
-  accentColor?: string;
-  icon?: string;
 }
 
 export interface BoardConnection {
+  created_at: string;
   id: string;
-  source_board_id: string;
-  target_board_id: string;
   label?: string;
   lineStyle: "solid" | "dotted";
-  sourceHandle: "top" | "right" | "bottom" | "left";
-  targetHandle: "top" | "right" | "bottom" | "left";
   showArrow: boolean;
-  created_at: string;
+  source_board_id: string;
+  sourceHandle: "top" | "right" | "bottom" | "left";
+  target_board_id: string;
+  targetHandle: "top" | "right" | "bottom" | "left";
 }
 
 export interface WorkspaceDialogState {
-  taskDetailModals: Record<string, TaskDetailModalState>;
-  createTaskModals: Record<string, CreateTaskModalState>;
+  areaDialogs: Record<
+    string,
+    {
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  >;
+  boardDialogs: Record<string, BoardDialogState>;
   boardQuickActions: Record<
     string,
     { boardId: string; position: { x: number; y: number } }
-  >;
-  boardDialogs: Record<string, BoardDialogState>;
-  columnQuickActions: Record<
-    string,
-    {
-      columnId: string;
-      boardId: string;
-      showAddTask: boolean;
-      position: { x: number; y: number };
-    }
   >;
   columnDialogs: Record<
     string,
@@ -122,12 +121,12 @@ export interface WorkspaceDialogState {
       position: { x: number; y: number };
     }
   >;
-  taskQuickActions: Record<
+  columnQuickActions: Record<
     string,
     {
-      taskId: string;
-      boardId: string;
       columnId: string;
+      boardId: string;
+      showAddTask: boolean;
       position: { x: number; y: number };
     }
   >;
@@ -143,47 +142,48 @@ export interface WorkspaceDialogState {
     label?: string;
     searchQuery?: string;
   } | null;
-  areaDialogs: Record<
-    string,
-    {
-      id: string;
-      areaId: string;
-      areaName: string;
-      position: { x: number; y: number };
-      inputValue?: string;
-    }
-  >;
+  createTaskModals: Record<string, CreateTaskModalState>;
   dialogFocusStack: string[];
-  selectedTaskIds: string[];
   selectedBoardId: string | null;
   selectedBoardIds: string[];
+  selectedTaskIds: string[];
+  taskDetailModals: Record<string, TaskDetailModalState>;
+  taskQuickActions: Record<
+    string,
+    {
+      taskId: string;
+      boardId: string;
+      columnId: string;
+      position: { x: number; y: number };
+    }
+  >;
 }
 
 export interface Workspace {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
+  aiEnabled?: boolean;
   board_ids: string[];
+  colorUsage?: Record<string, number>;
+  created_at: string;
+  customColors?: string[];
+  description?: string;
+  iconUsage?: Record<string, number>;
+  id: string;
+  isDeleted?: boolean;
+  isShared?: boolean;
   lastFocusedBoardId?: string | null;
   lastViewport?: ViewportState | null;
-  showMiniMap?: boolean;
-  customColors?: string[];
-  colorUsage?: Record<string, number>;
-  iconUsage?: Record<string, number>;
-  isShared?: boolean;
-  isDeleted?: boolean;
+  name: string;
   ownerId?: string;
-  ownerName?: string;
   ownerImage?: string;
-  shareToken?: string;
+  ownerName?: string;
   savedDialogState?: WorkspaceDialogState;
-  aiEnabled?: boolean;
+  shareToken?: string;
+  showMiniMap?: boolean;
 }
 
 export interface EntityMap<T> {
-  byId: Record<string, T>;
   allIds: string[];
+  byId: Record<string, T>;
 }
 
 export interface ViewportState {
@@ -193,57 +193,58 @@ export interface ViewportState {
 }
 
 export interface CanvasState {
-  viewport: ViewportState;
   focusedBoardId: string | null;
   lastInteractionTime: number;
+  viewport: ViewportState;
 }
 
 export interface BoardPosition {
+  height?: number;
   id: string;
+  lastUserHeight?: number;
+  lastUserWidth?: number;
+  userResized?: boolean;
+  width?: number;
   x: number;
   y: number;
-  width?: number;
-  height?: number;
   zIndex: number;
-  userResized?: boolean;
-  lastUserWidth?: number;
-  lastUserHeight?: number;
 }
 
 export interface Area {
+  board_ids: string[];
+  color: string;
+  created_at: string;
+  icon?: string;
   id: string;
   name: string;
   workspace_id: string;
-  color: string;
-  icon?: string;
-  board_ids: string[];
-  created_at: string;
 }
 
 export interface AreaPosition {
+  height: number;
   id: string;
+  width: number;
   x: number;
   y: number;
-  width: number;
-  height: number;
   zIndex: number;
 }
 
 export type InteractionMode = "drag" | "select";
 
 export interface CreateTaskModalFormData {
-  title: string;
   description: string;
+  dueDate: string;
   priority: Task["priority"];
   progress: number;
-  dueDate: string;
   tags: string;
+  title: string;
 }
 
 export interface CreateTaskModalState {
-  id: string;
   boardId: string;
   columnId: string;
+  formData: CreateTaskModalFormData;
+  id: string;
   position: { x: number; y: number };
   sourcePosition?: { x: number; y: number };
   sourceRect?: {
@@ -255,44 +256,43 @@ export interface CreateTaskModalState {
     height: number;
   };
   sourceType?: "board-menu" | "board-header" | "column-menu" | "column-header";
-  formData: CreateTaskModalFormData;
   zIndex: number;
 }
 
 export interface EditBoardModalFormData {
-  name: string;
   description: string;
+  name: string;
 }
 
 export interface EditBoardModalState {
-  id: string;
   boardId: string;
+  formData: EditBoardModalFormData;
+  id: string;
   position: { x: number; y: number };
   sourcePosition?: { x: number; y: number };
-  formData: EditBoardModalFormData;
   zIndex: number;
 }
 
 export interface TaskDetailModalState {
-  id: string;
-  taskId: string;
   boardId: string;
-  position: { x: number; y: number };
-  zIndex: number;
-  sourceTaskId: string;
+  draftChecklists?: Checklist[];
+  draftColumnId?: string;
+  draftDescription?: string;
+  draftDueDate?: string;
+  draftLastUpdatedAt?: number;
+  draftLastUpdatedBy?: string;
+  draftPriority?: "low" | "medium" | "high";
+  draftProgress?: number;
+  draftTags?: string;
+  draftTitle?: string;
+  id: string;
   initialIsEditing?: boolean;
   isEditing?: boolean;
   openedFromQuickActions?: boolean;
-  draftTitle?: string;
-  draftDescription?: string;
-  draftPriority?: "low" | "medium" | "high";
-  draftProgress?: number;
-  draftDueDate?: string;
-  draftTags?: string;
-  draftColumnId?: string;
-  draftChecklists?: Checklist[];
-  draftLastUpdatedBy?: string;
-  draftLastUpdatedAt?: number;
+  position: { x: number; y: number };
+  sourceTaskId: string;
+  taskId: string;
+  zIndex: number;
 }
 
 export type BoardDialogType =
@@ -303,26 +303,26 @@ export type BoardDialogType =
   | "color-icon-picker";
 
 export interface BoardDialogState {
-  id: string;
-  type: BoardDialogType;
+  activeTab?: "progress" | "style";
+  boardDescription?: string;
   boardId: string;
   boardName: string;
-  boardDescription?: string;
-  position: { x: number; y: number };
-  zIndex: number;
-  inputValue?: string;
-  descriptionValue?: string;
-  newName?: string;
-  copyConnections?: boolean;
   columnCount?: number;
-  taskCount?: number;
-  connectionCount?: number;
-  columnProgressValues?: Record<string, number>;
   columnId?: string;
-  targetType?: "board" | "column";
-  sourceDialogId?: string;
+  columnProgressValues?: Record<string, number>;
+  connectionCount?: number;
+  copyConnections?: boolean;
+  descriptionValue?: string;
   expandedColumnId?: string | null;
-  activeTab?: "progress" | "style";
+  id: string;
+  inputValue?: string;
+  newName?: string;
+  position: { x: number; y: number };
+  sourceDialogId?: string;
+  targetType?: "board" | "column";
+  taskCount?: number;
+  type: BoardDialogType;
+  zIndex: number;
 }
 
 export type ConnectionDialogState = {
@@ -331,61 +331,61 @@ export type ConnectionDialogState = {
 } | null;
 
 export interface UIState {
-  showCommandPalette: boolean;
-  showMiniMap: boolean;
   createTaskModals: Record<string, CreateTaskModalState>;
+  draggedTaskId: string | null;
   interactionMode: InteractionMode;
   selectedBoardId: string | null;
   selectedBoardIds: string[];
   selectedTaskIds: string[];
-  draggedTaskId: string | null;
+  showCommandPalette: boolean;
+  showMiniMap: boolean;
 }
 
 export interface PersistedState {
-  workspaces: EntityMap<Workspace>;
-  boards: EntityMap<Board>;
-  columns: EntityMap<Column>;
-  tasks: EntityMap<Task>;
-  comments: EntityMap<Comment>;
-  boardPositions: EntityMap<BoardPosition>;
   boardConnections: EntityMap<BoardConnection>;
-  currentWorkspaceId: string | null;
+  boardPositions: EntityMap<BoardPosition>;
+  boards: EntityMap<Board>;
   canvas: CanvasState;
+  columns: EntityMap<Column>;
+  comments: EntityMap<Comment>;
+  currentWorkspaceId: string | null;
+  tasks: EntityMap<Task>;
+  workspaces: EntityMap<Workspace>;
 }
 
 export interface BoardNode {
-  id: string;
-  type: "board";
-  position: { x: number; y: number };
   data: {
     boardId: string;
     isSelected: boolean;
     [key: string]: unknown;
   };
-  width?: number;
   height?: number;
+  id: string;
+  position: { x: number; y: number };
+  type: "board";
+  width?: number;
 }
 
 export interface DenormalizedBoard {
+  accentColor?: string;
+  columns: DenormalizedColumn[];
+  created_at: string;
+  created_by: string;
+  description?: string;
+  icon?: string;
   id: string;
   name: string;
-  description?: string;
   workspace_id: string;
-  created_by: string;
-  created_at: string;
-  columns: DenormalizedColumn[];
-  accentColor?: string;
-  icon?: string;
 }
 
 export interface DenormalizedColumn {
-  id: string;
-  board_id: string;
-  name: string;
-  description?: string;
-  position: number;
-  tasks: Task[];
-  progressValue?: number;
   accentColor?: string;
+  board_id: string;
+  description?: string;
   icon?: string;
+  id: string;
+  name: string;
+  position: number;
+  progressValue?: number;
+  tasks: Task[];
 }

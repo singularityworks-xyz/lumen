@@ -6,9 +6,9 @@ import { memo, useEffect, useState } from "react";
 import type { Theme } from "../features/kanban/hooks/use-theme";
 
 interface ThemeIndicatorProps {
-  theme: Theme;
-  show: boolean;
   onHide: () => void;
+  show: boolean;
+  theme: Theme;
 }
 
 export const ThemeIndicator = memo(

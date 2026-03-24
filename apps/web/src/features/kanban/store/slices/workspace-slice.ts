@@ -1,6 +1,6 @@
 import { createLogger } from "@lumen/logger";
 import { env } from "@/src/env";
-import { authClient } from "@/src/lib/auth-client";
+import { getCurrentUser } from "@/src/lib/auth-client";
 import type { Workspace } from "../../types";
 import {
   generateBoardId,
@@ -253,8 +253,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     );
 
     if (isSharedWorkspace) {
-      const sessionResult = await authClient.getSession();
-      const currentUserId = sessionResult.data?.user?.id ?? null;
+      const currentUserId = (await getCurrentUser())?.id ?? null;
 
       // For shared workspaces, only allow deletion if ownerId is present and matches.
       // Defaulting to `true` for legacy shared workspaces is risky.

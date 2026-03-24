@@ -5,13 +5,13 @@ import type { PresenceUser } from "./types";
 const logger = createLogger({ name: "presence:manager" });
 
 interface PresenceManagerOptions {
-  workspaceId: string;
-  userId: string;
-  token: string;
-  userName: string;
-  userAvatar?: string;
-  onPresenceUpdate: (users: PresenceUser[]) => void;
   onConnectionChange?: (isConnected: boolean) => void;
+  onPresenceUpdate: (users: PresenceUser[]) => void;
+  token: string;
+  userAvatar?: string;
+  userId: string;
+  userName: string;
+  workspaceId: string;
 }
 
 export class PresenceManager {

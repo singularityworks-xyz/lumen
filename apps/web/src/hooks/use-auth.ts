@@ -15,35 +15,35 @@ import { env } from "../env";
 const logger = createLogger({ name: "use-auth" });
 
 interface User {
-  id: string;
-  name: string;
+  createdAt: Date;
   email: string;
   emailVerified: boolean;
+  id: string;
   image?: string | null;
-  createdAt: Date;
+  name: string;
   updatedAt: Date;
 }
 
 interface Session {
-  id: string;
-  userId: string;
-  token: string;
-  expiresAt: Date;
-  ipAddress?: string | null;
-  userAgent?: string | null;
   createdAt: Date;
+  expiresAt: Date;
+  id: string;
+  ipAddress?: string | null;
+  token: string;
   updatedAt: Date;
+  userAgent?: string | null;
+  userId: string;
 }
 
 export interface UseAuthReturn {
-  user: User | null;
-  session: Session | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
   error: Error | null;
+  exchangeManualToken: (token: string) => Promise<boolean>;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  session: Session | null;
   signInWithGitHub: (callbackURL?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
-  exchangeManualToken: (token: string) => Promise<boolean>;
+  user: User | null;
 }
 
 function exchangeTokenForSession(token: string): Promise<boolean> {
@@ -187,9 +187,9 @@ export function useAuth(): UseAuthReturn {
 
         if (isNative) {
           const webUrl =
-            typeof window !== "undefined"
-              ? window.location.origin
-              : "http://localhost:3000";
+            typeof window === "undefined"
+              ? "http://localhost:3000"
+              : window.location.origin;
 
           // Build the URL to the OAuth launcher page
           // This page runs in the external browser and calls signIn.social there,

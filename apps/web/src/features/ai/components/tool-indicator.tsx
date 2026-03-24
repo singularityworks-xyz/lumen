@@ -5,9 +5,9 @@ import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 
 interface ToolIndicatorProps {
-  toolName: string;
-  status: "pending" | "success" | "error";
   className?: string;
+  status: "pending" | "success" | "error";
+  toolName: string;
 }
 
 export const ToolIndicator = memo(

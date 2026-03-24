@@ -21,55 +21,38 @@ import type {
 } from "../types";
 
 export interface ColumnUiState {
-  isBottomExpanded: boolean;
   bottomView: "finished" | "trash";
+  isBottomExpanded: boolean;
 }
 
 export interface KanbanState {
-  workspaces: EntityMap<Workspace>;
-  boards: EntityMap<Board>;
-  columns: EntityMap<Column>;
-  tasks: EntityMap<Task>;
-  comments: EntityMap<Comment>;
-  chatMessages: EntityMap<ChatMessage>;
-  boardPositions: EntityMap<BoardPosition>;
-  boardConnections: EntityMap<BoardConnection>;
-  areas: EntityMap<Area>;
-  areaPositions: EntityMap<AreaPosition>;
-  selectionBox: { x: number; y: number; width: number; height: number } | null;
-  currentWorkspaceId: string | null;
-  canvas: CanvasState;
-  showCommandPalette: boolean;
-  showMiniMap: boolean;
-  createTaskModals: Record<string, CreateTaskModalState>;
-  taskDetailModals: Record<string, TaskDetailModalState>;
-  interactionMode: InteractionMode;
-  selectedBoardId: string | null;
-  selectedBoardIds: string[];
-  workspaceShareUrls: Record<string, string>; // workspaceId -> shareUrl
-  selectedTaskIds: string[];
-  draggedTaskId: string | null;
-  shakingTaskDetailModalId: string | null;
-  workspaceQuickActions: {
-    workspaceId: string;
-    position: { x: number; y: number };
-  } | null;
-  workspaceDialog: {
-    type: "rename" | "reset" | "delete" | "duplicate";
-    workspaceId: string;
-    workspaceName: string;
-    position?: { x: number; y: number };
-    inputValue?: string;
-  } | null;
-  columnQuickActions: Record<
+  areaDialogs: Record<
     string,
     {
-      columnId: string;
+      id: string;
+      areaId: string;
+      areaName: string;
+      position: { x: number; y: number };
+      inputValue?: string;
+    }
+  >;
+  // Track drag origins for areas - used to offset contained boards during drag
+  areaDragOrigins: Record<string, { originX: number; originY: number }>;
+  areaPositions: EntityMap<AreaPosition>;
+  areas: EntityMap<Area>;
+  boardConnections: EntityMap<BoardConnection>;
+  boardDialogs: Record<string, BoardDialogState>;
+  boardPositions: EntityMap<BoardPosition>;
+  boardQuickActions: Record<
+    string,
+    {
       boardId: string;
-      showAddTask: boolean;
       position: { x: number; y: number };
     }
   >;
+  boards: EntityMap<Board>;
+  canvas: CanvasState;
+  chatMessages: EntityMap<ChatMessage>;
   columnDialogs: Record<
     string,
     {
@@ -85,14 +68,18 @@ export interface KanbanState {
       position: { x: number; y: number };
     }
   >;
-  boardQuickActions: Record<
+  columnQuickActions: Record<
     string,
     {
+      columnId: string;
       boardId: string;
+      showAddTask: boolean;
       position: { x: number; y: number };
     }
   >;
-  boardDialogs: Record<string, BoardDialogState>;
+  columns: EntityMap<Column>;
+  columnUi: Record<string, ColumnUiState>;
+  comments: EntityMap<Comment>;
   connectionDialog: {
     boardId: string;
     position: { x: number; y: number };
@@ -106,6 +93,24 @@ export interface KanbanState {
     label?: string;
     searchQuery?: string;
   } | null;
+  createTaskModals: Record<string, CreateTaskModalState>;
+  currentWorkspaceId: string | null;
+  deletedSharedWorkspaceId: string | null;
+  // Z-index management
+  dialogFocusStack: string[];
+  draggedTaskId: string | null;
+  interactionMode: InteractionMode;
+  isProfileModalOpen: boolean;
+  lastActiveDrawerTab: "comments" | "discussion";
+  lastTaskModalPositions: Record<string, { x: number; y: number }>;
+  selectedBoardId: string | null;
+  selectedBoardIds: string[];
+  selectedTaskIds: string[];
+  selectionBox: { x: number; y: number; width: number; height: number } | null;
+  shakingTaskDetailModalId: string | null;
+  showCommandPalette: boolean;
+  showMiniMap: boolean;
+  taskDetailModals: Record<string, TaskDetailModalState>;
   taskQuickActions: Record<
     string,
     {
@@ -115,102 +120,23 @@ export interface KanbanState {
       position: { x: number; y: number };
     }
   >;
-  // Z-index management
-  dialogFocusStack: string[];
-  columnUi: Record<string, ColumnUiState>;
-  areaDialogs: Record<
-    string,
-    {
-      id: string;
-      areaId: string;
-      areaName: string;
-      position: { x: number; y: number };
-      inputValue?: string;
-    }
-  >;
-  deletedSharedWorkspaceId: string | null;
-  isProfileModalOpen: boolean;
-  lastTaskModalPositions: Record<string, { x: number; y: number }>;
-  // Track drag origins for areas - used to offset contained boards during drag
-  areaDragOrigins: Record<string, { originX: number; originY: number }>;
-  lastActiveDrawerTab: "comments" | "discussion";
-}
-
-export interface KanbanActions {
-  // Workspace actions
-  setCurrentWorkspace: (workspaceId: string | null) => void;
-  addWorkspace: (name: string, description?: string) => string;
-  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) => void;
-  updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
-  deleteWorkspace: (workspaceId: string) => Promise<boolean>;
-  resetWorkspace: (
-    workspaceId: string,
-    options?: { clearBoardsAndColumns?: boolean }
-  ) => void;
-  duplicateWorkspace: (workspaceId: string, newName: string) => string | null;
-  // Enable AI for a local workspace (requires user consent)
-  enableWorkspaceAi: (workspaceId: string) => void;
-  // Disable AI for a workspace
-  disableWorkspaceAi: (workspaceId: string) => void;
-  openWorkspaceQuickActions: (
-    workspaceId: string,
-    position: { x: number; y: number }
-  ) => void;
-  closeWorkspaceQuickActions: () => void;
-  updateWorkspaceQuickActionsPosition: (position: {
-    x: number;
-    y: number;
-  }) => void;
-  openWorkspaceDialog: (options: {
+  tasks: EntityMap<Task>;
+  workspaceDialog: {
     type: "rename" | "reset" | "delete" | "duplicate";
     workspaceId: string;
     workspaceName: string;
     position?: { x: number; y: number };
     inputValue?: string;
-  }) => void;
-  closeWorkspaceDialog: () => void;
-  updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
-  updateWorkspaceDialogInputValue: (value: string) => void;
-  setWorkspaceShareUrl: (workspaceId: string, url: string) => void;
-  clearWorkspaceShareUrl: (workspaceId: string) => void;
-  markWorkspaceDeleted: (workspaceId: string) => void;
-  setDeletedSharedWorkspace: (workspaceId: string | null) => void;
-
-  // Profile modal actions
-  openProfileModal: () => void;
-  closeProfileModal: () => void;
-
-  // Column actions
-  openColumnQuickActions: (
-    columnId: string,
-    boardId: string,
-    showAddTask: boolean,
-    position: { x: number; y: number }
-  ) => void;
-  closeColumnQuickActions: (columnId: string) => void;
-  updateColumnQuickActionsPosition: (
-    columnId: string,
-    position: { x: number; y: number }
-  ) => void;
-  openColumnDialog: (options: {
-    type: "rename" | "delete" | "move";
-    columnId: string;
-    columnName: string;
-    columnDescription?: string;
-    boardId: string;
-    boardName: string;
-    inputValue?: string;
-    descriptionValue?: string;
+  } | null;
+  workspaceQuickActions: {
+    workspaceId: string;
     position: { x: number; y: number };
-  }) => string;
-  closeColumnDialog: (id: string) => void;
-  updateColumnDialogPosition: (
-    id: string,
-    position: { x: number; y: number }
-  ) => void;
-  updateColumnDialogInputValue: (id: string, value: string) => void;
-  updateColumnDialogDescriptionValue: (id: string, value: string) => void;
+  } | null;
+  workspaceShareUrls: Record<string, string>; // workspaceId -> shareUrl
+  workspaces: EntityMap<Workspace>;
+}
 
+export interface KanbanActions {
   // Area actions
   addArea: (
     name: string,
@@ -218,39 +144,6 @@ export interface KanbanActions {
     dimensions: { width: number; height: number },
     workspaceId?: string
   ) => string;
-  updateArea: (
-    areaId: string,
-    updates: Partial<Pick<Area, "name" | "color" | "icon">>
-  ) => void;
-  removeArea: (areaId: string) => void;
-  // Updates only the area position (optimized for drag - does NOT update contained boards)
-  updateAreaPosition: (
-    areaId: string,
-    position: { x: number; y: number }
-  ) => void;
-  // Called on drag end to sync contained board positions with the area
-  finalizeAreaDrag: (areaId: string) => void;
-  updateAreaDimensions: (
-    areaId: string,
-    dimensions: { width: number; height: number }
-  ) => void;
-  setSelectionBox: (
-    box: { x: number; y: number; width: number; height: number } | null
-  ) => void;
-  clearSelectionBox: () => void;
-  attachBoardToArea: (areaId: string, boardId: string) => void;
-  detachBoardFromArea: (areaId: string, boardId: string) => void;
-  openAreaDialog: (options: {
-    areaId: string;
-    areaName: string;
-    position: { x: number; y: number };
-  }) => string;
-  closeAreaDialog: (id: string) => void;
-  updateAreaDialogPosition: (
-    id: string,
-    position: { x: number; y: number }
-  ) => void;
-  updateAreaDialogInputValue: (id: string, value: string) => void;
 
   // Board actions
   addBoard: (
@@ -258,41 +151,125 @@ export interface KanbanActions {
     position?: { x: number; y: number },
     description?: string
   ) => string;
-  updateBoard: (
+
+  // Column actions
+  addColumn: (boardId: string, name: string, position?: number) => string;
+
+  // Comment actions
+  addComment: (
+    position: { x: number; y: number },
+    content: string,
+    author: { id: string; name?: string; image?: string }
+  ) => void;
+
+  // Connection actions
+  addConnection: (
+    sourceBoardId: string,
+    targetBoardId: string,
+    options?: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
+    }
+  ) => string | null;
+  addReply: (
+    parentId: string,
+    content: string,
+    author: { id: string; name?: string; image?: string }
+  ) => void;
+
+  // Task actions
+  addTask: (
+    columnId: string,
     boardId: string,
-    updates: Partial<
-      Pick<Board, "name" | "description" | "accentColor" | "icon">
+    title: string,
+    options?: Partial<
+      Pick<Task, "description" | "priority" | "progress" | "due_date" | "tags">
     >
-  ) => void;
-  removeBoard: (boardId: string) => void;
-  updateBoardPosition: (
-    boardId: string,
-    position: { x: number; y: number }
-  ) => void;
-  finalizeBoardDrag: (boardId: string) => void;
-  updateBoardDimensions: (
-    boardId: string,
-    dimensions: { width: number; height: number },
-    isUserResize?: boolean
-  ) => void;
+  ) => string;
+  addWorkspace: (name: string, description?: string) => string;
+  attachBoardToArea: (areaId: string, boardId: string) => void;
   bringBoardToFront: (boardId: string) => void;
-  getDenormalizedBoard: (
-    boardId: string
-  ) => import("../types").DenormalizedBoard | null;
+
+  // Z-index management
+  bringDialogToFront: (dialogId: string) => void;
+  bringModalToFront: (modalId: string) => void;
+  bringTaskDetailModalToFront: (modalId: string) => void;
+  bulkDeleteTasks: (taskIds: string[]) => void;
+  bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
+  clearBoardSelection: () => void;
+  clearSelectionBox: () => void;
+  clearTaskSelection: () => void;
+  clearWorkspaceShareUrl: (workspaceId: string) => void;
+  closeAreaDialog: (id: string) => void;
+  closeBoardDialog: (id: string) => void;
+  closeBoardQuickActions: (boardId: string) => void;
+  closeColumnDialog: (id: string) => void;
+  closeColumnQuickActions: (columnId: string) => void;
+  closeConnectionDialog: () => void;
+  closeCreateTaskModal: (modalId: string) => void;
+  closeProfileModal: () => void;
+  closeTaskDetailModal: (modalId: string) => void;
+  closeTaskQuickActions: (taskId: string) => void;
+  closeWorkspaceDialog: () => void;
+  closeWorkspaceQuickActions: () => void;
+  deleteChatMessage: (id: string) => void;
+  deleteColumn: (boardId: string, columnId: string) => void;
+  deleteTask: (taskId: string) => void;
+  deleteWorkspace: (workspaceId: string) => Promise<boolean>;
+  detachBoardFromArea: (areaId: string, boardId: string) => void;
+  // Disable AI for a workspace
+  disableWorkspaceAi: (workspaceId: string) => void;
   duplicateBoard: (
     boardId: string,
     newName: string,
     options?: { copyConnections?: boolean }
   ) => string | null;
-  openBoardQuickActions: (
-    boardId: string,
-    position: { x: number; y: number }
+  duplicateTask: (taskId: string) => string | null;
+  duplicateWorkspace: (workspaceId: string, newName: string) => string | null;
+  editChatMessage: (
+    id: string,
+    content: string,
+    mentions?: Array<{
+      userId: string;
+      userName: string;
+      startIndex: number;
+      endIndex: number;
+    }>
   ) => void;
-  closeBoardQuickActions: (boardId: string) => void;
-  updateBoardQuickActionsPosition: (
-    boardId: string,
-    position: { x: number; y: number }
+  // Enable AI for a local workspace (requires user consent)
+  enableWorkspaceAi: (workspaceId: string) => void;
+  // Called on drag end to sync contained board positions with the area
+  finalizeAreaDrag: (areaId: string) => void;
+  finalizeBoardDrag: (boardId: string) => void;
+  finalizeCommentsDrag: (commentIds: string[]) => void;
+  getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
+  getConnectionsByBoardId: (boardId: string) => BoardConnection[];
+  getDenormalizedBoard: (
+    boardId: string
+  ) => import("../types").DenormalizedBoard | null;
+  getDialogZIndex: (dialogId: string) => number;
+  getRepliesForComment: (parentId: string) => Comment[];
+  markWorkspaceDeleted: (workspaceId: string) => void;
+  moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
+  moveColumnToBoard: (
+    sourceBoardId: string,
+    columnId: string,
+    targetBoardId: string
   ) => void;
+  moveTask: (
+    taskId: string,
+    fromColumnId: string,
+    toColumnId: string,
+    targetBoardId: string
+  ) => void;
+  openAreaDialog: (options: {
+    areaId: string;
+    areaName: string;
+    position: { x: number; y: number };
+  }) => string;
   openBoardDialog: (options: {
     type: BoardDialogType;
     boardId: string;
@@ -311,129 +288,33 @@ export interface KanbanActions {
     targetType?: "board" | "column";
     sourceDialogId?: string;
   }) => string;
-  closeBoardDialog: (id: string) => void;
-  updateBoardDialogPosition: (
-    id: string,
+  openBoardQuickActions: (
+    boardId: string,
     position: { x: number; y: number }
   ) => void;
-  updateBoardDialogInputValue: (id: string, value: string) => void;
-  updateBoardDialogDescriptionValue: (id: string, value: string) => void;
-  updateBoardDialogNewName: (id: string, value: string) => void;
-  updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
-  updateBoardDialogColumnProgress: (
-    id: string,
+  openColumnDialog: (options: {
+    type: "rename" | "delete" | "move";
+    columnId: string;
+    columnName: string;
+    columnDescription?: string;
+    boardId: string;
+    boardName: string;
+    inputValue?: string;
+    descriptionValue?: string;
+    position: { x: number; y: number };
+  }) => string;
+
+  // Column actions
+  openColumnQuickActions: (
     columnId: string,
-    value: number
-  ) => void;
-  updateBoardDialogUIState: (
-    id: string,
-    state: {
-      expandedColumnId?: string | null;
-      activeTab?: "progress" | "style";
-    }
+    boardId: string,
+    showAddTask: boolean,
+    position: { x: number; y: number }
   ) => void;
   openConnectionDialog: (
     boardId: string,
     position: { x: number; y: number }
   ) => void;
-  closeConnectionDialog: () => void;
-  updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
-  updateConnectionDialogConfig: (config: {
-    selectedTargetId?: string | null;
-    editingConnectionId?: string | null;
-    sourceHandle?: "top" | "right" | "bottom" | "left";
-    targetHandle?: "top" | "right" | "bottom" | "left";
-    lineStyle?: "solid" | "dotted";
-    showArrow?: boolean;
-    label?: string;
-    searchQuery?: string;
-  }) => void;
-
-  // Task quick actions
-  openTaskQuickActions: (
-    taskId: string,
-    boardId: string,
-    columnId: string,
-    position: { x: number; y: number }
-  ) => void;
-  closeTaskQuickActions: (taskId: string) => void;
-  updateTaskQuickActionsPosition: (
-    taskId: string,
-    position: { x: number; y: number }
-  ) => void;
-
-  // Column actions
-  addColumn: (boardId: string, name: string, position?: number) => string;
-  updateColumn: (
-    columnId: string,
-    updates: Partial<
-      Pick<
-        Column,
-        | "name"
-        | "position"
-        | "description"
-        | "progressValue"
-        | "accentColor"
-        | "icon"
-      >
-    >
-  ) => void;
-  deleteColumn: (boardId: string, columnId: string) => void;
-  moveColumn: (boardId: string, columnId: string, newPosition: number) => void;
-  moveColumnToBoard: (
-    sourceBoardId: string,
-    columnId: string,
-    targetBoardId: string
-  ) => void;
-
-  // Task actions
-  addTask: (
-    columnId: string,
-    boardId: string,
-    title: string,
-    options?: Partial<
-      Pick<Task, "description" | "priority" | "progress" | "due_date" | "tags">
-    >
-  ) => string;
-  updateTask: (taskId: string, updates: Partial<Task>) => void;
-  deleteTask: (taskId: string) => void;
-  moveTask: (
-    taskId: string,
-    fromColumnId: string,
-    toColumnId: string,
-    targetBoardId: string
-  ) => void;
-  bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
-  bulkDeleteTasks: (taskIds: string[]) => void;
-  setDraggedTask: (taskId: string | null) => void;
-  duplicateTask: (taskId: string) => string | null;
-
-  // Connection actions
-  addConnection: (
-    sourceBoardId: string,
-    targetBoardId: string,
-    options?: {
-      label?: string;
-      lineStyle?: "solid" | "dotted";
-      sourceHandle?: "top" | "right" | "bottom" | "left";
-      targetHandle?: "top" | "right" | "bottom" | "left";
-      showArrow?: boolean;
-    }
-  ) => string | null;
-  removeConnection: (connectionId: string) => void;
-  updateConnection: (
-    connectionId: string,
-    updates: {
-      label?: string;
-      lineStyle?: "solid" | "dotted";
-      sourceHandle?: "top" | "right" | "bottom" | "left";
-      targetHandle?: "top" | "right" | "bottom" | "left";
-      showArrow?: boolean;
-    }
-  ) => void;
-  updateConnectionLabel: (connectionId: string, label?: string) => void;
-  toggleConnectionLineStyle: (connectionId: string) => void;
-  getConnectionsByBoardId: (boardId: string) => BoardConnection[];
 
   // Modal actions
   openCreateTaskModal: (options: {
@@ -448,16 +329,9 @@ export interface KanbanActions {
       | "column-menu"
       | "column-header";
   }) => { id: string; position: { x: number; y: number }; isExisting: boolean };
-  closeCreateTaskModal: (modalId: string) => void;
-  updateModalPosition: (
-    modalId: string,
-    position: { x: number; y: number }
-  ) => void;
-  updateModalFormData: (
-    modalId: string,
-    formData: Partial<CreateTaskModalFormData>
-  ) => void;
-  bringModalToFront: (modalId: string) => void;
+
+  // Profile modal actions
+  openProfileModal: () => void;
   openTaskDetailModal: (options: {
     taskId: string;
     boardId: string;
@@ -469,57 +343,157 @@ export interface KanbanActions {
     position: { x: number; y: number };
     isExisting: boolean;
   };
-  closeTaskDetailModal: (modalId: string) => void;
-  updateTaskDetailModalPosition: (
-    modalId: string,
+
+  // Task quick actions
+  openTaskQuickActions: (
+    taskId: string,
+    boardId: string,
+    columnId: string,
     position: { x: number; y: number }
   ) => void;
-  bringTaskDetailModalToFront: (modalId: string) => void;
-  triggerTaskDetailModalShake: (modalId: string) => void;
-  setTaskDetailModalEditing: (modalId: string, isEditing: boolean) => void;
-  updateTaskDetailModalDraft: (
-    modalId: string,
-    draftData: Partial<
-      Pick<
-        TaskDetailModalState,
-        | "draftTitle"
-        | "draftDescription"
-        | "draftPriority"
-        | "draftProgress"
-        | "draftDueDate"
-        | "draftTags"
-        | "draftColumnId"
-        | "draftChecklists"
-        | "draftLastUpdatedBy"
-        | "draftLastUpdatedAt"
-      >
-    >
+  openWorkspaceDialog: (options: {
+    type: "rename" | "reset" | "delete" | "duplicate";
+    workspaceId: string;
+    workspaceName: string;
+    position?: { x: number; y: number };
+    inputValue?: string;
+  }) => void;
+  openWorkspaceQuickActions: (
+    workspaceId: string,
+    position: { x: number; y: number }
   ) => void;
+  registerDialog: (dialogId: string) => void;
+  removeArea: (areaId: string) => void;
+  removeBoard: (boardId: string) => void;
+  removeComment: (id: string) => void;
+  removeConnection: (connectionId: string) => void;
+  resetWorkspace: (
+    workspaceId: string,
+    options?: { clearBoardsAndColumns?: boolean }
+  ) => void;
+
+  // Chat actions (workspace discussion)
+  sendChatMessage: (
+    content: string,
+    author: { id: string; name: string; image?: string },
+    options?: {
+      replyToId?: string;
+      replyToContent?: string;
+      replyToAuthorName?: string;
+      mentions?: Array<{
+        userId: string;
+        userName: string;
+        startIndex: number;
+        endIndex: number;
+      }>;
+    }
+  ) => void;
+  // Workspace actions
+  setCurrentWorkspace: (workspaceId: string | null) => void;
+  setDeletedSharedWorkspace: (workspaceId: string | null) => void;
+  setDraggedTask: (taskId: string | null) => void;
+  setFocusedBoard: (boardId: string | null) => void;
+  setInteractionMode: (mode: InteractionMode) => void;
+  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
+  setSelectedBoard: (boardId: string | null) => void;
+  setSelectionBox: (
+    box: { x: number; y: number; width: number; height: number } | null
+  ) => void;
+  setShowCommandPalette: (show: boolean) => void;
+  setShowMiniMap: (show: boolean) => void;
+  setTaskDetailModalEditing: (modalId: string, isEditing: boolean) => void;
 
   // UI actions
   setViewport: (viewport: ViewportState) => void;
-  setFocusedBoard: (boardId: string | null) => void;
-  setShowCommandPalette: (show: boolean) => void;
-  setShowMiniMap: (show: boolean) => void;
-  setInteractionMode: (mode: InteractionMode) => void;
-  setSelectedBoard: (boardId: string | null) => void;
+  setWorkspaceShareUrl: (workspaceId: string, url: string) => void;
+  syncWorkspace: (workspace: Partial<Workspace> & { id: string }) => void;
   toggleBoardSelection: (boardId: string) => void;
-  clearBoardSelection: () => void;
+  toggleConnectionLineStyle: (connectionId: string) => void;
   toggleTaskSelection: (taskId: string) => void;
-  clearTaskSelection: () => void;
+  triggerTaskDetailModalShake: (modalId: string) => void;
+  unregisterDialog: (dialogId: string) => void;
+  updateArea: (
+    areaId: string,
+    updates: Partial<Pick<Area, "name" | "color" | "icon">>
+  ) => void;
+  updateAreaDialogInputValue: (id: string, value: string) => void;
+  updateAreaDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateAreaDimensions: (
+    areaId: string,
+    dimensions: { width: number; height: number }
+  ) => void;
+  // Updates only the area position (optimized for drag - does NOT update contained boards)
+  updateAreaPosition: (
+    areaId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateBoard: (
+    boardId: string,
+    updates: Partial<
+      Pick<Board, "name" | "description" | "accentColor" | "icon">
+    >
+  ) => void;
+  updateBoardDialogColumnProgress: (
+    id: string,
+    columnId: string,
+    value: number
+  ) => void;
+  updateBoardDialogCopyConnections: (id: string, value: boolean) => void;
+  updateBoardDialogDescriptionValue: (id: string, value: string) => void;
+  updateBoardDialogInputValue: (id: string, value: string) => void;
+  updateBoardDialogNewName: (id: string, value: string) => void;
+  updateBoardDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateBoardDialogUIState: (
+    id: string,
+    state: {
+      expandedColumnId?: string | null;
+      activeTab?: "progress" | "style";
+    }
+  ) => void;
+  updateBoardDimensions: (
+    boardId: string,
+    dimensions: { width: number; height: number },
+    isUserResize?: boolean
+  ) => void;
+  updateBoardPosition: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateBoardQuickActionsPosition: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateColumn: (
+    columnId: string,
+    updates: Partial<
+      Pick<
+        Column,
+        | "name"
+        | "position"
+        | "description"
+        | "progressValue"
+        | "accentColor"
+        | "icon"
+      >
+    >
+  ) => void;
+  updateColumnDialogDescriptionValue: (id: string, value: string) => void;
+  updateColumnDialogInputValue: (id: string, value: string) => void;
+  updateColumnDialogPosition: (
+    id: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateColumnQuickActionsPosition: (
+    columnId: string,
+    position: { x: number; y: number }
+  ) => void;
   updateColumnUi: (columnId: string, updates: Partial<ColumnUiState>) => void;
-
-  // Comment actions
-  addComment: (
-    position: { x: number; y: number },
-    content: string,
-    author: { id: string; name?: string; image?: string }
-  ) => void;
-  addReply: (
-    parentId: string,
-    content: string,
-    author: { id: string; name?: string; image?: string }
-  ) => void;
   updateComment: (
     id: string,
     updates: Partial<
@@ -552,45 +526,70 @@ export interface KanbanActions {
       >;
     }[]
   ) => void;
-  removeComment: (id: string) => void;
-  finalizeCommentsDrag: (commentIds: string[]) => void;
-  getRepliesForComment: (parentId: string) => Comment[];
-
-  // Z-index management
-  bringDialogToFront: (dialogId: string) => void;
-  registerDialog: (dialogId: string) => void;
-  unregisterDialog: (dialogId: string) => void;
-  getDialogZIndex: (dialogId: string) => number;
-
-  // Chat actions (workspace discussion)
-  sendChatMessage: (
-    content: string,
-    author: { id: string; name: string; image?: string },
-    options?: {
-      replyToId?: string;
-      replyToContent?: string;
-      replyToAuthorName?: string;
-      mentions?: Array<{
-        userId: string;
-        userName: string;
-        startIndex: number;
-        endIndex: number;
-      }>;
+  updateConnection: (
+    connectionId: string,
+    updates: {
+      label?: string;
+      lineStyle?: "solid" | "dotted";
+      sourceHandle?: "top" | "right" | "bottom" | "left";
+      targetHandle?: "top" | "right" | "bottom" | "left";
+      showArrow?: boolean;
     }
   ) => void;
-  editChatMessage: (
-    id: string,
-    content: string,
-    mentions?: Array<{
-      userId: string;
-      userName: string;
-      startIndex: number;
-      endIndex: number;
-    }>
+  updateConnectionDialogConfig: (config: {
+    selectedTargetId?: string | null;
+    editingConnectionId?: string | null;
+    sourceHandle?: "top" | "right" | "bottom" | "left";
+    targetHandle?: "top" | "right" | "bottom" | "left";
+    lineStyle?: "solid" | "dotted";
+    showArrow?: boolean;
+    label?: string;
+    searchQuery?: string;
+  }) => void;
+  updateConnectionDialogPosition: (position: { x: number; y: number }) => void;
+  updateConnectionLabel: (connectionId: string, label?: string) => void;
+  updateModalFormData: (
+    modalId: string,
+    formData: Partial<CreateTaskModalFormData>
   ) => void;
-  deleteChatMessage: (id: string) => void;
-  getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
-  setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
+  updateModalPosition: (
+    modalId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
+  updateTaskDetailModalDraft: (
+    modalId: string,
+    draftData: Partial<
+      Pick<
+        TaskDetailModalState,
+        | "draftTitle"
+        | "draftDescription"
+        | "draftPriority"
+        | "draftProgress"
+        | "draftDueDate"
+        | "draftTags"
+        | "draftColumnId"
+        | "draftChecklists"
+        | "draftLastUpdatedBy"
+        | "draftLastUpdatedAt"
+      >
+    >
+  ) => void;
+  updateTaskDetailModalPosition: (
+    modalId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateTaskQuickActionsPosition: (
+    taskId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
+  updateWorkspaceDialogInputValue: (value: string) => void;
+  updateWorkspaceDialogPosition: (position: { x: number; y: number }) => void;
+  updateWorkspaceQuickActionsPosition: (position: {
+    x: number;
+    y: number;
+  }) => void;
 }
 
 export type KanbanStore = KanbanState & KanbanActions;

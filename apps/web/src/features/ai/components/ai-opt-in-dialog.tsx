@@ -8,11 +8,11 @@ import { useKanbanStore } from "../../kanban";
 import LarityOrb from "./animations/larity-orb";
 
 interface AiOptInDialogProps {
-  workspaceId: string;
-  workspaceName: string;
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  workspaceId: string;
+  workspaceName: string;
 }
 
 export const AiOptInDialog = memo(

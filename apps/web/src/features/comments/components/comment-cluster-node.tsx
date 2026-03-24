@@ -21,8 +21,8 @@ import { useCommentUIStore } from "../stores/comment-ui-store";
 import { CommentClusterDialog } from "./comment-cluster-dialog";
 
 export interface CommentClusterNodeData {
-  comments: Comment[];
   centroid: { x: number; y: number };
+  comments: Comment[];
   isSingle: boolean;
   [key: string]: unknown;
 }

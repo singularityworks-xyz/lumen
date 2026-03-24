@@ -13,17 +13,19 @@ const logger = createLogger({ name: "[client] ai/store" });
 const tracer = getTracer("lumen-ai");
 
 export interface WorkspaceAiState {
-  messages: AiMessage[];
-  title: string | null;
-  isStreaming: boolean;
   isClassifying: boolean;
+  isStreaming: boolean;
+  lastActiveAt: string;
+  messages: AiMessage[];
   streamingMessageId: string | null;
   streamVersion: number;
-  lastActiveAt: string;
+  title: string | null;
 }
 
 export interface AiState {
   conversations: Record<string, WorkspaceAiState>;
+
+  currentStreamId: string | null;
   isDrawerOpen: boolean;
   isOffline: boolean;
   pendingSyncQueue: Array<{
@@ -34,18 +36,17 @@ export interface AiState {
     createdAt: string;
     retryCount: number;
   }>;
-
-  currentStreamId: string | null;
 }
 
 export interface AiActions {
-  openDrawer: () => void;
-  closeDrawer: () => void;
-  toggleDrawer: () => void;
-  sendMessage: (
+  addAssistantMessage: (
     workspaceId: string,
     content: string,
-    context: ContextSnapshot
+    options?: {
+      toolCalls?: AiMessage["toolCalls"];
+      requiresConfirmation?: boolean;
+      pendingAction?: PendingAction;
+    }
   ) => string;
 
   appendStreamChunk: (
@@ -60,13 +61,10 @@ export interface AiActions {
     toolName: string,
     toolCallId: string
   ) => void;
+  cancelStream: () => void;
 
-  updateToolResult: (
-    workspaceId: string,
-    messageId: string,
-    toolCallId: string,
-    result: unknown
-  ) => void;
+  clearConversation: (workspaceId: string) => void;
+  closeDrawer: () => void;
 
   completeStream: (
     workspaceId: string,
@@ -74,27 +72,37 @@ export interface AiActions {
     finalMessage?: Partial<AiMessage>
   ) => void;
 
-  setStreamError: (
-    workspaceId: string,
-    messageId: string,
-    error: string
-  ) => void;
-
-  addAssistantMessage: (
-    workspaceId: string,
-    content: string,
-    options?: {
-      toolCalls?: AiMessage["toolCalls"];
-      requiresConfirmation?: boolean;
-      pendingAction?: PendingAction;
-    }
-  ) => string;
-
   confirmAction: (
     workspaceId: string,
     messageId: string,
     confirmed: boolean
   ) => void;
+  deleteMessage: (workspaceId: string, messageId: string) => void;
+  getConversation: (workspaceId: string) => WorkspaceAiState;
+  getMessages: (workspaceId: string) => AiMessage[];
+  loadServerConversation: (
+    workspaceId: string,
+    messages: AiMessage[],
+    title: string | null,
+    lastActiveAt?: string | null
+  ) => void;
+  openDrawer: () => void;
+  queueMessageForSync: (
+    workspaceId: string,
+    content: string,
+    context: ContextSnapshot
+  ) => void;
+  removeFromSyncQueue: (id: string) => void;
+
+  resolveAction: (workspaceId: string, messageId: string) => void;
+  sendMessage: (
+    workspaceId: string,
+    content: string,
+    context: ContextSnapshot
+  ) => string;
+  setClassifying: (workspaceId: string, isClassifying: boolean) => void;
+
+  setOffline: (offline: boolean) => void;
 
   setRequiresConfirmation: (
     workspaceId: string,
@@ -102,29 +110,21 @@ export interface AiActions {
     action: PendingAction
   ) => void;
 
-  resolveAction: (workspaceId: string, messageId: string) => void;
-
-  clearConversation: (workspaceId: string) => void;
-  deleteMessage: (workspaceId: string, messageId: string) => void;
+  setStreamError: (
+    workspaceId: string,
+    messageId: string,
+    error: string
+  ) => void;
+  setTitle: (workspaceId: string, title: string) => void;
 
   startStream: (workspaceId: string) => string;
-  cancelStream: () => void;
+  toggleDrawer: () => void;
 
-  setOffline: (offline: boolean) => void;
-  queueMessageForSync: (
+  updateToolResult: (
     workspaceId: string,
-    content: string,
-    context: ContextSnapshot
-  ) => void;
-  removeFromSyncQueue: (id: string) => void;
-  getConversation: (workspaceId: string) => WorkspaceAiState;
-  getMessages: (workspaceId: string) => AiMessage[];
-  setTitle: (workspaceId: string, title: string) => void;
-  setClassifying: (workspaceId: string, isClassifying: boolean) => void;
-  loadServerConversation: (
-    workspaceId: string,
-    messages: AiMessage[],
-    title: string | null
+    messageId: string,
+    toolCallId: string,
+    result: unknown
   ) => void;
 }
 
@@ -546,16 +546,17 @@ export const useAiStore = create<AiStore>()(
         });
       },
 
-      loadServerConversation: (workspaceId, messages, title) => {
+      loadServerConversation: (workspaceId, messages, title, lastActiveAt) => {
         set((state) => {
           if (!state.conversations[workspaceId]) {
             state.conversations[workspaceId] = createEmptyConversation();
           }
           const conv = state.conversations[workspaceId];
 
-          // Get latest timestamp from incoming messages
+          // Prefer server-provided lastActiveAt, fall back to last message timestamp
           const incomingLastActive =
-            messages.length > 0 ? messages.at(-1)?.createdAt : null;
+            lastActiveAt ??
+            (messages.length > 0 ? messages.at(-1)?.createdAt : null);
 
           // Get latest timestamp from existing conversation
           const existingLastActive =
@@ -594,7 +595,7 @@ export const useAiStore = create<AiStore>()(
           }
 
           // Ensure lastActiveAt is set to the latest timestamp
-          const latestTimestamp =
+          conv.lastActiveAt =
             incomingLastActive && existingLastActive
               ? incomingLastActive > existingLastActive
                 ? incomingLastActive
@@ -602,7 +603,6 @@ export const useAiStore = create<AiStore>()(
               : incomingLastActive ||
                 existingLastActive ||
                 new Date().toISOString();
-          conv.lastActiveAt = latestTimestamp;
         });
       },
     })),

@@ -146,4 +146,5 @@ const GripVerticalIcon = ({
 };
 
 GripVerticalIcon.displayName = "GripVerticalIcon";
+
 export { GripVerticalIcon };

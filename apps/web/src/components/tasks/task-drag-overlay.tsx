@@ -9,12 +9,12 @@ import { useCachedProfileImage } from "@/src/hooks/use-cached-profile-image";
 import { cn } from "@/src/lib/utils";
 
 interface TaskDragOverlayProps {
-  task: Task;
   collaborator: Collaborator & {
     image?: string | null;
   };
   cursorX?: number;
   cursorY?: number;
+  task: Task;
 }
 
 export const TaskDragOverlay = memo<TaskDragOverlayProps>(

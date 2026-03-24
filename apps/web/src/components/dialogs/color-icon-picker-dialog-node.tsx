@@ -22,8 +22,8 @@ import {
 import { cn } from "@/src/lib/utils";
 
 export interface ColorIconPickerDialogNodeData {
-  dialogId: string;
   columnId?: string;
+  dialogId: string;
   sourceDialogId: string;
   targetType?: "board" | "column";
   [key: string]: unknown;

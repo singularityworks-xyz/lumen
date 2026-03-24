@@ -12,19 +12,19 @@ import { Label } from "@/src/components/ui/label";
 import { cn } from "@/src/lib/utils";
 
 interface DuplicateWorkspaceDialogProps {
-  currentName: string;
-  onDuplicate: (newName: string) => void;
-  onClose: () => void;
-  getSourceButtonRect: () => DOMRect | null;
-
-  taskCount: number;
   boardCount: number;
   columnCount: number;
+  currentName: string;
+  getSourceButtonRect: () => DOMRect | null;
+  initialValue?: string;
+  onClose: () => void;
+  onDuplicate: (newName: string) => void;
+  onInputChange?: (value: string) => void;
+  onPositionChange?: (position: { x: number; y: number }) => void;
 
   position?: { x: number; y: number };
-  onPositionChange?: (position: { x: number; y: number }) => void;
-  initialValue?: string;
-  onInputChange?: (value: string) => void;
+
+  taskCount: number;
 }
 
 const DIALOG_WIDTH = 400;
@@ -213,15 +213,15 @@ export const DuplicateWorkspaceDialog = memo(
               <p className="mb-4 text-muted-foreground text-sm">
                 This will create a copy of the workspace including{" "}
                 <span className="font-medium text-foreground">
-                  {boardCount} board{boardCount !== 1 ? "s" : ""}
+                  {boardCount} board{boardCount === 1 ? "" : "s"}
                 </span>
                 ,{" "}
                 <span className="font-medium text-foreground">
-                  {columnCount} column{columnCount !== 1 ? "s" : ""}
+                  {columnCount} column{columnCount === 1 ? "" : "s"}
                 </span>
                 , and{" "}
                 <span className="font-medium text-foreground">
-                  {taskCount} task{taskCount !== 1 ? "s" : ""}
+                  {taskCount} task{taskCount === 1 ? "" : "s"}
                 </span>
                 .
               </p>

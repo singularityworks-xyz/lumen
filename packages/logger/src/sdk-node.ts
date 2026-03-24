@@ -33,15 +33,21 @@ let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let initialized = false;
 
+interface InitOtelOptions {
+  serviceVersion?: string;
+}
+
 export function initOtel(
   serviceName: string,
-  instrumentations: Instrumentation[] = []
+  instrumentations: Instrumentation[] = [],
+  options: InitOtelOptions = {}
 ): boolean {
   if (initialized) {
     return true;
   }
 
   const config = getOtelConfig(serviceName);
+  const { serviceVersion = "0.0.0" } = options;
 
   if (!config.enabled) {
     diag.info(
@@ -57,7 +63,7 @@ export function initOtel(
 
   const resource = resourceFromAttributes({
     "service.name": config.serviceName,
-    "service.version": "1.0.0",
+    "service.version": serviceVersion,
     "deployment.environment": config.environment,
     "host.name": process.env.HOSTNAME || process.env.HOST || "unknown",
   });

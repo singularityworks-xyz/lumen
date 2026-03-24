@@ -6,20 +6,20 @@ import { createPortal } from "react-dom";
 import { cn } from "@/src/lib/utils";
 
 export interface ContextMenuItem {
+  icon: LucideIcon;
   id: string;
   label: string;
-  icon: LucideIcon;
   onClick: () => void;
-  variant?: "default" | "destructive";
   showDividerAfter?: boolean;
+  variant?: "default" | "destructive";
 }
 
 interface BaseContextMenuProps {
-  x: number;
-  y: number;
   items: ContextMenuItem[];
   onClose: () => void;
   width?: string;
+  x: number;
+  y: number;
 }
 
 export const BaseContextMenu = memo(

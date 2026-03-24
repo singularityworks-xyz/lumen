@@ -11,22 +11,33 @@ import { useKanbanStore } from "../kanban/store";
 
 const logger = createLogger({ name: "collab:join-handler" });
 
+async function hashString(str: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+}
+
 export interface JoinSuccessData {
-  workspaceId: string;
-  role: string;
-  workspaceName?: string;
   owner?: {
     id: string;
     name: string | null;
     image: string | null;
     email: string;
   };
+  role: string;
+  workspaceId: string;
+  workspaceName?: string;
 }
 
 interface JoinHandlerProps {
-  shareToken: string | null;
-  onJoinSuccess?: (data: JoinSuccessData) => void;
   onJoinError?: (error: string) => void;
+  onJoinSuccess?: (data: JoinSuccessData) => void;
+  shareToken: string | null;
 }
 
 type JoinState = "idle" | "validating" | "joining" | "success" | "error";
@@ -61,7 +72,8 @@ export function useJoinWorkspace({
     setError(null);
 
     return withSpanAsync("share.validateToken", async (span) => {
-      span.setAttribute("share.token", `${shareToken.substring(0, 8)}...`);
+      const tokenHash = await hashString(shareToken);
+      span.setAttribute("share.token_fingerprint", tokenHash);
 
       try {
         const response = await fetch(`${apiUrl}/api/share/${shareToken}`);

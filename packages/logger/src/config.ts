@@ -3,9 +3,9 @@ import { env } from "./env";
 export interface OtelConfig {
   enabled: boolean;
   endpoint: string;
+  environment: string;
   headers: Record<string, string>;
   serviceName: string;
-  environment: string;
 }
 
 function isBrowser(): boolean {
@@ -23,8 +23,8 @@ function parseHeaders(headersStr: string | undefined): Record<string, string> {
   for (const part of parts) {
     const eqIndex = part.indexOf("=");
     if (eqIndex > 0) {
-      const key = part.substring(0, eqIndex).trim();
-      const value = part.substring(eqIndex + 1).trim();
+      const key = part.slice(0, eqIndex).trim();
+      const value = part.slice(eqIndex + 1).trim();
       headers[key] = decodeURIComponent(value);
     }
   }

@@ -6,17 +6,17 @@ import { PresenceManager } from "../presence-manager";
 import type { PresenceUser } from "../types";
 
 interface UsePresenceOptions {
-  workspaceId: string;
+  enabled?: boolean;
+  userAvatar?: string;
   userId: string;
   userName: string;
-  userAvatar?: string;
-  enabled?: boolean;
+  workspaceId: string;
 }
 
 interface UsePresenceReturn {
-  users: PresenceUser[];
-  isConnected: boolean;
   currentUser: PresenceUser | null;
+  isConnected: boolean;
+  users: PresenceUser[];
 }
 
 export function usePresence({

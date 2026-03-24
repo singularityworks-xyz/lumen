@@ -12,62 +12,62 @@ const logger = createLogger({ name: "[client] ai/api-client" });
 const API_BASE = env.NEXT_PUBLIC_API_URL;
 
 export interface ChatStreamCallbacks {
-  onMessageStart?: (messageId: string) => void;
-  onContentDelta?: (content: string) => void;
-  onToolCallStart?: (toolName: string, toolCallId: string) => void;
-  onToolCallResult?: (toolCallId: string, result: unknown) => void;
   onActionInstruction?: (
     toolCallId: string,
     instruction: unknown,
     message: string
   ) => void;
+  onClose?: () => void;
   onConfirmationRequired?: (messageId: string, action: unknown) => void;
+  onContentDelta?: (content: string) => void;
+  onError?: (error: string) => void;
   onMessageComplete?: (message: AiMessage) => void;
-  onTitleGenerated?: (title: string) => void;
+  onMessageStart?: (messageId: string) => void;
   onQueueStatus?: (status: {
     position: number;
     estimatedWaitMs: number;
     isQueued: boolean;
   }) => void;
-  onError?: (error: string) => void;
-  onClose?: () => void;
+  onTitleGenerated?: (title: string) => void;
+  onToolCallResult?: (toolCallId: string, result: unknown) => void;
+  onToolCallStart?: (toolName: string, toolCallId: string) => void;
 }
 
 export interface TaskSnapshot {
-  id: string;
-  title: string;
-  description?: string;
-  priority: "low" | "medium" | "high";
-  status: "todo" | "done" | "trash";
-  progress: number;
-  position: number;
-  dueDate?: string;
-  tags?: string[];
   assignedTo?: string;
+  description?: string;
+  dueDate?: string;
+  id: string;
+  position: number;
+  priority: "low" | "medium" | "high";
+  progress: number;
+  status: "todo" | "done" | "trash";
+  tags?: string[];
+  title: string;
 }
 
 export interface ColumnSnapshot {
+  accentColor?: string;
+  description?: string;
+  icon?: string;
   id: string;
   name: string;
-  description?: string;
   position: number;
-  accentColor?: string;
-  icon?: string;
   tasks: TaskSnapshot[];
 }
 
 export interface BoardSnapshot {
+  accentColor?: string;
+  columns: ColumnSnapshot[];
+  description?: string;
+  icon?: string;
   id: string;
   name: string;
-  description?: string;
-  accentColor?: string;
-  icon?: string;
-  columns: ColumnSnapshot[];
 }
 
 export interface WorkspaceSnapshot {
-  name: string;
   boards: BoardSnapshot[];
+  name: string;
 }
 
 export function buildWorkspaceSnapshot(
@@ -164,14 +164,14 @@ export function buildWorkspaceSnapshotIfNeeded(
 }
 
 export interface ChatRequest {
-  workspaceId: string;
-  message: string;
+  assistantMessageId?: string;
   context?: ContextSnapshot;
-  workspaceSnapshot?: WorkspaceSnapshot;
-  history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
-  assistantMessageId?: string;
+  history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
+  message: string;
+  workspaceId: string;
+  workspaceSnapshot?: WorkspaceSnapshot;
 }
 
 class FatalError extends Error {
@@ -349,13 +349,13 @@ export async function checkAiHealth(): Promise<{
 }
 
 export interface ConversationResponse {
+  createdAt: string;
   id: string;
-  workspaceId: string;
-  title: string | null;
+  lastActiveAt: string;
   messageCount: number;
   messages: AiMessage[];
-  lastActiveAt: string;
-  createdAt: string;
+  title: string | null;
+  workspaceId: string;
 }
 
 export async function fetchConversation(

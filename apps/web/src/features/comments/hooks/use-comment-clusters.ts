@@ -3,9 +3,9 @@ import { useKanbanStore } from "@/src/features/kanban/store";
 import type { Comment } from "@/src/features/kanban/types";
 
 export interface CommentCluster {
-  id: string;
-  comments: Comment[];
   centroid: { x: number; y: number };
+  comments: Comment[];
+  id: string;
   isSingle: boolean;
 }
 

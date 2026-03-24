@@ -1,11 +1,11 @@
 export type SuggestionCategory = "workspace" | "board" | "task" | "general";
 
 export interface ContextualSuggestion {
+  category: SuggestionCategory;
+  icon?: string;
   id: string;
   label: string;
   prompt: string;
-  category: SuggestionCategory;
-  icon?: string;
 }
 
 export const WORKSPACE_SUGGESTIONS: ContextualSuggestion[] = [

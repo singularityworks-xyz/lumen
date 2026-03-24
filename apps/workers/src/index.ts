@@ -11,7 +11,11 @@ import { collabRoutes } from "./collab";
 import { env } from "./env";
 import { otelMetrics } from "./middleware/otel-metrics";
 
-initOtel("lumen-workers", [new PrismaInstrumentation()]);
+const WORKERS_VERSION = "1.0.2";
+
+initOtel("lumen-workers", [new PrismaInstrumentation()], {
+  serviceVersion: WORKERS_VERSION,
+});
 const logger = createLogger({ name: "workers:main" });
 
 const origins =
@@ -43,7 +47,7 @@ const app = new Elysia()
     logger.debug("Root endpoint accessed");
     return {
       message: "Lumen Workers",
-      version: "1.0.0",
+      version: WORKERS_VERSION,
       status: "operational",
     };
   })

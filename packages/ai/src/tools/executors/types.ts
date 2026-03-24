@@ -1,20 +1,19 @@
 export interface ToolExecutionResult {
-  success: boolean;
   data?: unknown;
   error?: string;
-  requiresConfirmation?: boolean;
   instruction?: {
     type: string;
     [key: string]: unknown;
   };
   message?: string;
+  requiresConfirmation?: boolean;
+  success: boolean;
 }
 
 // Workspace snapshot sent from the client.
 // This is the only source of workspace data for query tools.
 // Action tools may use Yjs for mutations but should use snapshot for reads.
 export interface WorkspaceSnapshot {
-  name: string;
   boards: Array<{
     id: string;
     name: string;
@@ -48,20 +47,21 @@ export interface WorkspaceSnapshot {
       }>;
     }>;
   }>;
+  name: string;
 }
 
 // Context passed to all tool executors.
 // For local workspaces, only snapshot is used.
 // For shared workspaces, both snapshot (for reads) and Yjs (for writes) may be available.
 export interface ExecutorContext {
-  workspaceId: string;
-  userId: string;
-  // Workspace data from client - privacy-preserving, always available
-  snapshot?: WorkspaceSnapshot;
   // If true, action tools should return instructions instead of executing.
   // Used for local workspaces where the server cannot access Yjs.
   // The client will execute these instructions locally.
   ephemeral?: boolean;
+  // Workspace data from client - privacy-preserving, always available
+  snapshot?: WorkspaceSnapshot;
+  userId: string;
+  workspaceId: string;
 }
 
 // Get workspace data from the snapshot.
