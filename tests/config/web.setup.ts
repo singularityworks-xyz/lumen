@@ -6,9 +6,23 @@ import "@testing-library/jest-dom";
 
 GlobalRegistrator.register();
 
-const originalIndexedDB = globalThis.indexedDB;
+const TEST_ENV: Record<string, string> = {
+  NODE_ENV: "development",
+  OTEL_ENABLED: "false",
+};
+
+const originalEnv: Record<string, string | undefined> = {};
+
+for (const [key, value] of Object.entries(TEST_ENV)) {
+  originalEnv[key] = process.env[key];
+  process.env[key] = value;
+}
 
 beforeEach(() => {
+  for (const [key, value] of Object.entries(TEST_ENV)) {
+    process.env[key] = value;
+  }
+
   globalThis.ResizeObserver = class ResizeObserver {
     observe() {
       // no-op
@@ -69,5 +83,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  globalThis.indexedDB = originalIndexedDB;
+  for (const [key, originalValue] of Object.entries(originalEnv)) {
+    if (originalValue === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = originalValue;
+    }
+  }
 });

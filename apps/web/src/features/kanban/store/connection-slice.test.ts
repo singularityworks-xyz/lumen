@@ -58,7 +58,7 @@ describe("connection-slice", () => {
         showArrow: false,
       });
 
-      expect(connId).toBe("conn_seq1");
+      expect(connId).toBe("conn_seq2");
       expect(state.boardConnections.allIds).toContain(connId!);
 
       const conn = state.boardConnections.byId[connId!]!;

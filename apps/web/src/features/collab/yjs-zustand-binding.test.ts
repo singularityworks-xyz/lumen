@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-// biome-ignore lint/performance/noNamespaceImport: Yjs types needed for Y.Doc, Y.Map
 import * as Y from "yjs";
 
 describe("yjs-zustand-binding", () => {

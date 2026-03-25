@@ -18,9 +18,13 @@ const TEST_ENV: Record<string, string> = {
 
 const originalEnv: Record<string, string | undefined> = {};
 
+for (const [key, value] of Object.entries(TEST_ENV)) {
+  originalEnv[key] = process.env[key];
+  process.env[key] = value;
+}
+
 beforeEach(() => {
   for (const [key, value] of Object.entries(TEST_ENV)) {
-    originalEnv[key] = process.env[key];
     process.env[key] = value;
   }
 });
