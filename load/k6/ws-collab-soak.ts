@@ -1,10 +1,7 @@
-import { check, sleep } from "k6";
+import { sleep } from "k6";
 import { Counter, Gauge } from "k6/metrics";
 import {
   connectCollabSession,
-  sendSyncUpdate,
-  sendAwarenessUpdate,
-  disconnectSession,
 } from "./lib/collab-session";
 
 const activeConnections = new Gauge("soak_active_connections");
@@ -65,17 +62,14 @@ export default function () {
 
   const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
 
-  const sessionStart = Date.now();
-
-  const established = check(session, {
-    "soak session established": (s) => s && s.socket !== null,
-  });
-
-  if (established) {
-    connectionCounter.add(1);
-    activeConnections.add(1);
+  if (!session.established) {
+    return;
   }
 
+  connectionCounter.add(1);
+  activeConnections.add(1);
+
+  const sessionStart = Date.now();
   let updateCounter = 0;
 
   const iterations = Math.floor(
@@ -85,10 +79,10 @@ export default function () {
   for (let i = 0; i < iterations; i++) {
     updateCounter++;
 
-    sendSyncUpdate(session, generateSyncData(updateCounter));
+    session.sendSyncUpdate(generateSyncData(updateCounter));
 
     if (updateCounter % 3 === 0) {
-      sendAwarenessUpdate(session, generateAwarenessData(vuId));
+      session.sendAwarenessUpdate(generateAwarenessData(vuId));
     }
 
     const elapsed = Date.now() - sessionStart;
@@ -97,7 +91,7 @@ export default function () {
     sleep(5);
   }
 
-  disconnectSession(session);
+  session.disconnect();
   connectionCounter.add(-1);
   activeConnections.add(0);
 }

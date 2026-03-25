@@ -162,7 +162,7 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime("2025-06-15T11:59:00Z")).toBe("1m ago");
   });
 
-  it("handles exact boundary at 1 minute as '1m ago'", () => {
+  it("handles 61 seconds as '1m ago' (floors to 1 minute)", () => {
     freezeTime("2025-06-15T12:00:00Z");
     const { formatRelativeTime } = require("./date");
     expect(formatRelativeTime("2025-06-15T11:58:59Z")).toBe("1m ago");

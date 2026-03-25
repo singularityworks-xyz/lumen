@@ -19,8 +19,15 @@ declare module "k6/ws" {
     close(): void;
     setInterval(callback: () => void, interval: number): void;
     setTimeout(callback: () => void, delay: number): void;
-    addEventListener(event: string, callback: () => void): void;
     on(event: string, callback: () => void): void;
+  }
+
+  export interface Response {
+    status: number;
+    body: string;
+    error?: string;
+    error_code?: number;
+    headers: Record<string, string>;
   }
 
   export interface WsOptions {
@@ -32,7 +39,7 @@ declare module "k6/ws" {
     url: string,
     options: WsOptions,
     callback: (socket: Socket) => void
-  ): Socket;
+  ): Response;
 }
 
 declare module "k6/metrics" {

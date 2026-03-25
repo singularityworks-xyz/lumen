@@ -1,8 +1,6 @@
 import { check, sleep } from "k6";
 import {
   connectCollabSession,
-  sendSyncUpdate,
-  disconnectSession,
 } from "./lib/collab-session";
 
 export const options = {
@@ -50,15 +48,19 @@ export default function () {
 
   const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
 
-  check(session, {
-    "spike session established": (s) => s && s.socket !== null,
+  if (!session.established) {
+    return;
+  }
+
+  check(session.established, {
+    "spike session established": (s) => s === true,
   });
 
   for (let i = 0; i < 5; i++) {
-    sendSyncUpdate(session, generateSyncData(i));
+    session.sendSyncUpdate(generateSyncData(i));
     sleep(0.1);
   }
 
-  disconnectSession(session);
+  session.disconnect();
   sleep(0.5);
 }

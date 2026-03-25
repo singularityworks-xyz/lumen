@@ -621,7 +621,12 @@ function main() {
     lockfileExists &&
     (state.root || Object.keys(state.workspaces).length > 0)
   ) {
-    updateBunLockfile();
+    const lockUpdated = updateBunLockfile();
+    if (!lockUpdated) {
+      throw new Error(
+        "Failed to update bun.lock; aborting to avoid staging an out-of-sync lockfile."
+      );
+    }
     stageFiles([lockfilePath]);
   }
 
