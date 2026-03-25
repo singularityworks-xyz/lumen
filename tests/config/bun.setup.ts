@@ -8,7 +8,7 @@ let timestampCounter = 0;
 beforeEach(() => {
   timestampCounter = 0;
 
-  Date.now = mock(() => FIXED_TIMESTAMP + timestampCounter++);
+  Date.now = mock(() => FIXED_TIMESTAMP + timestampCounter);
 
   let uuidCounter = 0;
   crypto.randomUUID = mock(
@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 export function freezeTime(timestamp: number = FIXED_TIMESTAMP) {
-  Date.now = mock(() => timestamp);
+  timestampCounter = timestamp - FIXED_TIMESTAMP;
 }
 
 export function advanceTime(ms: number) {

@@ -1,5 +1,5 @@
 import { check, sleep } from "k6";
-import { Gauge } from "k6/metrics";
+import { Counter, Gauge } from "k6/metrics";
 import {
   connectCollabSession,
   sendSyncUpdate,
@@ -9,6 +9,7 @@ import {
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");
+const connectionCounter = new Counter("soak_connection_count");
 
 const soakDurationMinutes = __ENV.SOAK_DURATION_MINUTES || "30";
 const soakDuration = `${soakDurationMinutes}m`;
@@ -26,8 +27,6 @@ export const options = {
     ws_connect_duration: ["p(95)<1000"],
   },
 };
-
-let connectionCounter = 0;
 
 function generateWorkspaceId(vuId) {
   return `ws-soak-${vuId}`;
@@ -70,8 +69,8 @@ export default function () {
   });
 
   if (established) {
-    connectionCounter++;
-    activeConnections.add(connectionCounter);
+    connectionCounter.add(1);
+    activeConnections.add(1);
   }
 
   let updateCounter = 0;
@@ -96,6 +95,6 @@ export default function () {
   }
 
   disconnectSession(session);
-  connectionCounter--;
-  activeConnections.add(connectionCounter);
+  connectionCounter.add(-1);
+  activeConnections.add(0);
 }

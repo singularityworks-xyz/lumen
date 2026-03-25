@@ -34,15 +34,13 @@ mock.module("@opentelemetry/api", () => ({
 import { createChildLogger, createLogger } from "../../src/logger";
 
 describe("Logger", () => {
-  let consoleLogMock: ReturnType<typeof mock>;
+  let consoleLogMock: ReturnType<typeof mock<Console["log"]>>;
   const originalConsoleLog = globalThis.console.log;
 
   beforeEach(() => {
     emitMock.mockClear();
-    consoleLogMock = mock(() => {
-      // no-op
-    });
-    globalThis.console.log = consoleLogMock as any;
+    consoleLogMock = mock<Console["log"]>(() => undefined);
+    globalThis.console.log = consoleLogMock;
   });
 
   afterEach(() => {

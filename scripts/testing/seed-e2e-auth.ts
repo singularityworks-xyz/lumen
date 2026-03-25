@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { dirname } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 
 interface SeedResult {
   cookieValue: string;

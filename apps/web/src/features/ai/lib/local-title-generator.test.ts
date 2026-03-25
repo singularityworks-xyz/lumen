@@ -89,22 +89,22 @@ describe("local-title-generator", () => {
   describe("action patterns", () => {
     it("applies create action prefix", () => {
       const result = generateLocalTitle("create a new dashboard");
-      expect(result).toStartWith("Creating");
+      expect(result.startsWith("Creating")).toBe(true);
     });
 
     it("applies delete action prefix", () => {
       const result = generateLocalTitle("delete old files");
-      expect(result).toStartWith("Deleting");
+      expect(result.startsWith("Deleting")).toBe(true);
     });
 
     it("applies update action prefix", () => {
       const result = generateLocalTitle("update the settings");
-      expect(result).toStartWith("Updating");
+      expect(result.startsWith("Updating")).toBe(true);
     });
 
     it("applies organize action prefix", () => {
       const result = generateLocalTitle("organize my tasks");
-      expect(result).toStartWith("Organizing");
+      expect(result.startsWith("Organizing")).toBe(true);
     });
   });
 
@@ -123,13 +123,3 @@ describe("local-title-generator", () => {
     });
   });
 });
-
-declare global {
-  interface String {
-    toStartWith(prefix: string): boolean;
-  }
-}
-
-String.prototype.toStartWith = function (prefix: string): boolean {
-  return this.startsWith(prefix);
-};

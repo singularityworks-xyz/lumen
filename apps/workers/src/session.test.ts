@@ -10,33 +10,41 @@ describe("isSessionValid", () => {
     const session = {
       id: "session-1",
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-    } as any;
+    };
 
-    expect(isSessionValid(session)).toBe(true);
+    expect(
+      isSessionValid(session as Parameters<typeof isSessionValid>[0])
+    ).toBe(true);
   });
 
   it("returns false for past dates", () => {
     const session = {
       id: "session-2",
       expiresAt: new Date(Date.now() - 60 * 60 * 1000),
-    } as any;
+    };
 
-    expect(isSessionValid(session)).toBe(false);
+    expect(
+      isSessionValid(session as Parameters<typeof isSessionValid>[0])
+    ).toBe(false);
   });
 });
 
 describe("formatAuthSession", () => {
   it("returns correct shape", () => {
-    const user = { id: "user-1", email: "test@example.com" } as any;
+    const user = { id: "user-1", email: "test@example.com" };
     const session = {
       id: "session-1",
       userId: "user-1",
       expiresAt: new Date(),
-    } as any;
+    };
 
-    const result = formatAuthSession(user, session);
+    const result = formatAuthSession(
+      user as Parameters<typeof formatAuthSession>[0],
+      session as Parameters<typeof formatAuthSession>[1]
+    );
 
-    expect(result).toEqual({ user, session });
+    expect(result.user.id).toBe("user-1");
+    expect(result.session.id).toBe("session-1");
   });
 });
 

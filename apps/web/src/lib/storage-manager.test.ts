@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mockDel = mock(() => Promise.resolve()) as any;
-const mockGet = mock(() => Promise.resolve(null)) as any;
-const mockKeys = mock(() => Promise.resolve([])) as any;
-const mockSet = mock(() => Promise.resolve()) as any;
+type DelFn = (key: string) => Promise<void>;
+type GetFn = (key: string) => Promise<unknown>;
+type KeysFn = () => Promise<string[]>;
+type SetFn = (key: string, value: unknown) => Promise<void>;
+
+const mockDel = mock<DelFn>(() => Promise.resolve());
+const mockGet = mock<GetFn>(() => Promise.resolve(null));
+const mockKeys = mock<KeysFn>(() => Promise.resolve([]));
+const mockSet = mock<SetFn>(() => Promise.resolve());
 
 mock.module("idb-keyval", () => ({
   del: mockDel,

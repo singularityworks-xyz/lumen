@@ -205,7 +205,9 @@ describe("detachBoardFromArea", () => {
   });
 
   it("does nothing when area does not exist", () => {
+    const prevAreas = { ...state.areas };
     actions.detachBoardFromArea("nonexistent", "board-1");
+    expect(state.areas).toEqual(prevAreas);
   });
 });
 

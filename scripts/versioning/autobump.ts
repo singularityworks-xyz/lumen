@@ -60,7 +60,7 @@ const WORKSPACE_FILE_OVERRIDES: Record<string, string[]> = {
   ],
   "apps/presence": ["package.json", "mix.exs", "config/prod.exs"],
   "apps/web": ["package.json", "src/instrumentation.ts"],
-  "apps/workers": ["package.json", "src/index.ts"],
+  "apps/workers": ["package.json", "src/version.ts"],
 };
 const CARGO_PACKAGE_VERSION_PATTERN = /^version\s*=\s*"([^"]+)"/;
 const NEWLINE_PATTERN = /\r?\n/;
@@ -283,7 +283,7 @@ function getFileStrategy(file: string): VersionStrategy {
     return webRuntimeVersionStrategy;
   }
 
-  if (file === "apps/workers/src/index.ts") {
+  if (file === "apps/workers/src/version.ts") {
     return workersRuntimeVersionStrategy;
   }
 

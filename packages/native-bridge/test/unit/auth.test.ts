@@ -1,14 +1,26 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
+interface MockWindow {
+  __TAURI_INTERNALS__?: object | undefined;
+  open?: () => void;
+}
+
 const originalWindow = globalThis.window;
 
+function setMockWindow(win: MockWindow | undefined) {
+  Object.defineProperty(globalThis, "window", {
+    writable: true,
+    configurable: true,
+    value: win,
+  });
+}
+
 function setWebContext() {
-  (globalThis as any).window = {};
-  (globalThis.window as any).__TAURI_INTERNALS__ = undefined;
+  setMockWindow({});
 }
 
 function setTauriContext() {
-  (globalThis as any).window = { __TAURI_INTERNALS__: {} };
+  setMockWindow({ __TAURI_INTERNALS__: {} });
 }
 
 function callbackFn() {
@@ -17,7 +29,7 @@ function callbackFn() {
 
 afterEach(() => {
   if (originalWindow === undefined) {
-    (globalThis as any).window = undefined;
+    setMockWindow(undefined);
   } else {
     globalThis.window = originalWindow;
   }
@@ -34,7 +46,7 @@ describe("auth", () => {
     });
 
     it("throws synchronously in SSR context", async () => {
-      (globalThis as any).window = undefined;
+      setMockWindow(undefined);
       const { initiateOAuthFlow } = await import("../../auth");
       expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
         "Native OAuth flow is only available in Tauri"
@@ -109,7 +121,7 @@ describe("auth", () => {
   describe("openExternalBrowser", () => {
     it("calls window.open in web context", async () => {
       const openMock = mock(callbackFn);
-      (globalThis as any).window = { open: openMock };
+      setMockWindow({ open: openMock });
       const { openExternalBrowser } = await import("../../auth");
       await openExternalBrowser("https://example.com");
       expect(openMock).toHaveBeenCalledWith("https://example.com", "_blank");
@@ -125,7 +137,7 @@ describe("auth", () => {
       await expect(flow1).rejects.toThrow(
         "OAuth flow cancelled - new flow started"
       );
-      flow2.catch(callbackFn);
+      await expect(flow2).rejects.toThrow();
     });
   });
 });

@@ -1,15 +1,31 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { NATIVE_TITLEBAR_HEIGHT } from "./use-native-titlebar";
 
+interface MockWindow {
+  __TAURI_INTERNALS__?: object | null;
+}
+
 const originalWindow = globalThis.window;
 
+function setMockWindow(win: MockWindow | undefined) {
+  Object.defineProperty(globalThis, "window", {
+    writable: true,
+    configurable: true,
+    value: win,
+  });
+}
+
 afterEach(() => {
-  globalThis.window = originalWindow as Window & typeof globalThis;
+  if (originalWindow === undefined) {
+    setMockWindow(undefined);
+  } else {
+    globalThis.window = originalWindow;
+  }
 });
 
 const mockIsTauri = (): boolean => {
-  return !!(globalThis.window as { __TAURI_INTERNALS__?: object } | undefined)
-    ?.__TAURI_INTERNALS__;
+  const win = globalThis.window as MockWindow | undefined;
+  return !!win?.__TAURI_INTERNALS__;
 };
 
 describe("use-native-titlebar", () => {
@@ -25,22 +41,22 @@ describe("use-native-titlebar", () => {
 
   describe("isTauri detection logic", () => {
     it("returns true in Tauri context", () => {
-      (globalThis as any).window = { __TAURI_INTERNALS__: {} };
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       expect(mockIsTauri()).toBe(true);
     });
 
     it("returns false in non-Tauri context", () => {
-      (globalThis as any).window = {};
+      setMockWindow({});
       expect(mockIsTauri()).toBe(false);
     });
 
     it("returns false when window is undefined", () => {
-      (globalThis as any).window = undefined;
+      setMockWindow(undefined);
       expect(mockIsTauri()).toBe(false);
     });
 
     it("returns false when __TAURI_INTERNALS__ is null", () => {
-      (globalThis as any).window = { __TAURI_INTERNALS__: null };
+      setMockWindow({ __TAURI_INTERNALS__: null });
       expect(mockIsTauri()).toBe(false);
     });
   });

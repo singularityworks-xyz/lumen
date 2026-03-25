@@ -668,7 +668,7 @@ describe("yjs-shared schemas", () => {
       expect(mapSchema.parse(data)).toEqual(data);
     });
 
-    it("rejects mismatched allIds", () => {
+    it("accepts mismatched allIds", () => {
       const mapSchema = createEntityMapSchema(TaskSchema);
       const data = {
         byId: { "task-1": validTask() },

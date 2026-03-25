@@ -4,8 +4,7 @@ import { aiRoutes } from "./ai";
 import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
-
-const WORKERS_VERSION = "1.0.2";
+import { WORKERS_VERSION } from "./version";
 
 export function createApp(options?: { origins?: string[] }) {
   const origins = options?.origins ?? ["http://localhost:3000"];

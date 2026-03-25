@@ -6,20 +6,25 @@ let fixedNow: number | null = null;
 function freezeTime(iso: string) {
   fixedNow = new RealDate(iso).getTime();
   const OriginalDate = RealDate;
-  globalThis.Date = new Proxy(OriginalDate, {
+
+  const proxiedDate = new Proxy(OriginalDate, {
     construct(target, args) {
       if (args.length === 0 && fixedNow !== null) {
         return new OriginalDate(fixedNow);
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return new (target as any)(...args);
     },
     apply(target, _thisArg, args) {
       if (args.length === 0 && fixedNow !== null) {
         return new OriginalDate(fixedNow);
       }
-      return (target as any)(...args);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return new (target as any)(...args);
     },
-  }) as any;
+  }) as typeof Date;
+
+  globalThis.Date = proxiedDate;
 }
 
 afterEach(() => {

@@ -1,12 +1,22 @@
 import { describe, expect, it, mock } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
+import type { Collaborator, DraggingColumnState } from "@/src/features/collab";
 
-const createMockAwareness = () => ({
-  setLocalStateField: mock(() => undefined) as any,
-  getLocalState: mock(() => null) as any,
+interface MockAwareness {
+  getLocalState: ReturnType<
+    typeof mock<() => { draggingColumn?: DraggingColumnState } | null>
+  >;
+  setLocalStateField: ReturnType<typeof mock<() => undefined>>;
+}
+
+const createMockAwareness = (): MockAwareness => ({
+  setLocalStateField: mock<() => undefined>(() => undefined),
+  getLocalState: mock<() => { draggingColumn?: DraggingColumnState } | null>(
+    () => null
+  ),
 });
 
-const mockCollaborators = [
+const mockCollaborators: Collaborator[] = [
   {
     id: "user-1",
     name: "User 1",
@@ -19,14 +29,26 @@ const mockCollaborators = [
       cursorY: 200,
     },
   },
-] as any;
+];
 
-const mockUseCollaboration = mock(() => ({
+interface MockCollaborationReturn {
+  awareness: MockAwareness | null;
+  collaborators: Collaborator[];
+  isCollaborating: boolean;
+  localUser: {
+    id: string;
+    name: string;
+    color: string;
+    role: "owner" | "editor" | "viewer";
+  } | null;
+}
+
+const mockUseCollaboration = mock<() => MockCollaborationReturn>(() => ({
   isCollaborating: false,
   awareness: null,
   collaborators: [],
   localUser: null,
-})) as any;
+}));
 
 mock.module("@/src/features/collab", () => ({
   useCollaboration: mockUseCollaboration,

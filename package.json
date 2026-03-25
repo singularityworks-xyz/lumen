@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.19",
+  "version": "0.4.20",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -59,10 +59,10 @@
     "version:autobump:cleanup": "bun ./scripts/versioning/autobump.ts --cleanup",
     "test:unit:web": "bun test --preload ./tests/config/web.setup.ts 'apps/web/src/**/*.test.ts'",
     "test:unit:workers": "bun test --preload ./tests/config/workers.setup.ts 'apps/workers/src/**/*.test.ts'",
-    "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts 'packages/*/src/**/*.test.ts'",
+    "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts 'packages/*/test/**/*.test.ts'",
     "test:integration:web": "bun test --preload ./tests/config/web.setup.ts 'apps/web/src/**/*.integration.test.ts'",
     "test:integration:workers": "bun test --preload ./tests/config/workers.setup.ts 'apps/workers/src/**/*.integration.test.ts'",
-    "test:coverage": "bun test --preload ./tests/config/web.setup.ts 'apps/*/src/**/*.test.ts' 'packages/*/src/**/*.test.ts' --coverage",
+    "test:coverage": "bun test --preload ./tests/config/bun.setup.ts 'apps/*/src/**/*.test.ts' 'packages/*/test/**/*.test.ts' --coverage",
     "test:e2e": "bunx playwright test",
     "test:visual": "bunx playwright test -c playwright.visual.config.ts",
     "test:load:ramp": "k6 run load/k6/ws-collab-ramp.js",

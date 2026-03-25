@@ -57,7 +57,7 @@ describe("debounce", () => {
     expect(count).toBe(1);
   });
 
-  it("cancellation prevents pending invocation", async () => {
+  it("collapses rapid calls into single execution", async () => {
     let count = 0;
     const fn = debounce(() => count++, 50);
     fn();
