@@ -60,7 +60,7 @@ const WORKSPACE_FILE_OVERRIDES: Record<string, string[]> = {
   ],
   "apps/presence": ["package.json", "mix.exs", "config/prod.exs"],
   "apps/web": ["package.json", "src/instrumentation.ts"],
-  "apps/workers": ["package.json", "src/index.ts"],
+  "apps/workers": ["package.json", "src/version.ts"],
 };
 const CARGO_PACKAGE_VERSION_PATTERN = /^version\s*=\s*"([^"]+)"/;
 const NEWLINE_PATTERN = /\r?\n/;
@@ -240,6 +240,24 @@ function stageFiles(files: string[]) {
   git(["add", "--", ...files]);
 }
 
+function updateBunLockfile() {
+  const decoder = new TextDecoder();
+  const result = Bun.spawnSync({
+    cmd: ["bun", "install", "--lockfile-only"],
+    cwd: ROOT_DIR,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (result.exitCode !== 0) {
+    console.error("Warning: bun install --lockfile-only failed");
+    console.error(decoder.decode(result.stderr).trim());
+    return false;
+  }
+
+  return true;
+}
+
 function readVersion(file: string) {
   const content = fs.readFileSync(path.join(ROOT_DIR, file), "utf8");
   return getFileStrategy(file).readVersion(content);
@@ -283,7 +301,7 @@ function getFileStrategy(file: string): VersionStrategy {
     return webRuntimeVersionStrategy;
   }
 
-  if (file === "apps/workers/src/index.ts") {
+  if (file === "apps/workers/src/version.ts") {
     return workersRuntimeVersionStrategy;
   }
 
@@ -595,6 +613,21 @@ function main() {
       stageFiles(ROOT_MANAGED_FILES);
       state.root = { sourceVersion, targetVersion };
     }
+  }
+
+  const lockfilePath = "bun.lock";
+  const lockfileExists = fs.existsSync(path.join(ROOT_DIR, lockfilePath));
+  if (
+    lockfileExists &&
+    (state.root || Object.keys(state.workspaces).length > 0)
+  ) {
+    const lockUpdated = updateBunLockfile();
+    if (!lockUpdated) {
+      throw new Error(
+        "Failed to update bun.lock; aborting to avoid staging an out-of-sync lockfile."
+      );
+    }
+    stageFiles([lockfilePath]);
   }
 
   state.triggerSignatures = Object.fromEntries(

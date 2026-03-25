@@ -46,7 +46,7 @@ function migrate<T>(oldVersion: number, data: T): T {
 
 // Transform the static storage name to an environment-scoped key
 // This allows us to use a static name in Zustand config while getting automatic environment isolation at runtime
-function transformStorageKey(name: string): string {
+export function transformStorageKey(name: string): string {
   if (name === STORAGE_KEY) {
     return getStorageKey();
   }

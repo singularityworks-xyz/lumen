@@ -12,7 +12,7 @@ const SESSION_TOKEN_REGEX = new RegExp(
   `${escapeRegex(SESSION_COOKIE_NAME)}=([^;]+)`
 );
 export function isSessionValid(session: SessionModel): boolean {
-  const now = new Date();
+  const now = new Date(Date.now());
   const isValid = session.expiresAt > now;
 
   if (!isValid) {

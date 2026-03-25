@@ -10,8 +10,7 @@ import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
 import { env } from "./env";
 import { otelMetrics } from "./middleware/otel-metrics";
-
-const WORKERS_VERSION = "1.0.2";
+import { WORKERS_VERSION } from "./version";
 
 initOtel("lumen-workers", [new PrismaInstrumentation()], {
   serviceVersion: WORKERS_VERSION,

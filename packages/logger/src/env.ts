@@ -3,11 +3,13 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    NODE_ENV: z.enum(["development", "production"]).default("development"),
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
     OTEL_ENABLED: z
       .string()
       .transform((v) => v === "true" || v === "1")
-      .default(false),
+      .default("false" as unknown as boolean),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
   },
