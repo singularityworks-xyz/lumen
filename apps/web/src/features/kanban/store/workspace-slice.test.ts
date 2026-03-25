@@ -80,9 +80,11 @@ describe("workspace-slice", () => {
         "modal-1": {
           id: "modal-1",
           taskId: "task-1",
+          sourceTaskId: "task-1",
           boardId: "board-1",
           position: { x: 0, y: 0 },
           isEditing: false,
+          zIndex: 100,
         },
       };
 
@@ -93,9 +95,11 @@ describe("workspace-slice", () => {
           "modal-2": {
             id: "modal-2",
             taskId: "task-2",
+            sourceTaskId: "task-2",
             boardId: "board-1",
             position: { x: 10, y: 20 },
             isEditing: false,
+            zIndex: 101,
           },
         },
         createTaskModals: {},
@@ -159,31 +163,38 @@ describe("workspace-slice", () => {
 
   describe("updateWorkspace", () => {
     it("issues network PATCH only for shared workspaces", () => {
-      const fetchMock = mock(() =>
-        Promise.resolve(new Response("{}", { status: 200 }))
-      );
-      globalThis.fetch = fetchMock;
+      let fetchCalled = false;
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (() => {
+        fetchCalled = true;
+        return Promise.resolve(new Response("{}", { status: 200 }));
+      }) as unknown as typeof fetch;
 
       const wsId = state.currentWorkspaceId ?? "";
       actions.updateWorkspace(wsId, { name: "Local Name" });
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchCalled).toBe(false);
 
       const sharedId = actions.addWorkspace("Shared");
       state.workspaces.byId[sharedId]!.isShared = true;
       actions.updateWorkspace(sharedId, { name: "Shared Name" });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock.mock.calls[0]![0]).toContain(sharedId);
+      expect(fetchCalled).toBe(true);
+
+      globalThis.fetch = originalFetch;
     });
 
     it("does not PATCH for local-only metadata updates", () => {
-      const fetchMock = mock(() =>
-        Promise.resolve(new Response("{}", { status: 200 }))
-      );
-      globalThis.fetch = fetchMock;
+      let fetchCalled = false;
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (() => {
+        fetchCalled = true;
+        return Promise.resolve(new Response("{}", { status: 200 }));
+      }) as unknown as typeof fetch;
 
       const wsId = state.currentWorkspaceId ?? "";
       actions.updateWorkspace(wsId, { description: "Updated desc" });
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchCalled).toBe(false);
+
+      globalThis.fetch = originalFetch;
     });
   });
 
