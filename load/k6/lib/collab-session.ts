@@ -1,5 +1,4 @@
 import ws from "k6/ws";
-import { check } from "k6";
 import { Counter, Trend, Rate } from "k6/metrics";
 
 const wsConnectSuccess = new Rate("ws_connect_success");
