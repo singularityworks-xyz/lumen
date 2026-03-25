@@ -3,7 +3,7 @@ import {
   connectCollabSession,
   sendSyncUpdate,
   disconnectSession,
-} from "./lib/collab-session.js";
+} from "./lib/collab-session";
 
 export const options = {
   scenarios: {
@@ -26,14 +26,18 @@ export const options = {
   },
 };
 
-function generateWorkspaceId(vuId) {
+function generateWorkspaceId(vuId: number): string {
   return `ws-ramp-${vuId}`;
 }
 
-function generateSyncData(index) {
+function generateSyncData(index: number) {
   return {
     ops: [
-      { type: "insert", path: "blocks", index, value: `block-${index}` },
+      {
+        type: "insert",
+        path: "blocks",
+        value: `block-${index}`,
+      },
     ],
     clock: index,
     origin: "ramp-test",
@@ -46,7 +50,7 @@ export default function () {
   const vuId = __VU;
   const workspaceId = generateWorkspaceId(vuId);
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
 
   check(session, {
     "session established": (s) => s && s.socket !== null,

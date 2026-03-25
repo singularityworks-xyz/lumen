@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.20",
+  "version": "0.4.22",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -65,9 +65,9 @@
     "test:coverage": "bun test --preload ./tests/config/bun.setup.ts 'apps/*/src/**/*.test.ts' 'packages/*/test/**/*.test.ts' --coverage",
     "test:e2e": "bunx playwright test",
     "test:visual": "bunx playwright test -c playwright.visual.config.ts",
-    "test:load:ramp": "k6 run load/k6/ws-collab-ramp.js",
-    "test:load:soak": "k6 run load/k6/ws-collab-soak.js",
-    "test:load:spike": "k6 run load/k6/ws-collab-spike.js"
+    "test:load:ramp": "k6 run load/k6/ws-collab-ramp.ts",
+    "test:load:soak": "k6 run load/k6/ws-collab-soak.ts",
+    "test:load:spike": "k6 run load/k6/ws-collab-spike.ts"
   },
   "trustedDependencies": [
     "@biomejs/biome",

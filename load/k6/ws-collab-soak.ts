@@ -5,7 +5,7 @@ import {
   sendSyncUpdate,
   sendAwarenessUpdate,
   disconnectSession,
-} from "./lib/collab-session.js";
+} from "./lib/collab-session";
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");
@@ -28,11 +28,11 @@ export const options = {
   },
 };
 
-function generateWorkspaceId(vuId) {
+function generateWorkspaceId(vuId: number): string {
   return `ws-soak-${vuId}`;
 }
 
-function generateSyncData(counter) {
+function generateSyncData(counter: number) {
   return {
     ops: [
       {
@@ -46,10 +46,13 @@ function generateSyncData(counter) {
   };
 }
 
-function generateAwarenessData(vuId) {
+function generateAwarenessData(vuId: number) {
   return {
     user: `soak-user-${vuId}`,
-    cursor: { line: Math.floor(Math.random() * 100), col: Math.floor(Math.random() * 80) },
+    cursor: {
+      line: Math.floor(Math.random() * 100),
+      col: Math.floor(Math.random() * 80),
+    },
     lastSeen: Date.now(),
   };
 }
@@ -60,7 +63,7 @@ export default function () {
   const vuId = __VU;
   const workspaceId = generateWorkspaceId(vuId);
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
 
   const sessionStart = Date.now();
 
@@ -76,7 +79,7 @@ export default function () {
   let updateCounter = 0;
 
   const iterations = Math.floor(
-    parseInt(soakDurationMinutes, 10) * 60 / 5,
+    (parseInt(soakDurationMinutes, 10) * 60) / 5
   );
 
   for (let i = 0; i < iterations; i++) {

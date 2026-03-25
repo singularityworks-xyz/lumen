@@ -81,7 +81,7 @@
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.0.9",
+      "version": "1.0.14",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -170,7 +170,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.4",
+      "version": "1.0.7",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
@@ -243,7 +243,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.2",
+      "version": "0.0.4",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "^0.208.0",
@@ -268,7 +268,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
@@ -284,7 +284,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "zod": "^4.3.6",
       },

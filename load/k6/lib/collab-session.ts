@@ -10,16 +10,53 @@ const wsMessageFailures = new Counter("ws_message_failures");
 const SYNC_MSG_TYPE = "sync";
 const AWARENESS_MSG_TYPE = "awareness";
 
-export function connectCollabSession(url, token, workspaceId) {
+interface SyncData {
+  ops: Array<{
+    type: string;
+    path: string;
+    value: string;
+    index?: number;
+  }>;
+  clock: number;
+  origin: string;
+}
+
+interface AwarenessData {
+  user: string;
+  cursor: { line: number; col: number };
+  lastSeen: number;
+}
+
+interface CollabSession {
+  socket: ReturnType<typeof ws.connect> | null;
+  workspaceId: string;
+  token: string;
+  connectStart: number;
+}
+
+declare global {
+  const __ENV: {
+    WS_URL?: string;
+    AUTH_TOKEN?: string;
+    SOAK_DURATION_MINUTES?: string;
+  };
+  const __VU: number;
+}
+
+export function connectCollabSession(
+  url: string,
+  token: string,
+  workspaceId: string
+): CollabSession {
   const fullUrl = `${url}/ws/collab?workspace=${workspaceId}`;
   const headers = { Authorization: `Bearer ${token}` };
   const connectStart = Date.now();
-  let session = null;
+  let session: CollabSession | null = null;
 
   const socket = ws.connect(
     fullUrl,
     { headers },
-    function (socket) {
+    function (socket: ReturnType<typeof ws.connect>) {
       const connectEnd = Date.now();
       wsConnectDuration.add(connectEnd - connectStart);
 
@@ -33,7 +70,7 @@ export function connectCollabSession(url, token, workspaceId) {
           type: "sync",
           action: "init",
           workspaceId,
-        }),
+        })
       );
 
       socket.setInterval(function () {
@@ -41,12 +78,12 @@ export function connectCollabSession(url, token, workspaceId) {
           JSON.stringify({
             type: "ping",
             timestamp: Date.now(),
-          }),
+          })
         );
       }, 30000);
 
       session = { socket, workspaceId, token, connectStart };
-    },
+    }
   );
 
   socket.addEventListener("close", function () {
@@ -60,7 +97,10 @@ export function connectCollabSession(url, token, workspaceId) {
   return { socket, workspaceId, token, connectStart };
 }
 
-export function sendSyncUpdate(session, data) {
+export function sendSyncUpdate(
+  session: CollabSession,
+  data: SyncData
+): boolean {
   if (!session || !session.socket) {
     wsMessageFailures.add(1);
     return false;
@@ -82,7 +122,10 @@ export function sendSyncUpdate(session, data) {
   }
 }
 
-export function sendAwarenessUpdate(session, data) {
+export function sendAwarenessUpdate(
+  session: CollabSession,
+  data: AwarenessData
+): boolean {
   if (!session || !session.socket) {
     wsMessageFailures.add(1);
     return false;
@@ -103,14 +146,14 @@ export function sendAwarenessUpdate(session, data) {
   }
 }
 
-export function disconnectSession(session) {
+export function disconnectSession(session: CollabSession): void {
   if (session && session.socket) {
     try {
       session.socket.send(
         JSON.stringify({
           type: "disconnect",
           workspaceId: session.workspaceId,
-        }),
+        })
       );
       session.socket.close();
     } catch {
