@@ -35,8 +35,8 @@ describe("debounce", () => {
 
   it("preserves latest arguments in final execution", async () => {
     let lastArg = 0;
-    const fn = debounce((arg: number) => {
-      lastArg = arg;
+    const fn = debounce((arg: unknown) => {
+      lastArg = arg as number;
     }, 50);
     fn(1);
     fn(2);

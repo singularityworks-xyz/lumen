@@ -21,8 +21,17 @@
         "rules": {
           "style": {
             "noNonNullAssertion": "off"
+          },
+          "performance": {
+            "noNamespaceImport": "off"
+          },
+          "correctness": {
+            "noUndeclaredVariables": "off"
           }
         }
+      },
+      "javascript": {
+        "globals": ["Y"]
       }
     }
   ]
