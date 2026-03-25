@@ -240,6 +240,24 @@ function stageFiles(files: string[]) {
   git(["add", "--", ...files]);
 }
 
+function updateBunLockfile() {
+  const decoder = new TextDecoder();
+  const result = Bun.spawnSync({
+    cmd: ["bun", "install", "--lockfile-only"],
+    cwd: ROOT_DIR,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (result.exitCode !== 0) {
+    console.error("Warning: bun install --lockfile-only failed");
+    console.error(decoder.decode(result.stderr).trim());
+    return false;
+  }
+
+  return true;
+}
+
 function readVersion(file: string) {
   const content = fs.readFileSync(path.join(ROOT_DIR, file), "utf8");
   return getFileStrategy(file).readVersion(content);
@@ -595,6 +613,16 @@ function main() {
       stageFiles(ROOT_MANAGED_FILES);
       state.root = { sourceVersion, targetVersion };
     }
+  }
+
+  const lockfilePath = "bun.lock";
+  const lockfileExists = fs.existsSync(path.join(ROOT_DIR, lockfilePath));
+  if (
+    lockfileExists &&
+    (state.root || Object.keys(state.workspaces).length > 0)
+  ) {
+    updateBunLockfile();
+    stageFiles([lockfilePath]);
   }
 
   state.triggerSignatures = Object.fromEntries(
