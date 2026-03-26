@@ -26,19 +26,19 @@ describe("window", () => {
   describe("minimizeWindow", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { minimizeWindow } = await import("../window");
+      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
 
     it("no-ops in SSR context", async () => {
       setMockWindow(undefined);
-      const { minimizeWindow } = await import("../window");
+      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
 
     it("does not reject when native import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("../window");
+      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
   });
@@ -46,13 +46,13 @@ describe("window", () => {
   describe("toggleMaximize", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { toggleMaximize } = await import("../window");
+      const { toggleMaximize } = await import("./window");
       await expect(toggleMaximize()).resolves.toBeUndefined();
     });
 
     it("does not reject when native import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { toggleMaximize } = await import("../window");
+      const { toggleMaximize } = await import("./window");
       await expect(toggleMaximize()).resolves.toBeUndefined();
     });
   });
@@ -60,13 +60,13 @@ describe("window", () => {
   describe("closeWindow", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { closeWindow } = await import("../window");
+      const { closeWindow } = await import("./window");
       await expect(closeWindow()).resolves.toBeUndefined();
     });
 
     it("does not reject when native import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { closeWindow } = await import("../window");
+      const { closeWindow } = await import("./window");
       await expect(closeWindow()).resolves.toBeUndefined();
     });
   });
@@ -74,13 +74,13 @@ describe("window", () => {
   describe("startDragging", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { startDragging } = await import("../window");
+      const { startDragging } = await import("./window");
       await expect(startDragging()).resolves.toBeUndefined();
     });
 
     it("does not reject when native import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { startDragging } = await import("../window");
+      const { startDragging } = await import("./window");
       await expect(startDragging()).resolves.toBeUndefined();
     });
   });
@@ -88,19 +88,19 @@ describe("window", () => {
   describe("isMaximized", () => {
     it("returns false in web context", async () => {
       setMockWindow({});
-      const { isMaximized } = await import("../window");
+      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
     it("returns false in SSR context", async () => {
       setMockWindow(undefined);
-      const { isMaximized } = await import("../window");
+      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
     it("returns false when native import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { isMaximized } = await import("../window");
+      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
@@ -115,7 +115,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { isMaximized } = await import("../window");
+      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(true);
     });
   });
@@ -133,7 +133,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("../window");
+      const { minimizeWindow } = await import("./window");
       await minimizeWindow();
       expect(minimizeFn).toHaveBeenCalled();
     });
@@ -150,7 +150,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { toggleMaximize } = await import("../window");
+      const { toggleMaximize } = await import("./window");
       await toggleMaximize();
       expect(toggleFn).toHaveBeenCalled();
     });
@@ -167,7 +167,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { closeWindow } = await import("../window");
+      const { closeWindow } = await import("./window");
       await closeWindow();
       expect(closeFn).toHaveBeenCalled();
     });
@@ -184,7 +184,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { startDragging } = await import("../window");
+      const { startDragging } = await import("./window");
       await startDragging();
       expect(dragFn).toHaveBeenCalled();
     });
@@ -200,7 +200,7 @@ describe("window", () => {
         }),
       }));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("../window");
+      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
   });

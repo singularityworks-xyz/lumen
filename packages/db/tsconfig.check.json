@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["node", "bun-types"]
   },
-  "include": ["src", "test", "lib", "index.ts", "*.ts"]
+  "include": ["src", "prisma", "prisma.config.ts", "*.ts"]
 }

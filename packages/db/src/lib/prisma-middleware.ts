@@ -1,6 +1,6 @@
 import { createLogger } from "@lumen/logger";
 import { recordSpanError, withSpanAsync } from "@lumen/logger/server";
-import { Prisma } from "../prisma/generated/prisma/client";
+import { Prisma } from "../../prisma/generated/prisma/client";
 import {
   decryptPrivateKey,
   encryptPrivateKey,

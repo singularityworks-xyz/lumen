@@ -224,7 +224,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",
@@ -271,7 +271,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
@@ -288,7 +288,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "zod": "^4.3.6",
       },

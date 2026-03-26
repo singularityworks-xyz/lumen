@@ -33,7 +33,7 @@ import {
   validateEntity,
   WorkspaceSchema,
   YJS_MAP_NAMES,
-} from "../index";
+} from "./index";
 
 function validTask(): z.input<typeof TaskSchema> {
   return {

@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { createJwksEncryptionExtension } from "./lib/prisma-middleware";
 // biome-ignore lint/style/noExportedImports: We want to re-export PrismaClient
-import { PrismaClient } from "./prisma/generated/prisma/client";
+import { PrismaClient } from "../prisma/generated/prisma/client";
+import { createJwksEncryptionExtension } from "./lib/prisma-middleware";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createPrismaClient> | undefined;
@@ -34,7 +34,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export type * from "./prisma/generated/prisma/client";
-export type * from "./prisma/generated/prisma/models";
+export type * from "../prisma/generated/prisma/client";
+export type * from "../prisma/generated/prisma/models";
 // Re-export PrismaClient and all generated types
 export { PrismaClient };
