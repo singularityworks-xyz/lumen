@@ -27,7 +27,9 @@ const mockLoggerProvider = {
 let otelEnabled = true;
 
 mock.module("@opentelemetry/api", () => {
-  function DiagConsoleLogger() {}
+  function DiagConsoleLogger() {
+    /* mock */
+  }
   return {
     DiagConsoleLogger,
     DiagLogLevel: { INFO: 9 },
@@ -44,23 +46,31 @@ mock.module("@opentelemetry/api", () => {
 });
 
 mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
-  function OTLPLogExporter() {}
+  function OTLPLogExporter() {
+    /* mock */
+  }
   return { OTLPLogExporter };
 });
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
-  function OTLPMetricExporter() {}
+  function OTLPMetricExporter() {
+    /* mock */
+  }
   return { OTLPMetricExporter };
 });
 
 mock.module("@opentelemetry/exporter-trace-otlp-http", () => {
-  function OTLPTraceExporter() {}
+  function OTLPTraceExporter() {
+    /* mock */
+  }
   return { OTLPTraceExporter };
 });
 
 mock.module("@opentelemetry/host-metrics", () => {
   class HostMetrics {
-    start() {}
+    start() {
+      /* mock */
+    }
   }
   return { HostMetrics };
 });
@@ -74,7 +84,9 @@ mock.module("@opentelemetry/resources", () => ({
 }));
 
 mock.module("@opentelemetry/sdk-logs", () => {
-  function BatchLogRecordProcessor() {}
+  function BatchLogRecordProcessor() {
+    /* mock */
+  }
   return {
     BatchLogRecordProcessor,
     LoggerProvider: mock(() => mockLoggerProvider),
@@ -91,7 +103,9 @@ mock.module("@opentelemetry/api-logs", () => {
 });
 
 mock.module("@opentelemetry/sdk-metrics", () => {
-  function PeriodicExportingMetricReader() {}
+  function PeriodicExportingMetricReader() {
+    /* mock */
+  }
   return {
     MeterProvider: mock(() => mockMeterProvider),
     PeriodicExportingMetricReader,
@@ -99,7 +113,9 @@ mock.module("@opentelemetry/sdk-metrics", () => {
 });
 
 mock.module("@opentelemetry/sdk-trace-node", () => {
-  function BatchSpanProcessor() {}
+  function BatchSpanProcessor() {
+    /* mock */
+  }
   return {
     BatchSpanProcessor,
     NodeTracerProvider: mock(() => mockTracerProvider),
