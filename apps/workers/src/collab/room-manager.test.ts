@@ -1,3 +1,4 @@
+process.env.DATABASE_URL = "postgres://dummy";
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 
@@ -38,19 +39,6 @@ mock.module("@lumen/logger/server", () => ({
   }),
 }));
 
-mock.module("@lumen/yjs-shared", () => ({
-  YJS_MAP_NAMES: {
-    BOARDS: "boards",
-    COLUMNS: "columns",
-    TASKS: "tasks",
-    BOARD_POSITIONS: "boardPositions",
-    BOARD_CONNECTIONS: "boardConnections",
-    AREAS: "areas",
-    AREA_POSITIONS: "areaPositions",
-    WORKSPACE: "workspace",
-    COMMENTS: "comments",
-  },
-}));
 
 mock.module("./metrics", () => ({
   recordWsRoomJoinDuration: mock(),

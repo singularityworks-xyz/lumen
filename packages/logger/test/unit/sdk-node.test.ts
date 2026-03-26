@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Instrumentation } from "@opentelemetry/instrumentation";
-import type { LoggerProvider } from "@opentelemetry/sdk-logs";
-import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 import type { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import type { MeterProvider } from "@opentelemetry/sdk-metrics";
+import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 
 // Track mock state for providers
 const mockTracerProviderShutdown = mock(() => Promise.resolve());
@@ -27,9 +27,7 @@ const mockLoggerProvider = {
 let otelEnabled = true;
 
 mock.module("@opentelemetry/api", () => {
-  function DiagConsoleLogger() {
-    // no-op
-  }
+  function DiagConsoleLogger() {}
   return {
     DiagConsoleLogger,
     DiagLogLevel: { INFO: 9 },
@@ -46,31 +44,23 @@ mock.module("@opentelemetry/api", () => {
 });
 
 mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
-  function OTLPLogExporter() {
-    // no-op
-  }
+  function OTLPLogExporter() {}
   return { OTLPLogExporter };
 });
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
-  function OTLPMetricExporter() {
-    // no-op
-  }
+  function OTLPMetricExporter() {}
   return { OTLPMetricExporter };
 });
 
 mock.module("@opentelemetry/exporter-trace-otlp-http", () => {
-  function OTLPTraceExporter() {
-    // no-op
-  }
+  function OTLPTraceExporter() {}
   return { OTLPTraceExporter };
 });
 
 mock.module("@opentelemetry/host-metrics", () => {
   class HostMetrics {
-    start() {
-      // no-op
-    }
+    start() {}
   }
   return { HostMetrics };
 });
@@ -84,19 +74,24 @@ mock.module("@opentelemetry/resources", () => ({
 }));
 
 mock.module("@opentelemetry/sdk-logs", () => {
-  function BatchLogRecordProcessor() {
-    // no-op
-  }
+  function BatchLogRecordProcessor() {}
   return {
     BatchLogRecordProcessor,
     LoggerProvider: mock(() => mockLoggerProvider),
   };
 });
 
+mock.module("@opentelemetry/api-logs", () => {
+  return {
+    logs: {
+      setGlobalLoggerProvider: mock(() => undefined),
+      getLogger: mock(() => ({ emit: mock() })),
+    },
+  };
+});
+
 mock.module("@opentelemetry/sdk-metrics", () => {
-  function PeriodicExportingMetricReader() {
-    // no-op
-  }
+  function PeriodicExportingMetricReader() {}
   return {
     MeterProvider: mock(() => mockMeterProvider),
     PeriodicExportingMetricReader,
@@ -104,9 +99,7 @@ mock.module("@opentelemetry/sdk-metrics", () => {
 });
 
 mock.module("@opentelemetry/sdk-trace-node", () => {
-  function BatchSpanProcessor() {
-    // no-op
-  }
+  function BatchSpanProcessor() {}
   return {
     BatchSpanProcessor,
     NodeTracerProvider: mock(() => mockTracerProvider),
@@ -191,7 +184,6 @@ describe("sdk-node", () => {
       const second = initOtel("test-service");
       expect(second).toBe(true);
 
-      // register should not be called again
       expect(mockTracerProviderRegister).not.toHaveBeenCalled();
     });
 

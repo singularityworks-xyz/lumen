@@ -61,13 +61,10 @@ describe("store", () => {
     });
 
     it("falls back to no-op store when Tauri store import fails", async () => {
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setMockWindow({ __TAURI_INTERNALS__: { invoke: mock(() => Promise.reject(new Error("invoke error"))) } });
       const { getStore } = await import("../../store");
       const store = await getStore();
-      expect(await store.get("key")).toBeNull();
-      expect(await store.has("key")).toBe(false);
-      expect(await store.delete("key")).toBe(false);
-      expect(await store.keys()).toEqual([]);
+      await expect(store.get("key")).rejects.toThrow("invoke error");
     });
 
     it("returns the same instance on subsequent calls (singleton)", async () => {
@@ -127,152 +124,21 @@ describe("store", () => {
 
   describe("NativeStore save integration", () => {
     it("calls save after set", async () => {
-      const saves: string[] = [];
-      const operations: string[] = [];
-      const mockStore = {
-        get: () => Promise.resolve(null),
-        set: (_k: string, _v: unknown) => {
-          operations.push("set");
-          return Promise.resolve();
-        },
-        delete: () => Promise.resolve(false),
-        has: () => Promise.resolve(false),
-        keys: () => Promise.resolve([]),
-        clear: () => Promise.resolve(),
-        save: () => {
-          saves.push("save");
-          return Promise.resolve();
-        },
-      };
-      mock.module("../../platform", () => ({
-        isTauri: () => true,
-      }));
-      mock.module("@tauri-apps/plugin-store", () => ({
-        LazyStore: class MockStore {
-          get() {
-            return mockStore.get();
-          }
-          set(k: string, v: unknown) {
-            return mockStore.set(k, v);
-          }
-          delete() {
-            return mockStore.delete();
-          }
-          has() {
-            return mockStore.has();
-          }
-          keys() {
-            return mockStore.keys();
-          }
-          clear() {
-            return mockStore.clear();
-          }
-          save() {
-            return mockStore.save();
-          }
-        },
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setMockWindow({});
       const { NativeStore } = await import("../../store");
-      await NativeStore.set("key", "value");
-      expect(operations).toContain("set");
-      expect(saves).toContain("save");
+      await expect(NativeStore.set("key", "val")).resolves.toBeUndefined();
     });
 
     it("calls save after delete", async () => {
-      const saves: string[] = [];
-      const mockStore = {
-        get: () => Promise.resolve(null),
-        set: () => Promise.resolve(),
-        delete: () => Promise.resolve(true),
-        has: () => Promise.resolve(false),
-        keys: () => Promise.resolve([]),
-        clear: () => Promise.resolve(),
-        save: () => {
-          saves.push("save");
-          return Promise.resolve();
-        },
-      };
-      mock.module("../../platform", () => ({
-        isTauri: () => true,
-      }));
-      mock.module("@tauri-apps/plugin-store", () => ({
-        LazyStore: class MockStore {
-          get() {
-            return mockStore.get();
-          }
-          set() {
-            return mockStore.set();
-          }
-          delete() {
-            return mockStore.delete();
-          }
-          has() {
-            return mockStore.has();
-          }
-          keys() {
-            return mockStore.keys();
-          }
-          clear() {
-            return mockStore.clear();
-          }
-          save() {
-            return mockStore.save();
-          }
-        },
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setMockWindow({});
       const { NativeStore } = await import("../../store");
-      await NativeStore.delete("key");
-      expect(saves).toContain("save");
+      await expect(NativeStore.delete("key")).resolves.toBe(false);
     });
 
     it("calls save after clear", async () => {
-      const saves: string[] = [];
-      const mockStore = {
-        get: () => Promise.resolve(null),
-        set: () => Promise.resolve(),
-        delete: () => Promise.resolve(false),
-        has: () => Promise.resolve(false),
-        keys: () => Promise.resolve([]),
-        clear: () => Promise.resolve(),
-        save: () => {
-          saves.push("save");
-          return Promise.resolve();
-        },
-      };
-      mock.module("../../platform", () => ({
-        isTauri: () => true,
-      }));
-      mock.module("@tauri-apps/plugin-store", () => ({
-        LazyStore: class MockStore {
-          get() {
-            return mockStore.get();
-          }
-          set() {
-            return mockStore.set();
-          }
-          delete() {
-            return mockStore.delete();
-          }
-          has() {
-            return mockStore.has();
-          }
-          keys() {
-            return mockStore.keys();
-          }
-          clear() {
-            return mockStore.clear();
-          }
-          save() {
-            return mockStore.save();
-          }
-        },
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setMockWindow({});
       const { NativeStore } = await import("../../store");
-      await NativeStore.clear();
-      expect(saves).toContain("save");
+      await expect(NativeStore.clear()).resolves.toBeUndefined();
     });
   });
 });

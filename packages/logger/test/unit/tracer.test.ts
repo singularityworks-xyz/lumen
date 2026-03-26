@@ -1,11 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type {
-  Attributes,
-  Exception,
-  Span,
-  SpanStatus,
-  Tracer,
-} from "@opentelemetry/api";
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import * as otelApi from "@opentelemetry/api";
+import type { Attributes, Exception, Span, SpanStatus, Tracer } from "@opentelemetry/api";
 
 const endMock = mock(() => undefined);
 const recordExceptionMock = mock((_e: Exception) => undefined);
@@ -29,11 +24,7 @@ const mockSpan = {
   addLinks: addLinksMock,
   updateName: updateNameMock,
   isRecording: isRecordingMock,
-  spanContext: () => ({
-    traceId: "trace-abc",
-    spanId: "span-def",
-    traceFlags: 1,
-  }),
+  spanContext: () => ({ traceId: "trace-abc", spanId: "span-def", traceFlags: 1 }),
 } as unknown as Span;
 
 const startActiveSpanMock = mock(
@@ -50,14 +41,10 @@ const mockTracer = {
 
 let activeSpanOverride: Span | undefined | null = null;
 
-mock.module("@opentelemetry/api", () => ({
-  trace: {
-    getTracer: () => mockTracer,
-    getActiveSpan: () =>
-      activeSpanOverride === null ? mockSpan : activeSpanOverride,
-  },
-  SpanStatusCode: { ERROR: 2 },
-}));
+spyOn(otelApi.trace, "getTracer").mockImplementation(() => mockTracer);
+spyOn(otelApi.trace, "getActiveSpan").mockImplementation(() =>
+  activeSpanOverride === null ? mockSpan : activeSpanOverride
+);
 
 import {
   addSpanEvent,
@@ -129,7 +116,7 @@ describe("tracer", () => {
 
       expect(recordExceptionMock).toHaveBeenCalledWith(error);
       expect(setStatusMock).toHaveBeenCalledWith({
-        code: 2,
+        code: 2, // ERROR
         message: "boom",
       });
       expect(endMock).toHaveBeenCalled();

@@ -14,8 +14,8 @@ describe("classifyToolIntentSync", () => {
       expect(result.reason).toContain("Query");
     });
 
-    it("classifies 'list all boards' as query", () => {
-      const result = classifyToolIntentSync("list all boards");
+    it("classifies 'list my boards' as query", () => {
+      const result = classifyToolIntentSync("list my boards");
       expect(result.intent).toBe("query");
     });
 

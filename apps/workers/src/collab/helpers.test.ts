@@ -1,3 +1,4 @@
+process.env.DATABASE_URL = "postgres://dummy";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 

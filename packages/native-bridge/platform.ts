@@ -1,9 +1,9 @@
 export function isTauri(): boolean {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return false;
   }
   // biome-ignore lint/suspicious/noExplicitAny: Tauri injects this global
-  return !!(window as any).__TAURI_INTERNALS__;
+  return !!(globalThis as any).window?.__TAURI_INTERNALS__;
 }
 
 // Get the current platform, returns 'tauri' for native app, 'web' for browser.
