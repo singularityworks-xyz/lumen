@@ -1,6 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from "bun:test";
+import type {
+  Attributes,
+  Exception,
+  Span,
+  SpanStatus,
+  Tracer,
+} from "@opentelemetry/api";
 import * as otelApi from "@opentelemetry/api";
-import type { Attributes, Exception, Span, SpanStatus, Tracer } from "@opentelemetry/api";
 
 const endMock = mock(() => undefined);
 const recordExceptionMock = mock((_e: Exception) => undefined);
@@ -24,7 +38,11 @@ const mockSpan = {
   addLinks: addLinksMock,
   updateName: updateNameMock,
   isRecording: isRecordingMock,
-  spanContext: () => ({ traceId: "trace-abc", spanId: "span-def", traceFlags: 1 }),
+  spanContext: () => ({
+    traceId: "trace-abc",
+    spanId: "span-def",
+    traceFlags: 1,
+  }),
 } as unknown as Span;
 
 const startActiveSpanMock = mock(

@@ -61,7 +61,11 @@ describe("store", () => {
     });
 
     it("falls back to no-op store when Tauri store import fails", async () => {
-      setMockWindow({ __TAURI_INTERNALS__: { invoke: mock(() => Promise.reject(new Error("invoke error"))) } });
+      setMockWindow({
+        __TAURI_INTERNALS__: {
+          invoke: mock(() => Promise.reject(new Error("invoke error"))),
+        },
+      });
       const { getStore } = await import("../../store");
       const store = await getStore();
       await expect(store.get("key")).rejects.toThrow("invoke error");

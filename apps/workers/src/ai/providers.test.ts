@@ -8,13 +8,13 @@ mock.module("../env", () => ({
   env: mockEnv,
 }));
 
+import { DEFAULT_PRIMARY_MODEL } from "@lumen/ai";
 import {
   getModel,
   getModelChain,
   isAiEnabled,
   isRateLimitError,
 } from "./providers";
-import { DEFAULT_PRIMARY_MODEL } from "@lumen/ai";
 
 describe("isAiEnabled", () => {
   it("returns true when CEREBRAS_API_KEY is set", () => {
@@ -35,14 +35,14 @@ describe("getModel", () => {
 
   it("returns a language model with default model", () => {
     const model = getModel();
-    expect(model.provider).toBe("cerebras");
-    expect(model.modelId).toBe(DEFAULT_PRIMARY_MODEL);
+    expect((model as any).provider).toBe("cerebras");
+    expect((model as any).modelId).toBe(DEFAULT_PRIMARY_MODEL);
   });
 
   it("returns a language model with specified model", () => {
     const model = getModel("llama-3.3-70b");
-    expect(model.provider).toBe("cerebras");
-    expect(model.modelId).toBe("llama-3.3-70b");
+    expect((model as any).provider).toBe("cerebras");
+    expect((model as any).modelId).toBe("llama-3.3-70b");
   });
 
   it("throws when CEREBRAS_API_KEY is not configured", () => {

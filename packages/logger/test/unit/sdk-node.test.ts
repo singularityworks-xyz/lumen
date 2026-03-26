@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Instrumentation } from "@opentelemetry/instrumentation";
-import type { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
-import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
+import type { MeterProvider } from "@opentelemetry/sdk-metrics";
+import type { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
 // Track mock state for providers
 const mockTracerProviderShutdown = mock(() => Promise.resolve());

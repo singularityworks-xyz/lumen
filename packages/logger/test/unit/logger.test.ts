@@ -47,11 +47,11 @@ describe("Logger", () => {
     emitMock.mockClear();
     consoleLogMock = mock<Console["log"]>(() => undefined);
     globalThis.console.log = consoleLogMock;
-    
+
     // Force server mode for tests
     originalWindow = globalThis.window;
     // @ts-expect-error
-    delete globalThis.window;
+    globalThis.window = undefined;
   });
 
   afterEach(() => {

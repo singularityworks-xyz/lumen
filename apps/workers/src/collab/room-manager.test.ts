@@ -1,4 +1,5 @@
 process.env.DATABASE_URL = "postgres://dummy";
+
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 
@@ -38,7 +39,6 @@ mock.module("@lumen/logger/server", () => ({
     createCounter: () => ({ add: mock() }),
   }),
 }));
-
 
 mock.module("./metrics", () => ({
   recordWsRoomJoinDuration: mock(),
