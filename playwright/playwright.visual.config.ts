@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./apps/web/e2e/visual",
+  testDir: "../apps/web/e2e/visual",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -22,7 +22,7 @@ export default defineConfig({
     },
   },
   snapshotPathTemplate:
-    "apps/web/e2e/visual/__screenshots__/{/projectName}/{testFilePath}/{arg}{ext}",
+    "../apps/web/e2e/visual/__screenshots__/{/projectName}/{testFilePath}/{arg}{ext}",
   expect: {
     toHaveScreenshot: {
       threshold: 0.015,

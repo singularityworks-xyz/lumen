@@ -25,7 +25,7 @@ jobs:
         run: bunx playwright install chromium
 
       - name: Run Playwright visual regression suite
-        run: bunx playwright test -c playwright.visual.config.ts --project=chromium
+        run: bunx playwright test -c playwright/playwright.visual.config.ts --project=chromium
         continue-on-error: true
 
       - name: Upload screenshot diffs
