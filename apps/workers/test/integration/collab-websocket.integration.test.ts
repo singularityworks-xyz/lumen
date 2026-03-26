@@ -6,11 +6,13 @@ import { Elysia } from "elysia";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as Y from "yjs";
-import { roomManager } from "../../src/collab/room-manager";
+import {
+  MESSAGE_WORKSPACE_DELETED,
+  roomManager,
+} from "../../src/collab/room-manager";
 
 const _MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
-const MESSAGE_WORKSPACE_DELETED = 3;
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];
@@ -46,7 +48,10 @@ const uid = () => `${Date.now()}-${Math.random()}`;
 
 const mockPrisma = {
   workspace: {
-    findUnique: mock(() => Promise.resolve({ id: "ws-1", name: "Test" })),
+    findUnique: (() => {
+      const m = mock<() => Promise<null | { id: string; name: string }>>();
+      return m;
+    })(),
     update: mock(() => Promise.resolve({})),
   },
   workspaceState: {
@@ -54,15 +59,19 @@ const mockPrisma = {
     upsert: mock(() => Promise.resolve({})),
   },
   workspaceCollaborator: {
-    findUnique: mock(() =>
-      Promise.resolve({
-        id: "collab-1",
-        role: "EDITOR" as Role,
-        workspaceId: "ws-1",
-        userId: "user-1",
-        joinedAt: new Date(),
-      })
-    ),
+    findUnique: (() => {
+      const m =
+        mock<
+          () => Promise<null | {
+            id: string;
+            role: Role;
+            workspaceId: string;
+            userId: string;
+            joinedAt: Date;
+          }>
+        >();
+      return m;
+    })(),
     findFirst: mock(() => Promise.resolve(null)),
     count: mock(() => Promise.resolve(0)),
     upsert: mock(() => Promise.resolve({})),
@@ -119,8 +128,10 @@ mock.module("@lumen/ai", () => ({
 
 describe("WORKERS-I-04: collab-websocket integration", () => {
   afterEach(() => {
+    mockPrisma.workspace.findUnique.mockReset();
     mockPrisma.workspaceCollaborator.findUnique.mockReset();
     mockPrisma.workspaceCollaborator.count.mockReset();
+    mockPrisma.workspaceState.upsert.mockReset();
   });
 
   describe("non-existent workspace behavior", () => {
@@ -165,11 +176,9 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
   });
 
   describe("non-collaborator behavior", () => {
-    it("allows join but workspaceState is not persisted for non-collaborator", () => {
+    it("allows join but workspaceState is not persisted for non-collaborator", async () => {
       const wsId = `ws-notcollab-${uid()}`;
-      mockPrisma.workspaceCollaborator.findUnique.mockResolvedValueOnce(
-        null as any
-      );
+      mockPrisma.workspaceCollaborator.findUnique.mockResolvedValueOnce(null);
       mockPrisma.workspaceCollaborator.count.mockResolvedValueOnce(1);
 
       const { ws } = createMockWs();
@@ -181,6 +190,10 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       });
 
       expect(conn).toBeDefined();
+
+      await roomManager.persistRoom(wsId);
+
+      expect(mockPrisma.workspaceState.upsert).not.toHaveBeenCalled();
     });
 
     it("allows existing collaborator", () => {
@@ -191,7 +204,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
         workspaceId: wsId,
         userId: "user-1",
         joinedAt: new Date(),
-      } as any);
+      });
 
       const { ws } = createMockWs();
       const conn = roomManager.join({

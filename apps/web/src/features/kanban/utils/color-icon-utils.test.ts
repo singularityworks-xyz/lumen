@@ -94,10 +94,19 @@ describe("color-icon-utils", () => {
     });
 
     it("getTopIcons returns deterministic results for same usage", () => {
-      const usage = { star: 5, flag: 3 };
-      const top1 = getTopIcons(usage, 5);
-      const top2 = getTopIcons(usage, 5);
+      const usage = { star: 5, flag: 3, heart: 2, bookmark: 1 };
+      const top1 = getTopIcons(usage, 3);
+      const top2 = getTopIcons(usage, 3);
       expect(top1.map((i) => i.value)).toEqual(top2.map((i) => i.value));
+      expect(top1.length).toBe(3);
+    });
+
+    it("getTopIcons truncates to topCount", () => {
+      const usage = { star: 5, flag: 3, heart: 2, bookmark: 1, bolt: 0 };
+      const top = getTopIcons(usage, 2);
+      expect(top.length).toBe(2);
+      expect(top[0]?.value).toBe("star");
+      expect(top[1]?.value).toBe("flag");
     });
 
     it("incrementColorUsage returns valid usage record", () => {
@@ -106,9 +115,19 @@ describe("color-icon-utils", () => {
       expect(result[key]).toBe(1);
     });
 
+    it("incrementColorUsage increments existing key", () => {
+      const result = incrementColorUsage({ "#f43f5e": 1 }, "#f43f5e");
+      expect(result["#f43f5e"]).toBe(2);
+    });
+
     it("incrementIconUsage returns valid usage record", () => {
       const result = incrementIconUsage({}, "star");
       expect(result.star).toBe(1);
+    });
+
+    it("incrementIconUsage increments existing key", () => {
+      const result = incrementIconUsage({ star: 1 }, "star");
+      expect(result.star).toBe(2);
     });
   });
 

@@ -9,8 +9,8 @@ import {
 
 test.describe("VIS-03: Populated Canvas Visual Regression", () => {
   test.beforeEach(async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
+    await freezeDate(page);
+    await disableAnimations(page);
     await page.goto("/");
     await waitForHydration(page);
     await seedPopulatedWorkspace(page);

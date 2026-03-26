@@ -128,8 +128,8 @@ export function waitForHydration(page: Page): Promise<void> {
   });
 }
 
-export function freezeDate(page: Page): void {
-  page.addInitScript(() => {
+export async function freezeDate(page: Page): Promise<void> {
+  await page.addInitScript(() => {
     const frozenTimestamp = new Date("2026-03-26T12:00:00Z").getTime();
     const OriginalDate = Date;
     global.Date = class extends OriginalDate {
