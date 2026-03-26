@@ -25,7 +25,7 @@ jobs:
         run: bun run db:gen
 
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts 'apps/web/src/**/*.test.ts' --coverage
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -61,10 +61,10 @@ jobs:
         run: bun run db:gen
 
       - name: Run worker unit tests
-        run: bun test --preload ./tests/config/workers.setup.ts 'apps/workers/src/**/*.test.ts' --coverage
+        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
 
       - name: Run package unit tests
-        run: bun test --preload ./tests/config/bun.setup.ts 'packages/*/test/**/*.test.ts' --coverage
+        run: bun test --preload ./tests/config/bun.setup.ts ./packages/*/test/**/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -121,7 +121,7 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/web.setup.ts 'apps/web/src/**/*.integration.test.ts'
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.integration.test.ts
 
   integration-workers:
     name: Integration Workers
@@ -163,7 +163,7 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/workers.setup.ts 'apps/workers/src/**/*.integration.test.ts'
+        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.integration.test.ts
 
   coverage-gate:
     name: Coverage Gate
@@ -194,7 +194,7 @@ jobs:
         with:
           name: coverage-unit-server-and-packages
           path: coverage/bun
-          merge: true
+          merge-multiple: true
 
       - name: Check LCOV thresholds
         run: bun run scripts/testing/check-lcov-thresholds.ts
