@@ -1,17 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Span, Tracer } from "@opentelemetry/api";
+import type {
+  Attributes,
+  Exception,
+  Span,
+  SpanStatus,
+  Tracer,
+} from "@opentelemetry/api";
+
+const endMock = mock(() => undefined);
+const recordExceptionMock = mock((_e: Exception) => undefined);
+const setStatusMock = mock((_status: SpanStatus) => mockSpan);
+const setAttributesMock = mock((_attributes: Attributes) => mockSpan);
+const addEventMock = mock((_name: string) => mockSpan);
+const setAttributeMock = mock(() => mockSpan);
+const addLinkMock = mock(() => mockSpan);
+const addLinksMock = mock(() => mockSpan);
+const updateNameMock = mock(() => mockSpan);
+const isRecordingMock = mock(() => true);
 
 const mockSpan = {
-  end: mock(() => undefined),
-  recordException: mock(() => undefined),
-  setStatus: mock(() => undefined),
-  setAttributes: mock(() => undefined),
-  setAttribute: mock(() => undefined),
-  addEvent: mock(() => undefined),
-  addLink: mock(() => undefined),
-  addLinks: mock(() => undefined),
-  updateName: mock(() => undefined),
-  isRecording: mock(() => true),
+  end: endMock,
+  recordException: recordExceptionMock,
+  setStatus: setStatusMock,
+  setAttributes: setAttributesMock,
+  setAttribute: setAttributeMock,
+  addEvent: addEventMock,
+  addLink: addLinkMock,
+  addLinks: addLinksMock,
+  updateName: updateNameMock,
+  isRecording: isRecordingMock,
   spanContext: () => ({
     traceId: "trace-abc",
     spanId: "span-def",
@@ -19,13 +36,16 @@ const mockSpan = {
   }),
 } as unknown as Span;
 
+const startActiveSpanMock = mock(
+  (_name: string, _options: unknown, fn: (span: Span) => unknown) => {
+    return fn(mockSpan);
+  }
+);
+const startSpanMock = mock(() => mockSpan);
+
 const mockTracer = {
-  startActiveSpan: mock(
-    (_name: string, _options: unknown, fn: (span: Span) => unknown) => {
-      return fn(mockSpan);
-    }
-  ),
-  startSpan: mock(() => mockSpan),
+  startActiveSpan: startActiveSpanMock,
+  startSpan: startSpanMock,
 } as unknown as Tracer;
 
 let activeSpanOverride: Span | undefined | null = null;
@@ -53,12 +73,12 @@ import {
 
 describe("tracer", () => {
   beforeEach(() => {
-    mockSpan.end.mockClear();
-    mockSpan.recordException.mockClear();
-    mockSpan.setStatus.mockClear();
-    mockSpan.setAttributes.mockClear();
-    mockSpan.addEvent.mockClear();
-    mockTracer.startActiveSpan.mockClear();
+    endMock.mockClear();
+    recordExceptionMock.mockClear();
+    setStatusMock.mockClear();
+    setAttributesMock.mockClear();
+    addEventMock.mockClear();
+    startActiveSpanMock.mockClear();
     activeSpanOverride = null;
   });
 
@@ -93,9 +113,9 @@ describe("tracer", () => {
       });
 
       expect(result).toBe(42);
-      expect(mockTracer.startActiveSpan).toHaveBeenCalled();
-      expect(mockSpan.end).toHaveBeenCalled();
-      expect(mockSpan.recordException).not.toHaveBeenCalled();
+      expect(startActiveSpanMock).toHaveBeenCalled();
+      expect(endMock).toHaveBeenCalled();
+      expect(recordExceptionMock).not.toHaveBeenCalled();
     });
 
     it("records error and ends span when function throws", () => {
@@ -107,12 +127,12 @@ describe("tracer", () => {
         })
       ).toThrow("boom");
 
-      expect(mockSpan.recordException).toHaveBeenCalledWith(error);
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+      expect(recordExceptionMock).toHaveBeenCalledWith(error);
+      expect(setStatusMock).toHaveBeenCalledWith({
         code: 2,
         message: "boom",
       });
-      expect(mockSpan.end).toHaveBeenCalled();
+      expect(endMock).toHaveBeenCalled();
     });
 
     it("passes span options through to tracer", () => {
@@ -120,7 +140,7 @@ describe("tracer", () => {
 
       withSpan("opts-op", () => "ok", options);
 
-      expect(mockTracer.startActiveSpan).toHaveBeenCalledWith(
+      expect(startActiveSpanMock).toHaveBeenCalledWith(
         "opts-op",
         options,
         expect.any(Function)
@@ -130,7 +150,7 @@ describe("tracer", () => {
     it("uses empty object when no options provided", () => {
       withSpan("no-opts-op", () => "ok");
 
-      expect(mockTracer.startActiveSpan).toHaveBeenCalledWith(
+      expect(startActiveSpanMock).toHaveBeenCalledWith(
         "no-opts-op",
         {},
         expect.any(Function)
@@ -146,8 +166,8 @@ describe("tracer", () => {
       });
 
       expect(result).toBe("async-result");
-      expect(mockSpan.end).toHaveBeenCalled();
-      expect(mockSpan.recordException).not.toHaveBeenCalled();
+      expect(endMock).toHaveBeenCalled();
+      expect(recordExceptionMock).not.toHaveBeenCalled();
     });
 
     it("records error and ends span when async function rejects", async () => {
@@ -157,12 +177,12 @@ describe("tracer", () => {
         withSpanAsync("async-fail", () => Promise.reject(error))
       ).rejects.toThrow("async boom");
 
-      expect(mockSpan.recordException).toHaveBeenCalledWith(error);
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+      expect(recordExceptionMock).toHaveBeenCalledWith(error);
+      expect(setStatusMock).toHaveBeenCalledWith({
         code: 2,
         message: "async boom",
       });
-      expect(mockSpan.end).toHaveBeenCalled();
+      expect(endMock).toHaveBeenCalled();
     });
   });
 
@@ -172,8 +192,8 @@ describe("tracer", () => {
 
       recordSpanError(mockSpan, error);
 
-      expect(mockSpan.recordException).toHaveBeenCalledWith(error);
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+      expect(recordExceptionMock).toHaveBeenCalledWith(error);
+      expect(setStatusMock).toHaveBeenCalledWith({
         code: 2,
         message: "direct error",
       });
@@ -182,11 +202,11 @@ describe("tracer", () => {
     it("wraps non-Error values in Error", () => {
       recordSpanError(mockSpan, "string error");
 
-      expect(mockSpan.recordException).toHaveBeenCalledWith(expect.any(Error));
-      const recorded = mockSpan.recordException.mock.calls[0]![0] as Error;
+      expect(recordExceptionMock).toHaveBeenCalledWith(expect.any(Error));
+      const recorded = recordExceptionMock.mock.calls[0]![0] as Error;
       expect(recorded.message).toBe("string error");
 
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+      expect(setStatusMock).toHaveBeenCalledWith({
         code: 2,
         message: "string error",
       });
@@ -195,7 +215,7 @@ describe("tracer", () => {
     it("wraps number errors in Error", () => {
       recordSpanError(mockSpan, 404);
 
-      const recorded = mockSpan.recordException.mock.calls[0]![0] as Error;
+      const recorded = recordExceptionMock.mock.calls[0]![0] as Error;
       expect(recorded.message).toBe("404");
     });
   });
@@ -207,19 +227,19 @@ describe("tracer", () => {
 
       recordError(error, attrs);
 
-      expect(mockSpan.recordException).toHaveBeenCalledWith(error);
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+      expect(recordExceptionMock).toHaveBeenCalledWith(error);
+      expect(setStatusMock).toHaveBeenCalledWith({
         code: 2,
         message: "recorded",
       });
-      expect(mockSpan.setAttributes).toHaveBeenCalledWith(attrs);
+      expect(setAttributesMock).toHaveBeenCalledWith(attrs);
     });
 
     it("records error without attributes", () => {
       recordError(new Error("no attrs"));
 
-      expect(mockSpan.recordException).toHaveBeenCalled();
-      expect(mockSpan.setAttributes).not.toHaveBeenCalled();
+      expect(recordExceptionMock).toHaveBeenCalled();
+      expect(setAttributesMock).not.toHaveBeenCalled();
     });
 
     it("does nothing when no active span exists", () => {
@@ -227,7 +247,7 @@ describe("tracer", () => {
 
       recordError(new Error("no span"));
 
-      expect(mockSpan.recordException).not.toHaveBeenCalled();
+      expect(recordExceptionMock).not.toHaveBeenCalled();
     });
   });
 
@@ -255,7 +275,7 @@ describe("tracer", () => {
 
       setSpanAttributes(attrs);
 
-      expect(mockSpan.setAttributes).toHaveBeenCalledWith(attrs);
+      expect(setAttributesMock).toHaveBeenCalledWith(attrs);
     });
 
     it("does nothing when no active span", () => {
@@ -263,7 +283,7 @@ describe("tracer", () => {
 
       setSpanAttributes({ key: "val" });
 
-      expect(mockSpan.setAttributes).not.toHaveBeenCalled();
+      expect(setAttributesMock).not.toHaveBeenCalled();
     });
   });
 
@@ -271,7 +291,7 @@ describe("tracer", () => {
     it("adds event with attributes to the active span", () => {
       addSpanEvent("cache.miss", { key: "user:123" });
 
-      expect(mockSpan.addEvent).toHaveBeenCalledWith("cache.miss", {
+      expect(addEventMock).toHaveBeenCalledWith("cache.miss", {
         key: "user:123",
       });
     });
@@ -279,7 +299,7 @@ describe("tracer", () => {
     it("adds event without attributes", () => {
       addSpanEvent("checkpoint");
 
-      expect(mockSpan.addEvent).toHaveBeenCalledWith("checkpoint", undefined);
+      expect(addEventMock).toHaveBeenCalledWith("checkpoint", undefined);
     });
 
     it("does nothing when no active span", () => {
@@ -287,7 +307,7 @@ describe("tracer", () => {
 
       addSpanEvent("checkpoint");
 
-      expect(mockSpan.addEvent).not.toHaveBeenCalled();
+      expect(addEventMock).not.toHaveBeenCalled();
     });
   });
 });
