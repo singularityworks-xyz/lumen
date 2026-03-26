@@ -333,21 +333,26 @@ describe("WEB-I-01: store-persistence integration", () => {
       const doc = new Y.Doc();
       const state = createInitialState();
 
-      state.workspaces.byId["ws-1"] = {
-        id: "ws-1",
-        name: "Test Workspace",
-        created_at: FROZEN_TIMESTAMP,
-        board_ids: ["board-1"],
+      // Properly set up state to only have ws-1 (clear default workspace)
+      state.workspaces.byId = {
+        "ws-1": {
+          id: "ws-1",
+          name: "Test Workspace",
+          created_at: FROZEN_TIMESTAMP,
+          board_ids: ["board-1"],
+        },
       };
       state.workspaces.allIds = ["ws-1"];
 
-      state.boards.byId["board-1"] = {
-        id: "board-1",
-        name: "Test Board",
-        workspace_id: "ws-1",
-        column_ids: ["col-1"],
-        created_by: "user-1",
-        created_at: FROZEN_TIMESTAMP,
+      state.boards.byId = {
+        "board-1": {
+          id: "board-1",
+          name: "Test Board",
+          workspace_id: "ws-1",
+          column_ids: ["col-1"],
+          created_by: "user-1",
+          created_at: FROZEN_TIMESTAMP,
+        },
       };
       state.boards.allIds = ["board-1"];
 
