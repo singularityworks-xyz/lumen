@@ -1,25 +1,58 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-
-try {
-  GlobalRegistrator.register();
-} catch (_e) {
-  /* ignore */
-}
-
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import { renderHook } from "@testing-library/react";
 
-// -- Mock setup --
+type SignInSocialOptions = Parameters<
+  typeof import("@/src/lib/auth-client").signIn.social
+>[0];
 
-const mockRefetch = mock(() => Promise.resolve({ data: null } as never));
-const mockUseSession = mock(() => ({
-  data: null as any,
-  isPending: false,
-  error: null as Error | null,
-  refetch: mockRefetch,
-}));
+interface SpanMock {
+  addEvent: (
+    name: string,
+    attrs?: Record<string, string | number | boolean>
+  ) => void;
+  end: () => void;
+  recordException: (error: Error) => void;
+  setAttribute: (key: string, value: string | number | boolean) => void;
+  setAttributes: (attrs: Record<string, string | number | boolean>) => void;
+  setStatus: (status: { code: number; message?: string }) => void;
+}
 
-const mockSignInSocial = mock((_opts: any) => Promise.resolve());
+const spanMock: SpanMock = {
+  setAttribute: mock(),
+  setAttributes: mock(),
+  addEvent: mock(),
+  recordException: mock(),
+  setStatus: mock(),
+  end: mock(),
+};
+
+const mockRefetch = mock((): Promise<void> => Promise.resolve());
+
+type UseSessionReturn = ReturnType<
+  typeof import("@/src/lib/auth-client").useSession
+>;
+
+const mockUseSession = mock(
+  (): UseSessionReturn => ({
+    data: null,
+    isPending: false,
+    isRefetching: false,
+    error: null,
+    refetch: mockRefetch,
+  })
+);
+
+const mockSignInSocial = mock((_opts: SignInSocialOptions) =>
+  Promise.resolve()
+);
 const mockSignOut = mock(() => Promise.resolve());
 
 mock.module("@/src/lib/auth-client", () => ({
@@ -30,7 +63,9 @@ mock.module("@/src/lib/auth-client", () => ({
 
 const mockIsTauri = mock(() => false);
 const mockInitializeNativeAuth = mock(() => Promise.resolve());
-const mockOnAuthDeepLink = mock((_cb: any) => () => undefined);
+const mockOnAuthDeepLink = mock(
+  (_cb: (url: string) => Promise<void>) => () => undefined
+);
 const mockOpenExternalBrowser = mock((_url: string) => Promise.resolve());
 
 mock.module("@lumen/native-bridge", () => ({
@@ -41,8 +76,8 @@ mock.module("@lumen/native-bridge", () => ({
 }));
 
 const mockRecordError = mock(() => undefined);
-const mockWithSpanAsync = mock(<T>(_name: string, fn: () => Promise<T>) =>
-  fn()
+const mockWithSpanAsync = mock(
+  <T>(_name: string, fn: (span: SpanMock) => Promise<T>) => fn(spanMock)
 );
 
 mock.module("@lumen/logger/tracer", () => ({
@@ -60,19 +95,21 @@ mock.module("@lumen/logger", () => ({
 }));
 
 const originalFetch = globalThis.fetch;
-const mockFetch = mock(() =>
-  Promise.resolve({
-    ok: true,
-    status: 200,
-    json: () => Promise.resolve({ user: { id: "u-1" } }),
-  } as any)
+const mockFetch = mock(
+  (_url: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: { id: "u-1" } }),
+    } as Response)
 );
-globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 import { useAuth } from "./use-auth";
 
 describe("useAuth", () => {
   beforeEach(() => {
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
     mockRefetch.mockClear();
     mockSignInSocial.mockClear();
     mockSignOut.mockClear();
@@ -82,16 +119,23 @@ describe("useAuth", () => {
     mockOpenExternalBrowser.mockClear();
     mockRecordError.mockClear();
     mockFetch.mockClear();
+    for (const fn of Object.values(spanMock)) {
+      (fn as ReturnType<typeof mock>).mockClear?.();
+    }
 
     mockIsTauri.mockReturnValue(false);
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ user: { id: "u-1" } }),
-    } as any);
+    } as unknown as Response);
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  afterAll(() => {
     globalThis.fetch = originalFetch;
   });
 
@@ -110,48 +154,50 @@ describe("useAuth", () => {
     it("processes valid native auth deep links and refetches session", async () => {
       let registeredCallback: ((url: string) => Promise<void>) | null = null;
 
-      mockOnAuthDeepLink.mockImplementation((cb: any) => {
-        registeredCallback = cb;
-        return () => undefined;
-      });
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
 
       renderHook(() => useAuth());
 
       expect(registeredCallback).not.toBeNull();
 
-      if (registeredCallback) {
-        await (registeredCallback as any)(
-          "lumen://auth/callback?token=valid-token"
-        );
+      await registeredCallback!(
+        "lumen://auth/callback?success=true&token=valid-token"
+      );
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          "/api/auth/exchange",
-          expect.objectContaining({
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: "valid-token" }),
-          })
-        );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/auth/native/exchange-token"),
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: "valid-token" }),
+        })
+      );
 
-        expect(mockRefetch).toHaveBeenCalled();
-      }
+      expect(mockRefetch).toHaveBeenCalled();
     });
 
     it("ignores non-auth deep links without throwing", async () => {
       let registeredCallback: ((url: string) => Promise<void>) | null = null;
 
-      mockOnAuthDeepLink.mockImplementation((cb: any) => {
-        registeredCallback = cb;
-        return () => undefined;
-      });
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
 
       renderHook(() => useAuth());
 
-      if (registeredCallback) {
-        await (registeredCallback as any)("lumen://some/other/path");
-        expect(mockFetch).not.toHaveBeenCalled();
-        expect(mockRefetch).not.toHaveBeenCalled();
-      }
+      expect(registeredCallback).not.toBeNull();
+
+      await registeredCallback!("lumen://some/other/path");
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
     });
 
     it("signInWithGitHub uses external browser in Tauri", async () => {
@@ -184,7 +230,7 @@ describe("useAuth", () => {
       await result.current.signInWithGitHub();
 
       expect(mockSignInSocial).toHaveBeenCalled();
-      const arg = mockSignInSocial.mock.calls[0]![0] as any;
+      const arg = mockSignInSocial.mock.calls[0]![0] as SignInSocialOptions;
       expect(arg.provider).toBe("github");
       expect(arg.callbackURL).toContain("/auth/callback");
     });
@@ -206,7 +252,7 @@ describe("useAuth", () => {
         ok: false,
         status: 401,
         json: () => Promise.resolve({ message: "Invalid token" }),
-      } as any);
+      } as unknown as Response);
 
       const { result } = renderHook(() => useAuth());
 

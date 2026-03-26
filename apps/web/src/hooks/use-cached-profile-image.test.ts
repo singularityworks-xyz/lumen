@@ -1,12 +1,4 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-
-try {
-  GlobalRegistrator.register();
-} catch (_e) {
-  // ignore
-}
-
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { renderHook } from "@testing-library/react";
 
 const mockUseQuery = mock((options: any) => {
@@ -24,6 +16,10 @@ mock.module("@tanstack/react-query", () => ({
 import { useCachedProfileImage } from "./use-cached-profile-image";
 
 describe("use-cached-profile-image", () => {
+  beforeEach(() => {
+    mockUseQuery.mockClear();
+  });
+
   it("hook return values returns null imageUrl and isLoading=false when no URL provided", () => {
     mockUseQuery.mockReturnValueOnce({
       data: null,
@@ -178,7 +174,7 @@ describe("use-cached-profile-image", () => {
     expect(result.current.hasImage).toBe(false);
   });
 
-  it("fallback behavior hasImage is true for empty string URL", () => {
+  it("fallback behavior hasImage is false for empty string URL", () => {
     const { result } = renderHook(() => useCachedProfileImage(""));
     expect(result.current.hasImage).toBe(false);
   });
