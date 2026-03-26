@@ -128,7 +128,7 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.integration.test.ts
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/test/integration/*.test.ts
 
   integration-workers:
     name: Integration Workers
@@ -170,7 +170,7 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.integration.test.ts
+        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/test/integration/*.test.ts
 
   coverage-gate:
     name: Coverage Gate
