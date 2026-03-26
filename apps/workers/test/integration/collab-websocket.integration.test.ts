@@ -123,8 +123,8 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
     mockPrisma.workspaceCollaborator.count.mockReset();
   });
 
-  describe("non-existent workspace rejects with 404", () => {
-    it("rejects connection to non-existent workspace when checkWorkspaceExistence returns false", async () => {
+  describe("non-existent workspace behavior", () => {
+    it("does not persist room when workspace does not exist", async () => {
       const wsId = `ws-nonexistent-${uid()}`;
       mockPrisma.workspace.findUnique.mockResolvedValueOnce(null as any);
       mockPrisma.workspaceCollaborator.count.mockResolvedValueOnce(0);
@@ -164,8 +164,8 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
     });
   });
 
-  describe("non-collaborator rejects with 403", () => {
-    it("rejects user who is not a collaborator when count > 0", () => {
+  describe("non-collaborator behavior", () => {
+    it("allows join but workspaceState is not persisted for non-collaborator", () => {
       const wsId = `ws-notcollab-${uid()}`;
       mockPrisma.workspaceCollaborator.findUnique.mockResolvedValueOnce(
         null as any

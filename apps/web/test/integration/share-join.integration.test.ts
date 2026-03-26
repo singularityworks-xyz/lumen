@@ -234,10 +234,10 @@ describe("WEB-I-04: share-join integration", () => {
 
     it("handles empty server state gracefully", () => {
       const state = createInitialState();
-      const preMergeBoards = { ...state.boards };
-      const preMergeColumns = { ...state.columns };
-      const preMergeTasks = { ...state.tasks };
-      const preMergePositions = { ...state.boardPositions };
+      const preMergeBoards = structuredClone(state.boards);
+      const preMergeColumns = structuredClone(state.columns);
+      const preMergeTasks = structuredClone(state.tasks);
+      const preMergePositions = structuredClone(state.boardPositions);
 
       const serverBoards: Record<string, unknown> = {};
       const serverColumns: Record<string, unknown> = {};

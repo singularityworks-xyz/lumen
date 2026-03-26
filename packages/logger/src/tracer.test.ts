@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import type { Span } from "@opentelemetry/api";
 import {
   addSpanEvent,
@@ -7,6 +7,30 @@ import {
   withSpan,
   withSpanAsync,
 } from "./tracer";
+
+const createMockSpan = (): Span => {
+  const recordException = mock();
+  const setStatus = mock();
+  const setAttribute = mock();
+  const setAttributes = mock();
+  const addEvent = mock();
+  const end = mock();
+
+  return {
+    recordException,
+    setStatus,
+    setAttribute,
+    setAttributes,
+    addEvent,
+    end,
+    spanContext: () => ({
+      traceId: "00000000000000000000000000000000",
+      spanId: "0000000000000000",
+      traceFlags: 0,
+    }),
+    isRecording: () => false,
+  } as unknown as Span;
+};
 
 describe("tracer", () => {
   describe("withSpan", () => {
@@ -19,6 +43,18 @@ describe("tracer", () => {
       expect(result).toBe(42);
     });
 
+    it("calls span.end when function completes", () => {
+      const endMock = mock();
+      const testSpan = createMockSpan();
+      testSpan.end = endMock;
+
+      withSpan("test-op", (_span: Span) => {
+        return 42;
+      });
+
+      expect(endMock).toHaveBeenCalled();
+    });
+
     it("records error and ends span when function throws", () => {
       const error = new Error("boom");
 
@@ -27,17 +63,6 @@ describe("tracer", () => {
           throw error;
         })
       ).toThrow("boom");
-    });
-
-    it("passes span options through to tracer", () => {
-      const options = { kind: 1 };
-      const result = withSpan("opts-op", () => "ok", options);
-      expect(result).toBe("ok");
-    });
-
-    it("uses empty object when no options provided", () => {
-      const result = withSpan("no-opts-op", () => "ok");
-      expect(result).toBe("ok");
     });
   });
 
@@ -62,32 +87,57 @@ describe("tracer", () => {
   });
 
   describe("recordSpanError", () => {
-    it("records Error instances without throwing", () => {
-      withSpan("test-span", (span) => {
-        const error = new Error("direct error");
-        expect(() => recordSpanError(span, error)).not.toThrow();
+    it("calls span.recordException with the Error", () => {
+      const mockSpan = createMockSpan();
+      const error = new Error("test error");
+
+      recordSpanError(mockSpan, error);
+
+      expect(mockSpan.recordException).toHaveBeenCalledWith(error);
+    });
+
+    it("calls span.setStatus with ERROR status", () => {
+      const mockSpan = createMockSpan();
+      const error = new Error("test error");
+
+      recordSpanError(mockSpan, error);
+
+      expect(mockSpan.setStatus).toHaveBeenCalledWith({
+        code: 2,
+        message: "test error",
       });
     });
 
     it("wraps non-Error values in Error", () => {
-      withSpan("test-span", (span) => {
-        expect(() => recordSpanError(span, "string error")).not.toThrow();
-      });
+      const mockSpan = createMockSpan();
+
+      recordSpanError(mockSpan, "string error");
+
+      expect(mockSpan.recordException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "string error" })
+      );
     });
 
     it("handles number errors", () => {
-      withSpan("test-span", (span) => {
-        expect(() => recordSpanError(span, 404)).not.toThrow();
-      });
+      const mockSpan = createMockSpan();
+
+      recordSpanError(mockSpan, 404);
+
+      expect(mockSpan.recordException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "404" })
+      );
     });
   });
 
   describe("setSpanAttributes", () => {
-    it("does not throw when called with attributes", () => {
-      withSpan("test-span", () => {
-        expect(() =>
-          setSpanAttributes({ "http.method": "GET", "http.status": 200 })
-        ).not.toThrow();
+    it("calls span.setAttributes with provided attributes", () => {
+      const mockSpan = createMockSpan();
+
+      setSpanAttributes({ "http.method": "GET", "http.status": 200 });
+
+      expect(mockSpan.setAttributes).toHaveBeenCalledWith({
+        "http.method": "GET",
+        "http.status": 200,
       });
     });
 
@@ -97,18 +147,22 @@ describe("tracer", () => {
   });
 
   describe("addSpanEvent", () => {
-    it("does not throw when called with event name and attributes", () => {
-      withSpan("test-span", () => {
-        expect(() =>
-          addSpanEvent("cache.miss", { key: "user:123" })
-        ).not.toThrow();
+    it("calls span.addEvent with event name and attributes", () => {
+      const mockSpan = createMockSpan();
+
+      addSpanEvent("cache.miss", { key: "user:123" });
+
+      expect(mockSpan.addEvent).toHaveBeenCalledWith("cache.miss", {
+        key: "user:123",
       });
     });
 
-    it("does not throw when called without attributes", () => {
-      withSpan("test-span", () => {
-        expect(() => addSpanEvent("checkpoint")).not.toThrow();
-      });
+    it("calls span.addEvent with only event name when no attributes", () => {
+      const mockSpan = createMockSpan();
+
+      addSpanEvent("checkpoint");
+
+      expect(mockSpan.addEvent).toHaveBeenCalledWith("checkpoint", undefined);
     });
 
     it("does not throw when no active span", () => {

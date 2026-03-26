@@ -90,7 +90,7 @@ describe("color-icon-utils", () => {
     it("getTopColors returns within count limit", () => {
       const usage = { "#f43f5e": 5, "#3b82f6": 3, "#22c55e": 2 };
       const top = getTopColors(usage, 3);
-      expect(top.length).toBeLessThanOrEqual(4);
+      expect(top.length).toBeLessThanOrEqual(3);
     });
 
     it("getTopIcons returns deterministic results for same usage", () => {

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mockDel = mock(() => Promise.resolve()) as any;
-const mockGet = mock(() => Promise.resolve(null)) as any;
-const mockKeys = mock(() => Promise.resolve([])) as any;
-const mockSet = mock(() => Promise.resolve()) as any;
+const mockDel = mock<() => Promise<void>>(() => Promise.resolve());
+const mockGet = mock<(key: string) => Promise<unknown>>((_key: string) =>
+  Promise.resolve(null)
+);
+const mockKeys = mock<() => Promise<string[]>>(() => Promise.resolve([]));
+const mockSet = mock<() => Promise<void>>(() => Promise.resolve());
 
 mock.module("idb-keyval", () => ({
   del: mockDel,
@@ -225,7 +227,7 @@ describe("storage", () => {
       expect(mockGet).toHaveBeenCalled();
     });
 
-    it("resets completion flag on failure", async () => {
+    it("does not throw on DB error", async () => {
       mockGet.mockRejectedValue(new Error("DB error"));
 
       const { runStorageMigration } = await import("./storage");

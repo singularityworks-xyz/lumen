@@ -142,7 +142,7 @@ describe("use-cached-profile-image", () => {
     expect(res).toBeNull();
   });
 
-  it("queryFn behavior returns a promise that resolves to the URL on successful image load", () => {
+  it("queryFn is defined as a function", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
     expect(args.queryFn).toBeDefined();

@@ -16,13 +16,13 @@ function setMockWindow(win: MockWindow | undefined) {
 
 beforeEach(() => {
   try {
-    const resolved = require.resolve("../store");
+    const resolved = require.resolve("./store");
     delete require.cache[resolved];
   } catch {
     // module not yet loaded
   }
   try {
-    const resolved = require.resolve("../../platform");
+    const resolved = require.resolve("../platform");
     delete require.cache[resolved];
   } catch {
     // module not yet loaded
@@ -60,7 +60,7 @@ describe("store", () => {
       expect(await store.has("key")).toBe(false);
     });
 
-    it.skip("falls back to no-op store when Tauri store import fails", async () => {
+    it("falls back to no-op store when Tauri store import fails", async () => {
       setMockWindow({
         __TAURI_INTERNALS__: {
           invoke: mock(() => Promise.reject(new Error("invoke error"))),
@@ -68,7 +68,7 @@ describe("store", () => {
       });
       const { getStore } = await import("./store");
       const store = await getStore();
-      await expect(store.get("key")).rejects.toThrow("invoke error");
+      await expect(store.get("key")).resolves.toBeNull();
     });
 
     it("returns the same instance on subsequent calls (singleton)", async () => {

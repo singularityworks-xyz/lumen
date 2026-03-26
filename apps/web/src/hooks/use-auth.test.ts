@@ -213,7 +213,8 @@ describe("useAuth", () => {
       expect(mockRefetch).not.toHaveBeenCalled();
     });
 
-    it.skip("signInWithGitHub uses external browser in Tauri", async () => {
+    it("signInWithGitHub uses external browser in Tauri", async () => {
+      mockIsTauri.mockReturnValue(true);
       const { result } = renderHook(() => useAuth());
 
       await result.current.signInWithGitHub();

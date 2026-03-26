@@ -10,7 +10,7 @@ import {
 test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
   test.beforeEach(async ({ page }) => {
     freezeDate(page);
-    disableAnimations(page);
+    await disableAnimations(page);
     await page.goto("/");
     await waitForHydration(page);
     await seedPopulatedWorkspace(page);

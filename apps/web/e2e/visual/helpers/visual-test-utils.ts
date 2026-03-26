@@ -137,13 +137,13 @@ export function freezeDate(page: Page): void {
         if (args.length === 0) {
           super(frozenTimestamp);
         } else {
-          super(...(args as [number]));
+          super(...(args as [number | string | Date]));
         }
       }
       static override now(): number {
         return frozenTimestamp;
       }
-    } as typeof Date;
+    } as unknown as typeof Date;
   });
 }
 

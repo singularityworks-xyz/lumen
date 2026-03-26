@@ -1,16 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-const originalSetTimeout = globalThis.setTimeout;
-const originalClearTimeout = globalThis.clearTimeout;
-
-(globalThis as any).setTimeout = ((cb: () => void, ms: number) => {
-  return originalSetTimeout(cb, ms);
-}) as typeof setTimeout;
-
-(globalThis as any).clearTimeout = ((id: ReturnType<typeof setTimeout>) => {
-  return originalClearTimeout(id);
-}) as typeof clearTimeout;
-
 import { debounce } from "./debounce";
 
 describe("debounce", () => {
