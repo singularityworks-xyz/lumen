@@ -63,10 +63,10 @@ export function applyYjsToState(
   // Read METADATA to track which entities have been synced to Yjs
   // This enables accurate deletion detection during sync
   const metadataMap = doc.getMap(YJS_MAP_NAMES.METADATA);
-  const syncedEntitiesMetadata = (metadataMap.get("syncedEntities") as Record<
-    string,
-    string[]
-  >) || {
+  const rawSyncedEntities = metadataMap.get("syncedEntities");
+
+  // Validate and sanitize metadata to handle malformed/missing data
+  const validatedMetadata: Record<string, string[]> = {
     boards: [],
     columns: [],
     tasks: [],
@@ -77,6 +77,33 @@ export function applyYjsToState(
     comments: [],
     chatMessages: [],
   };
+
+  if (
+    rawSyncedEntities &&
+    typeof rawSyncedEntities === "object" &&
+    !Array.isArray(rawSyncedEntities)
+  ) {
+    const metadata = rawSyncedEntities as Record<string, unknown>;
+    const stringArrayKeys = [
+      "boards",
+      "columns",
+      "tasks",
+      "boardPositions",
+      "boardConnections",
+      "areas",
+      "areaPositions",
+      "comments",
+      "chatMessages",
+    ] as const;
+    for (const key of stringArrayKeys) {
+      const value = metadata[key];
+      if (Array.isArray(value)) {
+        validatedMetadata[key] = value.map((v) => String(v));
+      }
+    }
+  }
+
+  const syncedEntitiesMetadata = validatedMetadata;
 
   // Build sets of IDs that were previously synced to Yjs
   const previouslySyncedIds = {
@@ -419,6 +446,7 @@ export function applyYjsToState(
             workspaceBoardIds.has(conn.target_board_id)
         ),
       belongsToWorkspaceFn: connectionBelongsToSyncedWorkspace,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
       previouslySyncedIds: previouslySyncedIds.boardConnections,
       newSyncedIds: newSyncedIds.boardConnections,
     }
@@ -432,6 +460,7 @@ export function applyYjsToState(
   const areas = mergeEntityMaps(currentState?.areas, syncedAreas, {
     filterFn: areaBelongsToWorkspace,
     belongsToWorkspaceFn: areaBelongsToSyncedWorkspace,
+    rawYjsMap: doc.getMap(YJS_MAP_NAMES.AREAS),
     previouslySyncedIds: previouslySyncedIds.areas,
     newSyncedIds: newSyncedIds.areas,
   });
@@ -450,6 +479,7 @@ export function applyYjsToState(
     {
       filterFn: (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
       belongsToWorkspaceFn: areaPositionBelongsToSyncedWorkspace,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS),
       previouslySyncedIds: previouslySyncedIds.areaPositions,
       newSyncedIds: newSyncedIds.areaPositions,
     }
@@ -460,6 +490,7 @@ export function applyYjsToState(
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
     belongsToWorkspaceFn: (comment) =>
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+    rawYjsMap: doc.getMap(YJS_MAP_NAMES.COMMENTS),
     previouslySyncedIds: previouslySyncedIds.comments,
     newSyncedIds: newSyncedIds.comments,
   });
@@ -472,6 +503,7 @@ export function applyYjsToState(
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
       belongsToWorkspaceFn: (msg) =>
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.CHAT_MESSAGES),
       previouslySyncedIds: previouslySyncedIds.chatMessages,
       newSyncedIds: newSyncedIds.chatMessages,
     }
@@ -778,33 +810,36 @@ export function applyYjsToState(
   if (options?.writeMetadata !== false) {
     // Prune deleted IDs: filter out IDs that no longer exist in the merged state
     // This ensures deleted entities are removed from METADATA
+    // Use Sets for O(1) lookups instead of O(n) includes()
+    const boardsSet = new Set(boards.allIds);
+    const columnsSet = new Set(columns.allIds);
+    const tasksSet = new Set(tasks.allIds);
+    const boardPositionsSet = new Set(boardPositions.allIds);
+    const boardConnectionsSet = new Set(boardConnections.allIds);
+    const areasSet = new Set(areas.allIds);
+    const areaPositionsSet = new Set(areaPositions.allIds);
+    const commentsSet = new Set(comments.allIds);
+    const chatMessagesSet = new Set(chatMessages.allIds);
+
     const prunedUpdatedSyncedEntities = {
-      boards: updatedSyncedEntities.boards.filter((id) =>
-        boards.allIds.includes(id)
-      ),
-      columns: updatedSyncedEntities.columns.filter((id) =>
-        columns.allIds.includes(id)
-      ),
-      tasks: updatedSyncedEntities.tasks.filter((id) =>
-        tasks.allIds.includes(id)
-      ),
+      boards: updatedSyncedEntities.boards.filter((id) => boardsSet.has(id)),
+      columns: updatedSyncedEntities.columns.filter((id) => columnsSet.has(id)),
+      tasks: updatedSyncedEntities.tasks.filter((id) => tasksSet.has(id)),
       boardPositions: updatedSyncedEntities.boardPositions.filter((id) =>
-        boardPositions.allIds.includes(id)
+        boardPositionsSet.has(id)
       ),
       boardConnections: updatedSyncedEntities.boardConnections.filter((id) =>
-        boardConnections.allIds.includes(id)
+        boardConnectionsSet.has(id)
       ),
-      areas: updatedSyncedEntities.areas.filter((id) =>
-        areas.allIds.includes(id)
-      ),
+      areas: updatedSyncedEntities.areas.filter((id) => areasSet.has(id)),
       areaPositions: updatedSyncedEntities.areaPositions.filter((id) =>
-        areaPositions.allIds.includes(id)
+        areaPositionsSet.has(id)
       ),
       comments: updatedSyncedEntities.comments.filter((id) =>
-        comments.allIds.includes(id)
+        commentsSet.has(id)
       ),
       chatMessages: updatedSyncedEntities.chatMessages.filter((id) =>
-        chatMessages.allIds.includes(id)
+        chatMessagesSet.has(id)
       ),
     };
     metadataMap.set("syncedEntities", prunedUpdatedSyncedEntities);
@@ -838,9 +873,15 @@ export function applyYjsToState(
 export function applyYjsToStateWithRepair(
   doc: Y.Doc,
   currentState: KanbanState,
-  currentWorkspaceId?: string | null
+  currentWorkspaceId?: string | null,
+  options?: ApplyYjsOptions
 ): Partial<KanbanState> {
-  const yjsState = applyYjsToState(doc, currentState, currentWorkspaceId);
+  const yjsState = applyYjsToState(
+    doc,
+    currentState,
+    currentWorkspaceId,
+    options
+  );
 
   // Merge with current state for repair check
   const mergedState = {
@@ -897,6 +938,10 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
 
   logger.info("Initialized Yjs from Zustand state");
 }
+
+// NOTE: The METADATA map is intentionally NOT initialized here.
+// METADATA is populated by applyYjsToState on first sync and defaults to empty arrays,
+// so upfront initialization is unnecessary.
 
 // Initialize Y.Doc with data for a SPECIFIC workspace only.
 // This prevents other workspaces' data from being synced to the collab room.
