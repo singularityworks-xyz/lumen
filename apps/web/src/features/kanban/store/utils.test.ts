@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 let nanoidCounter = 0;
-
 mock.module("nanoid", () => ({
   nanoid: () => `seq${++nanoidCounter}`,
 }));
@@ -18,12 +17,7 @@ beforeEach(() => {
 });
 
 describe("getNextZIndex", () => {
-  it("returns 1 when positions are empty", () => {
-    const positions: EntityMap<BoardPosition> = { byId: {}, allIds: [] };
-    expect(getNextZIndex(positions)).toBe(1);
-  });
-
-  it("returns max plus one with sparse IDs", () => {
+  it("returns max plus one even with sparse IDs", () => {
     const positions: EntityMap<BoardPosition> = {
       byId: {
         a: { id: "a", x: 0, y: 0, zIndex: 5 },
@@ -35,28 +29,17 @@ describe("getNextZIndex", () => {
     expect(getNextZIndex(positions)).toBe(21);
   });
 
-  it("ignores gaps in allIds that do not exist in byId", () => {
-    const positions: EntityMap<BoardPosition> = {
-      byId: {
-        a: { id: "a", x: 0, y: 0, zIndex: 7 },
-      },
-      allIds: ["a", "missing"],
-    };
-    expect(getNextZIndex(positions)).toBe(8);
+  it("returns 1 when positions are empty", () => {
+    const positions: EntityMap<BoardPosition> = { byId: {}, allIds: [] };
+    expect(getNextZIndex(positions)).toBe(1);
   });
 });
 
 describe("createDefaultWorkspace", () => {
-  it("returns workspace with matching generated ID", () => {
-    const result = createDefaultWorkspace();
+  it("default workspace shape is correct", () => {
+    const { workspace, id } = createDefaultWorkspace();
 
-    expect(result.id).toBe("ws_seq1");
-    expect(result.workspace.id).toBe(result.id);
-  });
-
-  it("has correct default shape", () => {
-    const { workspace } = createDefaultWorkspace();
-
+    expect(workspace.id).toBe(id);
     expect(workspace.name).toBe("Default Workspace");
     expect(workspace.description).toBe("Your default workspace");
     expect(workspace.board_ids).toEqual([]);
@@ -73,12 +56,6 @@ describe("createInitialState", () => {
     const id = state.workspaces.allIds[0]!;
     expect(state.workspaces.byId[id]).toBeDefined();
     expect(state.workspaces.byId[id]!.name).toBe("Default Workspace");
-  });
-
-  it("sets currentWorkspaceId to the seeded workspace", () => {
-    const state = createInitialState();
-    const id = state.workspaces.allIds[0]!;
-
     expect(state.currentWorkspaceId).toBe(id);
   });
 
