@@ -39,7 +39,7 @@ describe("auth", () => {
   describe("initiateOAuthFlow", () => {
     it("throws synchronously in web context", async () => {
       setWebContext();
-      const { initiateOAuthFlow } = await import("../../auth");
+      const { initiateOAuthFlow } = await import("../auth");
       expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
         "Native OAuth flow is only available in Tauri"
       );
@@ -47,7 +47,7 @@ describe("auth", () => {
 
     it("throws synchronously in SSR context", async () => {
       setMockWindow(undefined);
-      const { initiateOAuthFlow } = await import("../../auth");
+      const { initiateOAuthFlow } = await import("../auth");
       expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
         "Native OAuth flow is only available in Tauri"
       );
@@ -57,7 +57,7 @@ describe("auth", () => {
   describe("cancelOAuthFlow", () => {
     it("does nothing when no flow is active", async () => {
       setWebContext();
-      const { cancelOAuthFlow } = await import("../../auth");
+      const { cancelOAuthFlow } = await import("../auth");
       expect(() => cancelOAuthFlow()).not.toThrow();
     });
   });
@@ -65,7 +65,7 @@ describe("auth", () => {
   describe("getOAuthCallbackUrl", () => {
     it("returns correct deep-link scheme URL", async () => {
       setWebContext();
-      const { getOAuthCallbackUrl } = await import("../../auth");
+      const { getOAuthCallbackUrl } = await import("../auth");
       expect(getOAuthCallbackUrl()).toBe("lumen://auth/callback");
     });
   });
@@ -73,13 +73,13 @@ describe("auth", () => {
   describe("shouldUseNativeAuth", () => {
     it("returns false in web context", async () => {
       setWebContext();
-      const { shouldUseNativeAuth } = await import("../../auth");
+      const { shouldUseNativeAuth } = await import("../auth");
       expect(shouldUseNativeAuth()).toBe(false);
     });
 
     it("returns true in Tauri context", async () => {
       setTauriContext();
-      const { shouldUseNativeAuth } = await import("../../auth");
+      const { shouldUseNativeAuth } = await import("../auth");
       expect(shouldUseNativeAuth()).toBe(true);
     });
   });
@@ -87,7 +87,7 @@ describe("auth", () => {
   describe("onAuthDeepLink", () => {
     it("subscribe returns an unsubscribe function", async () => {
       setWebContext();
-      const { onAuthDeepLink } = await import("../../auth");
+      const { onAuthDeepLink } = await import("../auth");
       const cb = mock(callbackFn);
       const unsub = onAuthDeepLink(cb);
       expect(typeof unsub).toBe("function");
@@ -96,7 +96,7 @@ describe("auth", () => {
 
     it("unsubscribe removes the callback", async () => {
       setWebContext();
-      const { onAuthDeepLink } = await import("../../auth");
+      const { onAuthDeepLink } = await import("../auth");
       const cb = mock(callbackFn);
       const unsub = onAuthDeepLink(cb);
       unsub();
@@ -106,7 +106,7 @@ describe("auth", () => {
 
     it("multiple subscribers can register and unregister independently", async () => {
       setWebContext();
-      const { onAuthDeepLink } = await import("../../auth");
+      const { onAuthDeepLink } = await import("../auth");
       const cb1 = mock(callbackFn);
       const cb2 = mock(callbackFn);
       const unsub1 = onAuthDeepLink(cb1);
@@ -122,7 +122,7 @@ describe("auth", () => {
     it("calls window.open in web context", async () => {
       const openMock = mock(callbackFn);
       setMockWindow({ open: openMock });
-      const { openExternalBrowser } = await import("../../auth");
+      const { openExternalBrowser } = await import("../auth");
       await openExternalBrowser("https://example.com");
       expect(openMock).toHaveBeenCalledWith("https://example.com", "_blank");
     });
@@ -131,7 +131,7 @@ describe("auth", () => {
   describe("second flow cancels first", () => {
     it("first flow promise rejects when second flow starts", async () => {
       setTauriContext();
-      const { initiateOAuthFlow } = await import("../../auth");
+      const { initiateOAuthFlow } = await import("../auth");
       const flow1 = initiateOAuthFlow("https://auth1.example.com");
       const flow2 = initiateOAuthFlow("https://auth2.example.com");
       await expect(flow1).rejects.toThrow(

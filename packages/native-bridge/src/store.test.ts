@@ -16,7 +16,7 @@ function setMockWindow(win: MockWindow | undefined) {
 
 beforeEach(() => {
   try {
-    const resolved = require.resolve("../../store");
+    const resolved = require.resolve("../store");
     delete require.cache[resolved];
   } catch {
     // module not yet loaded
@@ -41,7 +41,7 @@ describe("store", () => {
   describe("getStore", () => {
     it("returns no-op store in browser mode (no Tauri)", async () => {
       setMockWindow({});
-      const { getStore } = await import("../../store");
+      const { getStore } = await import("../store");
       const store = await getStore();
       expect(await store.get("key")).toBeNull();
       expect(await store.has("key")).toBe(false);
@@ -54,7 +54,7 @@ describe("store", () => {
 
     it("returns no-op store in SSR context (no window)", async () => {
       setMockWindow(undefined);
-      const { getStore } = await import("../../store");
+      const { getStore } = await import("../store");
       const store = await getStore();
       expect(await store.get("key")).toBeNull();
       expect(await store.has("key")).toBe(false);
@@ -66,14 +66,14 @@ describe("store", () => {
           invoke: mock(() => Promise.reject(new Error("invoke error"))),
         },
       });
-      const { getStore } = await import("../../store");
+      const { getStore } = await import("../store");
       const store = await getStore();
       await expect(store.get("key")).rejects.toThrow("invoke error");
     });
 
     it("returns the same instance on subsequent calls (singleton)", async () => {
       setMockWindow({});
-      const { getStore } = await import("../../store");
+      const { getStore } = await import("../store");
       const a = await getStore();
       const b = await getStore();
       expect(a).toBe(b);
@@ -81,7 +81,7 @@ describe("store", () => {
 
     it("accepts a custom store name parameter", async () => {
       setMockWindow({});
-      const { getStore } = await import("../../store");
+      const { getStore } = await import("../store");
       const store = await getStore("custom-store.json");
       expect(store).toBeDefined();
       expect(typeof store.get).toBe("function");
@@ -91,37 +91,37 @@ describe("store", () => {
   describe("NativeStore", () => {
     it("get returns null in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       expect(await NativeStore.get("missing")).toBeNull();
     });
 
     it("set resolves without error in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       await expect(NativeStore.set("key", "value")).resolves.toBeUndefined();
     });
 
     it("delete returns false in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       expect(await NativeStore.delete("key")).toBe(false);
     });
 
     it("has returns false in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       expect(await NativeStore.has("key")).toBe(false);
     });
 
     it("keys returns empty array in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       expect(await NativeStore.keys()).toEqual([]);
     });
 
     it("clear resolves without error in browser mode", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       await expect(NativeStore.clear()).resolves.toBeUndefined();
     });
   });
@@ -129,19 +129,19 @@ describe("store", () => {
   describe("NativeStore save integration", () => {
     it("calls save after set", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       await expect(NativeStore.set("key", "val")).resolves.toBeUndefined();
     });
 
     it("calls save after delete", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       await expect(NativeStore.delete("key")).resolves.toBe(false);
     });
 
     it("calls save after clear", async () => {
       setMockWindow({});
-      const { NativeStore } = await import("../../store");
+      const { NativeStore } = await import("../store");
       await expect(NativeStore.clear()).resolves.toBeUndefined();
     });
   });

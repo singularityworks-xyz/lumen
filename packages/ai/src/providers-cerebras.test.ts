@@ -8,7 +8,7 @@ import {
   getModelFallbackChain,
   isCerebrasConfigured,
   isRateLimitError,
-} from "../../src/providers/cerebras";
+} from "./providers/cerebras";
 
 describe("getModelFallbackChain", () => {
   it("starts with the primary model", () => {

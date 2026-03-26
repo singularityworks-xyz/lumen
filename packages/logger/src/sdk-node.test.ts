@@ -139,7 +139,7 @@ import {
   initOtel,
   isOtelInitialized,
   shutdownOtel,
-} from "../../src/sdk-node";
+} from "./sdk-node";
 
 describe("sdk-node", () => {
   beforeEach(() => {

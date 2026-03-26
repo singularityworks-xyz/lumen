@@ -34,7 +34,7 @@ import {
   decryptPrivateKey,
   encryptPrivateKey,
   isEncryptionConfigured,
-} from "../../lib/jwks-encryption";
+} from "../lib/jwks-encryption";
 
 const TEST_KEY = "a]W3$kL9@mNp2&xQ7*vR4!zT6^yU0";
 

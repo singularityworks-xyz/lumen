@@ -36,7 +36,7 @@ mock.module("@opentelemetry/api", () => ({
   },
 }));
 
-import { createChildLogger, createLogger } from "../../src/logger";
+import { createChildLogger, createLogger } from "./logger";
 
 describe("Logger", () => {
   let consoleLogMock: ReturnType<typeof mock<Console["log"]>>;

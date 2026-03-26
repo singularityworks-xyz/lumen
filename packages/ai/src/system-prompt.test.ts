@@ -3,7 +3,7 @@ import {
   buildSystemPrompt,
   getMinimalPrompt,
   type SystemPromptContext,
-} from "../../src/system-prompt";
+} from "./system-prompt";
 
 describe("buildSystemPrompt", () => {
   it("includes core identity, personality, capabilities, response format, and guardrails", () => {

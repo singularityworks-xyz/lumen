@@ -74,7 +74,7 @@ import {
   setSpanAttributes,
   withSpan,
   withSpanAsync,
-} from "../../src/tracer";
+} from "./tracer";
 
 describe("tracer", () => {
   beforeEach(() => {

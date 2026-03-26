@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { actionTools, allTools, queryTools } from "../../src/tools/definitions";
+import { actionTools, allTools, queryTools } from "./tools/definitions";
 import {
   detectToolIntent,
   getToolsForMessage,
   needsTools,
-} from "../../src/tools/router";
+} from "./tools/router";
 
 describe("detectToolIntent", () => {
   describe("query intent", () => {

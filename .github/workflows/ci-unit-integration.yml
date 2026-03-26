@@ -64,7 +64,7 @@ jobs:
         run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
 
       - name: Run package unit tests
-        run: bun test --preload ./tests/config/bun.setup.ts ./packages/*/test/**/*.test.ts --coverage
+        run: bun test --preload ./tests/config/bun.setup.ts ./packages/*/src/**/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7

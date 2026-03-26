@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Mock env before importing config
-mock.module("../../src/env", () => ({
+mock.module("./env", () => ({
   env: {
     NODE_ENV: "test",
     OTEL_ENABLED: true,
@@ -11,7 +11,7 @@ mock.module("../../src/env", () => ({
   },
 }));
 
-import { getOtelConfig } from "../../src/config";
+import { getOtelConfig } from "./config";
 
 describe("getOtelConfig", () => {
   let originalWindow: typeof window | undefined;

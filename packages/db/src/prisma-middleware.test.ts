@@ -47,7 +47,7 @@ const decryptPrivateKeyMock = mock<(data: string) => Promise<string>>(
 
 let encryptionConfigured = true;
 
-mock.module("../../lib/jwks-encryption", () => ({
+mock.module("../lib/jwks-encryption", () => ({
   encryptPrivateKey: encryptPrivateKeyMock,
   decryptPrivateKey: decryptPrivateKeyMock,
   isEncryptionConfigured: () => encryptionConfigured,
@@ -58,13 +58,13 @@ type QueryFn = (args: {
   query: (args: Record<string, unknown>) => Promise<unknown>;
 }) => Promise<unknown>;
 
-mock.module("../../prisma/generated/prisma/client", () => ({
+mock.module("../prisma/generated/prisma/client", () => ({
   Prisma: {
     defineExtension: (factory: (...args: unknown[]) => unknown) => factory,
   },
 }));
 
-import { createJwksEncryptionExtension } from "../../lib/prisma-middleware";
+import { createJwksEncryptionExtension } from "../lib/prisma-middleware";
 
 function buildHandlers(): Record<string, QueryFn> {
   const client = {

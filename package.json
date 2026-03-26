@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.43",
+  "version": "0.4.44",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -59,12 +59,12 @@
     "version:autobump:cleanup": "bun ./scripts/versioning/autobump.ts --cleanup",
     "test:unit:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts",
     "test:unit:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts",
-    "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/*/test/**/*.test.ts",
+    "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/*/src/**/*.test.ts",
     "test:integration:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.integration.test.ts",
     "test:integration:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.integration.test.ts",
     "test:coverage:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage",
     "test:coverage:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage",
-    "test:coverage:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/*/test/**/*.test.ts --coverage",
+    "test:coverage:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/*/src/**/*.test.ts --coverage",
     "test:coverage": "bun run test:coverage:web && bun run test:coverage:workers && bun run test:coverage:packages",
     "test:e2e": "bunx playwright test -c playwright/playwright.config.ts",
     "test:visual": "bunx playwright test -c playwright/playwright.visual.config.ts",

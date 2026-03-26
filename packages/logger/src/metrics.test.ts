@@ -28,7 +28,7 @@ import {
   incrementErrorCount,
   incrementRequestCount,
   recordRequestDuration,
-} from "../../src/metrics";
+} from "./metrics";
 
 describe("metrics", () => {
   beforeEach(() => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { actionTools, allTools, queryTools } from "../../src/tools/definitions";
+import { actionTools, allTools, queryTools } from "./tools/definitions";
 import {
   classifyToolIntentSync,
   getClassifierQueueStats,
-} from "../../src/tools/tool-classifier";
+} from "./tools/tool-classifier";
 
 describe("classifyToolIntentSync", () => {
   describe("query classification", () => {
