@@ -30,18 +30,47 @@ mock.module("@opentelemetry/api", () => {
   function DiagConsoleLogger() {
     /* mock */
   }
+  function createContextKey(_name: string) {
+    return Symbol(_name);
+  }
   return {
+    createContextKey,
     DiagConsoleLogger,
-    DiagLogLevel: { INFO: 9 },
+    DiagLogLevel: { INFO: 9, WARN: 13, ERROR: 17 },
     diag: {
       setLogger: mock(() => undefined),
       info: mock(() => undefined),
       warn: mock(() => undefined),
+      error: mock(() => undefined),
     },
     metrics: {
       setGlobalMeterProvider: mock(() => undefined),
     },
-    trace: {},
+    trace: {
+      getTracer: mock(() => ({})),
+      getActiveSpan: mock(() => undefined),
+    },
+    context: {
+      createContextKey,
+      active: mock(() => ({})),
+    },
+  };
+});
+
+mock.module("@opentelemetry/core", () => {
+  function createContextKey(_name: string) {
+    return Symbol(_name);
+  }
+  return {
+    createContextKey,
+    suppressTracing: {
+      isTracingSuppressed: mock(() => false),
+      suppressTracing: mock(() => ({})),
+      unsuppressTracing: mock(() => ({})),
+    },
+    baggage: {
+      W3CBaggagePropagator: mock(() => ({})),
+    },
   };
 });
 
@@ -51,6 +80,8 @@ mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
   }
   return { OTLPLogExporter };
 });
+
+mock.module("@opentelemetry/otlp-exporter-base", () => ({}));
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
   function OTLPMetricExporter() {
@@ -122,7 +153,7 @@ mock.module("@opentelemetry/sdk-trace-node", () => {
   };
 });
 
-mock.module("../../src/config", () => ({
+mock.module("./config", () => ({
   getOtelConfig: (_serviceName: string) => ({
     enabled: otelEnabled,
     endpoint: otelEnabled ? "http://localhost:4318" : "",

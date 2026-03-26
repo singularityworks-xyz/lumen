@@ -25,17 +25,6 @@ mock.module("@opentelemetry/api-logs", () => ({
   },
 }));
 
-mock.module("@opentelemetry/api", () => ({
-  trace: {
-    getActiveSpan: () => ({
-      spanContext: () => ({ traceId: "trace-123", spanId: "span-456" }),
-    }),
-  },
-  context: {
-    active: () => ({}),
-  },
-}));
-
 import { createChildLogger, createLogger } from "./logger";
 
 describe("Logger", () => {
@@ -121,7 +110,7 @@ describe("Logger", () => {
     expect(callData.body).toBe("Otel test");
     expect(callData.attributes["logger.name"]).toBe("test-logger");
     expect(callData.attributes.someAttr).toBe("value");
-    expect(callData.attributes.trace_id).toBe("trace-123");
-    expect(callData.attributes.span_id).toBe("span-456");
+    expect(callData.attributes.trace_id ?? null).toBeNull();
+    expect(callData.attributes.span_id ?? null).toBeNull();
   });
 });

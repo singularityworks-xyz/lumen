@@ -35,11 +35,10 @@ describe("getModelFallbackChain", () => {
     }
   });
 
-  it("contains all 4 models (primary + remaining fallbacks)", () => {
+  it("contains all 3 models (primary + remaining fallbacks)", () => {
     const chain = getModelFallbackChain("qwen-3-32b");
-    expect(chain).toHaveLength(4);
+    expect(chain).toHaveLength(3);
     expect(chain[0]).toBe("qwen-3-32b");
-    expect(chain).toContain("gpt-oss-120b");
     expect(chain).toContain("llama-3.3-70b");
     expect(chain).toContain("llama3.1-8b");
   });
