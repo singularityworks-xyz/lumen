@@ -1,13 +1,15 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
+  createShareLinkForFirstBoard,
   disableAnimations,
   waitForAppReady,
 } from "./helpers/commands";
 
 test.describe("E2E-11: Collaboration Live Sync", () => {
-  let ownerPage: any;
-  let editorPage: any;
+  let ownerPage: Page;
+  let editorPage: Page;
   let shareLink: string;
 
   test.beforeEach(async ({ browser }) => {
@@ -35,26 +37,7 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await editorPage.goto("/");
     await waitForAppReady(editorPage);
 
-    const workspaceSelector = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await workspaceSelector.click();
-    await ownerPage.waitForSelector('[data-testid="workspace-option"]', {
-      timeout: 5000,
-    });
-
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="board-share-option"]');
-    await ownerPage.click('[data-testid="board-share-option"]');
-    await ownerPage.waitForSelector('[data-testid="share-dialog"]');
-    await ownerPage.click('[data-testid="create-share-link-button"]');
-    await ownerPage.waitForSelector('[data-testid="share-link-input"]');
-    shareLink = await ownerPage
-      .locator('[data-testid="share-link-input"]')
-      .inputValue();
+    shareLink = await createShareLinkForFirstBoard(ownerPage);
   });
 
   test.afterEach(async () => {
@@ -69,7 +52,11 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   test("board edits appear in second browser context", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const initialBoardsOwner = await ownerPage
       .locator('[data-testid="board-node"]')
@@ -83,7 +70,9 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await ownerPage.click('[data-testid="board-create-submit"]');
     await ownerPage.waitForTimeout(1000);
 
-    await editorPage.waitForTimeout(2000);
+    await editorPage
+      .locator('[data-testid="board-node"]:has-text("Live Sync Board")')
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const finalBoardsOwner = await ownerPage
       .locator('[data-testid="board-node"]')
@@ -99,7 +88,11 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   test("column edits appear in second browser context", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const addColumnTrigger = boardNode.locator(
@@ -110,18 +103,21 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await ownerPage.click('[data-testid="column-create-submit"]');
     await ownerPage.waitForTimeout(1000);
 
-    await editorPage.waitForTimeout(2000);
-
     const liveColumn = editorPage.locator(
       '[data-testid="kanban-column"]:has-text("Live Column")'
     );
+    await liveColumn.waitFor({ state: "visible", timeout: 10_000 });
     await expect(liveColumn).toBeVisible();
   });
 
   test("task edits appear in second browser context", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const addColumnTrigger = boardNode.locator(
@@ -144,24 +140,25 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await ownerPage.click('[data-testid="task-create-submit"]');
     await ownerPage.waitForTimeout(1000);
 
-    await editorPage.waitForTimeout(2000);
-
     const liveTask = editorPage.locator(
       '[data-testid="task-card"]:has-text("Live Task")'
     );
+    await liveTask.waitFor({ state: "visible", timeout: 10_000 });
     await expect(liveTask).toBeVisible();
   });
 
   test("cursor presence appears for peer", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     await ownerPage.locator('[data-testid="board-node"]').first().hover();
     await ownerPage.mouse.move(400, 300);
     await ownerPage.waitForTimeout(500);
-
-    await editorPage.waitForTimeout(1000);
 
     const cursorIndicator = editorPage.locator('[data-testid="peer-cursor"]');
     await expect(cursorIndicator).toBeVisible({ timeout: 5000 });
@@ -170,12 +167,14 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   test("selection presence appears for peer", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     await boardNode.click();
-
-    await editorPage.waitForTimeout(1000);
 
     const selectionIndicator = editorPage.locator(
       '[data-testid="peer-selection"]'
@@ -186,7 +185,11 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   test("modal sync works for shared workspace", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const addColumnTrigger = boardNode.locator(
@@ -215,8 +218,6 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await taskCard.click();
     await ownerPage.waitForSelector('[data-testid="task-detail-modal"]');
 
-    await editorPage.waitForTimeout(1000);
-
     const editorTaskCard = editorPage.locator(
       '[data-testid="task-card"]:has-text("Modal Sync Task")'
     );
@@ -228,7 +229,11 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   test("dialog sync works for shared workspace", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
-    await editorPage.waitForTimeout(2000);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     await boardNode
@@ -236,9 +241,6 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .click({ button: "right" });
     await ownerPage.waitForSelector('[data-testid="board-rename-option"]');
     await ownerPage.click('[data-testid="board-rename-option"]');
-    await ownerPage.waitForSelector('[data-testid="board-rename-dialog"]');
-
-    await editorPage.waitForTimeout(1000);
 
     const editorRenameDialog = editorPage.locator(
       '[data-testid="board-rename-dialog"]'

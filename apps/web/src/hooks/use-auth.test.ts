@@ -110,25 +110,38 @@ describe("useAuth", () => {
   beforeEach(() => {
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    mockRefetch.mockClear();
-    mockSignInSocial.mockClear();
-    mockSignOut.mockClear();
-    mockIsTauri.mockClear();
-    mockInitializeNativeAuth.mockClear();
-    mockOnAuthDeepLink.mockClear();
-    mockOpenExternalBrowser.mockClear();
-    mockRecordError.mockClear();
-    mockFetch.mockClear();
+    mockRefetch.mockReset();
+    mockSignInSocial.mockReset();
+    mockSignOut.mockReset();
+    mockIsTauri.mockReset();
+    mockInitializeNativeAuth.mockReset();
+    mockOnAuthDeepLink.mockReset();
+    mockOpenExternalBrowser.mockReset();
+    mockRecordError.mockReset();
+    mockFetch.mockReset();
     for (const fn of Object.values(spanMock)) {
-      (fn as ReturnType<typeof mock>).mockClear?.();
+      (fn as ReturnType<typeof mock>).mockReset?.();
     }
 
+    mockRefetch.mockImplementation(() => Promise.resolve());
+    mockSignInSocial.mockImplementation((_opts: SignInSocialOptions) =>
+      Promise.resolve()
+    );
+    mockSignOut.mockImplementation(() => Promise.resolve());
     mockIsTauri.mockReturnValue(false);
+    mockInitializeNativeAuth.mockImplementation(() => Promise.resolve());
+    mockOnAuthDeepLink.mockImplementation(
+      (_cb: (url: string) => Promise<void>) => () => undefined
+    );
+    mockOpenExternalBrowser.mockImplementation((_url: string) =>
+      Promise.resolve()
+    );
+    mockRecordError.mockImplementation(() => undefined);
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ user: { id: "u-1" } }),
-    } as unknown as Response);
+    } as Response);
   });
 
   afterEach(() => {

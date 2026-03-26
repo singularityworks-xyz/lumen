@@ -1,7 +1,3 @@
-interface TauriWindow {
-  __TAURI_INTERNALS__?: object | null | undefined;
-}
-
 declare global {
   interface Window {
     __TAURI_INTERNALS__?: object | null | undefined;
@@ -12,7 +8,7 @@ export function isTauri(): boolean {
   if (typeof globalThis.window === "undefined") {
     return false;
   }
-  const win = globalThis.window as Window & TauriWindow;
+  const win = globalThis.window;
   return !!win?.__TAURI_INTERNALS__;
 }
 

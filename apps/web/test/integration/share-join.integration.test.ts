@@ -233,15 +233,48 @@ describe("WEB-I-04: share-join integration", () => {
     });
 
     it("handles empty server state gracefully", () => {
+      const state = createInitialState();
+      const preMergeBoards = { ...state.boards };
+      const preMergeColumns = { ...state.columns };
+      const preMergeTasks = { ...state.tasks };
+      const preMergePositions = { ...state.boardPositions };
+
       const serverBoards: Record<string, unknown> = {};
       const serverColumns: Record<string, unknown> = {};
       const serverTasks: Record<string, unknown> = {};
       const serverPositions: Record<string, unknown> = {};
 
-      expect(Object.keys(serverBoards).length).toBe(0);
-      expect(Object.keys(serverColumns).length).toBe(0);
-      expect(Object.keys(serverTasks).length).toBe(0);
-      expect(Object.keys(serverPositions).length).toBe(0);
+      for (const [id, board] of Object.entries(serverBoards)) {
+        if (!state.boards.byId[id]) {
+          state.boards.byId[id] = board as (typeof state.boards.byId)[string];
+          state.boards.allIds.push(id);
+        }
+      }
+      for (const [id, column] of Object.entries(serverColumns)) {
+        if (!state.columns.byId[id]) {
+          state.columns.byId[id] =
+            column as (typeof state.columns.byId)[string];
+          state.columns.allIds.push(id);
+        }
+      }
+      for (const [id, task] of Object.entries(serverTasks)) {
+        if (!state.tasks.byId[id]) {
+          state.tasks.byId[id] = task as (typeof state.tasks.byId)[string];
+          state.tasks.allIds.push(id);
+        }
+      }
+      for (const [id, position] of Object.entries(serverPositions)) {
+        if (!state.boardPositions.byId[id]) {
+          state.boardPositions.byId[id] =
+            position as (typeof state.boardPositions.byId)[string];
+          state.boardPositions.allIds.push(id);
+        }
+      }
+
+      expect(state.boards).toEqual(preMergeBoards);
+      expect(state.columns).toEqual(preMergeColumns);
+      expect(state.tasks).toEqual(preMergeTasks);
+      expect(state.boardPositions).toEqual(preMergePositions);
     });
   });
 

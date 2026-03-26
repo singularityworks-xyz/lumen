@@ -98,6 +98,15 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
   });
 
   test("duplicate connection creation is blocked", async ({ page }) => {
+    const newBoardButton = page.locator('[data-testid="new-board-button"]');
+    await newBoardButton.click();
+    await page.fill(
+      '[data-testid="board-name-input"]',
+      "Second Board for Connection"
+    );
+    await page.click('[data-testid="board-create-submit"]');
+    await page.waitForTimeout(500);
+
     const board1 = page.locator('[data-testid="board-node"]').first();
     const board2 = page.locator('[data-testid="board-node"]').nth(1);
 

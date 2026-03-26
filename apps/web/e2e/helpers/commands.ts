@@ -7,6 +7,7 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
       const request = indexedDB.deleteDatabase("lumen-kanban-store");
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error("IndexedDB blocked"));
     });
   });
 }
@@ -39,11 +40,63 @@ export async function waitForAppReady(page: Page) {
   );
 }
 
-export function getStoreState(page: Page) {
+export function getStoreState(
+  page: Page
+): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => {
     const storeElement = document.querySelector('[data-testid="kanban-store"]');
     return storeElement
       ? JSON.parse(storeElement.getAttribute("data-state") || "{}")
       : null;
   });
+}
+
+interface ReactFlowViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
+  return page.evaluate(() => {
+    const rf = (
+      window as Window & {
+        __reactFlow?: { getViewport: () => ReactFlowViewport };
+      }
+    ).__reactFlow;
+    return rf ? rf.getViewport() : { x: 0, y: 0, zoom: 1 };
+  });
+}
+
+export async function deleteWorkspace(page: Page) {
+  const deleteWorkspaceButton = page.locator(
+    '[data-testid="workspace-selector"]'
+  );
+  await deleteWorkspaceButton.click({ button: "right" });
+  await page.waitForSelector('[data-testid="workspace-delete-option"]');
+  await page.click('[data-testid="workspace-delete-option"]');
+  await page.waitForSelector('[data-testid="workspace-delete-confirm-input"]');
+  await page.fill('[data-testid="workspace-delete-confirm-input"]', "DELETE");
+  await page.click('[data-testid="workspace-delete-submit"]');
+}
+
+export async function createShareLinkForFirstBoard(
+  page: Page
+): Promise<string> {
+  const workspaceSelector = page.locator('[data-testid="workspace-selector"]');
+  await workspaceSelector.click();
+  await page.waitForSelector('[data-testid="workspace-option"]', {
+    timeout: 5000,
+  });
+
+  const boardNode = page.locator('[data-testid="board-node"]').first();
+  await boardNode
+    .locator('[data-testid="board-header"]')
+    .click({ button: "right" });
+  await page.waitForSelector('[data-testid="board-share-option"]');
+  await page.click('[data-testid="board-share-option"]');
+  await page.waitForSelector('[data-testid="share-dialog"]');
+  await page.click('[data-testid="create-share-link-button"]');
+  await page.waitForSelector('[data-testid="share-link-input"]');
+  return page.locator('[data-testid="share-link-input"]').inputValue();
 }

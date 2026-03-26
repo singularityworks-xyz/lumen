@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
+  getReactFlowViewport,
   waitForAppReady,
 } from "./helpers/commands";
 
@@ -85,10 +86,7 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
 
     await page.waitForTimeout(300);
 
-    const viewportBefore = await page.evaluate(() => {
-      const rf = (window as any).__reactFlow;
-      return rf ? rf.getViewport() : null;
-    });
+    const viewportBefore = await getReactFlowViewport(page);
 
     await page.keyboard.press("Escape");
 
@@ -105,10 +103,7 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
 
     await page.waitForTimeout(300);
 
-    const viewportAfter = await page.evaluate(() => {
-      const rf = (window as any).__reactFlow;
-      return rf ? rf.getViewport() : null;
-    });
+    const viewportAfter = await getReactFlowViewport(page);
 
     if (viewportBefore && viewportAfter) {
       const focusedBoard = page.locator(
@@ -146,20 +141,14 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     const canvas = page.locator(".react-flow");
     await expect(canvas).toBeVisible();
 
-    const initialViewport = await page.evaluate(() => {
-      const rf = (window as any).__reactFlow;
-      return rf ? rf.getViewport() : { x: 0, y: 0, zoom: 1 };
-    });
+    const initialViewport = await getReactFlowViewport(page);
 
     await canvas.hover();
     await page.mouse.wheel(0, -100);
 
     await page.waitForTimeout(300);
 
-    const zoomedViewport = await page.evaluate(() => {
-      const rf = (window as any).__reactFlow;
-      return rf ? rf.getViewport() : initialViewport;
-    });
+    const zoomedViewport = await getReactFlowViewport(page);
 
     expect(zoomedViewport.zoom).not.toBe(initialViewport.zoom);
   });

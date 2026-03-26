@@ -208,11 +208,13 @@ test.describe("E2E-03: Column and Task CRUD", () => {
       '[data-testid="task-card"]:has-text("Movable Task")'
     );
     const taskBox = await taskCard.boundingBox();
+    expect(taskBox).not.toBeNull();
 
     const targetColumn = page.locator(
       '[data-testid="kanban-column"]:has-text("Target Column")'
     );
     const targetBox = await targetColumn.boundingBox();
+    expect(targetBox).not.toBeNull();
 
     if (taskBox && targetBox) {
       await taskCard.dragTo(targetColumn);

@@ -1,4 +1,4 @@
-import { type BrowserContext, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   disableAnimations,
   freezeDate,
@@ -8,26 +8,7 @@ import {
 } from "./helpers/visual-test-utils";
 
 test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
-  let secondContext: BrowserContext;
-  let secondPage: import("@playwright/test").Page;
-
-  test.beforeEach(async ({ browser }) => {
-    secondContext = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-      locale: "en-US",
-      timezoneId: "America/Los_Angeles",
-    });
-    secondPage = await secondContext.newPage();
-
-    freezeDate(await secondPage);
-    disableAnimations(await secondPage);
-  });
-
-  test.afterEach(async () => {
-    await secondContext.close();
-  });
-
-  test("collaboration cursor overlay baseline", async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     freezeDate(page);
     disableAnimations(page);
     await page.goto("/");
@@ -37,7 +18,9 @@ test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
     await waitForHydration(page);
     await waitForCanvas(page);
     await page.waitForTimeout(1000);
+  });
 
+  test("collaboration cursor overlay baseline", async ({ page }) => {
     await page.evaluate(() => {
       require("@/src/features/kanban/store/kanban-store");
       const { useCollaboration } = require("@/src/features/collab");
@@ -71,16 +54,6 @@ test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
   });
 
   test("collaboration selection overlay baseline", async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
-    await page.goto("/");
-    await waitForHydration(page);
-    await seedPopulatedWorkspace(page);
-    await page.reload();
-    await waitForHydration(page);
-    await waitForCanvas(page);
-    await page.waitForTimeout(1000);
-
     await page.evaluate(() => {
       const { useCollaboration } = require("@/src/features/collab");
 
@@ -108,16 +81,6 @@ test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
   });
 
   test("two user state with cursors and selections", async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
-    await page.goto("/");
-    await waitForHydration(page);
-    await seedPopulatedWorkspace(page);
-    await page.reload();
-    await waitForHydration(page);
-    await waitForCanvas(page);
-    await page.waitForTimeout(1000);
-
     await page.evaluate(() => {
       const { useCollaboration } = require("@/src/features/collab");
 
@@ -156,16 +119,6 @@ test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
   });
 
   test("cursor name label visible", async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
-    await page.goto("/");
-    await waitForHydration(page);
-    await seedPopulatedWorkspace(page);
-    await page.reload();
-    await waitForHydration(page);
-    await waitForCanvas(page);
-    await page.waitForTimeout(1000);
-
     await page.evaluate(() => {
       const { useCollaboration } = require("@/src/features/collab");
 
@@ -196,16 +149,6 @@ test.describe("VIS-06: Multi-User Overlay Visual Regression", () => {
   });
 
   test("edge indicator when cursor off screen", async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
-    await page.goto("/");
-    await waitForHydration(page);
-    await seedPopulatedWorkspace(page);
-    await page.reload();
-    await waitForHydration(page);
-    await waitForCanvas(page);
-    await page.waitForTimeout(1000);
-
     await page.evaluate(() => {
       const { useCollaboration } = require("@/src/features/collab");
 

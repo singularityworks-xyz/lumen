@@ -94,7 +94,7 @@ test.describe("VIS-03: Populated Canvas Visual Regression", () => {
 
     const edges = page.locator(".react-flow__edge");
     const edgeCount = await edges.count();
-    expect(edgeCount).toBeGreaterThanOrEqual(0);
+    expect(edgeCount).toBeGreaterThanOrEqual(1);
 
     await expect(page).toHaveScreenshot("populated-canvas-connections.png", {
       animations: "disabled",

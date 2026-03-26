@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { renderHook } from "@testing-library/react";
 
-const mockUseQuery = mock((options: any) => {
+interface UseQueryOptions {
+  enabled?: boolean;
+  gcTime?: number;
+  queryFn?: () => Promise<unknown>;
+  queryKey?: unknown[];
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  retry?: number;
+  staleTime?: number;
+}
+
+const mockUseQuery = mock((options: UseQueryOptions) => {
   return {
-    data: options.queryFn ? null : undefined,
+    data: options?.queryFn ? null : undefined,
     isLoading: false,
     refetch: mock(() => Promise.resolve()),
   };
@@ -126,34 +137,35 @@ describe("use-cached-profile-image", () => {
 
   it("queryFn behavior returns null immediately when no URL", async () => {
     renderHook(() => useCachedProfileImage(null));
-    const args = mockUseQuery.mock.calls[0]![0];
-    const res = await args.queryFn();
+    const args = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
+    const res = await args.queryFn?.();
     expect(res).toBeNull();
   });
 
-  it("queryFn behavior returns URL on successful image load", () => {
+  it("queryFn behavior returns a promise that resolves to the URL on successful image load", async () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
-    const promise = args.queryFn();
+    const args = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
+    const promise = args.queryFn?.();
     expect(promise).toBeInstanceOf(Promise);
-  });
-
-  it("queryFn behavior queryFn returns a promise that resolves to the URL", () => {
-    renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
-    expect(args.queryFn()).toBeInstanceOf(Promise);
+    if (promise) {
+      const resolved = await promise;
+      expect(resolved).toBe("https://test.com/img.jpg");
+    }
   });
 
   it("cached URL reuse uses same query key for same URL across renders", () => {
+    interface TestProps {
+      url: string | null;
+    }
     const { rerender } = renderHook(
-      (props: any) => useCachedProfileImage(props?.url),
+      (props: TestProps) => useCachedProfileImage(props?.url),
       {
         initialProps: { url: "https://test.com/img.jpg" },
       }
     );
     rerender({ url: "https://test.com/img.jpg" });
-    const args1 = mockUseQuery.mock.calls[0]![0];
-    const args2 = mockUseQuery.mock.calls[1]![0];
+    const args1 = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
+    const args2 = mockUseQuery.mock.calls[1]![0] as UseQueryOptions;
     expect(args1.queryKey).toEqual(args2.queryKey);
   });
 

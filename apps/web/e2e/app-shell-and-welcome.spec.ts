@@ -11,6 +11,7 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
     await disableAnimations(page);
     await page.goto("/");
     await waitForAppReady(page);
+    await page.waitForLoadState("networkidle");
   });
 
   test("app shell hydrates without error", async ({ page }) => {
@@ -21,9 +22,13 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
       }
     });
 
+    await page.goto("/");
+    await waitForAppReady(page);
     await page.waitForLoadState("networkidle");
 
-    const hasAppShell = await page.locator("body > div").first().isVisible();
+    const hasAppShell = await page
+      .locator('[data-testid="app-shell"]')
+      .isVisible();
     expect(hasAppShell).toBeTruthy();
 
     const criticalErrors = consoleErrors.filter(

@@ -137,7 +137,7 @@ export function freezeDate(page: Page): void {
         if (args.length === 0) {
           super(frozenTimestamp);
         } else {
-          super(...(args as Parameters<typeof OriginalDate>));
+          super(...(args as [number]));
         }
       }
       static override now(): number {
@@ -147,17 +147,19 @@ export function freezeDate(page: Page): void {
   });
 }
 
-export function disableAnimations(page: Page): void {
-  page.addInitScript(() => {
-    const style = document.createElement("style");
-    style.textContent =
-      "*, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }";
-    document.head.appendChild(style);
+export async function disableAnimations(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent =
+        "*, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0s !important; transition-duration: 0.001ms !important; transition-delay: 0s !important; }";
+      document.head.appendChild(style);
+    });
   });
 }
 
-export function setDarkMode(page: Page): void {
-  page.emulateMedia({ colorScheme: "dark" });
+export async function setDarkMode(page: Page): Promise<void> {
+  await page.emulateMedia({ colorScheme: "dark" });
 }
 
 export async function openWorkspaceSelector(page: Page): Promise<void> {

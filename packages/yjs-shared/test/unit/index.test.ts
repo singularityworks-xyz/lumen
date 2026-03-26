@@ -61,7 +61,7 @@ function validColumn(): z.input<typeof ColumnSchema> {
   };
 }
 
-function validBoard() {
+function validBoard(): z.input<typeof BoardSchema> {
   return {
     id: "board-1",
     name: "Sprint 1",

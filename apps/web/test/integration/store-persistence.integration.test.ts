@@ -247,33 +247,32 @@ describe("WEB-I-01: store-persistence integration", () => {
 
   describe("transient selection and drag state do not leak into persisted state", () => {
     it("ui state fields are excluded from persistence partialize", () => {
-      const _uiStateFields = [
-        "showCommandPalette",
-        "showMiniMap",
-        "interactionMode",
-        "selectedBoardId",
-        "selectedBoardIds",
-        "selectedTaskIds",
-        "draggedTaskId",
-        "columnUi",
-        "canvas",
-      ];
-
+      interface TransientField {
+        canvas?: {
+          viewport: { x: number; y: number; zoom: number };
+          focusedBoardId: string;
+          lastInteractionTime: number;
+        };
+        draggedTaskId?: string;
+        selectedBoardId?: string;
+        selectedTaskIds?: string[];
+        showCommandPalette?: boolean;
+        showMiniMap?: boolean;
+      }
       const state = createInitialState();
-      (state as unknown as Record<string, unknown>).showCommandPalette = true;
-      (state as unknown as Record<string, unknown>).showMiniMap = true;
-      (state as unknown as Record<string, unknown>).selectedBoardId =
-        "board-123";
-      (state as unknown as Record<string, unknown>).selectedTaskIds = [
-        "task-1",
-        "task-2",
-      ];
-      (state as unknown as Record<string, unknown>).draggedTaskId = "task-3";
-      (state as unknown as Record<string, unknown>).canvas = {
-        viewport: { x: 100, y: 200, zoom: 1.5 },
-        focusedBoardId: "board-focus",
-        lastInteractionTime: Date.now(),
+      const transient: TransientField = {
+        showCommandPalette: true,
+        showMiniMap: true,
+        selectedBoardId: "board-123",
+        selectedTaskIds: ["task-1", "task-2"],
+        draggedTaskId: "task-3",
+        canvas: {
+          viewport: { x: 100, y: 200, zoom: 1.5 },
+          focusedBoardId: "board-focus",
+          lastInteractionTime: Date.now(),
+        },
       };
+      Object.assign(state, transient);
 
       const persisted: Record<string, unknown> = {};
       const persistPartialize = (s: KanbanState) => {
