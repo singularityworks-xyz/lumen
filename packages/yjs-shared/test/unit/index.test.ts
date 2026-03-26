@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import type { z } from "zod";
 import {
   AreaDialogSchema,
   AreaPositionSchema,
@@ -34,7 +35,7 @@ import {
   YJS_MAP_NAMES,
 } from "../../index";
 
-function validTask() {
+function validTask(): z.input<typeof TaskSchema> {
   return {
     id: "task-1",
     board_id: "board-1",
@@ -50,7 +51,7 @@ function validTask() {
   };
 }
 
-function validColumn() {
+function validColumn(): z.input<typeof ColumnSchema> {
   return {
     id: "col-1",
     board_id: "board-1",
@@ -71,7 +72,7 @@ function validBoard() {
   };
 }
 
-function validWorkspace() {
+function validWorkspace(): z.input<typeof WorkspaceSchema> {
   return {
     id: "ws-1",
     name: "My Workspace",
@@ -113,7 +114,8 @@ describe("yjs-shared schemas", () => {
     });
 
     it("HandlePositionSchema accepts valid values", () => {
-      for (const pos of ["top", "right", "bottom", "left"]) {
+      const validPositions = ["top", "right", "bottom", "left"] as const;
+      for (const pos of validPositions) {
         expect(HandlePositionSchema.parse(pos)).toBe(pos);
       }
     });
@@ -174,8 +176,7 @@ describe("yjs-shared schemas", () => {
     });
 
     it("rejects task with invalid priority", () => {
-      const task = validTask();
-      task.priority = "critical";
+      const task = { ...validTask(), priority: "critical" as const };
       expect(() => TaskSchema.parse(task)).toThrow();
     });
   });
@@ -300,9 +301,9 @@ describe("yjs-shared schemas", () => {
         id: "c-1",
         source_board_id: "b-1",
         target_board_id: "b-2",
-        lineStyle: "solid",
-        sourceHandle: "right",
-        targetHandle: "left",
+        lineStyle: "solid" as const,
+        sourceHandle: "right" as const,
+        targetHandle: "left" as const,
         showArrow: true,
         created_at: "2024-01-01T00:00:00Z",
       };
@@ -411,7 +412,7 @@ describe("yjs-shared schemas", () => {
     it("accepts valid column dialog", () => {
       const dialog = {
         id: "cd-1",
-        type: "rename",
+        type: "rename" as const,
         columnId: "c-1",
         columnName: "Col",
         boardId: "b-1",
@@ -439,7 +440,7 @@ describe("yjs-shared schemas", () => {
     it("accepts valid board dialog", () => {
       const dialog = {
         id: "bd-1",
-        type: "rename",
+        type: "rename" as const,
         boardId: "b-1",
         boardName: "Board",
         position: { x: 0, y: 0 },
@@ -478,7 +479,7 @@ describe("yjs-shared schemas", () => {
         formData: {
           title: "T",
           description: "",
-          priority: "low",
+          priority: "low" as const,
           progress: 0,
           dueDate: "",
           tags: "",

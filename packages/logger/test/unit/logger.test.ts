@@ -41,15 +41,24 @@ import { createChildLogger, createLogger } from "../../src/logger";
 describe("Logger", () => {
   let consoleLogMock: ReturnType<typeof mock<Console["log"]>>;
   const originalConsoleLog = globalThis.console.log;
+  let originalWindow: typeof window | undefined;
 
   beforeEach(() => {
     emitMock.mockClear();
     consoleLogMock = mock<Console["log"]>(() => undefined);
     globalThis.console.log = consoleLogMock;
+
+    // Force server mode for tests
+    originalWindow = globalThis.window;
+    // @ts-expect-error
+    globalThis.window = undefined;
   });
 
   afterEach(() => {
     globalThis.console.log = originalConsoleLog;
+    if (originalWindow !== undefined) {
+      globalThis.window = originalWindow;
+    }
   });
 
   it("respects level filtering", () => {
@@ -101,13 +110,6 @@ describe("Logger", () => {
   });
 
   it("emits OpenTelemetry log records on server", () => {
-    // Override isBrowser to false manually for this test if needed.
-    // The test environment might be seen as browser if window is defined.
-    const originalWindow = globalThis.window;
-    // @ts-expect-error
-    globalThis.window = undefined;
-
-    // Create logger after window is undefined
     const logger = createLogger({ level: "info", name: "test-logger" });
 
     logger.info("Otel test", { someAttr: "value" });
@@ -121,10 +123,5 @@ describe("Logger", () => {
     expect(callData.attributes.someAttr).toBe("value");
     expect(callData.attributes.trace_id).toBe("trace-123");
     expect(callData.attributes.span_id).toBe("span-456");
-
-    // Restore window
-    if (originalWindow !== undefined) {
-      globalThis.window = originalWindow;
-    }
   });
 });

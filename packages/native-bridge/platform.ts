@@ -1,9 +1,19 @@
+interface TauriWindow {
+  __TAURI_INTERNALS__?: object | null | undefined;
+}
+
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__?: object | null | undefined;
+  }
+}
+
 export function isTauri(): boolean {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return false;
   }
-  // biome-ignore lint/suspicious/noExplicitAny: Tauri injects this global
-  return !!(window as any).__TAURI_INTERNALS__;
+  const win = globalThis.window as Window & TauriWindow;
+  return !!win?.__TAURI_INTERNALS__;
 }
 
 // Get the current platform, returns 'tauri' for native app, 'web' for browser.
