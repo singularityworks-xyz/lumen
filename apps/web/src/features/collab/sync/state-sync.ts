@@ -121,6 +121,9 @@ export function applyYjsToState(
   // NOTE: We pass the raw Yjs map to check for existence even if validation failed
   interface MergeOptions<T> {
     belongsToWorkspaceFn?: (item: T) => boolean;
+    // Set of board IDs that were in the workspace's board_ids in Yjs
+    // Used to determine which boards were in Yjs (vs local-only)
+    boardsInYjs?: Set<string>;
     filterFn?: (item: T) => boolean;
     rawYjsMap?: Y.Map<unknown>;
   }
@@ -156,6 +159,7 @@ export function applyYjsToState(
     // Only remove if they belong to the current workspace (to avoid deleting local-only data)
     // IMPORTANT: Check the raw Yjs map if provided - if item exists in Yjs but failed validation,
     // we keep the local version instead of deleting it
+    // For boards: use boardsInYjs to distinguish "deleted from Yjs" vs "never in Yjs"
     if (currentWorkspaceId && options?.belongsToWorkspaceFn) {
       const idsToRemove: string[] = [];
       for (const id of merged.allIds) {
@@ -164,9 +168,16 @@ export function applyYjsToState(
           continue;
         }
 
-        // If we have the raw Yjs map, check if the item exists in it
-        // Only delete if it's definitely NOT in Yjs (not just failed validation)
-        if (options.rawYjsMap) {
+        // For boards: only delete if it was in boardsInYjs (was in Yjs) AND is not in Yjs now
+        // This preserves local-only boards that were never in Yjs
+        if (options.boardsInYjs) {
+          const wasInYjs = options.boardsInYjs.has(id);
+          const isInYjsNow = options.rawYjsMap?.has(id) ?? false;
+          if (wasInYjs && !isInYjsNow) {
+            idsToRemove.push(id);
+          }
+        } else if (options.rawYjsMap) {
+          // For other entities: delete if not in Yjs and not in syncedWorkspaceIds
           if (!(options.rawYjsMap.has(id) || syncedWorkspaceIds.has(id))) {
             idsToRemove.push(id);
           }
@@ -261,10 +272,17 @@ export function applyYjsToState(
     })
   );
 
+  // Get the set of board IDs that were in the workspace's board_ids in Yjs
+  // This tells us which boards were in Yjs (vs local-only)
+  const boardsInYjs = new Set(
+    workspaces.byId[currentWorkspaceId ?? ""]?.board_ids ?? []
+  );
+
   const boards = mergeEntityMaps(currentState?.boards, syncedBoards, {
     filterFn: boardFilterFn,
     belongsToWorkspaceFn: boardBelongsToSyncedWorkspace,
     rawYjsMap: boardsYjsMap,
+    boardsInYjs,
   });
 
   // STRICT: Check if an entity's board belongs to the SYNCED workspace
