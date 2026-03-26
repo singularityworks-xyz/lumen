@@ -14,6 +14,7 @@ function setMockWindow(win: MockWindow | undefined) {
   });
 }
 
+// Reset store singleton between tests by clearing require cache
 beforeEach(() => {
   try {
     const resolved = require.resolve("./store");
@@ -22,7 +23,7 @@ beforeEach(() => {
     // module not yet loaded
   }
   try {
-    const resolved = require.resolve("../platform");
+    const resolved = require.resolve("./platform");
     delete require.cache[resolved];
   } catch {
     // module not yet loaded
@@ -124,22 +125,20 @@ describe("store", () => {
       const { NativeStore } = await import("./store");
       await expect(NativeStore.clear()).resolves.toBeUndefined();
     });
-  });
 
-  describe("NativeStore save integration", () => {
-    it("calls save after set", async () => {
+    it("set calls save after write", async () => {
       setMockWindow({});
       const { NativeStore } = await import("./store");
       await expect(NativeStore.set("key", "val")).resolves.toBeUndefined();
     });
 
-    it("calls save after delete", async () => {
+    it("delete calls save after delete", async () => {
       setMockWindow({});
       const { NativeStore } = await import("./store");
-      await expect(NativeStore.delete("key")).resolves.toBe(false);
+      expect(await NativeStore.delete("key")).toBe(false);
     });
 
-    it("calls save after clear", async () => {
+    it("clear calls save after clear", async () => {
       setMockWindow({});
       const { NativeStore } = await import("./store");
       await expect(NativeStore.clear()).resolves.toBeUndefined();

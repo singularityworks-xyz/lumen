@@ -826,6 +826,10 @@ class RoomManager {
       logger.info("Room deleted", { workspaceId });
     });
   }
+
+  clearDeletedWorkspaces(): void {
+    this.deletedWorkspaces.clear();
+  }
 }
 
 export const roomManager = new RoomManager();
