@@ -1,6 +1,6 @@
 {
   "name": "@lumen/db",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "main": "./index.ts",
@@ -8,6 +8,7 @@
     ".": "./index.ts"
   },
   "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.check.json",
     "generate": "prisma generate",
     "push": " prisma db push --config ./prisma.config.ts",
     "studio": "prisma studio --config ./prisma.config.ts"
@@ -16,6 +17,7 @@
     "@lumen/logger": "workspace:^",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",
+    "bun-types": "^1.3.11",
     "prisma": "^7.5.0",
     "typescript": "^6.0.2"
   },

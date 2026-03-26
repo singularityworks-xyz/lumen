@@ -75,7 +75,7 @@ function buildHandlers(): Record<string, QueryFn> {
   };
 
   const factory = createJwksEncryptionExtension();
-  return factory(client) as Record<string, QueryFn>;
+  return factory(client) as unknown as Record<string, QueryFn>;
 }
 
 describe("prisma-middleware", () => {
@@ -111,7 +111,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ..._args.data })
+        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
       );
 
       await handlers.create!({
@@ -129,7 +129,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ..._args.data })
+        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
       );
 
       await handlers.create!({
@@ -146,7 +146,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ..._args.data })
+        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
       );
 
       await handlers.update!({
@@ -165,7 +165,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ..._args.data })
+        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
       );
 
       await handlers.update!({
@@ -206,7 +206,10 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ..._args.create })
+        Promise.resolve({
+          id: "1",
+          ...(_args.create as Record<string, unknown>),
+        })
       );
 
       await handlers.upsert!({

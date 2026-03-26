@@ -224,7 +224,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",
@@ -238,6 +238,7 @@
         "@lumen/logger": "workspace:^",
         "@types/node": "^25.5.0",
         "@types/pg": "^8.20.0",
+        "bun-types": "^1.3.11",
         "prisma": "^7.5.0",
         "typescript": "^6.0.2",
       },
@@ -270,7 +271,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
@@ -281,14 +282,19 @@
         "@tauri-apps/plugin-websocket": "^2.4.2",
       },
       "devDependencies": {
+        "bun-types": "^1.3.11",
         "typescript": "^6.0.2",
       },
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "zod": "^4.3.6",
+      },
+      "devDependencies": {
+        "bun-types": "^1.3.11",
+        "typescript": "^6.0.2",
       },
     },
   },
