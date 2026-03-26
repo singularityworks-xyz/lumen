@@ -223,7 +223,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",
@@ -243,7 +243,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "^0.208.0",
@@ -269,7 +269,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
