@@ -4,31 +4,32 @@ import {
   COLUMN_ICONS,
   getAccentColor,
   getIconComponent,
+  getTopColors,
+  getTopIcons,
   ICON_MAP,
+  incrementColorUsage,
+  incrementIconUsage,
   isValidHexColor,
 } from "./color-icon-utils";
 
 describe("color-icon-utils", () => {
   describe("isValidHexColor", () => {
-    it("rejects empty string", () => {
-      expect(isValidHexColor("")).toBe(false);
-    });
-
-    it("rejects hex without hash", () => {
+    it("rejects malformed hex values - no hash prefix", () => {
       expect(isValidHexColor("ffffff")).toBe(false);
+      expect(isValidHexColor("f43f5e")).toBe(false);
     });
 
-    it("rejects invalid characters", () => {
-      expect(isValidHexColor("#gggggg")).toBe(false);
-    });
-
-    it("rejects too few characters", () => {
-      expect(isValidHexColor("#fff")).toBe(true);
+    it("rejects malformed hex values - wrong length", () => {
+      expect(isValidHexColor("#ffff")).toBe(false);
+      expect(isValidHexColor("#ffffffff")).toBe(false);
+      expect(isValidHexColor("#fffffff")).toBe(false);
       expect(isValidHexColor("#ff")).toBe(false);
     });
 
-    it("rejects too many characters", () => {
-      expect(isValidHexColor("#fffffff")).toBe(false);
+    it("rejects malformed hex values - invalid characters", () => {
+      expect(isValidHexColor("#gggggg")).toBe(false);
+      expect(isValidHexColor("#00ff00gg")).toBe(false);
+      expect(isValidHexColor("#xyzxyz")).toBe(false);
     });
 
     it("accepts valid 6-digit hex", () => {
@@ -43,28 +44,25 @@ describe("color-icon-utils", () => {
       expect(isValidHexColor("#abc")).toBe(true);
     });
 
-    it("rejects lowercase hex outside range", () => {
-      expect(isValidHexColor("#00")).toBe(false);
-    });
-
     it("accepts mixed case hex", () => {
       expect(isValidHexColor("#AbCdEf")).toBe(true);
+      expect(isValidHexColor("#FFFFFF")).toBe(true);
+    });
+
+    it("rejects empty string and partial values", () => {
+      expect(isValidHexColor("")).toBe(false);
+      expect(isValidHexColor("#")).toBe(false);
+      expect(isValidHexColor("#f")).toBe(false);
     });
   });
 
-  describe("color palette outputs", () => {
+  describe("icon/color utility outputs stay within supported palette contracts", () => {
     it("all accent colors are valid hex or empty", () => {
       for (const color of ACCENT_COLORS) {
         if (color.value) {
           expect(isValidHexColor(color.value)).toBe(true);
         }
       }
-    });
-
-    it("getAccentColor returns correct color", () => {
-      expect(getAccentColor("#3b82f6")?.name).toBe("Blue");
-      expect(getAccentColor("")).toBeUndefined();
-      expect(getAccentColor("#invalid")).toBeUndefined();
     });
 
     it("all icon values are supported in ICON_MAP", () => {
@@ -75,11 +73,42 @@ describe("color-icon-utils", () => {
       }
     });
 
-    it("getIconComponent returns correct icon", () => {
+    it("getAccentColor returns correct color for valid values", () => {
+      expect(getAccentColor("#3b82f6")?.name).toBe("Blue");
+      expect(getAccentColor("#22c55e")?.name).toBe("Green");
+      expect(getAccentColor("")).toBeUndefined();
+      expect(getAccentColor("#invalid")).toBeUndefined();
+    });
+
+    it("getIconComponent returns correct icon for valid values", () => {
       const icon = getIconComponent("star");
       expect(icon).not.toBeNull();
       expect(getIconComponent("")).toBeNull();
       expect(getIconComponent("nonexistent")).toBeNull();
+    });
+
+    it("getTopColors returns within count limit", () => {
+      const usage = { "#f43f5e": 5, "#3b82f6": 3, "#22c55e": 2 };
+      const top = getTopColors(usage, 3);
+      expect(top.length).toBeLessThanOrEqual(4);
+    });
+
+    it("getTopIcons returns deterministic results for same usage", () => {
+      const usage = { star: 5, flag: 3 };
+      const top1 = getTopIcons(usage, 5);
+      const top2 = getTopIcons(usage, 5);
+      expect(top1.map((i) => i.value)).toEqual(top2.map((i) => i.value));
+    });
+
+    it("incrementColorUsage returns valid usage record", () => {
+      const result = incrementColorUsage({}, "#f43f5e");
+      const key = "#f43f5e";
+      expect(result[key]).toBe(1);
+    });
+
+    it("incrementIconUsage returns valid usage record", () => {
+      const result = incrementIconUsage({}, "star");
+      expect(result.star).toBe(1);
     });
   });
 

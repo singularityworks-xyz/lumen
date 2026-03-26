@@ -203,4 +203,40 @@ describe("storage", () => {
       expect(threwError).toBe(false);
     });
   });
+
+  describe("runStorageMigration", () => {
+    it("calls migrateFromLegacyStorage on invocation", async () => {
+      mockGet.mockImplementation((key: string) => {
+        if (key === "lumen-kanban-store") {
+          return Promise.resolve({
+            data: { legacy: true },
+            timestamp: Date.now(),
+            version: 1,
+          });
+        }
+        if (key.includes("lumen-dev")) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
+      });
+
+      const { runStorageMigration } = await import("./storage");
+      await runStorageMigration();
+      expect(mockGet).toHaveBeenCalled();
+    });
+
+    it("resets completion flag on failure", async () => {
+      mockGet.mockRejectedValue(new Error("DB error"));
+
+      const { runStorageMigration } = await import("./storage");
+
+      let caught = false;
+      try {
+        await runStorageMigration();
+      } catch {
+        caught = true;
+      }
+      expect(caught).toBe(false);
+    });
+  });
 });

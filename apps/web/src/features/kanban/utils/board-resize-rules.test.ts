@@ -6,6 +6,7 @@ import {
   calculateInitialBoardDimensions,
   calculateMaxDimensions,
   calculateMinDimensions,
+  shouldApplyResize,
 } from "./board-resize-rules";
 
 describe("board-resize-rules", () => {
@@ -33,19 +34,53 @@ describe("board-resize-rules", () => {
     board_id: "board-1",
   });
 
-  describe("calculateInitialBoardDimensions", () => {
-    it("returns deterministic dimensions for 0 columns", () => {
+  describe("initial and content dimension calculations", () => {
+    it("calculateInitialBoardDimensions returns deterministic dimensions for 0 columns", () => {
       const result1 = calculateInitialBoardDimensions(0);
       const result2 = calculateInitialBoardDimensions(0);
       expect(result1).toEqual(result2);
     });
 
-    it("returns deterministic dimensions for 3 columns", () => {
+    it("calculateInitialBoardDimensions returns deterministic dimensions for 3 columns", () => {
       const result1 = calculateInitialBoardDimensions(3);
       const result2 = calculateInitialBoardDimensions(3);
       expect(result1).toEqual(result2);
+      expect(result1.width).toBe(result2.width);
+      expect(result1.height).toBe(result2.height);
     });
 
+    it("calculateContentDimensions returns deterministic dimensions for same column set", () => {
+      const columns = [createMockColumn()];
+      const result1 = calculateContentDimensions(columns);
+      const result2 = calculateContentDimensions(columns);
+      expect(result1).toEqual(result2);
+      expect(result1.width).toBe(result2.width);
+      expect(result1.height).toBe(result2.height);
+    });
+
+    it("calculateMinDimensions returns deterministic minimum dimensions", () => {
+      const dims1 = calculateMinDimensions();
+      const dims2 = calculateMinDimensions();
+      expect(dims1).toEqual(dims2);
+    });
+
+    it("calculateMaxDimensions returns deterministic dimensions for same column set", () => {
+      const columns = [createMockColumn([]), createMockColumn([])];
+      const result1 = calculateMaxDimensions(columns);
+      const result2 = calculateMaxDimensions(columns);
+      expect(result1).toEqual(result2);
+    });
+
+    it("calculateColumnHeight returns deterministic height for same column", () => {
+      const tasks = [createMockTask("todo"), createMockTask("todo")];
+      const column = createMockColumn(tasks);
+      const height1 = calculateColumnHeight(column);
+      const height2 = calculateColumnHeight(column);
+      expect(height1).toBe(height2);
+    });
+  });
+
+  describe("calculateInitialBoardDimensions", () => {
     it("scales width linearly with column count", () => {
       const dims1 = calculateInitialBoardDimensions(1);
       const dims2 = calculateInitialBoardDimensions(2);
@@ -58,13 +93,6 @@ describe("board-resize-rules", () => {
   });
 
   describe("calculateContentDimensions", () => {
-    it("returns deterministic dimensions for same column set", () => {
-      const columns = [createMockColumn()];
-      const result1 = calculateContentDimensions(columns);
-      const result2 = calculateContentDimensions(columns);
-      expect(result1).toEqual(result2);
-    });
-
     it("increases width when adding columns", () => {
       const oneCol = calculateContentDimensions([createMockColumn()]);
       const twoCols = calculateContentDimensions([
@@ -102,12 +130,6 @@ describe("board-resize-rules", () => {
   });
 
   describe("calculateMinDimensions", () => {
-    it("returns consistent minimum dimensions", () => {
-      const result1 = calculateMinDimensions();
-      const result2 = calculateMinDimensions();
-      expect(result1).toEqual(result2);
-    });
-
     it("has positive width and height", () => {
       const dims = calculateMinDimensions();
       expect(dims.width).toBeGreaterThan(0);
@@ -116,13 +138,6 @@ describe("board-resize-rules", () => {
   });
 
   describe("calculateMaxDimensions", () => {
-    it("returns deterministic dimensions for same column set", () => {
-      const columns = [createMockColumn([]), createMockColumn([])];
-      const result1 = calculateMaxDimensions(columns);
-      const result2 = calculateMaxDimensions(columns);
-      expect(result1).toEqual(result2);
-    });
-
     it("scales width with column count", () => {
       const oneCol = calculateMaxDimensions([createMockColumn([])]);
       const twoCols = calculateMaxDimensions([
@@ -168,7 +183,7 @@ describe("board-resize-rules", () => {
     });
   });
 
-  describe("width/height rules across column count changes", () => {
+  describe("width/height rules do not regress across column count changes", () => {
     it("initial dimensions scale predictably with column count", () => {
       const counts = [1, 2, 3, 4, 5];
       const widths = counts.map(
@@ -188,6 +203,24 @@ describe("board-resize-rules", () => {
       });
       expect(widths[1]!).toBeGreaterThan(widths[0]!);
       expect(widths[2]!).toBeGreaterThan(widths[1]!);
+    });
+
+    it("max dimensions scale predictably with column count", () => {
+      const oneCol = calculateMaxDimensions([createMockColumn([])]);
+      const twoCols = calculateMaxDimensions([
+        createMockColumn([]),
+        createMockColumn([]),
+      ]);
+      const diff = twoCols.width - oneCol.width;
+      expect(diff).toBe(312);
+    });
+
+    it("resize decision is deterministic for same inputs", () => {
+      const current = { width: 500, height: 400 };
+      const content = { width: 300, height: 200 };
+      const result1 = shouldApplyResize(current, content, false);
+      const result2 = shouldApplyResize(current, content, false);
+      expect(result1.shouldResize).toBe(result2.shouldResize);
     });
   });
 });
