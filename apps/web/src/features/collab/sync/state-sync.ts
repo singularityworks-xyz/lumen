@@ -47,6 +47,50 @@ export function applyYjsToState(
     return {};
   }
 
+  // Read METADATA to track which entities have been synced to Yjs
+  // This enables accurate deletion detection during sync
+  const metadataMap = doc.getMap(YJS_MAP_NAMES.METADATA);
+  const syncedEntitiesMetadata = (metadataMap.get("syncedEntities") as Record<
+    string,
+    string[]
+  >) || {
+    boards: [],
+    columns: [],
+    tasks: [],
+    boardPositions: [],
+    boardConnections: [],
+    areas: [],
+    areaPositions: [],
+    comments: [],
+    chatMessages: [],
+  };
+
+  // Build sets of IDs that were previously synced to Yjs
+  const previouslySyncedIds = {
+    boards: new Set(syncedEntitiesMetadata.boards),
+    columns: new Set(syncedEntitiesMetadata.columns),
+    tasks: new Set(syncedEntitiesMetadata.tasks),
+    boardPositions: new Set(syncedEntitiesMetadata.boardPositions),
+    boardConnections: new Set(syncedEntitiesMetadata.boardConnections),
+    areas: new Set(syncedEntitiesMetadata.areas),
+    areaPositions: new Set(syncedEntitiesMetadata.areaPositions),
+    comments: new Set(syncedEntitiesMetadata.comments),
+    chatMessages: new Set(syncedEntitiesMetadata.chatMessages),
+  };
+
+  // Track new synced IDs for this sync operation
+  const newSyncedIds = {
+    boards: new Set<string>(),
+    columns: new Set<string>(),
+    tasks: new Set<string>(),
+    boardPositions: new Set<string>(),
+    boardConnections: new Set<string>(),
+    areas: new Set<string>(),
+    areaPositions: new Set<string>(),
+    comments: new Set<string>(),
+    chatMessages: new Set<string>(),
+  };
+
   const syncedWorkspaces = workspaceSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.WORKSPACE)
   );
@@ -121,10 +165,12 @@ export function applyYjsToState(
   // NOTE: We pass the raw Yjs map to check for existence even if validation failed
   interface MergeOptions<T> {
     belongsToWorkspaceFn?: (item: T) => boolean;
-    // Set of board IDs that were in the workspace's board_ids in Yjs
-    // Used to determine which boards were in Yjs (vs local-only)
-    boardsInYjs?: Set<string>;
     filterFn?: (item: T) => boolean;
+    // Set to track newly synced IDs for this sync
+    newSyncedIds?: Set<string>;
+    // Set of IDs that were previously synced to Yjs (from METADATA)
+    // Used to determine which entities were in Yjs (vs local-only)
+    previouslySyncedIds?: Set<string>;
     rawYjsMap?: Y.Map<unknown>;
   }
 
@@ -156,10 +202,11 @@ export function applyYjsToState(
     }
 
     // Remove items that exist locally but not in Yjs (deleted by other collaborator)
-    // Only remove if they belong to the current workspace (to avoid deleting local-only data)
-    // IMPORTANT: Check the raw Yjs map if provided - if item exists in Yjs but failed validation,
-    // we keep the local version instead of deleting it
-    // For boards: use boardsInYjs to distinguish "deleted from Yjs" vs "never in Yjs"
+    // Only remove if:
+    // 1. They belong to the current workspace
+    // 2. They were previously synced to Yjs (tracked in METADATA)
+    // 3. They are not currently in Yjs
+    // This preserves local-only items that were never synced to Yjs
     if (currentWorkspaceId && options?.belongsToWorkspaceFn) {
       const idsToRemove: string[] = [];
       for (const id of merged.allIds) {
@@ -168,26 +215,30 @@ export function applyYjsToState(
           continue;
         }
 
-        // For boards: only delete if it was in boardsInYjs (was in Yjs) AND is not in Yjs now
-        // This preserves local-only boards that were never in Yjs
-        if (options.boardsInYjs) {
-          const wasInYjs = options.boardsInYjs.has(id);
-          const isInYjsNow = options.rawYjsMap?.has(id) ?? false;
-          if (wasInYjs && !isInYjsNow) {
-            idsToRemove.push(id);
-          }
-        } else if (options.rawYjsMap) {
-          // For other entities: delete if not in Yjs and not in syncedWorkspaceIds
-          if (!(options.rawYjsMap.has(id) || syncedWorkspaceIds.has(id))) {
-            idsToRemove.push(id);
-          }
-        } else if (!syncedWorkspaceIds.has(id)) {
+        // Check if this entity was previously synced to Yjs
+        // If it was, it should be deleted when absent from Yjs
+        // If it was never synced (local-only), preserve it
+        const wasEverSynced =
+          options.previouslySyncedIds?.has(id) || syncedWorkspaceIds.has(id);
+
+        // If it was synced and is now absent from Yjs, delete it
+        const isInYjsNow = options.rawYjsMap?.has(id) ?? false;
+        if (wasEverSynced && !isInYjsNow) {
           idsToRemove.push(id);
         }
       }
       for (const id of idsToRemove) {
         delete merged.byId[id];
         merged.allIds = merged.allIds.filter((i) => i !== id);
+      }
+    }
+
+    // Track newly synced IDs for METADATA update
+    if (options?.newSyncedIds) {
+      for (const id of merged.allIds) {
+        if (syncedWorkspaceIds.has(id)) {
+          options.newSyncedIds.add(id);
+        }
       }
     }
 
@@ -272,17 +323,12 @@ export function applyYjsToState(
     })
   );
 
-  // Get the set of board IDs that were in the workspace's board_ids in Yjs
-  // This tells us which boards were in Yjs (vs local-only)
-  const boardsInYjs = new Set(
-    workspaces.byId[currentWorkspaceId ?? ""]?.board_ids ?? []
-  );
-
   const boards = mergeEntityMaps(currentState?.boards, syncedBoards, {
     filterFn: boardFilterFn,
     belongsToWorkspaceFn: boardBelongsToSyncedWorkspace,
     rawYjsMap: boardsYjsMap,
-    boardsInYjs,
+    previouslySyncedIds: previouslySyncedIds.boards,
+    newSyncedIds: newSyncedIds.boards,
   });
 
   // STRICT: Check if an entity's board belongs to the SYNCED workspace
@@ -302,11 +348,15 @@ export function applyYjsToState(
     filterFn: entityBelongsToWorkspaceBoard,
     belongsToWorkspaceFn: entityBelongsToSyncedWorkspaceBoard,
     rawYjsMap: columnsYjsMap,
+    previouslySyncedIds: previouslySyncedIds.columns,
+    newSyncedIds: newSyncedIds.columns,
   });
   const tasks = mergeEntityMaps(currentState?.tasks, syncedTasks, {
     filterFn: entityBelongsToWorkspaceBoard,
     belongsToWorkspaceFn: entityBelongsToSyncedWorkspaceBoard,
     rawYjsMap: tasksYjsMap,
+    previouslySyncedIds: previouslySyncedIds.tasks,
+    newSyncedIds: newSyncedIds.tasks,
   });
 
   // Helper: Check if a board position belongs to synced workspace
@@ -325,6 +375,8 @@ export function applyYjsToState(
         !currentWorkspaceId || workspaceBoardIds.has(pos.id),
       belongsToWorkspaceFn: boardPositionBelongsToSyncedWorkspace,
       rawYjsMap: boardPositionsYjsMap,
+      previouslySyncedIds: previouslySyncedIds.boardPositions,
+      newSyncedIds: newSyncedIds.boardPositions,
     }
   );
 
@@ -354,6 +406,8 @@ export function applyYjsToState(
             workspaceBoardIds.has(conn.target_board_id)
         ),
       belongsToWorkspaceFn: connectionBelongsToSyncedWorkspace,
+      previouslySyncedIds: previouslySyncedIds.boardConnections,
+      newSyncedIds: newSyncedIds.boardConnections,
     }
   );
 
@@ -365,6 +419,8 @@ export function applyYjsToState(
   const areas = mergeEntityMaps(currentState?.areas, syncedAreas, {
     filterFn: areaBelongsToWorkspace,
     belongsToWorkspaceFn: areaBelongsToSyncedWorkspace,
+    previouslySyncedIds: previouslySyncedIds.areas,
+    newSyncedIds: newSyncedIds.areas,
   });
 
   // Helper: Area position belongs to synced workspace
@@ -381,6 +437,8 @@ export function applyYjsToState(
     {
       filterFn: (pos) => !currentWorkspaceId || workspaceAreaIds.has(pos.id),
       belongsToWorkspaceFn: areaPositionBelongsToSyncedWorkspace,
+      previouslySyncedIds: previouslySyncedIds.areaPositions,
+      newSyncedIds: newSyncedIds.areaPositions,
     }
   );
 
@@ -389,6 +447,8 @@ export function applyYjsToState(
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
     belongsToWorkspaceFn: (comment) =>
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+    previouslySyncedIds: previouslySyncedIds.comments,
+    newSyncedIds: newSyncedIds.comments,
   });
 
   const chatMessages = mergeEntityMaps(
@@ -399,6 +459,8 @@ export function applyYjsToState(
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
       belongsToWorkspaceFn: (msg) =>
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
+      previouslySyncedIds: previouslySyncedIds.chatMessages,
+      newSyncedIds: newSyncedIds.chatMessages,
     }
   );
 
@@ -638,6 +700,68 @@ export function applyYjsToState(
       };
     }
   }
+
+  // Update METADATA with newly synced IDs
+  // This tracks which entities have been synced to Yjs, enabling accurate deletion detection
+  const updatedSyncedEntities = {
+    boards: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.boards || []),
+        ...newSyncedIds.boards,
+      ]),
+    ],
+    columns: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.columns || []),
+        ...newSyncedIds.columns,
+      ]),
+    ],
+    tasks: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.tasks || []),
+        ...newSyncedIds.tasks,
+      ]),
+    ],
+    boardPositions: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.boardPositions || []),
+        ...newSyncedIds.boardPositions,
+      ]),
+    ],
+    boardConnections: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.boardConnections || []),
+        ...newSyncedIds.boardConnections,
+      ]),
+    ],
+    areas: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.areas || []),
+        ...newSyncedIds.areas,
+      ]),
+    ],
+    areaPositions: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.areaPositions || []),
+        ...newSyncedIds.areaPositions,
+      ]),
+    ],
+    comments: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.comments || []),
+        ...newSyncedIds.comments,
+      ]),
+    ],
+    chatMessages: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.chatMessages || []),
+        ...newSyncedIds.chatMessages,
+      ]),
+    ],
+  };
+
+  // Persist updated syncedEntities to METADATA map
+  metadataMap.set("syncedEntities", updatedSyncedEntities);
 
   return {
     workspaces,

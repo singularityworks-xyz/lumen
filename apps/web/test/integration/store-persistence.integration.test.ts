@@ -225,19 +225,24 @@ describe("WEB-I-01: store-persistence integration", () => {
         currentWorkspaceId: workspaceId,
       };
 
-      const yDocWithoutBoard = new Y.Doc();
-      yDocWithoutBoard.getMap(YJS_MAP_NAMES.WORKSPACE).set(workspaceId, {
-        id: workspaceId,
-        name: "Sync Workspace",
-        created_at: FROZEN_TIMESTAMP,
+      // First sync with board-to-delete present
+      applyYjsToStateWithRepair(doc, localState, workspaceId);
+
+      // Simulate deletion: remove board from workspace's board_ids AND delete from BOARDS
+      const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      const currentWorkspace = workspaceMap.get(workspaceId) as {
+        id: string;
+        name: string;
+        created_at: string;
+        board_ids: string[];
+      };
+      workspaceMap.set(workspaceId, {
+        ...currentWorkspace,
         board_ids: [],
       });
+      doc.getMap(YJS_MAP_NAMES.BOARDS).delete(boardId);
 
-      const result = applyYjsToStateWithRepair(
-        yDocWithoutBoard,
-        localState,
-        workspaceId
-      );
+      const result = applyYjsToStateWithRepair(doc, localState, workspaceId);
 
       expect(result.boards?.byId[boardId]).toBeUndefined();
       expect(result.boards?.byId[localBoardId]).toBeDefined();

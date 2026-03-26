@@ -223,7 +223,7 @@ describe("WEB-I-03: yjs-sync integration", () => {
 
   describe("delete propagation removes synced entities while preserving unrelated local data", () => {
     it("removes board deleted in Yjs from local state", () => {
-      const docWithBoard = createYDocWithWorkspace(
+      const doc = createYDocWithWorkspace(
         "ws-1",
         "Workspace",
         "board-1",
@@ -250,23 +250,26 @@ describe("WEB-I-03: yjs-sync integration", () => {
       };
       localState.columns.allIds = ["col-1"];
 
-      const syncedState = applyYjsToStateWithRepair(
-        docWithBoard,
-        localState,
-        "ws-1"
-      );
+      const syncedState = applyYjsToStateWithRepair(doc, localState, "ws-1");
       expect(syncedState.boards?.byId["board-1"]).toBeDefined();
 
-      const docWithoutBoard = new Y.Doc();
-      docWithoutBoard.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
-        id: "ws-1",
-        name: "Workspace",
-        created_at: FROZEN_TIMESTAMP,
+      // Simulate deletion: remove board from workspace's board_ids AND delete from BOARDS
+      // This is how deletion works in reality - same Y.Doc is modified
+      const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      const currentWorkspace = workspaceMap.get("ws-1") as {
+        id: string;
+        name: string;
+        created_at: string;
+        board_ids: string[];
+      };
+      workspaceMap.set("ws-1", {
+        ...currentWorkspace,
         board_ids: [],
       });
+      doc.getMap(YJS_MAP_NAMES.BOARDS).delete("board-1");
 
       const result = applyYjsToStateWithRepair(
-        docWithoutBoard,
+        doc,
         syncedState as KanbanState,
         "ws-1"
       );
@@ -275,14 +278,14 @@ describe("WEB-I-03: yjs-sync integration", () => {
     });
 
     it("preserves local boards not in Yjs when other boards are deleted", () => {
-      const docWithBoard1 = new Y.Doc();
-      docWithBoard1.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
+      const doc = new Y.Doc();
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
         id: "ws-1",
         name: "Workspace",
         created_at: FROZEN_TIMESTAMP,
         board_ids: ["board-1"],
       });
-      docWithBoard1.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", {
+      doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", {
         id: "board-1",
         name: "Board 1",
         workspace_id: "ws-1",
@@ -310,33 +313,38 @@ describe("WEB-I-03: yjs-sync integration", () => {
       };
       localState.boards.allIds = ["board-1", "board-local"];
 
-      const docWithoutBoard1 = new Y.Doc();
-      docWithoutBoard1.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
-        id: "ws-1",
-        name: "Workspace",
-        created_at: FROZEN_TIMESTAMP,
+      // First sync with board-1 present
+      applyYjsToStateWithRepair(doc, localState, "ws-1");
+
+      // Simulate deletion: remove board-1 from workspace's board_ids AND delete from BOARDS
+      const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      const currentWorkspace = workspaceMap.get("ws-1") as {
+        id: string;
+        name: string;
+        created_at: string;
+        board_ids: string[];
+      };
+      workspaceMap.set("ws-1", {
+        ...currentWorkspace,
         board_ids: [],
       });
+      doc.getMap(YJS_MAP_NAMES.BOARDS).delete("board-1");
 
-      const result = applyYjsToStateWithRepair(
-        docWithoutBoard1,
-        localState,
-        "ws-1"
-      );
+      const result = applyYjsToStateWithRepair(doc, localState, "ws-1");
 
       expect(result.boards?.byId["board-1"]).toBeUndefined();
       expect(result.boards?.byId["board-local"]).toBeDefined();
     });
 
     it("removes task deleted in Yjs from local state", () => {
-      const docWithTask = new Y.Doc();
-      docWithTask.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
+      const doc = new Y.Doc();
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
         id: "ws-1",
         name: "Workspace",
         created_at: FROZEN_TIMESTAMP,
         board_ids: ["board-1"],
       });
-      docWithTask.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", {
+      doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", {
         id: "board-1",
         name: "Board 1",
         workspace_id: "ws-1",
@@ -344,14 +352,14 @@ describe("WEB-I-03: yjs-sync integration", () => {
         created_by: "user-1",
         created_at: FROZEN_TIMESTAMP,
       });
-      docWithTask.getMap(YJS_MAP_NAMES.COLUMNS).set("col-1", {
+      doc.getMap(YJS_MAP_NAMES.COLUMNS).set("col-1", {
         id: "col-1",
         board_id: "board-1",
         name: "Column 1",
         position: 0,
         task_ids: ["task-1"],
       });
-      docWithTask.getMap(YJS_MAP_NAMES.TASKS).set("task-1", {
+      doc.getMap(YJS_MAP_NAMES.TASKS).set("task-1", {
         id: "task-1",
         title: "Task 1",
         board_id: "board-1",
@@ -381,34 +389,25 @@ describe("WEB-I-03: yjs-sync integration", () => {
       };
       localState.tasks.allIds = ["task-1"];
 
-      const docWithoutTask = new Y.Doc();
-      docWithoutTask.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-1", {
-        id: "ws-1",
-        name: "Workspace",
-        created_at: FROZEN_TIMESTAMP,
-        board_ids: ["board-1"],
-      });
-      docWithoutTask.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", {
-        id: "board-1",
-        name: "Board 1",
-        workspace_id: "ws-1",
-        column_ids: ["col-1"],
-        created_by: "user-1",
-        created_at: FROZEN_TIMESTAMP,
-      });
-      docWithoutTask.getMap(YJS_MAP_NAMES.COLUMNS).set("col-1", {
-        id: "col-1",
-        board_id: "board-1",
-        name: "Column 1",
-        position: 0,
+      // First sync with task-1 present
+      applyYjsToStateWithRepair(doc, localState, "ws-1");
+
+      // Simulate deletion: remove task-1 from column's task_ids AND delete from TASKS
+      const columnMap = doc.getMap(YJS_MAP_NAMES.COLUMNS);
+      const currentColumn = columnMap.get("col-1") as {
+        id: string;
+        board_id: string;
+        name: string;
+        position: number;
+        task_ids: string[];
+      };
+      columnMap.set("col-1", {
+        ...currentColumn,
         task_ids: [],
       });
+      doc.getMap(YJS_MAP_NAMES.TASKS).delete("task-1");
 
-      const result = applyYjsToStateWithRepair(
-        docWithoutTask,
-        localState,
-        "ws-1"
-      );
+      const result = applyYjsToStateWithRepair(doc, localState, "ws-1");
 
       expect(result.tasks?.byId["task-1"]).toBeUndefined();
     });

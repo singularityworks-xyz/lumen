@@ -139,6 +139,9 @@ export const YJS_MAP_NAMES = {
   AREA_DRAG_ORIGINS: "areaDragOrigins",
   COMMENTS: "comments",
   CHAT_MESSAGES: "chatMessages",
+  // Metadata map to track which entities have been synced to Yjs
+  // This allows accurate deletion detection during sync
+  METADATA: "metadata",
 } as const;
 
 export type YjsMapName = (typeof YJS_MAP_NAMES)[keyof typeof YJS_MAP_NAMES];
