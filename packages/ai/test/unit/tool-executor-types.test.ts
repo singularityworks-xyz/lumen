@@ -68,8 +68,8 @@ describe("getWorkspaceFromSnapshot", () => {
     const snapshot = makeSnapshot();
     const ctx = makeContext({ snapshot });
     const result = getWorkspaceFromSnapshot(ctx);
-    expect(result?.boards[0].id).toBe("board-1");
-    expect(result?.boards[0].columns[0].tasks[0].title).toBe("Task 1");
+    expect(result?.boards[0]?.id).toBe("board-1");
+    expect(result?.boards[0]?.columns[0]?.tasks[0]?.title).toBe("Task 1");
   });
 });
 

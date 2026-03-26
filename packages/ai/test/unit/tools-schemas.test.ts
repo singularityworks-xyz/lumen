@@ -36,7 +36,14 @@ describe("prioritySchema", () => {
 
 describe("taskStatusSchema", () => {
   it("accepts all valid status values", () => {
-    for (const s of ["todo", "in_progress", "done", "blocked", "cancelled"]) {
+    const validStatuses = [
+      "todo",
+      "in_progress",
+      "done",
+      "blocked",
+      "cancelled",
+    ] as const;
+    for (const s of validStatuses) {
       expect(taskStatusSchema.parse(s)).toBe(s);
     }
   });
