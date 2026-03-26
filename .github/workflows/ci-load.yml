@@ -36,7 +36,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install k6
-        uses: grafana/setup-k6@v2
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 ramp test
         run: |
@@ -53,7 +58,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install k6
-        uses: grafana/setup-k6@v2
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 spike test
         run: |
@@ -70,7 +80,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install k6
-        uses: grafana/setup-k6@v2
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 soak test
         run: |

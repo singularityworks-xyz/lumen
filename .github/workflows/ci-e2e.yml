@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload traces
         if: steps.playwright.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: test-results/**/trace.zip
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload videos
         if: steps.playwright.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-videos
           path: test-results/**/video.webm
@@ -70,7 +70,7 @@ jobs:
 
       - name: Upload screenshots
         if: steps.playwright.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-screenshots
           path: test-results/**/screenshot.png
