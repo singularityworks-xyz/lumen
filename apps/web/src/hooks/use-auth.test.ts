@@ -215,6 +215,18 @@ describe("useAuth", () => {
 
     it("signInWithGitHub uses external browser in Tauri", async () => {
       mockIsTauri.mockReturnValue(true);
+      const origDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        "location"
+      );
+      Object.defineProperty(window, "location", {
+        value: {
+          origin: "http://localhost:3000",
+          href: "http://localhost:3000/",
+        },
+        writable: true,
+        configurable: true,
+      });
       const { result } = renderHook(() => useAuth());
 
       await result.current.signInWithGitHub();
@@ -222,7 +234,12 @@ describe("useAuth", () => {
       expect(mockOpenExternalBrowser).toHaveBeenCalled();
       const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
       expect(arg).toContain("github");
+      expect(arg).toContain("/auth/native-signin");
       expect(mockSignInSocial).not.toHaveBeenCalled();
+      // restore
+      if (origDescriptor) {
+        Object.defineProperty(window, "location", origDescriptor);
+      }
     });
   });
 
