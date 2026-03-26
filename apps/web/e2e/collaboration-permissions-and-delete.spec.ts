@@ -1,6 +1,9 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
+  createShareLinkForFirstBoard,
+  deleteWorkspace,
   disableAnimations,
   waitForAppReady,
 } from "./helpers/commands";
@@ -8,8 +11,8 @@ import {
 const DISCONNECTED_OR_OFFLINE_REGEX = /disconnected|offline/;
 
 test.describe("E2E-12: Collaboration Permissions and Delete", () => {
-  let ownerPage: any;
-  let viewerPage: any;
+  let ownerPage: Page;
+  let viewerPage: Page;
   let shareLink: string;
 
   test.beforeEach(async ({ browser }) => {
@@ -37,22 +40,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
     await viewerPage.goto("/");
     await waitForAppReady(viewerPage);
 
-    const workspaceSelector = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await workspaceSelector.click();
-    await ownerPage.waitForSelector('[data-testid="workspace-option"]', {
-      timeout: 5000,
-    });
-
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="board-share-option"]');
-    await ownerPage.click('[data-testid="board-share-option"]');
-    await ownerPage.waitForSelector('[data-testid="share-dialog"]');
-
+    shareLink = await createShareLinkForFirstBoard(ownerPage);
     await ownerPage
       .locator('[data-testid="share-permission-select"]')
       .selectOption("viewer");
@@ -75,7 +63,11 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   test("viewer cannot perform write actions through collaboration channel", async () => {
     await viewerPage.goto(shareLink);
     await waitForAppReady(viewerPage);
-    await viewerPage.waitForTimeout(2000);
+
+    await viewerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const newBoardButton = viewerPage.locator(
       '[data-testid="new-board-button"]'
@@ -101,52 +93,31 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   test("workspace delete shows deleted banner to connected peer", async () => {
     await viewerPage.goto(shareLink);
     await waitForAppReady(viewerPage);
-    await viewerPage.waitForTimeout(2000);
 
-    const deleteWorkspaceButton = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await deleteWorkspaceButton.click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="workspace-delete-option"]');
-    await ownerPage.click('[data-testid="workspace-delete-option"]');
-    await ownerPage.waitForSelector(
-      '[data-testid="workspace-delete-confirm-input"]'
-    );
-    await ownerPage.fill(
-      '[data-testid="workspace-delete-confirm-input"]',
-      "DELETE"
-    );
-    await ownerPage.click('[data-testid="workspace-delete-submit"]');
+    await viewerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
-    await viewerPage.waitForTimeout(2000);
+    await deleteWorkspace(ownerPage);
 
     const deletedBanner = viewerPage.locator(
       '[data-testid="deleted-workspace-banner"]'
     );
-    await expect(deletedBanner).toBeVisible({ timeout: 5000 });
+    await deletedBanner.waitFor({ state: "visible", timeout: 5000 });
+    await expect(deletedBanner).toBeVisible();
   });
 
   test("connected peer disconnect behavior after workspace delete", async () => {
     await viewerPage.goto(shareLink);
     await waitForAppReady(viewerPage);
-    await viewerPage.waitForTimeout(2000);
 
-    const deleteWorkspaceButton = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await deleteWorkspaceButton.click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="workspace-delete-option"]');
-    await ownerPage.click('[data-testid="workspace-delete-option"]');
-    await ownerPage.waitForSelector(
-      '[data-testid="workspace-delete-confirm-input"]'
-    );
-    await ownerPage.fill(
-      '[data-testid="workspace-delete-confirm-input"]',
-      "DELETE"
-    );
-    await ownerPage.click('[data-testid="workspace-delete-submit"]');
+    await viewerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
-    await viewerPage.waitForTimeout(2000);
+    await deleteWorkspace(ownerPage);
 
     const deletedBanner = viewerPage.locator(
       '[data-testid="deleted-workspace-banner"]'
@@ -164,29 +135,18 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   test("viewer can still view boards after peer deletes workspace", async () => {
     await viewerPage.goto(shareLink);
     await waitForAppReady(viewerPage);
-    await viewerPage.waitForTimeout(2000);
+
+    await viewerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     const boardsBeforeDelete = await viewerPage
       .locator('[data-testid="board-node"]')
       .count();
     expect(boardsBeforeDelete).toBeGreaterThan(0);
 
-    const deleteWorkspaceButton = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await deleteWorkspaceButton.click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="workspace-delete-option"]');
-    await ownerPage.click('[data-testid="workspace-delete-option"]');
-    await ownerPage.waitForSelector(
-      '[data-testid="workspace-delete-confirm-input"]'
-    );
-    await ownerPage.fill(
-      '[data-testid="workspace-delete-confirm-input"]',
-      "DELETE"
-    );
-    await ownerPage.click('[data-testid="workspace-delete-submit"]');
-
-    await viewerPage.waitForTimeout(2000);
+    await deleteWorkspace(ownerPage);
 
     const deletedBanner = viewerPage.locator(
       '[data-testid="deleted-workspace-banner"]'
@@ -202,24 +162,13 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   test("save as local option appears for disconnected peer", async () => {
     await viewerPage.goto(shareLink);
     await waitForAppReady(viewerPage);
-    await viewerPage.waitForTimeout(2000);
 
-    const deleteWorkspaceButton = ownerPage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await deleteWorkspaceButton.click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="workspace-delete-option"]');
-    await ownerPage.click('[data-testid="workspace-delete-option"]');
-    await ownerPage.waitForSelector(
-      '[data-testid="workspace-delete-confirm-input"]'
-    );
-    await ownerPage.fill(
-      '[data-testid="workspace-delete-confirm-input"]',
-      "DELETE"
-    );
-    await ownerPage.click('[data-testid="workspace-delete-submit"]');
+    await viewerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
-    await viewerPage.waitForTimeout(2000);
+    await deleteWorkspace(ownerPage);
 
     const deletedBanner = viewerPage.locator(
       '[data-testid="deleted-workspace-banner"]'

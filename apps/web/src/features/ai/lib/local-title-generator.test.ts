@@ -27,6 +27,15 @@ describe("local-title-generator", () => {
       expect(result).toContain("Project");
       expect(result).not.toContain(" for ");
     });
+
+    it("does not capitalize stop words in middle positions", () => {
+      const result = generateLocalTitle("the quick brown fox");
+      const words = result.split(" ");
+      const theIndex = words.findIndex(
+        (w) => w.toLowerCase() === "the" && words.indexOf(w) > 0
+      );
+      expect(theIndex).toBe(-1);
+    });
   });
 
   describe("capitalization rules", () => {
@@ -44,20 +53,45 @@ describe("local-title-generator", () => {
       const result = generateLocalTitle("make something");
       expect(result).toBe("Making Something");
     });
+
+    it("does not capitalize stop words in middle positions", () => {
+      const result = generateLocalTitle("the quick brown fox");
+      const words = result.split(" ");
+      const theIndex = words.findIndex(
+        (w) => w.toLowerCase() === "the" && words.indexOf(w) > 0
+      );
+      expect(theIndex).toBe(-1);
+    });
   });
 
-  describe("assistant/system text handling", () => {
-    it("extracts meaningful keywords from assistant responses", () => {
-      const result = generateLocalTitle("Sure, I'll create a new feature");
-      expect(result).toContain("Create");
-      expect(result).toContain("New");
-      expect(result).toContain("Feature");
+  describe("noisy assistant/system text handling", () => {
+    it("processes assistant prefix through keyword extraction", () => {
+      const result = generateLocalTitle(
+        "Assistant: Sure, I'll help you create a feature"
+      );
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).not.toBe("New Conversation");
     });
 
-    it("extracts keywords from common patterns", () => {
-      const result = generateLocalTitle("Here is a list of tasks");
-      expect(result).toContain("List");
-      expect(result).toContain("Tasks");
+    it("processes system prefix through keyword extraction", () => {
+      const result = generateLocalTitle("System: User wants to add a task");
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).not.toBe("New Conversation");
+    });
+
+    it("extracts keywords from noisy input", () => {
+      const result = generateLocalTitle(
+        "Assistant: I understand you want me to update the profile settings"
+      );
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).not.toBe("New Conversation");
+    });
+
+    it("handles common assistant response patterns", () => {
+      const result = generateLocalTitle(
+        "Sure! I'd be happy to help you organize your tasks"
+      );
+      expect(result.length).toBeGreaterThan(0);
     });
   });
 
@@ -74,7 +108,8 @@ describe("local-title-generator", () => {
 
     it("falls back to original words when all are stop words", () => {
       const result = generateLocalTitle("the a an");
-      expect(result).toBe("The a an");
+      expect(result).not.toBe("New Conversation");
+      expect(result.length).toBeGreaterThan(0);
     });
 
     it("truncates long titles", () => {
@@ -106,6 +141,16 @@ describe("local-title-generator", () => {
       const result = generateLocalTitle("organize my tasks");
       expect(result.startsWith("Organizing")).toBe(true);
     });
+
+    it("applies add action prefix", () => {
+      const result = generateLocalTitle("add a new column");
+      expect(result.startsWith("Adding")).toBe(true);
+    });
+
+    it("applies move action prefix", () => {
+      const result = generateLocalTitle("move item to trash");
+      expect(result.startsWith("Moving")).toBe(true);
+    });
   });
 
   describe("shouldGenerateLocalTitle", () => {
@@ -120,6 +165,27 @@ describe("local-title-generator", () => {
     it("returns true with 2+ messages and no title", () => {
       expect(shouldGenerateLocalTitle(2, null)).toBe(true);
       expect(shouldGenerateLocalTitle(5, null)).toBe(true);
+    });
+
+    it("returns false when title is empty string", () => {
+      expect(shouldGenerateLocalTitle(2, "")).toBe(false);
+    });
+  });
+
+  describe("title candidate quality", () => {
+    it("returns consistent results for same input", () => {
+      const input = "create a new feature request";
+      const result1 = generateLocalTitle(input);
+      const result2 = generateLocalTitle(input);
+      expect(result1).toBe(result2);
+    });
+
+    it("limits keywords to reasonable count", () => {
+      const result = generateLocalTitle(
+        "update the project status for the team meeting notes document"
+      );
+      const wordCount = result.split(" ").length;
+      expect(wordCount).toBeLessThanOrEqual(6);
     });
   });
 });

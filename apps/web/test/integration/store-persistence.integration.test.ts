@@ -225,19 +225,24 @@ describe("WEB-I-01: store-persistence integration", () => {
         currentWorkspaceId: workspaceId,
       };
 
-      const yDocWithoutBoard = new Y.Doc();
-      yDocWithoutBoard.getMap(YJS_MAP_NAMES.WORKSPACE).set(workspaceId, {
-        id: workspaceId,
-        name: "Sync Workspace",
-        created_at: FROZEN_TIMESTAMP,
+      // First sync with board-to-delete present
+      applyYjsToStateWithRepair(doc, localState, workspaceId);
+
+      // Simulate deletion: remove board from workspace's board_ids AND delete from BOARDS
+      const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
+      const currentWorkspace = workspaceMap.get(workspaceId) as {
+        id: string;
+        name: string;
+        created_at: string;
+        board_ids: string[];
+      };
+      workspaceMap.set(workspaceId, {
+        ...currentWorkspace,
         board_ids: [],
       });
+      doc.getMap(YJS_MAP_NAMES.BOARDS).delete(boardId);
 
-      const result = applyYjsToStateWithRepair(
-        yDocWithoutBoard,
-        localState,
-        workspaceId
-      );
+      const result = applyYjsToStateWithRepair(doc, localState, workspaceId);
 
       expect(result.boards?.byId[boardId]).toBeUndefined();
       expect(result.boards?.byId[localBoardId]).toBeDefined();
@@ -247,33 +252,32 @@ describe("WEB-I-01: store-persistence integration", () => {
 
   describe("transient selection and drag state do not leak into persisted state", () => {
     it("ui state fields are excluded from persistence partialize", () => {
-      const _uiStateFields = [
-        "showCommandPalette",
-        "showMiniMap",
-        "interactionMode",
-        "selectedBoardId",
-        "selectedBoardIds",
-        "selectedTaskIds",
-        "draggedTaskId",
-        "columnUi",
-        "canvas",
-      ];
-
+      interface TransientField {
+        canvas?: {
+          viewport: { x: number; y: number; zoom: number };
+          focusedBoardId: string;
+          lastInteractionTime: number;
+        };
+        draggedTaskId?: string;
+        selectedBoardId?: string;
+        selectedTaskIds?: string[];
+        showCommandPalette?: boolean;
+        showMiniMap?: boolean;
+      }
       const state = createInitialState();
-      (state as unknown as Record<string, unknown>).showCommandPalette = true;
-      (state as unknown as Record<string, unknown>).showMiniMap = true;
-      (state as unknown as Record<string, unknown>).selectedBoardId =
-        "board-123";
-      (state as unknown as Record<string, unknown>).selectedTaskIds = [
-        "task-1",
-        "task-2",
-      ];
-      (state as unknown as Record<string, unknown>).draggedTaskId = "task-3";
-      (state as unknown as Record<string, unknown>).canvas = {
-        viewport: { x: 100, y: 200, zoom: 1.5 },
-        focusedBoardId: "board-focus",
-        lastInteractionTime: Date.now(),
+      const transient: TransientField = {
+        showCommandPalette: true,
+        showMiniMap: true,
+        selectedBoardId: "board-123",
+        selectedTaskIds: ["task-1", "task-2"],
+        draggedTaskId: "task-3",
+        canvas: {
+          viewport: { x: 100, y: 200, zoom: 1.5 },
+          focusedBoardId: "board-focus",
+          lastInteractionTime: Date.now(),
+        },
       };
+      Object.assign(state, transient);
 
       const persisted: Record<string, unknown> = {};
       const persistPartialize = (s: KanbanState) => {
@@ -329,21 +333,26 @@ describe("WEB-I-01: store-persistence integration", () => {
       const doc = new Y.Doc();
       const state = createInitialState();
 
-      state.workspaces.byId["ws-1"] = {
-        id: "ws-1",
-        name: "Test Workspace",
-        created_at: FROZEN_TIMESTAMP,
-        board_ids: ["board-1"],
+      // Properly set up state to only have ws-1 (clear default workspace)
+      state.workspaces.byId = {
+        "ws-1": {
+          id: "ws-1",
+          name: "Test Workspace",
+          created_at: FROZEN_TIMESTAMP,
+          board_ids: ["board-1"],
+        },
       };
       state.workspaces.allIds = ["ws-1"];
 
-      state.boards.byId["board-1"] = {
-        id: "board-1",
-        name: "Test Board",
-        workspace_id: "ws-1",
-        column_ids: ["col-1"],
-        created_by: "user-1",
-        created_at: FROZEN_TIMESTAMP,
+      state.boards.byId = {
+        "board-1": {
+          id: "board-1",
+          name: "Test Board",
+          workspace_id: "ws-1",
+          column_ids: ["col-1"],
+          created_by: "user-1",
+          created_at: FROZEN_TIMESTAMP,
+        },
       };
       state.boards.allIds = ["board-1"];
 

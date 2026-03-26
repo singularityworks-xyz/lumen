@@ -1,16 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-const originalSetTimeout = globalThis.setTimeout;
-const originalClearTimeout = globalThis.clearTimeout;
-
-globalThis.setTimeout = ((cb: () => void, ms: number) => {
-  return originalSetTimeout(cb, ms);
-}) as unknown as typeof setTimeout;
-
-globalThis.clearTimeout = ((id: ReturnType<typeof setTimeout>) => {
-  return originalClearTimeout(id);
-}) as unknown as typeof clearTimeout;
-
 import { debounce } from "./debounce";
 
 describe("debounce", () => {
@@ -57,13 +46,15 @@ describe("debounce", () => {
     expect(count).toBe(1);
   });
 
-  it("collapses rapid calls into single execution", async () => {
+  it("timer reset collapses bursts - only last call executes", async () => {
     let count = 0;
-    const fn = debounce(() => count++, 50);
+    const fn = debounce(() => count++, 100);
     fn();
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 50));
     fn();
-    await new Promise((r) => setTimeout(r, 60));
+    await new Promise((r) => setTimeout(r, 50));
+    fn();
+    await new Promise((r) => setTimeout(r, 150));
     expect(count).toBe(1);
   });
 });

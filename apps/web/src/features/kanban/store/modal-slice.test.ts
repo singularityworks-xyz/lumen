@@ -60,6 +60,35 @@ describe("modal-slice", () => {
       expect(Object.keys(state.createTaskModals)).toHaveLength(1);
     });
 
+    it("modal auto-placement uses board geometry and stacking offsets", () => {
+      const { boardId: boardId1, columnIds: colIds1 } = addBoardToState(state, {
+        boardId: "board-1",
+        x: 100,
+        y: 100,
+      });
+      const { boardId: boardId2, columnIds: colIds2 } = addBoardToState(state, {
+        boardId: "board-2",
+        x: 100,
+        y: 100,
+      });
+
+      const first = actions.openCreateTaskModal({
+        columnId: colIds1[0]!,
+        boardId: boardId1,
+      });
+
+      const second = actions.openCreateTaskModal({
+        columnId: colIds2[0]!,
+        boardId: boardId2,
+      });
+
+      const firstModal = state.createTaskModals[first.id]!;
+      const secondModal = state.createTaskModals[second.id]!;
+      expect(firstModal.position.x).toBeGreaterThan(firstModal.position.y);
+      expect(secondModal.position.x).toBe(firstModal.position.x + 30);
+      expect(secondModal.position.y).toBe(firstModal.position.y + 30);
+    });
+
     it("creates modals with incremented zIndex", () => {
       const { boardId: b1, columnIds: c1 } = addBoardToState(state, {
         boardId: "board-1",
@@ -127,6 +156,45 @@ describe("modal-slice", () => {
       expect(second.id).toBe(first.id);
       expect(Object.keys(state.taskDetailModals)).toHaveLength(1);
     });
+
+    it("task-detail modal remembers last position per task", () => {
+      const { boardId } = addBoardToState(state);
+      const first = actions.openTaskDetailModal({
+        taskId: "task-1",
+        boardId,
+        position: { x: 500, y: 600 },
+      });
+
+      actions.updateTaskDetailModalPosition(first.id, {
+        x: 700,
+        y: 800,
+      });
+
+      actions.closeTaskDetailModal(first.id);
+
+      actions.openTaskDetailModal({
+        taskId: "task-1",
+        boardId,
+      });
+
+      expect(state.lastTaskModalPositions["task-1"]).toEqual({
+        x: 700,
+        y: 800,
+      });
+    });
+
+    it("auto-placement uses board geometry when no last position", () => {
+      const { boardId } = addBoardToState(state, { x: 200, y: 150 });
+
+      const result = actions.openTaskDetailModal({
+        taskId: "task-1",
+        boardId,
+      });
+
+      const modal = state.taskDetailModals[result.id]!;
+      expect(modal.position.x).toBeGreaterThan(200);
+      expect(modal.position.y).toBe(150);
+    });
   });
 
   describe("closeTaskDetailModal", () => {
@@ -178,7 +246,7 @@ describe("modal-slice", () => {
   });
 
   describe("bringModalToFront", () => {
-    it("rewrites z-index", () => {
+    it("rewrites z-index correctly", () => {
       const { boardId: b1, columnIds: c1 } = addBoardToState(state, {
         boardId: "board-1",
       });
@@ -205,7 +273,7 @@ describe("modal-slice", () => {
   });
 
   describe("bringTaskDetailModalToFront", () => {
-    it("rewrites z-index", () => {
+    it("rewrites z-index correctly", () => {
       const { boardId } = addBoardToState(state);
       const { id: id1 } = actions.openTaskDetailModal({
         taskId: "task-1",
@@ -248,6 +316,30 @@ describe("modal-slice", () => {
       expect(state.taskDetailModals[id]!.draftPriority).toBe("high");
       expect(state.taskDetailModals[id]!.draftProgress).toBe(75);
     });
+
+    it("draft updates touch only allowed fields", () => {
+      const { boardId } = addBoardToState(state);
+      const { id } = actions.openTaskDetailModal({
+        taskId: "task-1",
+        boardId,
+      });
+
+      const modalBefore = { ...state.taskDetailModals[id]! };
+
+      actions.updateTaskDetailModalDraft(id, {
+        draftTitle: "Title",
+        draftDescription: "Desc",
+      });
+
+      const modalAfter = state.taskDetailModals[id]!;
+      expect(modalAfter.id).toBe(modalBefore.id);
+      expect(modalAfter.taskId).toBe(modalBefore.taskId);
+      expect(modalAfter.boardId).toBe(modalBefore.boardId);
+      expect(modalAfter.position).toEqual(modalBefore.position);
+      expect(modalAfter.zIndex).toBe(modalBefore.zIndex);
+      expect(modalAfter.draftTitle).toBe("Title");
+      expect(modalAfter.draftDescription).toBe("Desc");
+    });
   });
 
   describe("triggerTaskDetailModalShake", () => {
@@ -261,6 +353,21 @@ describe("modal-slice", () => {
       actions.triggerTaskDetailModalShake(id);
 
       expect(state.shakingTaskDetailModalId).toBe(id);
+    });
+
+    it("shake flag clears after timeout", async () => {
+      const { boardId } = addBoardToState(state);
+      const { id } = actions.openTaskDetailModal({
+        taskId: "task-1",
+        boardId,
+      });
+
+      actions.triggerTaskDetailModalShake(id);
+      expect(state.shakingTaskDetailModalId).toBe(id);
+
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      expect(state.shakingTaskDetailModalId).toBeNull();
     });
   });
 });

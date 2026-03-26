@@ -25,7 +25,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -49,36 +49,36 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Run Playwright Chromium functional suite
-        run: bunx playwright test --project=chromium
-        continue-on-error: true
+        id: playwright
+        run: bunx playwright test -c playwright/playwright.config.ts --project=chromium
 
       - name: Upload traces
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: test-results/**/trace.zip
           retention-days: 14
 
       - name: Upload videos
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-videos
           path: test-results/**/video.webm
           retention-days: 14
 
       - name: Upload screenshots
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-screenshots
           path: test-results/**/screenshot.png
           retention-days: 14
 
       - name: Upload HTML report
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-html-report
           path: playwright-report

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mockDel = mock(() => Promise.resolve()) as any;
-const mockGet = mock(() => Promise.resolve(null)) as any;
-const mockKeys = mock(() => Promise.resolve([])) as any;
-const mockSet = mock(() => Promise.resolve()) as any;
+const mockDel = mock<() => Promise<void>>(() => Promise.resolve());
+const mockGet = mock<(key: string) => Promise<unknown>>((_key: string) =>
+  Promise.resolve(null)
+);
+const mockKeys = mock<() => Promise<string[]>>(() => Promise.resolve([]));
+const mockSet = mock<() => Promise<void>>(() => Promise.resolve());
 
 mock.module("idb-keyval", () => ({
   del: mockDel,
@@ -201,6 +203,42 @@ describe("storage", () => {
         threwError = true;
       }
       expect(threwError).toBe(false);
+    });
+  });
+
+  describe("runStorageMigration", () => {
+    it("calls migrateFromLegacyStorage on invocation", async () => {
+      mockGet.mockImplementation((key: string) => {
+        if (key === "lumen-kanban-store") {
+          return Promise.resolve({
+            data: { legacy: true },
+            timestamp: Date.now(),
+            version: 1,
+          });
+        }
+        if (key.includes("lumen-dev")) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
+      });
+
+      const { runStorageMigration } = await import("./storage");
+      await runStorageMigration();
+      expect(mockGet).toHaveBeenCalled();
+    });
+
+    it("does not throw on DB error", async () => {
+      mockGet.mockRejectedValue(new Error("DB error"));
+
+      const { runStorageMigration } = await import("./storage");
+
+      let caught = false;
+      try {
+        await runStorageMigration();
+      } catch {
+        caught = true;
+      }
+      expect(caught).toBe(false);
     });
   });
 });

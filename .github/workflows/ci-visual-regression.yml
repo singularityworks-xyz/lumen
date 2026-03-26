@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -25,12 +25,12 @@ jobs:
         run: bunx playwright install chromium
 
       - name: Run Playwright visual regression suite
-        run: bunx playwright test -c playwright.visual.config.ts --project=chromium
+        run: bunx playwright test -c playwright/playwright.visual.config.ts --project=chromium
         continue-on-error: true
 
       - name: Upload screenshot diffs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visual-regression-diffs
           path: test-results/**/diff-*.png
@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload HTML report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visual-regression-report
           path: playwright-report

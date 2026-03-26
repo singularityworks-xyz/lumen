@@ -1,19 +1,9 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+process.env.DATABASE_URL = "postgres://dummy";
 
-let _mockRooms: Map<
-  string,
-  {
-    doc: {
-      getMap: (name: string) => {
-        get: (key: string) => unknown;
-        set: (key: string, value: unknown) => void;
-        entries: () => IterableIterator<[string, unknown]>;
-      };
-    };
-    workspaceId: string;
-    lastModified: number;
-  }
-> = new Map();
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type { Role } from "@lumen/db";
+import { Elysia } from "elysia";
+import { roomManager } from "../../src/collab/room-manager";
 
 const findUniqueMock = mock(() => Promise.resolve(null));
 const upsertMock = mock(() => Promise.resolve({}));
@@ -45,17 +35,6 @@ const mockSpan = {
   recordException: mock(),
 };
 
-const mockWithSpanAsync = (
-  _name: string,
-  fn: (span: unknown) => Promise<unknown>
-) => {
-  return fn(mockSpan);
-};
-
-const mockWithSpan = (_name: string, fn: (span: unknown) => unknown) => {
-  return fn(mockSpan);
-};
-
 mock.module("@lumen/db", () => ({
   prisma: mockPrisma,
 }));
@@ -65,8 +44,9 @@ mock.module("@lumen/logger", () => ({
 }));
 
 mock.module("@lumen/logger/server", () => ({
-  withSpanAsync: mockWithSpanAsync,
-  withSpan: mockWithSpan,
+  withSpanAsync: (_name: string, fn: (span: unknown) => Promise<unknown>) =>
+    fn(mockSpan),
+  withSpan: (_name: string, fn: (span: unknown) => unknown) => fn(mockSpan),
   recordSpanError: mock(),
   setSpanAttributes: mock(),
   addSpanEvent: mock(),
@@ -77,168 +57,293 @@ mock.module("@lumen/logger/server", () => ({
   }),
 }));
 
-mock.module("./metrics", () => ({
+mock.module("../../src/collab/metrics", () => ({
   recordWsRoomJoinDuration: mock(),
+  incrementActiveConnections: mock(),
+  decrementActiveConnections: mock(),
+  recordWsMessage: mock(),
+  recordWsConnectionError: mock(),
+  recordWsConnectionLatency: mock(),
 }));
+
+mock.module("@lumen/ai", () => ({
+  aiRoutes: new Elysia({ name: "ai-routes" }),
+}));
+
+const createMockWs = () => {
+  const sent: Uint8Array[] = [];
+  return {
+    ws: {
+      send: (data: Uint8Array) => {
+        sent.push(data);
+      },
+      close: mock(),
+    },
+    sent,
+  };
+};
+
+const makeUser = (
+  overrides: Partial<{
+    id: string;
+    role: Role;
+    name: string;
+    email: string;
+    color: string;
+  }> = {}
+) => ({
+  id: "user-1",
+  role: "EDITOR" as Role,
+  name: "Test User",
+  email: "test@test.com",
+  color: "#ef4444",
+  ...overrides,
+});
+
+const uniqueId = () => `${Date.now()}-${Math.random()}`;
 
 describe("WORKERS-I-05: room-persistence integration", () => {
   beforeEach(() => {
-    _mockRooms = new Map();
     findUniqueMock.mockReset();
     upsertMock.mockReset();
     updateMock.mockReset();
+    mockPrisma.workspace.findUnique.mockReset();
   });
 
   describe("persisted Yjs state can be loaded back into a fresh room", () => {
-    it("loads Yjs state from database into new room", () => {
-      const storedState = new Uint8Array([1, 2, 3, 4]);
-      const stored = { yjsState: Buffer.from(storedState) };
+    it("loadRoomState queries database with correct workspaceId", async () => {
+      const wsId = `ws-load-state-${uniqueId()}`;
+      findUniqueMock.mockResolvedValueOnce(null as any);
 
-      findUniqueMock.mockResolvedValueOnce(stored as never);
+      await roomManager.loadRoomState(wsId);
 
-      expect(findUniqueMock).toHaveBeenCalled();
+      expect(findUniqueMock).toHaveBeenCalledWith({
+        where: { workspaceId: wsId },
+      });
     });
 
-    it("returns empty state when no persisted data exists", () => {
-      findUniqueMock.mockResolvedValueOnce(null as never);
+    it("returns false when no persisted data exists", async () => {
+      const wsId = `ws-no-state-${uniqueId()}`;
+      findUniqueMock.mockResolvedValueOnce(null as any);
 
-      expect(findUniqueMock).toHaveBeenCalled();
+      const loaded = await roomManager.loadRoomState(wsId);
+
+      expect(loaded).toBe(false);
     });
 
-    it("applies stored update to Y.Doc", () => {
-      const _doc = {
-        getMap: () => ({
-          get: () => undefined,
-          set: () => {
-            // apply update
-          },
-        }),
-      };
-      const storedState = Buffer.from(new Uint8Array([1, 2, 3]));
+    it("getRoom returns undefined for workspace with no active room", () => {
+      const wsId = `ws-no-room-${uniqueId()}`;
 
-      expect(storedState.length).toBeGreaterThan(0);
+      const room = roomManager.getRoom(wsId);
+
+      expect(room).toBeUndefined();
     });
   });
 
   describe("state vector and Yjs bytes are stored on upsert", () => {
-    it("stores both state and state vector on persist", () => {
-      upsertMock.mockResolvedValueOnce({} as never);
+    it("stores both state and state vector on persist", async () => {
+      const wsId = `ws-persist-${uniqueId()}`;
+      mockPrisma.workspace.findUnique.mockResolvedValueOnce({
+        id: wsId,
+        name: "Test",
+      } as any);
+      upsertMock.mockResolvedValueOnce({} as any);
+
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-persist-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
+
+      await roomManager.persistRoom(wsId);
 
       expect(upsertMock).toHaveBeenCalled();
     });
 
-    it("upsert updates existing state", () => {
-      upsertMock.mockResolvedValueOnce({} as never);
+    it("upsert updates existing state when record exists", async () => {
+      const wsId = `ws-persist-update-${uniqueId()}`;
+      mockPrisma.workspace.findUnique.mockResolvedValueOnce({
+        id: wsId,
+        name: "Test",
+      } as any);
+      upsertMock.mockResolvedValueOnce({} as any);
+
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-persist2-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
+
+      await roomManager.persistRoom(wsId);
 
       expect(upsertMock).toHaveBeenCalled();
     });
 
-    it("upsert creates new state when not exists", () => {
-      upsertMock.mockResolvedValueOnce({} as never);
+    it("upsert creates new state when not exists", async () => {
+      const wsId = `ws-persist-create-${uniqueId()}`;
+      mockPrisma.workspace.findUnique.mockResolvedValueOnce({
+        id: wsId,
+        name: "Test",
+      } as any);
+      upsertMock.mockResolvedValueOnce({} as any);
+
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-persist3-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
+
+      await roomManager.persistRoom(wsId);
 
       expect(upsertMock).toHaveBeenCalled();
     });
   });
 
   describe("workspace name metadata is updated from Yjs workspace map when present", () => {
-    it("reads workspace name from Yjs map", () => {
-      const workspaceMap = new Map([["ws-1", { name: "Test Workspace" }]]);
+    it("skips workspace name update when not in Yjs map", async () => {
+      const wsId = `ws-wsname-${uniqueId()}`;
+      mockPrisma.workspace.findUnique.mockResolvedValueOnce({
+        id: wsId,
+        name: "Test",
+      } as any);
+      upsertMock.mockResolvedValueOnce({} as any);
 
-      const workspaceData = workspaceMap.get("ws-1") as
-        | { name: string }
-        | undefined;
-      const name = workspaceData?.name;
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-wsname-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-      expect(name).toBe("Test Workspace");
+      await roomManager.persistRoom(wsId);
+
+      expect(updateMock).not.toHaveBeenCalled();
     });
 
-    it("updates workspace name in database when present in Yjs", () => {
-      updateMock.mockResolvedValueOnce({} as never);
+    it("persistRoom skips update when workspace.findUnique returns null", async () => {
+      const wsId = `ws-wsname-missing-${uniqueId()}`;
+      mockPrisma.workspace.findUnique.mockResolvedValueOnce(null as any);
 
-      expect(updateMock).toHaveBeenCalled();
-    });
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-wsname2-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-    it("skips update when workspace name is not in Yjs", () => {
-      const workspaceMap = new Map();
+      await roomManager.persistRoom(wsId);
 
-      const workspaceData = workspaceMap.get("ws-1") as
-        | { name: string }
-        | undefined;
-
-      expect(workspaceData).toBeUndefined();
-    });
-
-    it("handles missing workspace for name update gracefully", async () => {
-      updateMock.mockRejectedValueOnce(new Error("Not found") as never);
-
-      let error: Error | undefined;
-      try {
-        await updateMock();
-      } catch (e) {
-        error = e as Error;
-      }
-      expect(error?.message).toBe("Not found");
+      expect(mockPrisma.workspace.findUnique).toHaveBeenCalled();
+      expect(updateMock).not.toHaveBeenCalled();
     });
   });
 
   describe("room cleanup and state recovery", () => {
     it("schedules cleanup after last connection leaves", () => {
-      const room = {
-        workspaceId: "ws-1",
-        connections: new Map(),
-        persistenceTimeout: null,
-      };
+      const wsId = `ws-cleanup-${uniqueId()}`;
+      const { ws } = createMockWs();
+      const connId = `conn-cleanup-${uniqueId()}`;
+      roomManager.join({
+        connectionId: connId,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-      const shouldScheduleCleanup = room.connections.size === 0;
+      roomManager.leave(connId);
 
-      expect(shouldScheduleCleanup).toBe(true);
-    });
-
-    it("persists state before room cleanup", () => {
-      upsertMock.mockResolvedValueOnce({} as never);
-
-      expect(upsertMock).toHaveBeenCalled();
+      const room = roomManager.getRoom(wsId);
+      expect(room?.cleanupTimeout).not.toBeNull();
     });
 
     it("destroys Y.Doc on room cleanup", () => {
-      const doc = { destroy: mock() };
+      const wsId = `ws-destroy-${uniqueId()}`;
+      const { ws } = createMockWs();
+      const connId = `conn-destroy-${uniqueId()}`;
+      roomManager.join({
+        connectionId: connId,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-      doc.destroy();
+      roomManager.leave(connId);
 
-      expect(doc.destroy).toHaveBeenCalled();
+      const room = roomManager.getRoom(wsId);
+      expect(room).toBeDefined();
+
+      const destroyMock = mock();
+      if (room) {
+        room.doc.destroy = destroyMock;
+      }
+
+      if (room?.cleanupTimeout) {
+        clearTimeout(room.cleanupTimeout);
+      }
+
+      if (room) {
+        room.doc.destroy();
+      }
+
+      expect(destroyMock).toHaveBeenCalled();
     });
   });
 
   describe("concurrent room creation deduplication", () => {
     it("returns existing room if already created", () => {
-      const rooms = new Map();
-      const existingRoom = { workspaceId: "ws-1" };
-      rooms.set("ws-1", existingRoom);
+      const wsId = `ws-dedup-${uniqueId()}`;
+      const { ws } = createMockWs();
+      const connId = `conn-dedup-${uniqueId()}`;
 
-      const room = rooms.get("ws-1");
+      const room1 = roomManager.getOrCreateRoom(wsId);
+      roomManager.join({
+        connectionId: connId,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-      expect(room).toBe(existingRoom);
+      const room2 = roomManager.getOrCreateRoom(wsId);
+
+      expect(room1).toBe(room2);
     });
 
     it("creates new room if not exists", () => {
-      const rooms = new Map();
+      const wsId = `ws-new-${uniqueId()}`;
+      const room = roomManager.getOrCreateRoom(wsId);
 
-      if (!rooms.has("ws-new")) {
-        const newRoom = { workspaceId: "ws-new" };
-        rooms.set("ws-new", newRoom);
-      }
-
-      expect(rooms.has("ws-new")).toBe(true);
+      expect(room).toBeDefined();
+      expect(room.workspaceId).toBe(wsId);
     });
 
-    it("pending loads prevent duplicate fetches", () => {
-      const pendingLoads = new Map();
-      const existingLoad = Promise.resolve(true);
-      pendingLoads.set("ws-1", existingLoad);
+    it("pending loads prevent duplicate fetches", async () => {
+      const wsId = `ws-load-dedup-${uniqueId()}`;
+      findUniqueMock.mockResolvedValueOnce(null as any);
 
-      const load = pendingLoads.get("ws-1");
+      const { ws } = createMockWs();
+      roomManager.join({
+        connectionId: `conn-load-${uniqueId()}`,
+        ws,
+        user: makeUser(),
+        workspaceId: wsId,
+      });
 
-      expect(load).toBe(existingLoad);
+      const [result1, result2] = await Promise.all([
+        roomManager.loadRoomState(wsId),
+        roomManager.loadRoomState(wsId),
+      ]);
+
+      expect(result1).toBe(false);
+      expect(result2).toBe(false);
+      expect(findUniqueMock).toHaveBeenCalledTimes(1);
     });
   });
 });

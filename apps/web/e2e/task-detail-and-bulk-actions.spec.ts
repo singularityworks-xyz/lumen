@@ -163,6 +163,10 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   });
 
   test("bulk update tasks priority", async ({ page }) => {
+    const isMacPlatform = await page.evaluate(() =>
+      navigator.platform.toLowerCase().includes("mac")
+    );
+
     const selectModeButton = page.locator(
       '[data-testid="task-select-mode-toggle"]'
     );
@@ -171,7 +175,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const firstTask = page.locator(
       '[data-testid="task-card"]:has-text("Detail Test Task")'
     );
-    await firstTask.click({ modifiers: ["Meta"] });
+    await firstTask.click({ modifiers: [isMacPlatform ? "Meta" : "Control"] });
 
     const bulkActionsBar = page.locator('[data-testid="bulk-actions-bar"]');
     await expect(bulkActionsBar).toBeVisible();

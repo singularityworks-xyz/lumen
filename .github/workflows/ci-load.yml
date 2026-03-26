@@ -33,7 +33,15 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'ramp'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 ramp test
         run: |
@@ -47,7 +55,15 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'spike'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 spike test
         run: |
@@ -61,10 +77,18 @@ jobs:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'soak')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: Run k6 soak test
         run: |
           k6 run load/k6/ws-collab-soak.ts \
             -e BASE_URL=${{ github.event.inputs.base_url || 'https://staging.lumen.app' }} \
-            -e WORKSPACE_ID=${{ github.event.inputs.workspace_id }}
+            -e WORKSPACE_ID=${{ github.event.inputs.workspace_id || 'default-workspace' }}

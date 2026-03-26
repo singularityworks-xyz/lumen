@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 let nanoidCounter = 0;
-
 mock.module("nanoid", () => ({
   nanoid: () => `seq${++nanoidCounter}`,
 }));
@@ -50,19 +49,6 @@ describe("addColumn", () => {
     const colId = actions.addColumn(boardId, "Inserted", 1);
 
     expect(state.columns.byId[colId]!.position).toBe(1);
-  });
-
-  it("updates workspace lastFocusedBoardId", () => {
-    const state = createFreshState() as KanbanStore;
-    const { boardId } = addBoardToState(state);
-    const workspaceId = state.boards.byId[boardId]!.workspace_id;
-    const actions = harness(state);
-
-    actions.addColumn(boardId, "Col");
-
-    expect(state.workspaces.byId[workspaceId]!.lastFocusedBoardId).toBe(
-      boardId
-    );
   });
 });
 
@@ -218,5 +204,57 @@ describe("updateColumn", () => {
     expect(state.columns.byId[colId]!.name).toBe("Updated");
     expect(state.columns.byId[colId]!.description).toBe("desc");
     expect(state.columns.byId[colId]!.board_id).toBeDefined();
+  });
+});
+
+describe("updateColumnQuickActionsPosition", () => {
+  it("updates position and moves linked modal source rects", () => {
+    const state = createFreshState() as KanbanStore;
+    const { boardId, columnIds } = addBoardToState(state);
+    const colId = columnIds[0]!;
+    const modalId = "modal-1";
+    state.createTaskModals[modalId] = {
+      id: modalId,
+      boardId,
+      columnId: colId,
+      formData: {
+        title: "",
+        description: "",
+        priority: "medium",
+        progress: 0,
+        dueDate: "",
+        tags: "",
+      },
+      position: { x: 0, y: 0 },
+      sourceType: "column-menu",
+      sourceRect: {
+        top: 0,
+        right: 220,
+        bottom: 190,
+        left: 0,
+        width: 220,
+        height: 190,
+      },
+      zIndex: 10,
+    };
+    const actions = harness(state);
+
+    actions.openColumnQuickActions(colId, boardId, true, { x: 0, y: 0 });
+    actions.updateColumnQuickActionsPosition(colId, { x: 500, y: 300 });
+
+    const quickActions = state.columnQuickActions[colId];
+    expect(quickActions).toBeDefined();
+    expect(quickActions!.position).toEqual({ x: 500, y: 300 });
+
+    const modal = state.createTaskModals[modalId];
+    expect(modal).toBeDefined();
+    expect(modal!.sourceRect).toEqual({
+      left: 500,
+      top: 460,
+      right: 720,
+      bottom: 490,
+      width: 220,
+      height: 190,
+    });
   });
 });

@@ -10,20 +10,21 @@ import {
 
 test.describe("VIS-05: Workspace Selector and Share UI Visual Regression", () => {
   test.beforeEach(async ({ page }) => {
-    freezeDate(page);
-    disableAnimations(page);
+    await freezeDate(page);
+    await disableAnimations(page);
     await page.goto("/");
     await waitForHydration(page);
     await seedEmptyWorkspace(page);
     await page.reload();
     await waitForHydration(page);
     await waitForCanvas(page);
-    await page.waitForTimeout(500);
   });
 
   test("workspace selector dropdown renders", async ({ page }) => {
     await openWorkspaceSelector(page);
-    await page.waitForTimeout(500);
+    await expect(
+      page.locator('[role="menu"], .absolute.z-50').first()
+    ).toBeVisible();
 
     const dropdownContent = page.locator('[role="menu"], .absolute.z-50');
     await expect(dropdownContent.first()).toBeVisible();
@@ -38,7 +39,6 @@ test.describe("VIS-05: Workspace Selector and Share UI Visual Regression", () =>
 
   test("workspace selector shows my workspaces section", async ({ page }) => {
     await openWorkspaceSelector(page);
-    await page.waitForTimeout(500);
 
     const myWorkspacesLabel = page.locator("text=My Workspaces");
     await expect(myWorkspacesLabel).toBeVisible();
@@ -53,7 +53,6 @@ test.describe("VIS-05: Workspace Selector and Share UI Visual Regression", () =>
 
   test("workspace selector shows create workspace option", async ({ page }) => {
     await openWorkspaceSelector(page);
-    await page.waitForTimeout(500);
 
     const createOption = page.locator('text="Create Workspace"');
     await expect(createOption).toBeVisible();
@@ -68,11 +67,9 @@ test.describe("VIS-05: Workspace Selector and Share UI Visual Regression", () =>
 
   test("create workspace dialog baseline", async ({ page }) => {
     await openWorkspaceSelector(page);
-    await page.waitForTimeout(300);
 
     const createOption = page.locator('text="Create Workspace"');
     await createOption.click();
-    await page.waitForTimeout(500);
 
     const dialog = page.locator('[role="dialog"], .fixed.inset-0.z-50');
     await expect(dialog.first()).toBeVisible();

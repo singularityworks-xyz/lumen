@@ -22,7 +22,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
   });
 
   test("command palette opens with keyboard shortcut", async ({ page }) => {
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
 
     await page.waitForSelector('[data-testid="command-palette"]', {
       timeout: 5000,
@@ -35,7 +35,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
   });
 
   test("command palette closes with Escape", async ({ page }) => {
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette"]');
 
     await page.keyboard.press("Escape");
@@ -50,7 +50,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       .locator('[data-testid="board-node"]')
       .count();
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     await page.fill('[data-testid="command-palette-input"]', "New Board");
     await page.waitForTimeout(300);
@@ -90,7 +90,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
     await page.click('[data-testid="task-create-submit"]');
     await page.waitForTimeout(500);
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     await page.fill(
       '[data-testid="command-palette-input"]',
@@ -112,7 +112,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       .locator('[data-testid="board-node"]')
       .count();
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
 
     await page.keyboard.press("n");
@@ -131,7 +131,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       .locator('[data-testid="board-node"]')
       .count();
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     await page.fill('[data-testid="command-palette-input"]', "New Board");
 
@@ -145,7 +145,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       initialBoardCount + 1
     );
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     const undoCommand = page.locator(
       '[data-testid="command-item"]:has-text("Undo")'
@@ -165,7 +165,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       .locator('[data-testid="board-node"]')
       .count();
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     const newBoardCommand = page.locator(
       '[data-testid="command-item"]:has-text("New Board")'
@@ -177,7 +177,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       initialBoardCount + 1
     );
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     const undoCommand = page.locator(
       '[data-testid="command-item"]:has-text("Undo")'
@@ -189,7 +189,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       initialBoardCount
     );
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
     const redoCommand = page.locator(
       '[data-testid="command-item"]:has-text("Redo")'

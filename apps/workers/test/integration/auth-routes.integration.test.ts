@@ -1,99 +1,90 @@
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+process.env.LOG_LEVEL = "error";
+
 import { describe, expect, it } from "bun:test";
 
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
-const TOKEN_HEX_REGEX = /^[a-f0-9]+$/;
+const TOKEN_HEX_REGEX = /^[a-f0-9]{64}$/;
+const COOKIE_NAME_REGEX = /^([^=]+)=/;
+
+const parseCookieName = (cookieString: string): string => {
+  const match = cookieString.match(COOKIE_NAME_REGEX);
+  return match?.[1]?.trim() || "unknown";
+};
 
 describe("WORKERS-I-01: auth-routes integration", () => {
-  describe("native token generation rejects unauthenticated requests", () => {
-    it("rejects requests without session", () => {
-      const session: null = null;
-
-      expect(session).toBeNull();
+  describe("SESSION_TOKEN_REGEX correctly extracts token from cookie string", () => {
+    it("extracts session token from cookie string", () => {
+      const cookieString =
+        "other=value; better-auth.session_token=my-token; more=data";
+      const match = cookieString.match(SESSION_TOKEN_REGEX);
+      expect(match?.[1]).toBe("my-token");
     });
 
-    it("rejects requests without session token cookie", () => {
-      const headers = new Headers({ cookie: "" });
-
-      const cookieHeader = headers.get("cookie") || "";
-      const sessionMatch = cookieHeader.match(SESSION_TOKEN_REGEX);
-      const sessionToken = sessionMatch
-        ? decodeURIComponent(sessionMatch[1])
-        : null;
-
-      expect(sessionToken).toBeNull();
+    it("returns null when no session token in cookie", () => {
+      const cookieString = "other=value; more=data";
+      const match = cookieString.match(SESSION_TOKEN_REGEX);
+      expect(match).toBeNull();
     });
 
-    it("generates valid one-time token format", () => {
-      const token = "a".repeat(64);
+    it("handles encoded session tokens", () => {
+      const cookieString = "better-auth.session_token=my%20encoded%20token";
+      const match = cookieString.match(SESSION_TOKEN_REGEX);
+      expect(match?.[1]).toBe("my%20encoded%20token");
+    });
+  });
 
-      expect(token).toHaveLength(64);
+  describe("TOKEN_HEX_REGEX validates hex strings", () => {
+    it("validates 64 character hex strings", () => {
+      const validToken = "a".repeat(64);
+      expect(validToken).toMatch(TOKEN_HEX_REGEX);
+    });
+
+    it("accepts mixed hex characters", () => {
+      const token = "abcdef0123456789".repeat(4);
       expect(token).toMatch(TOKEN_HEX_REGEX);
     });
-  });
 
-  describe("token exchange is single-use", () => {
-    it("Prisma delete returns token data", () => {
-      const tokenData = {
-        sessionToken: "session-token-abc",
-        expiresAt: new Date(Date.now() + 60_000),
-      };
-
-      expect(tokenData.sessionToken).toBe("session-token-abc");
+    it("rejects tokens with non-hex characters", () => {
+      const invalidToken = `g${"a".repeat(63)}`;
+      expect(invalidToken).not.toMatch(TOKEN_HEX_REGEX);
     });
 
-    it("Prisma P2025 error indicates token already used", () => {
-      const prismaError = new Error("Record not found") as Error & {
-        code: string;
-      };
-      prismaError.code = "P2025";
+    it("rejects tokens shorter than 64 chars", () => {
+      const shortToken = "a".repeat(63);
+      expect(shortToken).not.toMatch(TOKEN_HEX_REGEX);
+    });
 
-      expect(prismaError.code).toBe("P2025");
+    it("rejects tokens longer than 64 chars", () => {
+      const longToken = "a".repeat(65);
+      expect(longToken).not.toMatch(TOKEN_HEX_REGEX);
     });
   });
 
-  describe("expired one-time tokens are deleted and rejected", () => {
-    it("detects expired tokens by comparing dates", () => {
-      const tokenExpiresAt = new Date(Date.now() - 1000);
-      const now = new Date();
+  describe("native token generation route handler structure", () => {
+    it("generate-token endpoint uses session token cookie regex", () => {
+      expect(SESSION_TOKEN_REGEX).toBeInstanceOf(RegExp);
+    });
 
-      const isExpired = tokenExpiresAt < now;
-
-      expect(isExpired).toBe(true);
+    it("exchange-token endpoint validates 64 char hex token format", () => {
+      const validHex64 = "a".repeat(64);
+      expect(validHex64).toMatch(TOKEN_HEX_REGEX);
     });
   });
 
-  describe("cookie attributes are set correctly for environment mode", () => {
-    it("sets secure flag in production", () => {
-      const nodeEnv = "production";
-      const isSecure = nodeEnv === "production";
-
-      expect(isSecure).toBe(true);
-    });
-
-    it("sets sameSite to none in production", () => {
-      const isProduction = true;
-      const sameSite = isProduction ? "none" : "lax";
-
-      expect(sameSite).toBe("none");
-    });
-
-    it("sets sameSite to lax in development", () => {
-      const isProduction = false;
-      const sameSite = isProduction ? "none" : "lax";
-
-      expect(sameSite).toBe("lax");
-    });
-
-    it("sets correct maxAge for session cookie", () => {
-      const maxAge = 60 * 60 * 24 * 7;
-
-      expect(maxAge).toBe(604_800);
-    });
-
-    it("sets path to root", () => {
-      const path = "/";
-
-      expect(path).toBe("/");
+  describe("cookie parsing utility", () => {
+    it("parseCookieName extracts cookie name from cookie string", () => {
+      expect(parseCookieName("session_token=abc123")).toBe("session_token");
+      expect(parseCookieName("name=value")).toBe("name");
+      expect(parseCookieName("=no name")).toBe("unknown");
     });
   });
 });

@@ -222,6 +222,8 @@ export function shouldGenerateLocalTitle(
   messageCount: number,
   currentTitle: string | null
 ): boolean {
-  // Only generate if no title exists and we have at least 2 messages (user + assistant)
+  if (currentTitle === "") {
+    return false;
+  }
   return !currentTitle && messageCount >= 2;
 }

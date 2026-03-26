@@ -128,8 +128,8 @@ export function waitForHydration(page: Page): Promise<void> {
   });
 }
 
-export function freezeDate(page: Page): void {
-  page.addInitScript(() => {
+export async function freezeDate(page: Page): Promise<void> {
+  await page.addInitScript(() => {
     const frozenTimestamp = new Date("2026-03-26T12:00:00Z").getTime();
     const OriginalDate = Date;
     global.Date = class extends OriginalDate {
@@ -137,27 +137,29 @@ export function freezeDate(page: Page): void {
         if (args.length === 0) {
           super(frozenTimestamp);
         } else {
-          super(...(args as Parameters<typeof OriginalDate>));
+          super(...(args as [number | string | Date]));
         }
       }
       static override now(): number {
         return frozenTimestamp;
       }
-    } as typeof Date;
+    } as unknown as typeof Date;
   });
 }
 
-export function disableAnimations(page: Page): void {
-  page.addInitScript(() => {
-    const style = document.createElement("style");
-    style.textContent =
-      "*, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }";
-    document.head.appendChild(style);
+export async function disableAnimations(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent =
+        "*, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0s !important; transition-duration: 0.001ms !important; transition-delay: 0s !important; }";
+      document.head.appendChild(style);
+    });
   });
 }
 
-export function setDarkMode(page: Page): void {
-  page.emulateMedia({ colorScheme: "dark" });
+export async function setDarkMode(page: Page): Promise<void> {
+  await page.emulateMedia({ colorScheme: "dark" });
 }
 
 export async function openWorkspaceSelector(page: Page): Promise<void> {

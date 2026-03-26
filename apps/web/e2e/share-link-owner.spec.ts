@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
+  createShareLinkForFirstBoard,
   disableAnimations,
   waitForAppReady,
 } from "./helpers/commands";
@@ -57,81 +58,28 @@ test.describe("E2E-09: Share Link (Owner)", () => {
   });
 
   test("shared workspace switches to collaborative mode", async ({ page }) => {
-    const workspaceSelector = page.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await workspaceSelector.click();
-
-    await page.waitForSelector('[data-testid="workspace-option"]', {
-      timeout: 5000,
-    });
-
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-
-    await page.waitForSelector('[data-testid="board-share-option"]');
-    await page.click('[data-testid="board-share-option"]');
-
-    await page.waitForSelector('[data-testid="share-dialog"]');
-    const createLinkButton = page.locator(
-      '[data-testid="create-share-link-button"]'
-    );
-    await createLinkButton.click();
-
-    await page.waitForSelector('[data-testid="share-link-input"]');
-    const shareLink = await page
-      .locator('[data-testid="share-link-input"]')
-      .inputValue();
+    const shareLink = await createShareLinkForFirstBoard(page);
 
     await page.goto(shareLink);
     await waitForAppReady(page);
-
-    await page.waitForTimeout(1000);
 
     const syncStatus = page.locator('[data-testid="sync-status-indicator"]');
     await expect(syncStatus).toBeVisible();
   });
 
   test("shared workspace fetches server state", async ({ page, context }) => {
-    const workspaceSelector = page.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await workspaceSelector.click();
+    const shareLink = await createShareLinkForFirstBoard(page);
 
-    await page.waitForSelector('[data-testid="workspace-option"]', {
-      timeout: 5000,
-    });
+    const guestPage = await context.newPage();
+    await guestPage.goto(shareLink);
+    await waitForAppReady(guestPage);
 
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
+    const boardsInGuestPage = guestPage.locator('[data-testid="board-node"]');
+    await boardsInGuestPage
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+    await expect(boardsInGuestPage.first()).toBeVisible({ timeout: 10_000 });
 
-    await page.waitForSelector('[data-testid="board-share-option"]');
-    await page.click('[data-testid="board-share-option"]');
-
-    await page.waitForSelector('[data-testid="share-dialog"]');
-    const createLinkButton = page.locator(
-      '[data-testid="create-share-link-button"]'
-    );
-    await createLinkButton.click();
-
-    await page.waitForSelector('[data-testid="share-link-input"]');
-    const shareLink = await page
-      .locator('[data-testid="share-link-input"]')
-      .inputValue();
-
-    const context2 = await context.newPage();
-    await context2.goto(shareLink);
-    await waitForAppReady(context2);
-
-    await context2.waitForTimeout(2000);
-
-    const boardsInContext2 = context2.locator('[data-testid="board-node"]');
-    await expect(boardsInContext2.first()).toBeVisible({ timeout: 10_000 });
-
-    await context2.close();
+    await guestPage.close();
   });
 });
