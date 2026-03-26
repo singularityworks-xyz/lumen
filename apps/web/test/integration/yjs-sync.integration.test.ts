@@ -314,7 +314,7 @@ describe("WEB-I-03: yjs-sync integration", () => {
       localState.boards.allIds = ["board-1", "board-local"];
 
       // First sync with board-1 present
-      applyYjsToStateWithRepair(doc, localState, "ws-1");
+      const syncedState = applyYjsToStateWithRepair(doc, localState, "ws-1");
 
       // Simulate deletion: remove board-1 from workspace's board_ids AND delete from BOARDS
       const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
@@ -330,7 +330,11 @@ describe("WEB-I-03: yjs-sync integration", () => {
       });
       doc.getMap(YJS_MAP_NAMES.BOARDS).delete("board-1");
 
-      const result = applyYjsToStateWithRepair(doc, localState, "ws-1");
+      const result = applyYjsToStateWithRepair(
+        doc,
+        syncedState as KanbanState,
+        "ws-1"
+      );
 
       expect(result.boards?.byId["board-1"]).toBeUndefined();
       expect(result.boards?.byId["board-local"]).toBeDefined();

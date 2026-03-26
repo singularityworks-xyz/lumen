@@ -30,15 +30,28 @@ import {
 
 const logger = createLogger({ name: "collab:state-sync" });
 
+export interface ApplyYjsOptions {
+  // When true (default), writes metadata back to Y.Doc to track synced entities.
+  // Set to false for read-only operations where you don't want to trigger
+  // bidirectional sync or metadata writes that propagate to peers.
+  writeMetadata?: boolean;
+}
+
 // Apply all Y.Doc data to Zustand state.
 // Returns a partial state that can be merged with existing state.
 // IMPORTANT: This MERGES the synced data with existing state rather than replacing it,
 // to preserve workspaces and entities that are not part of the current collaboration session.
 // The currentWorkspaceId is used to filter synced data to only include the workspace being collaborated on.
+//
+// NOTE: This function both reads from and writes to the Y.Doc. Specifically:
+// - It reads entity data from the various Y.Maps (boards, columns, tasks, etc.)
+// - It may write metadata back to the METADATA map to track which entities have been synced
+// - Set options.writeMetadata to false to skip the metadata write (useful for read-only operations)
 export function applyYjsToState(
   doc: Y.Doc,
   currentState?: Partial<KanbanState>,
-  currentWorkspaceId?: string | null
+  currentWorkspaceId?: string | null,
+  options?: ApplyYjsOptions
 ): Partial<KanbanState> {
   // CRITICAL: If no workspace ID is provided, don't apply any changes
   // This prevents local workspace data from being affected by stale Yjs state
@@ -761,7 +774,41 @@ export function applyYjsToState(
   };
 
   // Persist updated syncedEntities to METADATA map
-  metadataMap.set("syncedEntities", updatedSyncedEntities);
+  // Only write metadata if options.writeMetadata is not explicitly false
+  if (options?.writeMetadata !== false) {
+    // Prune deleted IDs: filter out IDs that no longer exist in the merged state
+    // This ensures deleted entities are removed from METADATA
+    const prunedUpdatedSyncedEntities = {
+      boards: updatedSyncedEntities.boards.filter((id) =>
+        boards.allIds.includes(id)
+      ),
+      columns: updatedSyncedEntities.columns.filter((id) =>
+        columns.allIds.includes(id)
+      ),
+      tasks: updatedSyncedEntities.tasks.filter((id) =>
+        tasks.allIds.includes(id)
+      ),
+      boardPositions: updatedSyncedEntities.boardPositions.filter((id) =>
+        boardPositions.allIds.includes(id)
+      ),
+      boardConnections: updatedSyncedEntities.boardConnections.filter((id) =>
+        boardConnections.allIds.includes(id)
+      ),
+      areas: updatedSyncedEntities.areas.filter((id) =>
+        areas.allIds.includes(id)
+      ),
+      areaPositions: updatedSyncedEntities.areaPositions.filter((id) =>
+        areaPositions.allIds.includes(id)
+      ),
+      comments: updatedSyncedEntities.comments.filter((id) =>
+        comments.allIds.includes(id)
+      ),
+      chatMessages: updatedSyncedEntities.chatMessages.filter((id) =>
+        chatMessages.allIds.includes(id)
+      ),
+    };
+    metadataMap.set("syncedEntities", prunedUpdatedSyncedEntities);
+  }
 
   return {
     workspaces,
