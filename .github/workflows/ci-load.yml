@@ -33,7 +33,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'ramp'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install k6
         run: |
@@ -55,7 +55,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'spike'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install k6
         run: |
@@ -77,7 +77,7 @@ jobs:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'soak')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install k6
         run: |
