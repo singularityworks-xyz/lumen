@@ -499,3 +499,45 @@ describe("RoomManager - getCollaborators", () => {
     expect(collaborators[0]!.id).toBe("user-gc-1");
   });
 });
+
+describe("RoomManager - getRoomStats", () => {
+  it("returns null for non-existent room", () => {
+    const stats = roomManager.getRoomStats("nonexistent-ws");
+    expect(stats).toBeNull();
+  });
+
+  it("returns stats for existing room", () => {
+    const { ws } = createMockWs();
+    roomManager.join({
+      connectionId: "conn-stats-1",
+      ws,
+      user: makeUser(),
+      workspaceId: "ws-test",
+    });
+
+    const stats = roomManager.getRoomStats("ws-test");
+    expect(stats).toBeDefined();
+    expect(stats!.connections).toBe(1);
+    expect(typeof stats!.lastModified).toBe("number");
+  });
+
+  it("returns correct connection count with multiple connections", () => {
+    const { ws: ws1 } = createMockWs();
+    const { ws: ws2 } = createMockWs();
+    roomManager.join({
+      connectionId: "conn-stats-2",
+      ws: ws1,
+      user: makeUser(),
+      workspaceId: "ws-test",
+    });
+    roomManager.join({
+      connectionId: "conn-stats-3",
+      ws: ws2,
+      user: makeUser(),
+      workspaceId: "ws-test",
+    });
+
+    const stats = roomManager.getRoomStats("ws-test");
+    expect(stats!.connections).toBe(2);
+  });
+});
