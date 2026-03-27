@@ -245,7 +245,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.17",
+      "version": "0.0.18",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "^0.208.0",
