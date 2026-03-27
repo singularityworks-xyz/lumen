@@ -174,7 +174,7 @@ export function buildBulkDeleteTasksInstruction(
       type: "bulkDeleteTasks",
       taskIds: params.taskIds,
     },
-    message: `Delete ${params.taskIds.length} tasks`,
+    message: `Delete ${params.taskIds.length} ${params.taskIds.length === 1 ? "task" : "tasks"}`,
   };
 }
 

@@ -35,13 +35,13 @@ describe("getModel", () => {
 
   it("returns a language model with default model", () => {
     const model = getModel();
-    expect((model as any).provider).toBe("cerebras");
+    expect((model as any).provider).toBe("cerebras.chat");
     expect((model as any).modelId).toBe(DEFAULT_PRIMARY_MODEL);
   });
 
   it("returns a language model with specified model", () => {
     const model = getModel("llama-3.3-70b");
-    expect((model as any).provider).toBe("cerebras");
+    expect((model as any).provider).toBe("cerebras.chat");
     expect((model as any).modelId).toBe("llama-3.3-70b");
   });
 

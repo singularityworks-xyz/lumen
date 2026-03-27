@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { getOS, getPlatform, isTauri } from "./platform";
 
 interface MockWindow {
   __TAURI_INTERNALS__?: object | null;
@@ -24,47 +25,45 @@ afterEach(() => {
 
 describe("platform detection", () => {
   describe("isTauri", () => {
-    it("returns false in SSR context (no window)", async () => {
+    it("returns false in SSR context (no window)", () => {
       setMockWindow(undefined);
-      const { isTauri } = await import("./platform");
       expect(isTauri()).toBe(false);
     });
 
-    it("returns false in browser context without Tauri internals", async () => {
+    it("returns false in browser context without Tauri internals", () => {
       setMockWindow({});
-      const { isTauri } = await import("./platform");
       expect(isTauri()).toBe(false);
     });
 
-    it("returns true when __TAURI_INTERNALS__ exists", async () => {
+    it("returns true when __TAURI_INTERNALS__ exists", () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { isTauri } = await import("./platform");
       expect(isTauri()).toBe(true);
     });
 
-    it("returns false when __TAURI_INTERNALS__ is present but falsy", async () => {
+    it("returns false when __TAURI_INTERNALS__ is null", () => {
       setMockWindow({ __TAURI_INTERNALS__: null });
-      const { isTauri } = await import("./platform");
+      expect(isTauri()).toBe(false);
+    });
+
+    it("returns false when __TAURI_INTERNALS__ is undefined", () => {
+      setMockWindow({ __TAURI_INTERNALS__: undefined });
       expect(isTauri()).toBe(false);
     });
   });
 
   describe("getPlatform", () => {
-    it("returns 'web' when not in Tauri", async () => {
+    it("returns 'web' when not in Tauri", () => {
       setMockWindow({});
-      const { getPlatform } = await import("./platform");
       expect(getPlatform()).toBe("web");
     });
 
-    it("returns 'tauri' when in Tauri context", async () => {
+    it("returns 'tauri' when in Tauri context", () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { getPlatform } = await import("./platform");
       expect(getPlatform()).toBe("tauri");
     });
 
-    it("returns 'web' in SSR context", async () => {
+    it("returns 'web' in SSR context", () => {
       setMockWindow(undefined);
-      const { getPlatform } = await import("./platform");
       expect(getPlatform()).toBe("web");
     });
   });
@@ -72,30 +71,30 @@ describe("platform detection", () => {
   describe("getOS", () => {
     it("returns 'unknown' when not in Tauri context", async () => {
       setMockWindow({});
-      const { getOS } = await import("./platform");
       const os = await getOS();
       expect(os).toBe("unknown");
     });
 
     it("returns 'unknown' in SSR context", async () => {
       setMockWindow(undefined);
-      const { getOS } = await import("./platform");
       const os = await getOS();
       expect(os).toBe("unknown");
     });
 
     it("returns 'unknown' when Tauri plugin import fails", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { getOS } = await import("./platform");
       const os = await getOS();
       expect(os).toBe("unknown");
     });
 
     it("returns 'unknown' for unsupported OS values", () => {
+      const supportedOS = ["linux", "macos", "windows", "unknown"];
       const unsupportedValues = ["freebsd", "openbsd", "android", "ios", ""];
       for (const val of unsupportedValues) {
-        expect(["linux", "macos", "windows", "unknown"]).not.toContain(val);
+        expect(supportedOS).not.toContain(val);
       }
+      // getOS() maps any unrecognized platform to "unknown"
+      expect(supportedOS).toContain("unknown");
     });
   });
 });

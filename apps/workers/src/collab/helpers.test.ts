@@ -1,7 +1,4 @@
-process.env.DATABASE_URL = "postgres://dummy";
-
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 
 const prismaMock = {
   workspaceCollaborator: {
@@ -45,25 +42,6 @@ mock.module("@lumen/logger/server", () => ({
   setSpanAttributes: mock(),
   withSpanAsync: (_name: string, fn: (span: unknown) => Promise<unknown>) =>
     fn(null),
-}));
-
-const mockRoom = {
-  doc: {
-    getMap: mock((name: string) => {
-      const map = new Map();
-      if (name === YJS_MAP_NAMES.WORKSPACE) {
-        map.set("ws-active", { name: "Active Workspace" });
-      }
-      return map;
-    }),
-  },
-};
-
-mock.module("./room-manager", () => ({
-  roomManager: {
-    getRoom: mock((id: string) => (id === "ws-active" ? mockRoom : undefined)),
-    getOrCreateRoom: mock(() => mockRoom),
-  },
 }));
 
 import {

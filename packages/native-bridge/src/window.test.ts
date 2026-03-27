@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 interface MockWindow {
   __TAURI_INTERNALS__?: object | undefined;
@@ -14,6 +14,44 @@ function setMockWindow(win: MockWindow | undefined) {
   });
 }
 
+// Configurable mock functions - set at top level so module cache issue is avoided
+const mockMinimize = mock(() => Promise.resolve());
+const mockToggleMaximize = mock(() => Promise.resolve());
+const mockClose = mock(() => Promise.resolve());
+const mockStartDragging = mock(() => Promise.resolve());
+const mockIsMaximized = mock(() => Promise.resolve(false));
+
+mock.module("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    minimize: mockMinimize,
+    toggleMaximize: mockToggleMaximize,
+    close: mockClose,
+    startDragging: mockStartDragging,
+    isMaximized: mockIsMaximized,
+  }),
+}));
+
+import {
+  closeWindow,
+  isMaximized,
+  minimizeWindow,
+  startDragging,
+  toggleMaximize,
+} from "./window";
+
+beforeEach(() => {
+  mockMinimize.mockClear();
+  mockMinimize.mockImplementation(() => Promise.resolve());
+  mockToggleMaximize.mockClear();
+  mockToggleMaximize.mockImplementation(() => Promise.resolve());
+  mockClose.mockClear();
+  mockClose.mockImplementation(() => Promise.resolve());
+  mockStartDragging.mockClear();
+  mockStartDragging.mockImplementation(() => Promise.resolve());
+  mockIsMaximized.mockClear();
+  mockIsMaximized.mockImplementation(() => Promise.resolve(false));
+});
+
 afterEach(() => {
   if (originalWindow === undefined) {
     setMockWindow(undefined);
@@ -26,19 +64,26 @@ describe("window", () => {
   describe("minimizeWindow", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
+      expect(mockMinimize).not.toHaveBeenCalled();
     });
 
     it("no-ops in SSR context", async () => {
       setMockWindow(undefined);
-      const { minimizeWindow } = await import("./window");
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
 
-    it("does not reject when native import fails", async () => {
+    it("calls minimize in Tauri context", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("./window");
+      await minimizeWindow();
+      expect(mockMinimize).toHaveBeenCalled();
+    });
+
+    it("swallows errors when minimize rejects", async () => {
+      mockMinimize.mockImplementation(() =>
+        Promise.reject(new Error("minimize failed"))
+      );
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       await expect(minimizeWindow()).resolves.toBeUndefined();
     });
   });
@@ -46,13 +91,26 @@ describe("window", () => {
   describe("toggleMaximize", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { toggleMaximize } = await import("./window");
+      await expect(toggleMaximize()).resolves.toBeUndefined();
+      expect(mockToggleMaximize).not.toHaveBeenCalled();
+    });
+
+    it("no-ops in SSR context", async () => {
+      setMockWindow(undefined);
       await expect(toggleMaximize()).resolves.toBeUndefined();
     });
 
-    it("does not reject when native import fails", async () => {
+    it("calls toggleMaximize in Tauri context", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { toggleMaximize } = await import("./window");
+      await toggleMaximize();
+      expect(mockToggleMaximize).toHaveBeenCalled();
+    });
+
+    it("swallows errors when toggleMaximize rejects", async () => {
+      mockToggleMaximize.mockImplementation(() =>
+        Promise.reject(new Error("toggle failed"))
+      );
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       await expect(toggleMaximize()).resolves.toBeUndefined();
     });
   });
@@ -60,13 +118,26 @@ describe("window", () => {
   describe("closeWindow", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { closeWindow } = await import("./window");
+      await expect(closeWindow()).resolves.toBeUndefined();
+      expect(mockClose).not.toHaveBeenCalled();
+    });
+
+    it("no-ops in SSR context", async () => {
+      setMockWindow(undefined);
       await expect(closeWindow()).resolves.toBeUndefined();
     });
 
-    it("does not reject when native import fails", async () => {
+    it("calls close in Tauri context", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { closeWindow } = await import("./window");
+      await closeWindow();
+      expect(mockClose).toHaveBeenCalled();
+    });
+
+    it("swallows errors when close rejects", async () => {
+      mockClose.mockImplementation(() =>
+        Promise.reject(new Error("close failed"))
+      );
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       await expect(closeWindow()).resolves.toBeUndefined();
     });
   });
@@ -74,13 +145,26 @@ describe("window", () => {
   describe("startDragging", () => {
     it("no-ops in web context", async () => {
       setMockWindow({});
-      const { startDragging } = await import("./window");
+      await expect(startDragging()).resolves.toBeUndefined();
+      expect(mockStartDragging).not.toHaveBeenCalled();
+    });
+
+    it("no-ops in SSR context", async () => {
+      setMockWindow(undefined);
       await expect(startDragging()).resolves.toBeUndefined();
     });
 
-    it("does not reject when native import fails", async () => {
+    it("calls startDragging in Tauri context", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { startDragging } = await import("./window");
+      await startDragging();
+      expect(mockStartDragging).toHaveBeenCalled();
+    });
+
+    it("swallows errors when startDragging rejects", async () => {
+      mockStartDragging.mockImplementation(() =>
+        Promise.reject(new Error("drag failed"))
+      );
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       await expect(startDragging()).resolves.toBeUndefined();
     });
   });
@@ -88,120 +172,32 @@ describe("window", () => {
   describe("isMaximized", () => {
     it("returns false in web context", async () => {
       setMockWindow({});
-      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
     it("returns false in SSR context", async () => {
       setMockWindow(undefined);
-      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
     it("returns false when native import fails", async () => {
+      mockIsMaximized.mockImplementation(() =>
+        Promise.reject(new Error("failed"))
+      );
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(false);
     });
 
     it("returns true when native window is maximized", async () => {
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          isMaximized: mock(() => Promise.resolve(true)),
-          minimize: mock(() => Promise.resolve()),
-          toggleMaximize: mock(() => Promise.resolve()),
-          close: mock(() => Promise.resolve()),
-          startDragging: mock(() => Promise.resolve()),
-        }),
-      }));
+      mockIsMaximized.mockImplementation(() => Promise.resolve(true));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { isMaximized } = await import("./window");
       expect(await isMaximized()).toBe(true);
     });
-  });
 
-  describe("native window operations with mocked Tauri API", () => {
-    it("calls minimize on the current window", async () => {
-      const minimizeFn = mock(() => Promise.resolve());
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          minimize: minimizeFn,
-          toggleMaximize: mock(() => Promise.resolve()),
-          close: mock(() => Promise.resolve()),
-          startDragging: mock(() => Promise.resolve()),
-          isMaximized: mock(() => Promise.resolve(false)),
-        }),
-      }));
+    it("returns false when native window is not maximized", async () => {
+      mockIsMaximized.mockImplementation(() => Promise.resolve(false));
       setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("./window");
-      await minimizeWindow();
-      expect(minimizeFn).toHaveBeenCalled();
-    });
-
-    it("calls toggleMaximize on the current window", async () => {
-      const toggleFn = mock(() => Promise.resolve());
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          minimize: mock(() => Promise.resolve()),
-          toggleMaximize: toggleFn,
-          close: mock(() => Promise.resolve()),
-          startDragging: mock(() => Promise.resolve()),
-          isMaximized: mock(() => Promise.resolve(false)),
-        }),
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { toggleMaximize } = await import("./window");
-      await toggleMaximize();
-      expect(toggleFn).toHaveBeenCalled();
-    });
-
-    it("calls close on the current window", async () => {
-      const closeFn = mock(() => Promise.resolve());
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          minimize: mock(() => Promise.resolve()),
-          toggleMaximize: mock(() => Promise.resolve()),
-          close: closeFn,
-          startDragging: mock(() => Promise.resolve()),
-          isMaximized: mock(() => Promise.resolve(false)),
-        }),
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { closeWindow } = await import("./window");
-      await closeWindow();
-      expect(closeFn).toHaveBeenCalled();
-    });
-
-    it("calls startDragging on the current window", async () => {
-      const dragFn = mock(() => Promise.resolve());
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          minimize: mock(() => Promise.resolve()),
-          toggleMaximize: mock(() => Promise.resolve()),
-          close: mock(() => Promise.resolve()),
-          startDragging: dragFn,
-          isMaximized: mock(() => Promise.resolve(false)),
-        }),
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { startDragging } = await import("./window");
-      await startDragging();
-      expect(dragFn).toHaveBeenCalled();
-    });
-
-    it("swallows errors when window method rejects", async () => {
-      mock.module("@tauri-apps/api/window", () => ({
-        getCurrentWindow: () => ({
-          minimize: mock(() => Promise.reject(new Error("minimize failed"))),
-          toggleMaximize: mock(() => Promise.resolve()),
-          close: mock(() => Promise.resolve()),
-          startDragging: mock(() => Promise.resolve()),
-          isMaximized: mock(() => Promise.resolve(false)),
-        }),
-      }));
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { minimizeWindow } = await import("./window");
-      await expect(minimizeWindow()).resolves.toBeUndefined();
+      expect(await isMaximized()).toBe(false);
     });
   });
 });

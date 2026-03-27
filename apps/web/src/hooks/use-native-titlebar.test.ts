@@ -1,63 +1,57 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { NATIVE_TITLEBAR_HEIGHT } from "./use-native-titlebar";
+import { afterEach, describe, expect, it, mock } from "bun:test";
+import { renderHook } from "@testing-library/react";
+import {
+  NATIVE_TITLEBAR_HEIGHT,
+  useIsNative,
+  useNativeTitlebarOffset,
+} from "./use-native-titlebar";
 
-interface MockWindow {
-  __TAURI_INTERNALS__?: object | null;
-}
-
-const originalWindow = globalThis.window;
-
-function setMockWindow(win: MockWindow | undefined) {
-  Object.defineProperty(globalThis, "window", {
-    writable: true,
-    configurable: true,
-    value: win,
-  });
-}
-
-afterEach(() => {
-  if (originalWindow === undefined) {
-    setMockWindow(undefined);
-  } else {
-    globalThis.window = originalWindow;
-  }
-});
-
-const mockIsTauri = (): boolean => {
-  const win = globalThis.window as MockWindow | undefined;
-  return !!win?.__TAURI_INTERNALS__;
-};
+// Mock the native-bridge module
+const mockIsTauri = mock(() => false);
+mock.module("@lumen/native-bridge", () => ({
+  isTauri: mockIsTauri,
+}));
 
 describe("use-native-titlebar", () => {
-  describe("constants", () => {
-    it("NATIVE_TITLEBAR_HEIGHT is positive", () => {
-      expect(NATIVE_TITLEBAR_HEIGHT).toBeGreaterThan(0);
-    });
+  afterEach(() => {
+    mockIsTauri.mockClear();
+  });
 
+  describe("constants", () => {
     it("NATIVE_TITLEBAR_HEIGHT equals 32", () => {
       expect(NATIVE_TITLEBAR_HEIGHT).toBe(32);
     });
+
+    it("NATIVE_TITLEBAR_HEIGHT is positive", () => {
+      expect(NATIVE_TITLEBAR_HEIGHT).toBeGreaterThan(0);
+    });
   });
 
-  describe("isTauri detection logic", () => {
-    it("returns true in Tauri context", () => {
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      expect(mockIsTauri()).toBe(true);
+  describe("useNativeTitlebarOffset", () => {
+    it("returns 0 in non-Tauri context", () => {
+      mockIsTauri.mockReturnValue(false);
+      const { result } = renderHook(() => useNativeTitlebarOffset());
+      expect(result.current).toBe(0);
     });
 
+    it("returns NATIVE_TITLEBAR_HEIGHT in Tauri context", () => {
+      mockIsTauri.mockReturnValue(true);
+      const { result } = renderHook(() => useNativeTitlebarOffset());
+      expect(result.current).toBe(NATIVE_TITLEBAR_HEIGHT);
+    });
+  });
+
+  describe("useIsNative", () => {
     it("returns false in non-Tauri context", () => {
-      setMockWindow({});
-      expect(mockIsTauri()).toBe(false);
+      mockIsTauri.mockReturnValue(false);
+      const { result } = renderHook(() => useIsNative());
+      expect(result.current).toBe(false);
     });
 
-    it("returns false when window is undefined", () => {
-      setMockWindow(undefined);
-      expect(mockIsTauri()).toBe(false);
-    });
-
-    it("returns false when __TAURI_INTERNALS__ is null", () => {
-      setMockWindow({ __TAURI_INTERNALS__: null });
-      expect(mockIsTauri()).toBe(false);
+    it("returns true in Tauri context", () => {
+      mockIsTauri.mockReturnValue(true);
+      const { result } = renderHook(() => useIsNative());
+      expect(result.current).toBe(true);
     });
   });
 });

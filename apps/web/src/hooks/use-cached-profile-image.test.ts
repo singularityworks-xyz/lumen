@@ -186,4 +186,60 @@ describe("use-cached-profile-image", () => {
     const { result } = renderHook(() => useCachedProfileImage(""));
     expect(result.current.hasImage).toBe(false);
   });
+
+  it("queryFn resolves with URL when image loads successfully", async () => {
+    renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
+    const args = mockUseQuery.mock.calls.at(-1)![0] as UseQueryOptions;
+
+    const originalImage = globalThis.Image;
+    class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = "";
+      _src = "";
+      get src() {
+        return this._src;
+      }
+      set src(value: string) {
+        this._src = value;
+        setTimeout(() => this.onload?.(), 0);
+      }
+    }
+    globalThis.Image = MockImage as unknown as typeof Image;
+
+    try {
+      const result = await args.queryFn?.();
+      expect(result).toBe("https://test.com/img.jpg");
+    } finally {
+      globalThis.Image = originalImage;
+    }
+  });
+
+  it("queryFn resolves with URL when image fails to load", async () => {
+    renderHook(() => useCachedProfileImage("https://test.com/bad.jpg"));
+    const args = mockUseQuery.mock.calls.at(-1)![0] as UseQueryOptions;
+
+    const originalImage = globalThis.Image;
+    class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = "";
+      _src = "";
+      get src() {
+        return this._src;
+      }
+      set src(value: string) {
+        this._src = value;
+        setTimeout(() => this.onerror?.(), 0);
+      }
+    }
+    globalThis.Image = MockImage as unknown as typeof Image;
+
+    try {
+      const result = await args.queryFn?.();
+      expect(result).toBe("https://test.com/bad.jpg");
+    } finally {
+      globalThis.Image = originalImage;
+    }
+  });
 });

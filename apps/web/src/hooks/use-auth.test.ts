@@ -215,14 +215,36 @@ describe("useAuth", () => {
 
     it("signInWithGitHub uses external browser in Tauri", async () => {
       mockIsTauri.mockReturnValue(true);
-      const { result } = renderHook(() => useAuth());
+      const origDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        "location"
+      );
+      Object.defineProperty(window, "location", {
+        value: {
+          origin: "http://localhost:3000",
+          href: "http://localhost:3000/",
+        },
+        writable: true,
+        configurable: true,
+      });
+      try {
+        const { result } = renderHook(() => useAuth());
 
-      await result.current.signInWithGitHub();
+        await result.current.signInWithGitHub();
 
-      expect(mockOpenExternalBrowser).toHaveBeenCalled();
-      const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
-      expect(arg).toContain("github");
-      expect(mockSignInSocial).not.toHaveBeenCalled();
+        expect(mockOpenExternalBrowser).toHaveBeenCalled();
+        const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
+        expect(arg).toContain("github");
+        expect(arg).toContain("/auth/native-signin");
+        expect(mockSignInSocial).not.toHaveBeenCalled();
+      } finally {
+        if (origDescriptor) {
+          Object.defineProperty(window, "location", origDescriptor);
+        } else {
+          // biome-ignore lint/performance/noDelete: restoring prototype property
+          delete (window as unknown as Record<string, unknown>).location;
+        }
+      }
     });
   });
 
@@ -274,6 +296,255 @@ describe("useAuth", () => {
 
       expect(success).toBe(false);
       expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("returns false on network error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+
+      const { result } = renderHook(() => useAuth());
+
+      const success = await result.current.exchangeManualToken("any-token");
+
+      expect(success).toBe(false);
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signOutUser", () => {
+    it("signs out successfully", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: {
+          user: { id: "u-1", name: "Test", email: "test@test.com" },
+          session: { id: "s-1", token: "tok", userId: "u-1" },
+        },
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as any);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it("throws on sign out failure", async () => {
+      mockSignOut.mockRejectedValueOnce(new Error("Sign out failed"));
+
+      const { result } = renderHook(() => useAuth());
+
+      await expect(result.current.signOutUser()).rejects.toThrow(
+        "Sign out failed"
+      );
+    });
+  });
+
+  describe("deep link error handling", () => {
+    it("handles deep link with error param", async () => {
+      mockIsTauri.mockReturnValue(true);
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      expect(registeredCallback).not.toBeNull();
+
+      await registeredCallback!(
+        "lumen://auth/callback?error=access_denied&error_description=User+denied"
+      );
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link callback with empty token", async () => {
+      mockIsTauri.mockReturnValue(true);
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      // success=true but token is empty — exchange should not happen
+      await registeredCallback!("lumen://auth/callback?success=true&token=");
+
+      // refetch should not be called since there's no valid token
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link listener throwing", async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          // Simulate the listener callback - await the callback to prevent unhandled rejection
+          const wrappedCb = async (url: string) => {
+            await cb(url);
+          };
+          // Immediately call with an auth URL that will succeed
+          wrappedCb("lumen://auth/callback?success=true&token=good-token");
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+      // Allow microtasks to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Should not throw
+    });
+
+    it("handles initializeNativeAuth rejection", () => {
+      mockIsTauri.mockReturnValue(true);
+      mockInitializeNativeAuth.mockRejectedValueOnce(
+        new Error("Native auth init failed")
+      );
+
+      renderHook(() => useAuth());
+      // Should not throw despite init failure
+    });
+  });
+
+  describe("signInWithGitHub error handling", () => {
+    it("throws on web sign in failure", async () => {
+      mockIsTauri.mockReturnValue(false);
+      mockSignInSocial.mockRejectedValueOnce(new Error("OAuth failed"));
+
+      const { result } = renderHook(() => useAuth());
+
+      await expect(result.current.signInWithGitHub()).rejects.toThrow(
+        "OAuth failed"
+      );
+    });
+  });
+
+  describe("additional deep link error paths", () => {
+    it("handles deep link callback when exchange fails", async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ message: "Token expired" }),
+      } as unknown as Response);
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!(
+        "lumen://auth/callback?success=true&token=expired-token"
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link callback when exchange throws", async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!(
+        "lumen://auth/callback?success=true&token=bad-token"
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link without success or token", async () => {
+      mockIsTauri.mockReturnValue(true);
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!("lumen://auth/callback");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("signs out with user data and sets span attribute", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: {
+          user: { id: "u-42", name: "Test", email: "t@t.com" },
+          session: { id: "s-1", token: "tok", userId: "u-42" },
+        },
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as unknown as ReturnType<typeof mockUseSession>);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(spanMock.setAttribute).toHaveBeenCalledWith("user.id", "u-42");
+      expect(spanMock.setAttribute).toHaveBeenCalledWith(
+        "auth.signOut.success",
+        true
+      );
+    });
+
+    it("signs out without user data", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as unknown as ReturnType<typeof mockUseSession>);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it("exchangeManualToken returns false when fetch returns non-ok with empty json", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("parse error")),
+      } as unknown as Response);
+
+      const { result } = renderHook(() => useAuth());
+
+      const success = await result.current.exchangeManualToken("bad-token");
+      expect(success).toBe(false);
     });
   });
 });

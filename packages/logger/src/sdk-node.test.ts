@@ -1,8 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Instrumentation } from "@opentelemetry/instrumentation";
-import type { LoggerProvider } from "@opentelemetry/sdk-logs";
-import type { MeterProvider } from "@opentelemetry/sdk-metrics";
-import type { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+
+// Define types inline to avoid importing real OpenTelemetry modules
+// before mock.module() calls take effect
+interface Instrumentation {
+  _config: { enabled: boolean };
+  disable: () => void;
+  enable: () => void;
+  getConfig: () => { enabled: boolean };
+  instrumentationName: string;
+  instrumentationVersion: string;
+  setConfig: () => { enabled: boolean };
+  setLoggerProvider: () => void;
+  setMeterProvider: () => void;
+  setTracerProvider: () => void;
+}
+
+interface LoggerProvider {
+  shutdown: () => Promise<void>;
+}
+interface MeterProvider {
+  shutdown: () => Promise<void>;
+}
+interface NodeTracerProvider {
+  register: () => void;
+  shutdown: () => Promise<void>;
+}
 
 // Track mock state for providers
 const mockTracerProviderShutdown = mock(() => Promise.resolve());
@@ -297,21 +319,27 @@ describe("sdk-node", () => {
   describe("getTracerProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getTracerProvider()).toBe(mockTracerProvider);
+      expect(getTracerProvider()).toBe(
+        mockTracerProvider as unknown as ReturnType<typeof getTracerProvider>
+      );
     });
   });
 
   describe("getMeterProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getMeterProvider()).toBe(mockMeterProvider);
+      expect(getMeterProvider()).toBe(
+        mockMeterProvider as unknown as ReturnType<typeof getMeterProvider>
+      );
     });
   });
 
   describe("getLoggerProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getLoggerProvider()).toBe(mockLoggerProvider);
+      expect(getLoggerProvider()).toBe(
+        mockLoggerProvider as unknown as ReturnType<typeof getLoggerProvider>
+      );
     });
   });
 

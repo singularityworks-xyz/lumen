@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
   type CerebrasModel,
+  createCerebrasProvider,
   createJsonModeFormat,
   createJsonSchemaFormat,
   DEFAULT_PRIMARY_MODEL,
   FALLBACK_MODELS,
+  getCerebrasModel,
   getModelFallbackChain,
   isCerebrasConfigured,
   isRateLimitError,
@@ -153,5 +155,57 @@ describe("createJsonModeFormat", () => {
   it("returns type 'json_object'", () => {
     const format = createJsonModeFormat();
     expect(format).toEqual({ type: "json_object" });
+  });
+});
+
+describe("createCerebrasProvider", () => {
+  it("returns a provider with chatModel method", () => {
+    const provider = createCerebrasProvider({ apiKey: "test-key" });
+    expect(provider).toBeDefined();
+    expect(typeof provider.chatModel).toBe("function");
+  });
+
+  it("provider can create a model instance", () => {
+    const provider = createCerebrasProvider({ apiKey: "test-key" });
+    const model = provider.chatModel("llama3.1-8b");
+    expect(model).toBeDefined();
+    expect(typeof model).toBe("object");
+  });
+
+  it("creates different providers for different API keys", () => {
+    const provider1 = createCerebrasProvider({ apiKey: "key-1" });
+    const provider2 = createCerebrasProvider({ apiKey: "key-2" });
+    expect(provider1).not.toBe(provider2);
+  });
+});
+
+describe("getCerebrasModel", () => {
+  it("returns a LanguageModel with default model", () => {
+    const model = getCerebrasModel("test-key");
+    expect(model).toBeDefined();
+    expect(typeof model).toBe("object");
+  });
+
+  it("returns a LanguageModel with specified model", () => {
+    const model = getCerebrasModel("test-key", "llama-3.3-70b");
+    expect(model).toBeDefined();
+  });
+
+  it("accepts all valid CerebrasModel values", () => {
+    const models: CerebrasModel[] = [
+      "gpt-oss-120b",
+      "llama-3.3-70b",
+      "llama3.1-8b",
+      "qwen-3-32b",
+    ];
+    for (const modelName of models) {
+      const model = getCerebrasModel("test-key", modelName);
+      expect(model).toBeDefined();
+    }
+  });
+
+  it("uses DEFAULT_PRIMARY_MODEL when no model specified", () => {
+    const model = getCerebrasModel("test-key");
+    expect(model).toBeDefined();
   });
 });
