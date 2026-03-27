@@ -69,8 +69,7 @@ mock.module("y-protocols/awareness", () => ({
     destroy() {
       /* no-op */
     }
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    _emit(event: string, ...args: any[]) {
+    _emit(event: string, ...args: unknown[]) {
       const handlers = this.listeners.get(event);
       if (handlers) {
         for (const fn of handlers) {

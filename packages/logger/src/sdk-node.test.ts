@@ -319,21 +319,27 @@ describe("sdk-node", () => {
   describe("getTracerProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getTracerProvider()).toBe(mockTracerProvider);
+      expect(getTracerProvider()).toBe(
+        mockTracerProvider as unknown as ReturnType<typeof getTracerProvider>
+      );
     });
   });
 
   describe("getMeterProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getMeterProvider()).toBe(mockMeterProvider);
+      expect(getMeterProvider()).toBe(
+        mockMeterProvider as unknown as ReturnType<typeof getMeterProvider>
+      );
     });
   });
 
   describe("getLoggerProvider", () => {
     it("returns provider after initialization", () => {
       initOtel("test-service");
-      expect(getLoggerProvider()).toBe(mockLoggerProvider);
+      expect(getLoggerProvider()).toBe(
+        mockLoggerProvider as unknown as ReturnType<typeof getLoggerProvider>
+      );
     });
   });
 

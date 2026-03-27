@@ -170,7 +170,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.18",
+      "version": "1.0.19",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
@@ -245,7 +245,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "^0.208.0",
