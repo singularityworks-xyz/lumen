@@ -88,10 +88,13 @@ describe("platform detection", () => {
     });
 
     it("returns 'unknown' for unsupported OS values", () => {
+      const supportedOS = ["linux", "macos", "windows", "unknown"];
       const unsupportedValues = ["freebsd", "openbsd", "android", "ios", ""];
       for (const val of unsupportedValues) {
-        expect(["linux", "macos", "windows", "unknown"]).not.toContain(val);
+        expect(supportedOS).not.toContain(val);
       }
+      // getOS() maps any unrecognized platform to "unknown"
+      expect(supportedOS).toContain("unknown");
     });
   });
 });

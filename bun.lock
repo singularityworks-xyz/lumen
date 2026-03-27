@@ -245,7 +245,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.15",
+      "version": "0.0.16",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "^0.208.0",
@@ -271,7 +271,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",

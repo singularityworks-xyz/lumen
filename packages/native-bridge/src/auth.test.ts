@@ -123,16 +123,12 @@ describe("auth", () => {
     });
 
     it("calls window.open in SSR context", async () => {
-      // In SSR, window is undefined, so this tests the !isTauri path
       setMockWindow(undefined);
-      // window.open won't exist, but the function should still run
-      // the code path checks isTauri() first, which returns false in SSR
-      // so it tries window.open which will throw - but that's expected
-      try {
-        await openExternalBrowser("https://example.com");
-      } catch {
-        // Expected in SSR since window is undefined
-      }
+      // In SSR, window is undefined so isTauri() returns false
+      // The function should still attempt window.open which will throw
+      await expect(
+        openExternalBrowser("https://example.com")
+      ).rejects.toThrow();
     });
   });
 

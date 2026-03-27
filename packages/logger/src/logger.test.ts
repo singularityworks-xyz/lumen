@@ -29,8 +29,10 @@ import { createChildLogger, createLogger } from "./logger";
 
 describe("Logger", () => {
   let consoleLogMock: ReturnType<typeof mock<Console["log"]>>;
-  let consoleGroupCollapsedMock: ReturnType<typeof mock>;
-  let consoleGroupEndMock: ReturnType<typeof mock>;
+  let consoleGroupCollapsedMock: ReturnType<
+    typeof mock<Console["groupCollapsed"]>
+  >;
+  let consoleGroupEndMock: ReturnType<typeof mock<Console["groupEnd"]>>;
   const originalConsoleLog = globalThis.console.log;
   const originalConsoleGroupCollapsed = globalThis.console.groupCollapsed;
   const originalConsoleGroupEnd = globalThis.console.groupEnd;

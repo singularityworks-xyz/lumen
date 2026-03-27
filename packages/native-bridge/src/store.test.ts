@@ -114,23 +114,5 @@ describe("store", () => {
       const { NativeStore } = await import("./store");
       await expect(NativeStore.clear()).resolves.toBeUndefined();
     });
-
-    it("set calls save after write", async () => {
-      setMockWindow({});
-      const { NativeStore } = await import("./store");
-      await expect(NativeStore.set("key", "val")).resolves.toBeUndefined();
-    });
-
-    it("delete calls save after delete", async () => {
-      setMockWindow({});
-      const { NativeStore } = await import("./store");
-      expect(await NativeStore.delete("key")).toBe(false);
-    });
-
-    it("clear calls save after clear", async () => {
-      setMockWindow({});
-      const { NativeStore } = await import("./store");
-      await expect(NativeStore.clear()).resolves.toBeUndefined();
-    });
   });
 });
