@@ -1,12 +1,8 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
-interface MockWindow {
-  __TAURI_INTERNALS__?: object | undefined;
-}
-
 const originalWindow = globalThis.window;
 
-function setMockWindow(win: MockWindow | undefined) {
+function setMockWindow(win: object | undefined) {
   Object.defineProperty(globalThis, "window", {
     writable: true,
     configurable: true,
@@ -14,7 +10,7 @@ function setMockWindow(win: MockWindow | undefined) {
   });
 }
 
-// Mock @tauri-apps/plugin-store to throw when imported in Tauri fallback test
+// Mock @tauri-apps/plugin-store to throw when imported
 mock.module("@tauri-apps/plugin-store", () => {
   throw new Error("plugin-store not available");
 });
@@ -51,9 +47,7 @@ describe("store", () => {
     });
 
     it("falls back to no-op store when Tauri store import fails", async () => {
-      setMockWindow({
-        __TAURI_INTERNALS__: {},
-      });
+      setMockWindow({ __TAURI_INTERNALS__: {} });
       const { getStore } = await import("./store");
       const store = await getStore("test-fallback");
       await expect(store.get("key")).resolves.toBeNull();

@@ -271,7 +271,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.20",
+      "version": "0.0.21",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
