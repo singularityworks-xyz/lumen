@@ -1,6 +1,10 @@
 import "./bun.setup";
 import { afterEach, beforeEach } from "bun:test";
 
+// Set DATABASE_URL immediately at module evaluation time so @lumen/db
+// can be imported in test files without throwing
+process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/lumen_test";
+
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: "development",
   PORT: "3999",

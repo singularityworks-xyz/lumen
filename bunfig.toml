@@ -7,7 +7,6 @@ coveragePathIgnorePatterns = [
   "**/packages/logger/**",
   "**/packages/native-bridge/**",
   "**/packages/db/**",
-  "**/packages/ai/**",
   "**/packages/yjs-shared/**",
   "**/node_modules/**",
   "**/tests/config/**",
