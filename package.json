@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.66",
+  "version": "0.4.67",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -62,7 +62,7 @@
     "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/**/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/**/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/**/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/**/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/**/*.test.ts",
     "test:integration:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/test/integration/*.test.ts",
     "test:integration:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/test/integration/*.test.ts",
-    "test:coverage:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage --coverage-threshold=0.94",
+    "test:coverage:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage --coverage-threshold=0.95",
     "test:coverage:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage",
     "test:coverage:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/**/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/**/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/**/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/**/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/**/*.test.ts --coverage",
     "test:coverage": "bun run test:coverage:web && bun run test:coverage:workers && bun run test:coverage:packages",

@@ -421,4 +421,123 @@ describe("useAuth", () => {
       );
     });
   });
+
+  describe("additional deep link error paths", () => {
+    it("handles deep link callback when exchange fails", async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ message: "Token expired" }),
+      } as unknown as Response);
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!(
+        "lumen://auth/callback?success=true&token=expired-token"
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link callback when exchange throws", async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!(
+        "lumen://auth/callback?success=true&token=bad-token"
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link without success or token", async () => {
+      mockIsTauri.mockReturnValue(true);
+
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      await registeredCallback!("lumen://auth/callback");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("signs out with user data and sets span attribute", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: {
+          user: { id: "u-42", name: "Test", email: "t@t.com" },
+          session: { id: "s-1", token: "tok", userId: "u-42" },
+        },
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as any);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(spanMock.setAttribute).toHaveBeenCalledWith("user.id", "u-42");
+      expect(spanMock.setAttribute).toHaveBeenCalledWith(
+        "auth.signOut.success",
+        true
+      );
+    });
+
+    it("signs out without user data", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as any);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it("exchangeManualToken returns false when fetch returns non-ok with empty json", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("parse error")),
+      } as unknown as Response);
+
+      const { result } = renderHook(() => useAuth());
+
+      const success = await result.current.exchangeManualToken("bad-token");
+      expect(success).toBe(false);
+    });
+  });
 });
