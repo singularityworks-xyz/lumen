@@ -193,13 +193,13 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage/bun
+          path: coverage
 
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage/bun
+          path: coverage
           merge-multiple: true
 
       - name: Check LCOV thresholds
