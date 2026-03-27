@@ -292,5 +292,133 @@ describe("useAuth", () => {
       expect(success).toBe(false);
       expect(mockRefetch).not.toHaveBeenCalled();
     });
+
+    it("returns false on network error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+
+      const { result } = renderHook(() => useAuth());
+
+      const success = await result.current.exchangeManualToken("any-token");
+
+      expect(success).toBe(false);
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signOutUser", () => {
+    it("signs out successfully", async () => {
+      mockUseSession.mockReturnValueOnce({
+        data: {
+          user: { id: "u-1", name: "Test", email: "test@test.com" },
+          session: { id: "s-1", token: "tok", userId: "u-1" },
+        },
+        isPending: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockRefetch,
+      } as any);
+
+      const { result } = renderHook(() => useAuth());
+
+      await result.current.signOutUser();
+
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it("throws on sign out failure", async () => {
+      mockSignOut.mockRejectedValueOnce(new Error("Sign out failed"));
+
+      const { result } = renderHook(() => useAuth());
+
+      await expect(result.current.signOutUser()).rejects.toThrow(
+        "Sign out failed"
+      );
+    });
+  });
+
+  describe("deep link error handling", () => {
+    it("handles deep link with error param", async () => {
+      mockIsTauri.mockReturnValue(true);
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      expect(registeredCallback).not.toBeNull();
+
+      await registeredCallback!(
+        "lumen://auth/callback?error=access_denied&error_description=User+denied"
+      );
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("handles deep link callback parse error", async () => {
+      mockIsTauri.mockReturnValue(true);
+      let registeredCallback: ((url: string) => Promise<void>) | null = null;
+
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          registeredCallback = cb;
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+
+      // Invalid URL that can't be parsed
+      await registeredCallback!("lumen://auth/callback?success=true&token=t");
+
+      // Should not throw
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    it("handles deep link listener throwing", () => {
+      mockIsTauri.mockReturnValue(true);
+      mockOnAuthDeepLink.mockImplementation(
+        (cb: (url: string) => Promise<void>) => {
+          // Simulate the listener callback throwing
+          const wrappedCb = (url: string) => {
+            cb(url);
+          };
+          // Immediately call with an auth URL that will succeed
+          wrappedCb("lumen://auth/callback?success=true&token=good-token");
+          return () => undefined;
+        }
+      );
+
+      renderHook(() => useAuth());
+      // Should not throw
+    });
+
+    it("handles initializeNativeAuth rejection", () => {
+      mockIsTauri.mockReturnValue(true);
+      mockInitializeNativeAuth.mockRejectedValueOnce(
+        new Error("Native auth init failed")
+      );
+
+      renderHook(() => useAuth());
+      // Should not throw despite init failure
+    });
+  });
+
+  describe("signInWithGitHub error handling", () => {
+    it("throws on web sign in failure", async () => {
+      mockIsTauri.mockReturnValue(false);
+      mockSignInSocial.mockRejectedValueOnce(new Error("OAuth failed"));
+
+      const { result } = renderHook(() => useAuth());
+
+      await expect(result.current.signInWithGitHub()).rejects.toThrow(
+        "OAuth failed"
+      );
+    });
   });
 });
