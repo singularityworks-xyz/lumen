@@ -260,6 +260,7 @@ describe("Logger", () => {
 
       logger.info("Browser with data", { extra: "field" });
       expect(consoleGroupCollapsedMock).toHaveBeenCalled();
+      expect(consoleGroupEndMock).toHaveBeenCalled();
     });
 
     it("does not emit otel logs in browser", () => {

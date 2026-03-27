@@ -45,6 +45,8 @@ mock.module("./metrics", () => ({
   recordWsRoomJoinDuration: mock(),
 }));
 
+const mockEncodeAwarenessUpdate = mock(() => new Uint8Array(0));
+
 mock.module("y-protocols/awareness", () => ({
   Awareness: class MockAwareness {
     clientID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
@@ -79,7 +81,7 @@ mock.module("y-protocols/awareness", () => ({
     }
   },
   applyAwarenessUpdate: mock(),
-  encodeAwarenessUpdate: mock(() => new Uint8Array(0)),
+  encodeAwarenessUpdate: mockEncodeAwarenessUpdate,
   removeAwarenessStates: mock(),
 }));
 
@@ -272,8 +274,8 @@ describe("RoomManager - viewer write restrictions", () => {
       workspaceId: "ws-viewer",
     });
 
-    // Sync type 2 = SyncStep2 (write)
-    const syncStep2Msg = buildSyncMessage(2);
+    // Sync type 1 = SyncStep2 (write)
+    const syncStep2Msg = buildSyncMessage(1);
     const result = roomManager.handleMessage("conn-viewer", syncStep2Msg);
     expect(result).toBe(false);
   });
@@ -287,8 +289,8 @@ describe("RoomManager - viewer write restrictions", () => {
       workspaceId: "ws-viewer",
     });
 
-    // Sync type 1 = Update (write)
-    const updateMsg = buildSyncMessage(1);
+    // Sync type 2 = Update (write)
+    const updateMsg = buildSyncMessage(2);
     const result = roomManager.handleMessage("conn-viewer2", updateMsg);
     expect(result).toBe(false);
   });
@@ -565,6 +567,9 @@ describe("RoomManager - event callbacks", () => {
       workspaceId: "ws-evt",
     });
 
+    // Clear AFTER join (which calls encodeAwarenessUpdate internally)
+    mockEncodeAwarenessUpdate.mockClear();
+
     const room = (
       roomManager as unknown as {
         rooms: Map<
@@ -578,9 +583,8 @@ describe("RoomManager - event callbacks", () => {
     // Trigger a non-client-awareness change (origin is not "client-update")
     room!.awareness._emit("change", [], "server-update");
 
-    // encodeAwarenessUpdate should have been called during join + broadcast
-    // We verify the room exists and awareness was processed
-    expect(room!.awareness).toBeDefined();
+    // encodeAwarenessUpdate should be called for non-client-origin changes
+    expect(mockEncodeAwarenessUpdate).toHaveBeenCalled();
   });
 
   it("does not broadcast awareness when change origin is client-update", () => {
@@ -591,6 +595,9 @@ describe("RoomManager - event callbacks", () => {
       user: makeUser(),
       workspaceId: "ws-evt2",
     });
+
+    // Clear AFTER join (which calls encodeAwarenessUpdate internally)
+    mockEncodeAwarenessUpdate.mockClear();
 
     const room = (
       roomManager as unknown as {
@@ -604,7 +611,8 @@ describe("RoomManager - event callbacks", () => {
 
     // Trigger a client-awareness change (origin is "client-update") - should not broadcast
     room!.awareness._emit("change", [], "client-update");
-    // Room should remain functional after client-origin change
-    expect(room!.awareness).toBeDefined();
+
+    // encodeAwarenessUpdate should NOT be called for client-origin changes
+    expect(mockEncodeAwarenessUpdate).not.toHaveBeenCalled();
   });
 });

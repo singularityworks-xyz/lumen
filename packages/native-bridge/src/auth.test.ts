@@ -32,6 +32,7 @@ function setTauriContext() {
 }
 
 afterEach(() => {
+  cancelOAuthFlow();
   if (originalWindow === undefined) {
     setMockWindow(undefined);
   } else {

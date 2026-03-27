@@ -365,7 +365,7 @@ describe("useAuth", () => {
       expect(mockRefetch).not.toHaveBeenCalled();
     });
 
-    it("handles deep link callback parse error", async () => {
+    it("handles deep link callback with empty token", async () => {
       mockIsTauri.mockReturnValue(true);
       let registeredCallback: ((url: string) => Promise<void>) | null = null;
 
@@ -378,11 +378,11 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      // Invalid URL that can't be parsed
-      await registeredCallback!("lumen://auth/callback?success=true&token=t");
+      // success=true but token is empty — exchange should not happen
+      await registeredCallback!("lumen://auth/callback?success=true&token=");
 
-      // Should not throw
-      expect(mockRefetch).toHaveBeenCalled();
+      // refetch should not be called since there's no valid token
+      expect(mockRefetch).not.toHaveBeenCalled();
     });
 
     it("handles deep link listener throwing", async () => {
