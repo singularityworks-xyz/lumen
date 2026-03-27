@@ -65,11 +65,12 @@ jobs:
 
       - name: Run package unit tests
         run: |
-          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/**/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/**/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/**/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/**/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/**/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
