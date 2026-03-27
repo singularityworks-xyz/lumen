@@ -1,5 +1,3 @@
-process.env.DATABASE_URL = "postgres://dummy";
-
 import { describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger/server", () => ({

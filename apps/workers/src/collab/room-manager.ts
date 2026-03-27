@@ -827,6 +827,10 @@ class RoomManager {
     });
   }
 
+  /** Clears the internal deleted-workspaces tracking set.
+   *  Intended for test cleanup or controlled maintenance — not part of
+   *  regular production flow. Resets deletion-tracking state visible to
+   *  methods that rely on deletedWorkspaces. */
   clearDeletedWorkspaces(): void {
     this.deletedWorkspaces.clear();
   }
