@@ -8,6 +8,7 @@ COPY packages/configs/package.json ./packages/configs/
 COPY packages/yjs-shared/package.json ./packages/yjs-shared/
 COPY apps/workers/package.json ./apps/workers/
 COPY packages/db/prisma ./packages/db/prisma
+RUN apk add --no-cache git
 RUN bun install
 COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger

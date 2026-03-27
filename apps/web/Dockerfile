@@ -1,4 +1,7 @@
-FROM oven/bun:alpine AS builder
+FROM node:slim AS builder
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY packages/ai/package.json ./packages/ai/
@@ -19,7 +22,7 @@ COPY packages/configs ./packages/configs
 COPY apps/web ./apps/web
 
 WORKDIR /app/apps/web
-RUN bun run build
+RUN npx next build
 FROM oven/bun:alpine
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 
