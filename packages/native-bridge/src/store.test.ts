@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it, mock } from "bun:test";
 
 interface MockWindow {
   __TAURI_INTERNALS__?: object | undefined;
@@ -14,20 +14,9 @@ function setMockWindow(win: MockWindow | undefined) {
   });
 }
 
-// Reset store singleton between tests by clearing require cache
-beforeEach(() => {
-  try {
-    const resolved = require.resolve("./store");
-    delete require.cache[resolved];
-  } catch {
-    // module not yet loaded
-  }
-  try {
-    const resolved = require.resolve("./platform");
-    delete require.cache[resolved];
-  } catch {
-    // module not yet loaded
-  }
+// Mock @tauri-apps/plugin-store to throw when imported in Tauri fallback test
+mock.module("@tauri-apps/plugin-store", () => {
+  throw new Error("plugin-store not available");
 });
 
 afterEach(() => {
@@ -43,7 +32,7 @@ describe("store", () => {
     it("returns no-op store in browser mode (no Tauri)", async () => {
       setMockWindow({});
       const { getStore } = await import("./store");
-      const store = await getStore();
+      const store = await getStore("test-browser");
       expect(await store.get("key")).toBeNull();
       expect(await store.has("key")).toBe(false);
       expect(await store.keys()).toEqual([]);
@@ -56,27 +45,27 @@ describe("store", () => {
     it("returns no-op store in SSR context (no window)", async () => {
       setMockWindow(undefined);
       const { getStore } = await import("./store");
-      const store = await getStore();
+      const store = await getStore("test-ssr");
       expect(await store.get("key")).toBeNull();
       expect(await store.has("key")).toBe(false);
     });
 
     it("falls back to no-op store when Tauri store import fails", async () => {
       setMockWindow({
-        __TAURI_INTERNALS__: {
-          invoke: mock(() => Promise.reject(new Error("invoke error"))),
-        },
+        __TAURI_INTERNALS__: {},
       });
       const { getStore } = await import("./store");
-      const store = await getStore();
+      const store = await getStore("test-fallback");
       await expect(store.get("key")).resolves.toBeNull();
+      await expect(store.has("key")).resolves.toBe(false);
+      await expect(store.keys()).resolves.toEqual([]);
     });
 
     it("returns the same instance on subsequent calls (singleton)", async () => {
       setMockWindow({});
       const { getStore } = await import("./store");
-      const a = await getStore();
-      const b = await getStore();
+      const a = await getStore("test-singleton");
+      const b = await getStore("test-singleton");
       expect(a).toBe(b);
     });
 
