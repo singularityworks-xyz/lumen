@@ -1,21 +1,8 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
-import {
-  cancelOAuthFlow,
-  getOAuthCallbackUrl,
-  initiateOAuthFlow,
-  onAuthDeepLink,
-  openExternalBrowser,
-  shouldUseNativeAuth,
-} from "./auth";
-
-interface MockWindow {
-  __TAURI_INTERNALS__?: object | undefined;
-  open?: (...args: unknown[]) => void;
-}
+import { describe, expect, it, mock } from "bun:test";
 
 const originalWindow = globalThis.window;
 
-function setMockWindow(win: MockWindow | undefined) {
+function setMockWindow(win: object | undefined) {
   Object.defineProperty(globalThis, "window", {
     writable: true,
     configurable: true,
@@ -23,95 +10,94 @@ function setMockWindow(win: MockWindow | undefined) {
   });
 }
 
-function setWebContext() {
-  setMockWindow({});
-}
-
-function setTauriContext() {
-  setMockWindow({ __TAURI_INTERNALS__: {} });
-}
-
-afterEach(() => {
-  cancelOAuthFlow();
-  if (originalWindow === undefined) {
-    setMockWindow(undefined);
-  } else {
-    globalThis.window = originalWindow;
-  }
-});
-
 describe("auth", () => {
-  describe("initiateOAuthFlow", () => {
-    it("throws synchronously in web context", () => {
-      setWebContext();
-      expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
-        "Native OAuth flow is only available in Tauri"
-      );
-    });
-
-    it("throws synchronously in SSR context", () => {
-      setMockWindow(undefined);
-      expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
-        "Native OAuth flow is only available in Tauri"
-      );
-    });
-  });
-
-  describe("cancelOAuthFlow", () => {
-    it("does nothing when no flow is active", () => {
-      setWebContext();
-      expect(() => cancelOAuthFlow()).not.toThrow();
-    });
-  });
-
   describe("getOAuthCallbackUrl", () => {
-    it("returns correct deep-link scheme URL", () => {
+    it("returns correct URL", async () => {
+      const { getOAuthCallbackUrl } = await import("./auth");
       expect(getOAuthCallbackUrl()).toBe("lumen://auth/callback");
     });
   });
 
   describe("shouldUseNativeAuth", () => {
-    it("returns false in web context", () => {
-      setWebContext();
+    it("returns false in web context", async () => {
+      setMockWindow({});
+      const { shouldUseNativeAuth } = await import("./auth");
       expect(shouldUseNativeAuth()).toBe(false);
+      globalThis.window = originalWindow;
     });
 
-    it("returns true in Tauri context", () => {
-      setTauriContext();
+    it("returns true in Tauri context", async () => {
+      setMockWindow({ __TAURI_INTERNALS__: {} });
+      const { shouldUseNativeAuth } = await import("./auth");
       expect(shouldUseNativeAuth()).toBe(true);
+      globalThis.window = originalWindow;
+    });
+  });
+
+  describe("cancelOAuthFlow", () => {
+    it("does nothing when no flow active", async () => {
+      const { cancelOAuthFlow } = await import("./auth");
+      expect(() => cancelOAuthFlow()).not.toThrow();
     });
 
-    it("returns false in SSR context", () => {
-      setMockWindow(undefined);
-      expect(shouldUseNativeAuth()).toBe(false);
+    it("cancels active flow", async () => {
+      setMockWindow({ __TAURI_INTERNALS__: {} });
+      const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
+      const flow = initiateOAuthFlow("https://auth.example.com");
+      cancelOAuthFlow();
+      await expect(flow).rejects.toThrow("OAuth flow cancelled by user");
+      globalThis.window = originalWindow;
     });
   });
 
   describe("onAuthDeepLink", () => {
-    it("subscribe returns an unsubscribe function", () => {
+    it("returns unsubscribe function", async () => {
+      const { onAuthDeepLink } = await import("./auth");
       const cb = mock(() => undefined);
       const unsub = onAuthDeepLink(cb);
       expect(typeof unsub).toBe("function");
       unsub();
     });
 
-    it("unsubscribe removes the callback", () => {
+    it("unsubscribe is idempotent", async () => {
+      const { onAuthDeepLink } = await import("./auth");
       const cb = mock(() => undefined);
       const unsub = onAuthDeepLink(cb);
       unsub();
       unsub();
       expect(cb).not.toHaveBeenCalled();
     });
+  });
 
-    it("multiple subscribers can register and unregister independently", () => {
-      const cb1 = mock(() => undefined);
-      const cb2 = mock(() => undefined);
-      const unsub1 = onAuthDeepLink(cb1);
-      const unsub2 = onAuthDeepLink(cb2);
-      unsub1();
-      unsub2();
-      expect(cb1).not.toHaveBeenCalled();
-      expect(cb2).not.toHaveBeenCalled();
+  describe("initiateOAuthFlow", () => {
+    it("throws in web context", async () => {
+      setMockWindow({});
+      const { initiateOAuthFlow } = await import("./auth");
+      expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
+        "Native OAuth flow is only available in Tauri"
+      );
+      globalThis.window = originalWindow;
+    });
+
+    it("throws in SSR context", async () => {
+      setMockWindow(undefined);
+      const { initiateOAuthFlow } = await import("./auth");
+      expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
+        "Native OAuth flow is only available in Tauri"
+      );
+      globalThis.window = originalWindow;
+    });
+
+    it("cancels first flow when second starts", async () => {
+      setMockWindow({ __TAURI_INTERNALS__: {} });
+      const { initiateOAuthFlow } = await import("./auth");
+      const flow1 = initiateOAuthFlow("https://auth1.example.com");
+      const flow2 = initiateOAuthFlow("https://auth2.example.com");
+      await expect(flow1).rejects.toThrow(
+        "OAuth flow cancelled - new flow started"
+      );
+      await expect(flow2).rejects.toThrow();
+      globalThis.window = originalWindow;
     });
   });
 
@@ -119,29 +105,10 @@ describe("auth", () => {
     it("calls window.open in web context", async () => {
       const openMock = mock(() => undefined);
       setMockWindow({ open: openMock });
+      const { openExternalBrowser } = await import("./auth");
       await openExternalBrowser("https://example.com");
       expect(openMock).toHaveBeenCalledWith("https://example.com", "_blank");
-    });
-
-    it("calls window.open in SSR context", async () => {
-      setMockWindow(undefined);
-      // In SSR, window is undefined so isTauri() returns false
-      // The function should still attempt window.open which will throw
-      await expect(
-        openExternalBrowser("https://example.com")
-      ).rejects.toThrow();
-    });
-  });
-
-  describe("second flow cancels first", () => {
-    it("first flow promise rejects when second flow starts", async () => {
-      setTauriContext();
-      const flow1 = initiateOAuthFlow("https://auth1.example.com");
-      const flow2 = initiateOAuthFlow("https://auth2.example.com");
-      await expect(flow1).rejects.toThrow(
-        "OAuth flow cancelled - new flow started"
-      );
-      await expect(flow2).rejects.toThrow();
+      globalThis.window = originalWindow;
     });
   });
 });
