@@ -305,7 +305,7 @@ describe("buildBulkDeleteTasksInstruction", () => {
 
   it("handles single task delete", () => {
     const result = buildBulkDeleteTasksInstruction({ taskIds: ["t1"] });
-    expect(result.message).toContain("1 tasks");
+    expect(result.message).toContain("1 task");
   });
 });
 

@@ -4,6 +4,7 @@ import {
   executeSearchTasks,
   type WorkspaceSnapshot,
 } from "./tools/executors";
+import type { SearchTasksParams } from "./tools/schemas";
 
 function makeSnapshot(): WorkspaceSnapshot {
   return {
@@ -206,7 +207,10 @@ describe("executeSearchTasks", () => {
       ],
     };
     const ctx = makeCtx({ snapshot: bigSnapshot });
-    const result = executeSearchTasks({ query: "task", limit: 20 }, ctx);
+    const result = executeSearchTasks(
+      { query: "task" } as unknown as SearchTasksParams,
+      ctx
+    );
     const data = result.data as any;
     expect(data.count).toBe(20);
     expect(data.tasks).toHaveLength(20);
