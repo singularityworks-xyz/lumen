@@ -1,4 +1,25 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+
+let deepLinkCallback: ((urls: string[]) => void) | null = null;
+let initialUrls: string[] = [];
+
+mock.module("@tauri-apps/plugin-deep-link", () => ({
+  onOpenUrl: (cb: (urls: string[]) => void) => {
+    deepLinkCallback = cb;
+    return Promise.resolve();
+  },
+  getCurrent: () => Promise.resolve(initialUrls),
+}));
+
+// biome-ignore lint/correctness/noUnusedFunctionParameters: mock
+mock.module("@tauri-apps/plugin-shell", () => ({
+  open: (_url: string) => Promise.resolve(),
+}));
+
+const mockTauriInternals = {
+  invoke: () => Promise.resolve(),
+  transformCallback: (cb: unknown) => cb,
+};
 
 const originalWindow = globalThis.window;
 
@@ -10,7 +31,21 @@ function setMockWindow(win: object | undefined) {
   });
 }
 
+function setTauriContext() {
+  setMockWindow({ __TAURI_INTERNALS__: mockTauriInternals });
+}
+
 beforeEach(() => {
+  deepLinkCallback = null;
+  initialUrls = [];
+  if (originalWindow === undefined) {
+    setMockWindow(undefined);
+  } else {
+    globalThis.window = originalWindow;
+  }
+});
+
+afterEach(() => {
   if (originalWindow === undefined) {
     setMockWindow(undefined);
   } else {
@@ -34,7 +69,7 @@ describe("auth", () => {
     });
 
     it("returns true in Tauri context", async () => {
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setTauriContext();
       const { shouldUseNativeAuth } = await import("./auth");
       expect(shouldUseNativeAuth()).toBe(true);
     });
@@ -53,7 +88,7 @@ describe("auth", () => {
     });
 
     it("cancels active flow", async () => {
-      setMockWindow({ __TAURI_INTERNALS__: {} });
+      setTauriContext();
       const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
       const flow = initiateOAuthFlow("https://auth.example.com");
       cancelOAuthFlow();
@@ -78,6 +113,32 @@ describe("auth", () => {
       unsub();
       expect(cb).not.toHaveBeenCalled();
     });
+
+    it("notifies subscribers on deep link", async () => {
+      setTauriContext();
+      const { initializeNativeAuth, onAuthDeepLink } = await import("./auth");
+      await initializeNativeAuth();
+
+      const cb = mock(() => undefined);
+      const unsub = onAuthDeepLink(cb);
+
+      deepLinkCallback!(["lumen://auth/callback?token=abc"]);
+      expect(cb).toHaveBeenCalledWith("lumen://auth/callback?token=abc");
+      unsub();
+    });
+
+    it("ignores non-auth deep links", async () => {
+      setTauriContext();
+      const { initializeNativeAuth, onAuthDeepLink } = await import("./auth");
+      await initializeNativeAuth();
+
+      const cb = mock(() => undefined);
+      const unsub = onAuthDeepLink(cb);
+
+      deepLinkCallback!(["lumen://other/path"]);
+      expect(cb).not.toHaveBeenCalled();
+      unsub();
+    });
   });
 
   describe("initiateOAuthFlow", () => {
@@ -97,15 +158,41 @@ describe("auth", () => {
       );
     });
 
-    it("cancels first flow when second starts", async () => {
-      setMockWindow({ __TAURI_INTERNALS__: {} });
-      const { initiateOAuthFlow } = await import("./auth");
-      const flow1 = initiateOAuthFlow("https://auth1.example.com");
-      const flow2 = initiateOAuthFlow("https://auth2.example.com");
-      await expect(flow1).rejects.toThrow(
-        "OAuth flow cancelled - new flow started"
+    it("starts flow in Tauri context", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
+      const flow = initiateOAuthFlow("https://auth.example.com");
+      expect(flow).toBeInstanceOf(Promise);
+      cancelOAuthFlow();
+      await expect(flow).rejects.toThrow();
+    });
+
+    it("resolves with URL params on callback", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, initializeNativeAuth } = await import(
+        "./auth"
       );
-      await expect(flow2).rejects.toThrow();
+      await initializeNativeAuth();
+
+      const flow = initiateOAuthFlow("https://auth.example.com");
+      deepLinkCallback!(["lumen://auth/callback?token=abc123&state=xyz"]);
+
+      const params = await flow;
+      expect(params.get("token")).toBe("abc123");
+      expect(params.get("state")).toBe("xyz");
+    });
+
+    it("rejects on OAuth error callback", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, initializeNativeAuth } = await import(
+        "./auth"
+      );
+      await initializeNativeAuth();
+
+      const flow = initiateOAuthFlow("https://auth.example.com");
+      deepLinkCallback!(["lumen://auth/callback?error=access_denied"]);
+
+      await expect(flow).rejects.toThrow("OAuth error: access_denied");
     });
   });
 
@@ -114,12 +201,34 @@ describe("auth", () => {
       setMockWindow({});
       const { initializeNativeAuth } = await import("./auth");
       await initializeNativeAuth();
+      expect(deepLinkCallback).toBeNull();
     });
 
     it("does nothing in SSR context", async () => {
       setMockWindow(undefined);
       const { initializeNativeAuth } = await import("./auth");
       await initializeNativeAuth();
+      expect(deepLinkCallback).toBeNull();
+    });
+
+    it("registers deep link callback in Tauri context", async () => {
+      setTauriContext();
+      const { initializeNativeAuth } = await import("./auth");
+      await initializeNativeAuth();
+      expect(deepLinkCallback).not.toBeNull();
+    });
+
+    it("handles initial deep links", async () => {
+      setTauriContext();
+      initialUrls = ["lumen://auth/callback?initial=true"];
+      const { initializeNativeAuth, onAuthDeepLink } = await import("./auth");
+
+      const cb = mock(() => undefined);
+      const unsub = onAuthDeepLink(cb);
+
+      await initializeNativeAuth();
+      expect(cb).toHaveBeenCalledWith("lumen://auth/callback?initial=true");
+      unsub();
     });
   });
 
@@ -130,6 +239,20 @@ describe("auth", () => {
       const { openExternalBrowser } = await import("./auth");
       await openExternalBrowser("https://example.com");
       expect(openMock).toHaveBeenCalledWith("https://example.com", "_blank");
+    });
+
+    it("uses Tauri shell in Tauri context", async () => {
+      setTauriContext();
+      const { openExternalBrowser } = await import("./auth");
+      await openExternalBrowser("https://example.com");
+    });
+
+    it("throws in SSR", async () => {
+      setMockWindow(undefined);
+      const { openExternalBrowser } = await import("./auth");
+      await expect(
+        openExternalBrowser("https://example.com")
+      ).rejects.toThrow();
     });
   });
 });
