@@ -202,9 +202,9 @@ describe("classifyToolIntentSync", () => {
   });
 
   describe("mixed query and action keywords with entity", () => {
-    it("classifies 'delete all tasks' as action (action keyword + entity present)", () => {
+    it("classifies 'delete all tasks' as both (destructive escalates)", () => {
       const result = classifyToolIntentSync("delete all tasks");
-      expect(result.intent).toBe("action");
+      expect(result.intent).toBe("both");
     });
   });
 });
