@@ -139,6 +139,20 @@ describe("prisma-middleware", () => {
 
       expect(encryptPrivateKeyMock).not.toHaveBeenCalled();
     });
+
+    it("re-throws encryption errors and records span error", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(new Error("encrypt failed"));
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.create!({
+          args: { data: { privateKey: "bad-key", kid: "k1" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("encrypt failed");
+    });
   });
 
   describe("update", () => {
@@ -177,6 +191,22 @@ describe("prisma-middleware", () => {
       expect(queryFn).toHaveBeenCalledWith({
         data: { privateKey: "updated-key" },
       });
+    });
+
+    it("re-throws encryption errors and records span error", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(
+        new Error("update encrypt failed")
+      );
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.update!({
+          args: { data: { privateKey: "bad-key" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("update encrypt failed");
     });
   });
 
@@ -221,6 +251,45 @@ describe("prisma-middleware", () => {
       });
 
       expect(encryptPrivateKeyMock).not.toHaveBeenCalled();
+    });
+
+    it("re-throws create encryption errors", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(
+        new Error("create encrypt failed")
+      );
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.upsert!({
+          args: {
+            create: { privateKey: "bad-create-key" },
+            update: { privateKey: "update-key" },
+          },
+          query: queryFn,
+        })
+      ).rejects.toThrow("create encrypt failed");
+    });
+
+    it("re-throws update encryption errors", async () => {
+      // First call succeeds (for create), second call fails (for update)
+      encryptPrivateKeyMock
+        .mockResolvedValueOnce("encrypted:create-key")
+        .mockRejectedValueOnce(new Error("update encrypt failed"));
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.upsert!({
+          args: {
+            create: { privateKey: "create-key" },
+            update: { privateKey: "bad-update-key" },
+          },
+          query: queryFn,
+        })
+      ).rejects.toThrow("update encrypt failed");
     });
   });
 
