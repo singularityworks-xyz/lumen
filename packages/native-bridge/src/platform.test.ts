@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { getOS, getPlatform, isTauri } from "./platform";
 
 interface MockWindow {
@@ -95,6 +95,26 @@ describe("platform detection", () => {
       }
       // getOS() maps any unrecognized platform to "unknown"
       expect(supportedOS).toContain("unknown");
+    });
+
+    it("returns OS when Tauri plugin succeeds", async () => {
+      // Mock @tauri-apps/plugin-os to return linux
+      mock.module("@tauri-apps/plugin-os", () => ({
+        platform: () => Promise.resolve("linux"),
+      }));
+      setMockWindow({ __TAURI_INTERNALS__: {} });
+      const os = await getOS();
+      expect(os).toBe("linux");
+    });
+
+    it("returns 'unknown' for unrecognized platform values", async () => {
+      // Mock @tauri-apps/plugin-os to return unsupported value
+      mock.module("@tauri-apps/plugin-os", () => ({
+        platform: () => Promise.resolve("freebsd"),
+      }));
+      setMockWindow({ __TAURI_INTERNALS__: {} });
+      const os = await getOS();
+      expect(os).toBe("unknown");
     });
   });
 });
