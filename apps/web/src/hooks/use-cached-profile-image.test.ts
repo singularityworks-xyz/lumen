@@ -191,7 +191,6 @@ describe("use-cached-profile-image", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls.at(-1)![0] as UseQueryOptions;
 
-    // Simulate the Image onload by calling queryFn and using a mock Image
     const originalImage = globalThis.Image;
     class MockImage {
       onload: (() => void) | null = null;
@@ -203,16 +202,17 @@ describe("use-cached-profile-image", () => {
       }
       set src(value: string) {
         this._src = value;
-        // Simulate successful load
         setTimeout(() => this.onload?.(), 0);
       }
     }
     globalThis.Image = MockImage as unknown as typeof Image;
 
-    const result = await args.queryFn?.();
-    expect(result).toBe("https://test.com/img.jpg");
-
-    globalThis.Image = originalImage;
+    try {
+      const result = await args.queryFn?.();
+      expect(result).toBe("https://test.com/img.jpg");
+    } finally {
+      globalThis.Image = originalImage;
+    }
   });
 
   it("queryFn resolves with URL when image fails to load", async () => {
@@ -230,15 +230,16 @@ describe("use-cached-profile-image", () => {
       }
       set src(value: string) {
         this._src = value;
-        // Simulate error
         setTimeout(() => this.onerror?.(), 0);
       }
     }
     globalThis.Image = MockImage as unknown as typeof Image;
 
-    const result = await args.queryFn?.();
-    expect(result).toBe("https://test.com/bad.jpg");
-
-    globalThis.Image = originalImage;
+    try {
+      const result = await args.queryFn?.();
+      expect(result).toBe("https://test.com/bad.jpg");
+    } finally {
+      globalThis.Image = originalImage;
+    }
   });
 });

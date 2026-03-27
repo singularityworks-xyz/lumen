@@ -227,18 +227,23 @@ describe("useAuth", () => {
         writable: true,
         configurable: true,
       });
-      const { result } = renderHook(() => useAuth());
+      try {
+        const { result } = renderHook(() => useAuth());
 
-      await result.current.signInWithGitHub();
+        await result.current.signInWithGitHub();
 
-      expect(mockOpenExternalBrowser).toHaveBeenCalled();
-      const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
-      expect(arg).toContain("github");
-      expect(arg).toContain("/auth/native-signin");
-      expect(mockSignInSocial).not.toHaveBeenCalled();
-      // restore
-      if (origDescriptor) {
-        Object.defineProperty(window, "location", origDescriptor);
+        expect(mockOpenExternalBrowser).toHaveBeenCalled();
+        const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
+        expect(arg).toContain("github");
+        expect(arg).toContain("/auth/native-signin");
+        expect(mockSignInSocial).not.toHaveBeenCalled();
+      } finally {
+        if (origDescriptor) {
+          Object.defineProperty(window, "location", origDescriptor);
+        } else {
+          // biome-ignore lint/performance/noDelete: restoring prototype property
+          delete (window as unknown as Record<string, unknown>).location;
+        }
       }
     });
   });
@@ -380,13 +385,13 @@ describe("useAuth", () => {
       expect(mockRefetch).toHaveBeenCalled();
     });
 
-    it("handles deep link listener throwing", () => {
+    it("handles deep link listener throwing", async () => {
       mockIsTauri.mockReturnValue(true);
       mockOnAuthDeepLink.mockImplementation(
         (cb: (url: string) => Promise<void>) => {
-          // Simulate the listener callback throwing
-          const wrappedCb = (url: string) => {
-            cb(url);
+          // Simulate the listener callback - await the callback to prevent unhandled rejection
+          const wrappedCb = async (url: string) => {
+            await cb(url);
           };
           // Immediately call with an auth URL that will succeed
           wrappedCb("lumen://auth/callback?success=true&token=good-token");
@@ -395,6 +400,8 @@ describe("useAuth", () => {
       );
 
       renderHook(() => useAuth());
+      // Allow microtasks to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
       // Should not throw
     });
 
@@ -497,7 +504,7 @@ describe("useAuth", () => {
         isRefetching: false,
         error: null,
         refetch: mockRefetch,
-      } as any);
+      } as unknown as ReturnType<typeof mockUseSession>);
 
       const { result } = renderHook(() => useAuth());
 
@@ -518,7 +525,7 @@ describe("useAuth", () => {
         isRefetching: false,
         error: null,
         refetch: mockRefetch,
-      } as any);
+      } as unknown as ReturnType<typeof mockUseSession>);
 
       const { result } = renderHook(() => useAuth());
 
