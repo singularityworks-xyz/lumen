@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const originalWindow = globalThis.window;
 
@@ -9,6 +9,14 @@ function setMockWindow(win: object | undefined) {
     value: win,
   });
 }
+
+beforeEach(() => {
+  if (originalWindow === undefined) {
+    setMockWindow(undefined);
+  } else {
+    globalThis.window = originalWindow;
+  }
+});
 
 describe("auth", () => {
   describe("getOAuthCallbackUrl", () => {
@@ -23,14 +31,18 @@ describe("auth", () => {
       setMockWindow({});
       const { shouldUseNativeAuth } = await import("./auth");
       expect(shouldUseNativeAuth()).toBe(false);
-      globalThis.window = originalWindow;
     });
 
     it("returns true in Tauri context", async () => {
       setMockWindow({ __TAURI_INTERNALS__: {} });
       const { shouldUseNativeAuth } = await import("./auth");
       expect(shouldUseNativeAuth()).toBe(true);
-      globalThis.window = originalWindow;
+    });
+
+    it("returns false in SSR", async () => {
+      setMockWindow(undefined);
+      const { shouldUseNativeAuth } = await import("./auth");
+      expect(shouldUseNativeAuth()).toBe(false);
     });
   });
 
@@ -46,7 +58,6 @@ describe("auth", () => {
       const flow = initiateOAuthFlow("https://auth.example.com");
       cancelOAuthFlow();
       await expect(flow).rejects.toThrow("OAuth flow cancelled by user");
-      globalThis.window = originalWindow;
     });
   });
 
@@ -76,7 +87,6 @@ describe("auth", () => {
       expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
         "Native OAuth flow is only available in Tauri"
       );
-      globalThis.window = originalWindow;
     });
 
     it("throws in SSR context", async () => {
@@ -85,7 +95,6 @@ describe("auth", () => {
       expect(() => initiateOAuthFlow("https://auth.example.com")).toThrow(
         "Native OAuth flow is only available in Tauri"
       );
-      globalThis.window = originalWindow;
     });
 
     it("cancels first flow when second starts", async () => {
@@ -97,7 +106,20 @@ describe("auth", () => {
         "OAuth flow cancelled - new flow started"
       );
       await expect(flow2).rejects.toThrow();
-      globalThis.window = originalWindow;
+    });
+  });
+
+  describe("initializeNativeAuth", () => {
+    it("does nothing in web context", async () => {
+      setMockWindow({});
+      const { initializeNativeAuth } = await import("./auth");
+      await initializeNativeAuth();
+    });
+
+    it("does nothing in SSR context", async () => {
+      setMockWindow(undefined);
+      const { initializeNativeAuth } = await import("./auth");
+      await initializeNativeAuth();
     });
   });
 
@@ -108,7 +130,6 @@ describe("auth", () => {
       const { openExternalBrowser } = await import("./auth");
       await openExternalBrowser("https://example.com");
       expect(openMock).toHaveBeenCalledWith("https://example.com", "_blank");
-      globalThis.window = originalWindow;
     });
   });
 });
