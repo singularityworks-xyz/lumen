@@ -4,11 +4,8 @@ coverageReporter = ["text", "lcov"]
 coverageDir = "./coverage/bun"
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [
-  "**/packages/logger/**",
-  "**/packages/native-bridge/**",
-  "**/packages/db/**",
-  "**/packages/yjs-shared/**",
   "**/node_modules/**",
   "**/tests/config/**",
-  "**/auth-client.ts"
+  "**/auth-client.ts",
+  "**/packages/db/prisma/generated/**"
 ]
