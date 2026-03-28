@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const noop = () => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 };
 
 const loggerMock = {
