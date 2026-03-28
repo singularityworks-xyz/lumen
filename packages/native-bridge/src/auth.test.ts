@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
+// Coverage note: auth.ts maxes at ~85% line coverage. The uncovered lines
+// (35-38, 58, 84-85, 96-97, 113, 120-123, 127-128) are deep Tauri error
+// branches that require overriding @tauri-apps/plugin-deep-link or
+// @tauri-apps/plugin-shell mocks mid-file. bun:test's mock.module operates
+// on a global module cache — overriding these mocks in a test block pollutes
+// subsequent tests in the same process, causing failures in other test files
+// (window.test.ts, websocket.test.ts). Reaching 100% would require
+// refactoring auth.ts to accept dependency injection for its dynamic imports.
+
 let deepLinkCallback: ((urls: string[]) => void) | null = null;
 let initialUrls: string[] = [];
 
@@ -11,7 +20,6 @@ mock.module("@tauri-apps/plugin-deep-link", () => ({
   getCurrent: () => Promise.resolve(initialUrls),
 }));
 
-// biome-ignore lint/correctness/noUnusedFunctionParameters: mock
 mock.module("@tauri-apps/plugin-shell", () => ({
   open: (_url: string) => Promise.resolve(),
 }));

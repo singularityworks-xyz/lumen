@@ -72,6 +72,11 @@ function createNoOpStore(): StoreInstance {
   };
 }
 
+/** @test-only Resets the singleton so tests can re-initialize with different mocks. */
+export function __resetStoreForTesting(): void {
+  storeInstance = null;
+}
+
 export const NativeStore = {
   async get<T>(key: string): Promise<T | null> {
     const store = await getStore();
