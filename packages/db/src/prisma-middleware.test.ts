@@ -36,7 +36,7 @@ const encryptPrivateKeyMock = mock<(plaintext: string) => Promise<string>>(
 
 const decryptPrivateKeyMock = mock<(data: string) => Promise<string>>(
   (data: string) => {
-    if (data.startsWith("encrypted:")) {
+    if (typeof data === "string" && data.startsWith("encrypted:")) {
       return Promise.resolve(data.slice("encrypted:".length));
     }
     return Promise.reject(
@@ -92,7 +92,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", privateKey: _args.data })
+        Promise.resolve({ id: "1", privateKey: (_args.data as any).privateKey })
       );
 
       await handlers.create!({
@@ -270,6 +270,21 @@ describe("prisma-middleware", () => {
           query: queryFn,
         })
       ).rejects.toThrow("create encrypt failed");
+    });
+
+    it("re-throws decryption errors on create", async () => {
+      const handlers = buildHandlers();
+
+      const queryFn = mock((_args: Record<string, unknown>) =>
+        Promise.resolve({ id: "1", privateKey: "bad-data" })
+      );
+
+      await expect(
+        handlers.create!({
+          args: { data: { privateKey: "my-raw-key", kid: "k1" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("Decryption failed");
     });
 
     it("re-throws update encryption errors", async () => {

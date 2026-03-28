@@ -224,7 +224,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",
