@@ -258,6 +258,24 @@ function updateBunLockfile() {
   return true;
 }
 
+function updateCargoLockfile() {
+  const decoder = new TextDecoder();
+  const result = Bun.spawnSync({
+    cmd: ["cargo", "update", "-p", "lumen-singularityworks"],
+    cwd: path.join(ROOT_DIR, "apps/native/src-tauri"),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (result.exitCode !== 0) {
+    console.error("Warning: cargo update failed");
+    console.error(decoder.decode(result.stderr).trim());
+    return false;
+  }
+
+  return true;
+}
+
 function readVersion(file: string) {
   const content = fs.readFileSync(path.join(ROOT_DIR, file), "utf8");
   return getFileStrategy(file).readVersion(content);
@@ -628,6 +646,16 @@ function main() {
       );
     }
     stageFiles([lockfilePath]);
+  }
+
+  if ("apps/native" in state.workspaces) {
+    const cargoLockUpdated = updateCargoLockfile();
+    if (!cargoLockUpdated) {
+      throw new Error(
+        "Failed to update Cargo.lock; aborting to avoid staging an out-of-sync lockfile."
+      );
+    }
+    stageFiles(["apps/native/src-tauri/Cargo.lock"]);
   }
 
   state.triggerSignatures = Object.fromEntries(
