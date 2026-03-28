@@ -11,17 +11,33 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 let deepLinkCallback: ((urls: string[]) => void) | null = null;
 let initialUrls: string[] = [];
+let forceDeepLinkError = false;
+let forceShellOpenError = false;
+let forceGetCurrentError = false;
 
 mock.module("@tauri-apps/plugin-deep-link", () => ({
   onOpenUrl: (cb: (urls: string[]) => void) => {
+    if (forceDeepLinkError) {
+      return Promise.reject(new Error("deep link init failed"));
+    }
     deepLinkCallback = cb;
     return Promise.resolve();
   },
-  getCurrent: () => Promise.resolve(initialUrls),
+  getCurrent: () => {
+    if (forceGetCurrentError) {
+      return Promise.reject(new Error("get current failed"));
+    }
+    return Promise.resolve(initialUrls);
+  },
 }));
 
 mock.module("@tauri-apps/plugin-shell", () => ({
-  open: (_url: string) => Promise.resolve(),
+  open: (_url: string) => {
+    if (forceShellOpenError) {
+      return Promise.reject(new Error("shell open failed"));
+    }
+    return Promise.resolve();
+  },
 }));
 
 const mockTauriInternals = {
@@ -46,6 +62,9 @@ function setTauriContext() {
 beforeEach(() => {
   deepLinkCallback = null;
   initialUrls = [];
+  forceDeepLinkError = false;
+  forceShellOpenError = false;
+  forceGetCurrentError = false;
   if (originalWindow === undefined) {
     setMockWindow(undefined);
   } else {
@@ -255,12 +274,178 @@ describe("auth", () => {
       await openExternalBrowser("https://example.com");
     });
 
+    it("throws and logs on Tauri shell error", async () => {
+      setTauriContext();
+      forceShellOpenError = true;
+      const { openExternalBrowser } = await import("./auth");
+
+      const consoleSpy = mock(() => undefined);
+      const originalError = console.error;
+      console.error = consoleSpy;
+
+      await expect(openExternalBrowser("https://example.com")).rejects.toThrow(
+        "shell open failed"
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[NativeAuth] Failed to open external browser:",
+        expect.any(Error)
+      );
+
+      console.error = originalError;
+    });
+
     it("throws in SSR", async () => {
       setMockWindow(undefined);
       const { openExternalBrowser } = await import("./auth");
       await expect(
         openExternalBrowser("https://example.com")
       ).rejects.toThrow();
+    });
+  });
+
+  describe("error handling and edge cases", () => {
+    it("initializeNativeAuth logs error when deep link init fails", async () => {
+      setTauriContext();
+      forceDeepLinkError = true;
+      const { initializeNativeAuth } = await import("./auth");
+
+      const consoleSpy = mock(() => undefined);
+      const originalError = console.error;
+      console.error = consoleSpy;
+
+      await initializeNativeAuth();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[NativeAuth] Failed to initialize deep link listener:",
+        expect.any(Error)
+      );
+
+      console.error = originalError;
+    });
+
+    it("initializeNativeAuth survives when getCurrent fails", async () => {
+      setTauriContext();
+      forceGetCurrentError = true;
+      const { initializeNativeAuth } = await import("./auth");
+
+      // Should not throw, should silently ignore the getCurrent error
+      await expect(initializeNativeAuth()).resolves.toBeUndefined();
+    });
+
+    it("deep link callback swallows subscriber errors", async () => {
+      setTauriContext();
+      const { initializeNativeAuth, onAuthDeepLink } = await import("./auth");
+      await initializeNativeAuth();
+
+      const consoleSpy = mock(() => undefined);
+      const originalError = console.error;
+      console.error = consoleSpy;
+
+      const failingCb = () => {
+        throw new Error("subscriber error");
+      };
+      const unsub = onAuthDeepLink(failingCb);
+
+      deepLinkCallback!(["lumen://auth/callback?token=123"]);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[NativeAuth] Error in deep link callback:",
+        expect.any(Error)
+      );
+
+      console.error = originalError;
+      unsub();
+    });
+
+    it("initiateOAuthFlow rejects on malformed callback URL", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, initializeNativeAuth, cancelOAuthFlow } =
+        await import("./auth");
+      await initializeNativeAuth();
+      cancelOAuthFlow(); // ensure clean state
+
+      const flow = initiateOAuthFlow("https://auth.example.com");
+
+      const originalURL = globalThis.URL;
+      try {
+        globalThis.URL = class {
+          constructor() {
+            throw new Error("mock URL error");
+          }
+        } as any;
+
+        deepLinkCallback!(["lumen://auth/callback"]);
+
+        await expect(flow).rejects.toThrow("mock URL error");
+      } finally {
+        globalThis.URL = originalURL;
+      }
+    });
+
+    it("initiateOAuthFlow times out", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
+      cancelOAuthFlow(); // ensure clean state
+
+      const originalSetTimeout = globalThis.setTimeout;
+      let capturedCb: (() => void) | null = null;
+      try {
+        globalThis.setTimeout = ((cb: () => void) => {
+          capturedCb = cb;
+          return 123;
+        }) as any;
+
+        const flow = initiateOAuthFlow("https://auth.example.com");
+        if (capturedCb) {
+          (capturedCb as () => void)();
+          // trigger synchronously
+        }
+        await expect(flow).rejects.toThrow("OAuth flow timed out");
+      } finally {
+        globalThis.setTimeout = originalSetTimeout;
+      }
+    });
+
+    it("initiateOAuthFlow rejects when openExternalBrowser fails", async () => {
+      setTauriContext();
+      forceShellOpenError = true;
+      const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
+      cancelOAuthFlow(); // ensure clean state
+
+      const consoleSpy = mock(() => undefined);
+      const originalError = console.error;
+      console.error = consoleSpy;
+
+      const flow = initiateOAuthFlow("https://auth.example.com");
+      await expect(flow).rejects.toThrow("shell open failed");
+
+      console.error = originalError;
+    });
+
+    it("cancelling an already active flow correctly rejects it before starting new one", async () => {
+      setTauriContext();
+      const { initiateOAuthFlow, cancelOAuthFlow } = await import("./auth");
+      cancelOAuthFlow(); // ensure clean state
+
+      // First flow
+      const flow1 = initiateOAuthFlow("https://auth.example.com/1");
+
+      // We must attach catch to flow1 BEFORE starting flow2 to prevent unhandled rejection
+      let flow1Error: Error | undefined;
+      const catchPromise = flow1.catch((e) => {
+        flow1Error = e;
+      });
+
+      // Second flow immediately cancels first
+      const flow2 = initiateOAuthFlow("https://auth.example.com/2");
+
+      await catchPromise;
+      expect(flow1Error?.message).toBe(
+        "OAuth flow cancelled - new flow started"
+      );
+
+      cancelOAuthFlow();
+      await expect(flow2).rejects.toThrow("OAuth flow cancelled by user");
     });
   });
 });

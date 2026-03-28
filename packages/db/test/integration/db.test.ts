@@ -59,11 +59,11 @@ describe("db integration", () => {
   it("transparently encrypts and decrypts JWKS private keys", async () => {
     // Needs a valid JWKS_ENCRYPTION_KEY env var
     process.env.JWKS_ENCRYPTION_KEY = "test-encryption-key-for-integration";
-    
+
     // Disable mocked Date.now just for this key gen to be completely safe
     const mockDateNow = Date.now;
-    Date.now = () => new Date().getTime();
-    
+    Date.now = () => mockDateNow() + 1;
+
     const keyData = {
       publicKey: `pub-${Math.random()}`,
       privateKey: "super-secret-private-key-data",
@@ -74,7 +74,7 @@ describe("db integration", () => {
       data: keyData,
     });
 
-    // We can't easily see the encrypted data directly through Prisma because 
+    // We can't easily see the encrypted data directly through Prisma because
     // the middleware decrypts it on read, but we can verify it round-trips correctly.
     expect(jwks.id).toBeDefined();
     expect(jwks.privateKey).toBe(keyData.privateKey);
@@ -83,12 +83,13 @@ describe("db integration", () => {
     const fetched = await prisma.jwks.findUnique({
       where: { id: jwks.id },
     });
-    
+
     expect(fetched?.privateKey).toBe(keyData.privateKey);
 
     // 3. Verify it's actually encrypted in the DB using a raw query
     // This bypasses the middleware
-    const raw: any[] = await prisma.$queryRaw`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
+    const raw: any[] =
+      await prisma.$queryRaw`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
     expect(raw[0].privateKey).toBeDefined();
     expect(raw[0].privateKey).not.toBe(keyData.privateKey);
     // Our encryption format is base64 string
@@ -98,13 +99,13 @@ describe("db integration", () => {
     await prisma.jwks.delete({
       where: { id: jwks.id },
     });
-    
+
     Date.now = mockDateNow;
   });
 
   it("handles relational data creation and querying", async () => {
     const email = `relation-${Date.now()}@test.local`;
-    
+
     const user = await prisma.user.create({
       data: {
         email,
@@ -113,28 +114,28 @@ describe("db integration", () => {
           create: {
             name: "Test Workspace",
             description: "A workspace for testing relations",
-          }
-        }
+          },
+        },
       },
       include: {
-        workspaces: true
-      }
+        workspaces: true,
+      },
     });
 
     expect(user.workspaces).toHaveLength(1);
     expect(user.workspaces[0].name).toBe("Test Workspace");
-    
+
     const workspaceId = user.workspaces[0].id;
 
     // Test cascading deletes
     await prisma.user.delete({
-      where: { id: user.id }
+      where: { id: user.id },
     });
 
     const deletedWorkspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId }
+      where: { id: workspaceId },
     });
-    
+
     expect(deletedWorkspace).toBeNull();
   });
 });
