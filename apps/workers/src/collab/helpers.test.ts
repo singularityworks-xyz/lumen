@@ -212,5 +212,183 @@ describe("collab/helpers", () => {
       const count = await getWorkspaceCollaboratorCount("ws-1");
       expect(count).toBe(5);
     });
+
+    it("returns 0 on DB error", async () => {
+      prismaMock.workspaceCollaborator.count.mockRejectedValueOnce(
+        new Error("DB down")
+      );
+      const count = await getWorkspaceCollaboratorCount("ws-1");
+      expect(count).toBe(0);
+    });
+  });
+
+  describe("getCollaborator - error path", () => {
+    it("throws on DB error", async () => {
+      prismaMock.workspaceCollaborator.findUnique.mockRejectedValueOnce(
+        new Error("DB connection failed")
+      );
+      await expect(getCollaborator("ws-1", "user-1")).rejects.toThrow(
+        "DB connection failed"
+      );
+    });
+  });
+
+  describe("addCollaborator - error path", () => {
+    it("throws on upsert error", async () => {
+      prismaMock.workspaceCollaborator.upsert.mockRejectedValueOnce(
+        new Error("upsert failed")
+      );
+      await expect(addCollaborator("ws-1", "user-1", "VIEWER")).rejects.toThrow(
+        "upsert failed"
+      );
+    });
+
+    it("creates workspace lazily with room name when available", async () => {
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      await addCollaborator("ws-room", "user-1", "OWNER");
+      // Falls back to "Untitled Workspace" since roomManager.getRoom returns undefined in test
+      expect(prismaMock.workspace.create).toHaveBeenCalled();
+    });
+
+    it("handles OWNER role when workspace already exists", async () => {
+      prismaMock.workspace.findUnique.mockResolvedValueOnce({
+        id: "ws-existing",
+      } as any);
+      await addCollaborator("ws-existing", "user-1", "OWNER");
+      // Should NOT create workspace since it exists
+      expect(prismaMock.workspace.create).not.toHaveBeenCalled();
+      expect(prismaMock.workspaceCollaborator.upsert).toHaveBeenCalled();
+    });
+  });
+
+  describe("checkWorkspaceExistence - extended", () => {
+    it("returns true if collaborator count > 0", async () => {
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(3 as any);
+      const result = await checkWorkspaceExistence("ws-collab");
+      expect(result).toBe(true);
+    });
+
+    it("returns true if share count > 0", async () => {
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(0 as any);
+      prismaMock.workspaceShare.count.mockResolvedValueOnce(2 as any);
+      const result = await checkWorkspaceExistence("ws-share");
+      expect(result).toBe(true);
+    });
+
+    it("throws on DB error", async () => {
+      prismaMock.workspace.findUnique.mockRejectedValueOnce(
+        new Error("DB error")
+      );
+      await expect(checkWorkspaceExistence("ws-err")).rejects.toThrow(
+        "DB error"
+      );
+    });
+  });
+
+  describe("createShareToken - extended", () => {
+    it("creates share record with expiresAt", async () => {
+      const expiresAt = new Date("2025-12-31");
+      const token = await createShareToken("ws-1", "user-1", expiresAt);
+      expect(token).toBeDefined();
+      expect(prismaMock.workspaceShare.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ expiresAt }),
+        })
+      );
+    });
+
+    it("throws on create error", async () => {
+      prismaMock.workspaceShare.create.mockRejectedValueOnce(
+        new Error("create failed")
+      );
+      await expect(createShareToken("ws-1", "user-1")).rejects.toThrow(
+        "create failed"
+      );
+    });
+  });
+
+  describe("getUserInfo", () => {
+    it("returns user info from DB", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: "user-1",
+        name: "Alice",
+        image: "https://img.com/a.png",
+        email: "alice@test.com",
+      } as any);
+      const { getUserInfo: getUser } = await import("./helpers");
+      const result = await getUser("user-1");
+      expect(result).toMatchObject({
+        id: "user-1",
+        name: "Alice",
+        email: "alice@test.com",
+      });
+    });
+
+    it("returns null when user not found", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null as any);
+      const { getUserInfo: getUser } = await import("./helpers");
+      const result = await getUser("user-missing");
+      expect(result).toBeNull();
+    });
+
+    it("returns null on DB error", async () => {
+      prismaMock.user.findUnique.mockRejectedValueOnce(new Error("DB fail"));
+      const { getUserInfo: getUser } = await import("./helpers");
+      const result = await getUser("user-err");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("getWorkspaceName", () => {
+    it("returns name from workspace table", async () => {
+      prismaMock.workspace.findUnique.mockResolvedValueOnce({
+        name: "My Workspace",
+      } as any);
+      const { getWorkspaceName: getName } = await import("./helpers");
+      const result = await getName("ws-1");
+      expect(result).toBe("My Workspace");
+    });
+
+    it("returns null on DB error", async () => {
+      prismaMock.workspace.findUnique.mockRejectedValueOnce(
+        new Error("DB fail")
+      );
+      const { getWorkspaceName: getName } = await import("./helpers");
+      const result = await getName("ws-err");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("getShareInfo - error path", () => {
+    it("returns null on DB error", async () => {
+      prismaMock.workspaceShare.findUnique.mockRejectedValueOnce(
+        new Error("DB down")
+      );
+      const result = await getShareInfo("token-err");
+      expect(result).toBeNull();
+    });
+
+    it("returns info with null owner when getUserInfo fails", async () => {
+      prismaMock.workspaceShare.findUnique.mockResolvedValueOnce({
+        workspaceId: "ws-1",
+        createdBy: "user-missing",
+        expiresAt: new Date("2025-12-31"),
+      } as any);
+      prismaMock.user.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce({
+        name: "Test WS",
+      } as any);
+
+      const result = await getShareInfo("token-owner-null");
+      expect(result).toMatchObject({
+        workspaceId: "ws-1",
+        workspaceName: "Test WS",
+      });
+      expect(result?.owner).toBeUndefined();
+    });
   });
 });
