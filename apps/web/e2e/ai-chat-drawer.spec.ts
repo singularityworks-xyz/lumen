@@ -61,10 +61,9 @@ test.describe("E2E-AI-01: AI Chat Drawer", () => {
 
     // Click backdrop (outside drawer content)
     const backdrop = page.locator('[data-testid="ai-drawer-backdrop"]');
-    if (await backdrop.isVisible()) {
-      await backdrop.click({ position: { x: 10, y: 10 } });
-      await expect(drawer).not.toBeVisible();
-    }
+    await expect(backdrop).toBeVisible();
+    await backdrop.click({ position: { x: 10, y: 10 } });
+    await expect(drawer).not.toBeVisible();
   });
 
   test("chat input accepts text", async ({ page }) => {
@@ -161,11 +160,10 @@ test.describe("E2E-AI-02: AI Chat Interactions", () => {
 
     // Look for clear button
     const clearButton = page.locator('[data-testid="ai-clear-conversation"]');
-    if (await clearButton.isVisible()) {
-      await clearButton.click();
-      // Messages should be cleared
-      const messages = page.locator('[data-testid^="message-"]');
-      await expect(messages).toHaveCount(0);
-    }
+    await expect(clearButton).toBeVisible();
+    await clearButton.click();
+    // Messages should be cleared
+    const messages = page.locator('[data-testid^="message-"]');
+    await expect(messages).toHaveCount(0);
   });
 });

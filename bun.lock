@@ -77,11 +77,11 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.8",
+      "version": "1.0.9",
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.0.45",
+      "version": "1.0.46",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -170,7 +170,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.23",
+      "version": "1.0.24",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
@@ -224,7 +224,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",

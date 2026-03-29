@@ -61,7 +61,7 @@ defmodule CoverageGate do
           {:cont, %{acc | lines: Map.put(acc.lines, line, hit_count)}}
 
         "end_of_record", acc ->
-          {:cont, acc, %{file: nil, lines: {}}}
+          {:cont, acc, %{file: nil, lines: %{}}}
 
         _, acc ->
           {:cont, acc}
@@ -128,11 +128,15 @@ defmodule CoverageGate do
     IO.puts(String.duplicate("=", 80))
 
     total_coverage =
-      results
-      |> Enum.map(fn {_path, r} -> r.coverage end)
-      |> Enum.sum()
-      |> Kernel./(length(results))
-      |> Float.round(2)
+      if results == [] do
+        0.0
+      else
+        results
+        |> Enum.map(fn {_path, r} -> r.coverage end)
+        |> Enum.sum()
+        |> Kernel./(length(results))
+        |> Float.round(2)
+      end
 
     failed_count = Enum.count(results, fn {_path, r} -> r.status == :failed end)
 

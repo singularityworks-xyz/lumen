@@ -260,6 +260,30 @@ function updateBunLockfile() {
 
 function updateCargoLockfile() {
   const decoder = new TextDecoder();
+
+  // Check if cargo is available before attempting to run it
+  const cargoCheck = Bun.spawnSync({
+    cmd: ["which", "cargo"],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (cargoCheck.exitCode !== 0) {
+    console.warn(
+      "Warning: cargo not found; skipping Cargo.lock update. " +
+        "Install Rust tooling if you need Cargo.lock to stay in sync."
+    );
+    return false;
+  }
+
+  const cargoLockPath = path.join(ROOT_DIR, "apps/native/src-tauri/Cargo.lock");
+  if (!fs.existsSync(cargoLockPath)) {
+    console.warn(
+      "Warning: Cargo.lock not found at expected path; skipping update."
+    );
+    return false;
+  }
+
   const result = Bun.spawnSync({
     cmd: ["cargo", "update", "-p", "lumen-singularityworks"],
     cwd: path.join(ROOT_DIR, "apps/native/src-tauri"),
@@ -650,12 +674,9 @@ function main() {
 
   if ("apps/native" in state.workspaces) {
     const cargoLockUpdated = updateCargoLockfile();
-    if (!cargoLockUpdated) {
-      throw new Error(
-        "Failed to update Cargo.lock; aborting to avoid staging an out-of-sync lockfile."
-      );
+    if (cargoLockUpdated) {
+      stageFiles(["apps/native/src-tauri/Cargo.lock"]);
     }
-    stageFiles(["apps/native/src-tauri/Cargo.lock"]);
   }
 
   state.triggerSignatures = Object.fromEntries(

@@ -71,10 +71,9 @@ test.describe("VIS-AI-01: AI Drawer Visual Regression", () => {
 
     // Focus on just the drawer content area
     const drawer = page.locator('[data-testid="ai-drawer"]');
-    if (await drawer.isVisible()) {
-      await expect(drawer).toHaveScreenshot("ai-drawer-empty-state.png", {
-        animations: "disabled",
-      });
-    }
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toHaveScreenshot("ai-drawer-empty-state.png", {
+      animations: "disabled",
+    });
   });
 });

@@ -57,50 +57,66 @@ describe("db integration", () => {
   });
 
   it("transparently encrypts and decrypts JWKS private keys", async () => {
+    // Save previous state for cleanup
+    const previousEnv = process.env.JWKS_ENCRYPTION_KEY;
+    const mockDateNow = Date.now;
+
     // Needs a valid JWKS_ENCRYPTION_KEY env var
     process.env.JWKS_ENCRYPTION_KEY = "test-encryption-key-for-integration";
 
     // Disable mocked Date.now just for this key gen to be completely safe
-    const mockDateNow = Date.now;
     Date.now = () => mockDateNow() + 1;
 
-    const keyData = {
-      publicKey: `pub-${Math.random()}`,
-      privateKey: "super-secret-private-key-data",
-    };
+    let jwksId: string | undefined;
 
-    // 1. Create - Should encrypt under the hood
-    const jwks = await prisma.jwks.create({
-      data: keyData,
-    });
+    try {
+      const keyData = {
+        publicKey: `pub-${Math.random()}`,
+        privateKey: "super-secret-private-key-data",
+      };
 
-    // We can't easily see the encrypted data directly through Prisma because
-    // the middleware decrypts it on read, but we can verify it round-trips correctly.
-    expect(jwks.id).toBeDefined();
-    expect(jwks.privateKey).toBe(keyData.privateKey);
+      // 1. Create - Should encrypt under the hood
+      const jwks = await prisma.jwks.create({
+        data: keyData,
+      });
+      jwksId = jwks.id;
 
-    // 2. Read - Should decrypt under the hood
-    const fetched = await prisma.jwks.findUnique({
-      where: { id: jwks.id },
-    });
+      // We can't easily see the encrypted data directly through Prisma because
+      // the middleware decrypts it on read, but we can verify it round-trips correctly.
+      expect(jwks.id).toBeDefined();
+      expect(jwks.privateKey).toBe(keyData.privateKey);
 
-    expect(fetched?.privateKey).toBe(keyData.privateKey);
+      // 2. Read - Should decrypt under the hood
+      const fetched = await prisma.jwks.findUnique({
+        where: { id: jwks.id },
+      });
 
-    // 3. Verify it's actually encrypted in the DB using a raw query
-    // This bypasses the middleware
-    const raw: any[] =
-      await prisma.$queryRaw`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
-    expect(raw[0].privateKey).toBeDefined();
-    expect(raw[0].privateKey).not.toBe(keyData.privateKey);
-    // Our encryption format is base64 string
-    expect(() => Buffer.from(raw[0].privateKey, "base64")).not.toThrow();
+      expect(fetched?.privateKey).toBe(keyData.privateKey);
 
-    // Cleanup
-    await prisma.jwks.delete({
-      where: { id: jwks.id },
-    });
+      // 3. Verify it's actually encrypted in the DB using a raw query
+      // This bypasses the middleware
+      const raw: any[] =
+        await prisma.$queryRaw`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
+      expect(raw[0].privateKey).toBeDefined();
+      expect(raw[0].privateKey).not.toBe(keyData.privateKey);
+      // Our encryption format is base64 string
+      expect(() => Buffer.from(raw[0].privateKey, "base64")).not.toThrow();
+    } finally {
+      // Restore global state
+      if (previousEnv === undefined) {
+        Reflect.deleteProperty(process.env, "JWKS_ENCRYPTION_KEY");
+      } else {
+        process.env.JWKS_ENCRYPTION_KEY = previousEnv;
+      }
+      Date.now = mockDateNow;
 
-    Date.now = mockDateNow;
+      // Cleanup DB row if it was created
+      if (jwksId) {
+        await prisma.jwks
+          .delete({ where: { id: jwksId } })
+          .catch(() => undefined);
+      }
+    }
   });
 
   it("handles relational data creation and querying", async () => {

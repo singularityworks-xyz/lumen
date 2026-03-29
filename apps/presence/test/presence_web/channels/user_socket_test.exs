@@ -11,7 +11,12 @@ defmodule PresenceWeb.UserSocketTest do
   setup_all do
     Application.ensure_all_started(:jose)
     Application.put_env(:presence, :better_auth_url, "https://auth.example.com")
+    :ok
+  end
+
+  setup do
     Token.init_cache()
+    on_exit(fn -> Token.clear_jwks_cache() end)
     :ok
   end
 

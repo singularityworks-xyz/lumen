@@ -55,14 +55,14 @@ export default function () {
   );
 
   const success = check(res, {
-    "status is not 500": (r) => r.status !== 500,
+    "status is 2xx": (r) => r.status >= 200 && r.status < 300,
     "response received": (r) => r.status > 0,
   });
 
   classifySuccess.add(success);
   classifyDuration.add(res.timings.duration);
 
-  if (res.status >= 500) {
+  if (res.status < 200 || res.status >= 300) {
     errorCount.add(1);
   }
 

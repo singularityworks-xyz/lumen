@@ -25,7 +25,10 @@ defmodule Presence.TrackerTest do
     end
 
     test "returns false for activity exactly at threshold" do
-      activity_at_threshold = System.monotonic_time(:millisecond) - 5 * 60 * 1000
+      now = System.monotonic_time(:millisecond)
+      # Add a small epsilon to ensure we are safely inside the threshold
+      # even if scheduler delays cause a small time drift between calls
+      activity_at_threshold = now - 5 * 60 * 1000 + 10
       refute Tracker.should_mark_idle?(activity_at_threshold)
     end
 

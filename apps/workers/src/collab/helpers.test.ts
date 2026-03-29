@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const prismaMock = {
+type MockFn = ReturnType<typeof mock<() => Promise<any>>>;
+
+const prismaMock: {
+  workspaceCollaborator: { findUnique: MockFn; upsert: MockFn; count: MockFn };
+  workspace: { findUnique: MockFn; create: MockFn; update: MockFn };
+  workspaceState: { findUnique: MockFn };
+  workspaceShare: { findUnique: MockFn; create: MockFn; count: MockFn };
+  user: { findUnique: MockFn };
+} = {
   workspaceCollaborator: {
     findUnique: mock(() => Promise.resolve(null)),
     upsert: mock(() => Promise.resolve()),
@@ -120,9 +128,7 @@ describe("collab/helpers", () => {
 
   describe("getCollaborator", () => {
     it("returns null if no collaborator found", async () => {
-      prismaMock.workspaceCollaborator.findUnique.mockResolvedValueOnce(
-        null as any
-      );
+      prismaMock.workspaceCollaborator.findUnique.mockResolvedValueOnce(null);
       const result = await getCollaborator("ws-1", "user-1");
       expect(result).toBeNull();
     });
@@ -130,7 +136,7 @@ describe("collab/helpers", () => {
     it("returns role if collaborator exists", async () => {
       prismaMock.workspaceCollaborator.findUnique.mockResolvedValueOnce({
         role: "EDITOR",
-      } as any);
+      });
       const result = await getCollaborator("ws-1", "user-1");
       expect(result).toEqual({ role: "EDITOR" });
     });
@@ -149,7 +155,7 @@ describe("collab/helpers", () => {
     });
 
     it("creates workspace lazily if adding OWNER and workspace doesn't exist", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       await addCollaborator("ws-1", "user-1", "OWNER");
       expect(prismaMock.workspace.create).toHaveBeenCalledWith({
         data: {
@@ -165,25 +171,25 @@ describe("collab/helpers", () => {
     it("returns true if workspace record exists", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         id: "ws-1",
-      } as any);
+      });
       const result = await checkWorkspaceExistence("ws-1");
       expect(result).toBe(true);
     });
 
     it("returns true if state exists", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
         id: "ws-1",
-      } as any);
+      });
       const result = await checkWorkspaceExistence("ws-1");
       expect(result).toBe(true);
     });
 
     it("returns false if nothing exists", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(0 as any);
-      prismaMock.workspaceShare.count.mockResolvedValueOnce(0 as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(0);
+      prismaMock.workspaceShare.count.mockResolvedValueOnce(0);
       const result = await checkWorkspaceExistence("ws-1");
       expect(result).toBe(false);
     });
@@ -200,7 +206,7 @@ describe("collab/helpers", () => {
 
   describe("getShareInfo", () => {
     it("returns null if share not found", async () => {
-      prismaMock.workspaceShare.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceShare.findUnique.mockResolvedValueOnce(null);
       const result = await getShareInfo("token-1");
       expect(result).toBeNull();
     });
@@ -210,15 +216,15 @@ describe("collab/helpers", () => {
         workspaceId: "ws-1",
         createdBy: "user-1",
         expiresAt: null,
-      } as any);
+      });
       prismaMock.user.findUnique.mockResolvedValueOnce({
         id: "user-1",
         name: "Test User",
         email: "test@example.com",
-      } as any);
+      });
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         name: "Workspace Name",
-      } as any);
+      });
 
       const result = await getShareInfo("token-1");
       expect(result).toMatchObject({
@@ -232,7 +238,7 @@ describe("collab/helpers", () => {
 
   describe("getWorkspaceCollaboratorCount", () => {
     it("returns count from DB", async () => {
-      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(5 as any);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(5);
       const count = await getWorkspaceCollaboratorCount("ws-1");
       expect(count).toBe(5);
     });
@@ -268,7 +274,7 @@ describe("collab/helpers", () => {
     });
 
     it("creates workspace lazily with room name when available", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       // Simulate a room with workspace data
       const wsMap = new Map();
       wsMap.set("ws-room", { name: "Room Workspace" });
@@ -288,7 +294,7 @@ describe("collab/helpers", () => {
     it("handles OWNER role when workspace already exists", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         id: "ws-existing",
-      } as any);
+      });
       await addCollaborator("ws-existing", "user-1", "OWNER");
       // Should NOT create workspace since it exists
       expect(prismaMock.workspace.create).not.toHaveBeenCalled();
@@ -298,18 +304,18 @@ describe("collab/helpers", () => {
 
   describe("checkWorkspaceExistence - extended", () => {
     it("returns true if collaborator count > 0", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(3 as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(3);
       const result = await checkWorkspaceExistence("ws-collab");
       expect(result).toBe(true);
     });
 
     it("returns true if share count > 0", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
-      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(0 as any);
-      prismaMock.workspaceShare.count.mockResolvedValueOnce(2 as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
+      prismaMock.workspaceCollaborator.count.mockResolvedValueOnce(0);
+      prismaMock.workspaceShare.count.mockResolvedValueOnce(2);
       const result = await checkWorkspaceExistence("ws-share");
       expect(result).toBe(true);
     });
@@ -353,7 +359,7 @@ describe("collab/helpers", () => {
         name: "Alice",
         image: "https://img.com/a.png",
         email: "alice@test.com",
-      } as any);
+      });
       const { getUserInfo: getUser } = await import("./helpers");
       const result = await getUser("user-1");
       expect(result).toMatchObject({
@@ -364,7 +370,7 @@ describe("collab/helpers", () => {
     });
 
     it("returns null when user not found", async () => {
-      prismaMock.user.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
       const { getUserInfo: getUser } = await import("./helpers");
       const result = await getUser("user-missing");
       expect(result).toBeNull();
@@ -382,14 +388,14 @@ describe("collab/helpers", () => {
     it("returns name from workspace table", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         name: "My Workspace",
-      } as any);
+      });
       const { getWorkspaceName: getName } = await import("./helpers");
       const result = await getName("ws-1");
       expect(result).toBe("My Workspace");
     });
 
     it("falls back to active room name", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       const wsMap = new Map();
       wsMap.set("ws-room-fallback", { name: "Room Name" });
       mockGetRoom.mockReturnValueOnce({
@@ -403,11 +409,11 @@ describe("collab/helpers", () => {
     });
 
     it("falls back to stored state with getOrCreateRoom", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       mockGetRoom.mockReturnValueOnce(undefined);
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
         yjsState: Buffer.from("state"),
-      } as any);
+      });
       const wsMap = new Map();
       wsMap.set("ws-stored", { name: "Stored Name" });
       mockGetOrCreateRoom.mockReturnValueOnce({
@@ -421,11 +427,11 @@ describe("collab/helpers", () => {
     });
 
     it("returns null when workspace has no name in stored state", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       mockGetRoom.mockReturnValueOnce(undefined);
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
         yjsState: Buffer.from("state"),
-      } as any);
+      });
       mockGetOrCreateRoom.mockReturnValueOnce({
         doc: { getMap: () => new Map() },
       });
@@ -435,9 +441,9 @@ describe("collab/helpers", () => {
     });
 
     it("returns null when no workspace, room, or state exists", async () => {
-      prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       mockGetRoom.mockReturnValueOnce(undefined);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null as any);
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
       const { getWorkspaceName: getName } = await import("./helpers");
       const result = await getName("ws-none");
       expect(result).toBeNull();
@@ -467,11 +473,11 @@ describe("collab/helpers", () => {
         workspaceId: "ws-1",
         createdBy: "user-missing",
         expiresAt: new Date("2025-12-31"),
-      } as any);
-      prismaMock.user.findUnique.mockResolvedValueOnce(null as any);
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         name: "Test WS",
-      } as any);
+      });
 
       const result = await getShareInfo("token-owner-null");
       expect(result).toMatchObject({
