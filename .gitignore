@@ -41,3 +41,4 @@ dashboards.yaml
 docs/
 lefthook-local.yml
 .git-tmp/
+tsconfig.tsbuildinfo

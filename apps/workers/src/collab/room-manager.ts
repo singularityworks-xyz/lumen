@@ -50,7 +50,7 @@ interface Room {
   workspaceId: string;
 }
 
-class RoomManager {
+export class RoomManager {
   private readonly rooms = new Map<string, Room>();
   private readonly connectionToRoom = new Map<string, string>();
   private readonly persistenceDebounceMs = 5000;
@@ -833,6 +833,25 @@ class RoomManager {
    *  methods that rely on deletedWorkspaces. */
   clearDeletedWorkspaces(): void {
     this.deletedWorkspaces.clear();
+  }
+
+  /** Resets all internal state — intended for test isolation only.
+   *  Destroys all active Yjs docs, clears connection tracking, cancels
+   *  pending persistence timeouts, and resets deleted-workspace tracking. */
+  reset(): void {
+    for (const [, room] of this.rooms) {
+      if (room.persistenceTimeout) {
+        clearTimeout(room.persistenceTimeout);
+      }
+      if (room.cleanupTimeout) {
+        clearTimeout(room.cleanupTimeout);
+      }
+      room.doc.destroy();
+    }
+    this.rooms.clear();
+    this.connectionToRoom.clear();
+    this.deletedWorkspaces.clear();
+    this.pendingLoads.clear();
   }
 }
 

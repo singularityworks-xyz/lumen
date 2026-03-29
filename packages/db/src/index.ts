@@ -36,5 +36,9 @@ if (process.env.NODE_ENV !== "production") {
 
 export type * from "../prisma/generated/prisma/client";
 export type * from "../prisma/generated/prisma/models";
+// Test fixtures & scripts
+// biome-ignore lint/performance/noBarrelFile: needed for fixture/script re-exports
+export * from "./fixtures/prisma-test-db";
+export * from "./scripts/seed-e2e-auth";
 // Re-export PrismaClient and all generated types
 export { PrismaClient };

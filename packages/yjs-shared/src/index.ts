@@ -442,3 +442,7 @@ export function getMapStats(
   }
   return stats;
 }
+
+// biome-ignore lint/performance/noBarrelFile: needed for fixture re-exports
+export * from "./fixtures/websocket-mocks";
+export * from "./fixtures/ydoc-fixtures";

@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.4.112",
+  "version": "0.4.113",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -47,7 +47,7 @@
     "check": "bash ./scripts/quality/run-check.sh",
     "check:ci": "bash ./scripts/quality/run-check-ci.sh",
     "check:rust": "cd apps/native/src-tauri && cargo fmt --all --check && cargo clippy --all-targets --all-features -- -D warnings",
-    "check-types": "turbo run check-types && bunx tsc --noEmit -p scripts/versioning/tsconfig.json",
+    "check-types": "turbo run check-types && bunx tsc --noEmit -p scripts/versioning/tsconfig.json && bunx tsc --noEmit -p tsconfig.json",
     "dep:check": "bunx sherif@latest --fix",
     "dep:up": "bunx taze major -w",
     "db:gen": "cd packages/db && bun prisma generate",
@@ -58,19 +58,21 @@
     "version:autobump": "bun ./scripts/versioning/autobump.ts",
     "version:autobump:cleanup": "bun ./scripts/versioning/autobump.ts --cleanup",
     "test:unit:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts",
-    "test:unit:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts",
+    "test:unit:workers": "bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts",
     "test:unit:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts && bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts",
     "test:integration:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/test/integration/*.test.ts",
-    "test:integration:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/test/integration/*.test.ts",
+    "test:integration:workers": "bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/test/integration/*.test.ts",
     "test:coverage:web": "bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage --coverage-threshold=0.95",
-    "test:coverage:workers": "bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage",
+    "test:coverage:workers": "bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage",
     "test:coverage:packages": "bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage && bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage",
     "test:coverage": "bun run test:coverage:web && bun run test:coverage:workers && bun run test:coverage:packages",
     "test:e2e": "bunx playwright test -c playwright/playwright.config.ts",
     "test:visual": "bunx playwright test -c playwright/playwright.visual.config.ts",
     "test:load:ramp": "k6 run load/k6/ws-collab-ramp.ts",
     "test:load:soak": "k6 run load/k6/ws-collab-soak.ts",
-    "test:load:spike": "k6 run load/k6/ws-collab-spike.ts"
+    "test:load:spike": "k6 run load/k6/ws-collab-spike.ts",
+    "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
+    "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
   "trustedDependencies": [
     "@biomejs/biome",
