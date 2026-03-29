@@ -113,23 +113,45 @@ export async function seedTestWorkspace(
     workspaceName?: string;
   } = {}
 ): Promise<SeededFixtureUser> {
-  const user = await seedUser({
-    name: overrides.userName ?? "Fixture User",
-    email: overrides.userEmail ?? `fixture-${randomHex()}@test.com`,
-  });
+  const userId = `test-user-${randomHex()}`;
+  const sessionId = `test-session-${randomHex()}`;
+  const workspaceId = `test-ws-${randomHex()}`;
+  const userEmail = overrides.userEmail ?? `fixture-${randomHex()}@test.com`;
+  const userName = overrides.userName ?? "Fixture User";
+  const workspaceName = overrides.workspaceName ?? "Fixture Workspace";
 
-  const session = await seedSession({ userId: user.id });
-
-  const workspace = await seedWorkspace({
-    name: overrides.workspaceName ?? "Fixture Workspace",
-    ownerId: user.id,
-  });
-
-  await seedCollaborator({
-    workspaceId: workspace.id,
-    userId: user.id,
-    role: "OWNER",
-  });
+  const [user, session, workspace] = await prisma.$transaction([
+    prisma.user.create({
+      data: {
+        id: userId,
+        name: userName,
+        email: userEmail,
+        emailVerified: false,
+      },
+    }),
+    prisma.session.create({
+      data: {
+        id: sessionId,
+        userId,
+        token: `token-${randomHex()}`,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    }),
+    prisma.workspace.create({
+      data: {
+        id: workspaceId,
+        name: workspaceName,
+        ownerId: userId,
+      },
+    }),
+    prisma.workspaceCollaborator.create({
+      data: {
+        workspaceId,
+        userId,
+        role: "OWNER",
+      },
+    }),
+  ]);
 
   return {
     user: { id: user.id, name: user.name ?? "", email: user.email },
@@ -143,6 +165,8 @@ export async function cleanupTestDb() {
     Array<{ tablename: string }>
   >`SELECT tablename FROM pg_tables WHERE schemaname='public'`;
 
+  const failedTables: string[] = [];
+
   for (const { tablename } of tablenames) {
     if (tablename === "_prisma_migrations") {
       continue;
@@ -152,8 +176,14 @@ export async function cleanupTestDb() {
         `TRUNCATE TABLE "public"."${tablename}" CASCADE`
       );
     } catch {
-      // ignore truncation failures
+      failedTables.push(tablename);
     }
+  }
+
+  if (failedTables.length > 0) {
+    throw new Error(
+      `Failed to truncate tables during cleanup: ${failedTables.join(", ")}`
+    );
   }
 }
 

@@ -144,7 +144,7 @@ defmodule Presence.Token do
 
   defp decode_header(token) when is_binary(token) do
     case String.split(token, ".") do
-      [header_b64 | _] ->
+      [header_b64, _payload_b64, _signature_b64 | _] ->
         case Base.url_decode64(header_b64, padding: false) do
           {:ok, header_json} -> Jason.decode(header_json)
           :error -> {:error, :invalid_header}

@@ -1,15 +1,17 @@
 import { afterEach, beforeEach } from "bun:test";
 
-// Set DATABASE_URL immediately at module evaluation time so @lumen/db
-// can be imported in test files without throwing
+const originalEnv: Record<string, string | undefined> = {
+  DATABASE_URL: process.env.DATABASE_URL,
+};
+
 process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/lumen_test";
 
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: "development",
   PORT: "3999",
   WEB_URL: "http://localhost:3000",
-  BETHER_AUTH_URL: "http://localhost:3002",
-  BETHER_AUTH_SECRET: "test-secret-key-that-is-at-least-21-chars",
+  BETTER_AUTH_URL: "http://localhost:3002",
+  BETTER_AUTH_SECRET: "test-secret-key-that-is-at-least-21-chars",
   GITHUB_CLIENT_ID: "test-github-client-id",
   GITHUB_CLIENT_SECRET: "test-github-client-secret",
   DATABASE_URL: "postgresql://test:test@localhost:5432/lumen_test",
@@ -19,10 +21,10 @@ const TEST_ENV: Record<string, string> = {
   OTEL_ENABLED: "false",
 };
 
-const originalEnv: Record<string, string | undefined> = {};
-
 for (const [key, value] of Object.entries(TEST_ENV)) {
-  originalEnv[key] = process.env[key];
+  if (key !== "DATABASE_URL") {
+    originalEnv[key] = process.env[key];
+  }
   process.env[key] = value;
 }
 
@@ -80,9 +82,7 @@ async function truncateAllTables(): Promise<void> {
 }
 
 // Check once at setup time if Prisma/DB is available
-checkPrismaAvailable().then((available) => {
-  prismaAvailable = available;
-});
+prismaAvailable = await checkPrismaAvailable();
 
 beforeEach(async () => {
   for (const [key, value] of Object.entries(TEST_ENV)) {

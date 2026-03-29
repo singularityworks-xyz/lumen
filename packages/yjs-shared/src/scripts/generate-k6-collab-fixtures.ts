@@ -37,7 +37,7 @@ function buildSyncStep2(doc: Y.Doc, remoteStateVector: Uint8Array): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-function buildSyncUpdate(_doc: Y.Doc, update: Uint8Array): Uint8Array {
+function buildSyncUpdate(update: Uint8Array): Uint8Array {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_SYNC);
   syncProtocol.writeUpdate(encoder, update);
@@ -74,39 +74,39 @@ function createDoc(name: string): Y.Doc {
   const columns = doc.getMap(YJS_MAP_NAMES.COLUMNS);
   const tasks = doc.getMap(YJS_MAP_NAMES.TASKS);
 
-  for (let b = 0; b < 2; b++) {
-    const boardId = `${name}-board-${b}`;
+  for (let boardIndex = 0; boardIndex < 2; boardIndex++) {
+    const boardId = `${name}-board-${boardIndex}`;
     boards.set(boardId, {
       id: boardId,
-      name: `Board ${b}`,
+      name: `Board ${boardIndex}`,
       workspace_id: `ws-${name}`,
       column_ids: [`${boardId}-col-0`, `${boardId}-col-1`],
       created_by: "k6-user",
       created_at: "2024-01-01T00:00:00Z",
     });
 
-    for (let c = 0; c < 2; c++) {
-      const colId = `${boardId}-col-${c}`;
+    for (let columnIndex = 0; columnIndex < 2; columnIndex++) {
+      const colId = `${boardId}-col-${columnIndex}`;
       columns.set(colId, {
         id: colId,
         board_id: boardId,
-        name: `Column ${c}`,
-        position: c,
+        name: `Column ${columnIndex}`,
+        position: columnIndex,
         task_ids: [],
       });
     }
 
-    for (let t = 0; t < 5; t++) {
-      const taskId = `${boardId}-task-${t}`;
-      const colIdx = t % 2;
+    for (let taskIndex = 0; taskIndex < 5; taskIndex++) {
+      const taskId = `${boardId}-task-${taskIndex}`;
+      const colIdx = taskIndex % 2;
       tasks.set(taskId, {
         id: taskId,
         board_id: boardId,
         column_id: `${boardId}-col-${colIdx}`,
-        title: `Task ${t}`,
+        title: `Task ${taskIndex}`,
         priority: "medium",
         progress: 0,
-        position: t,
+        position: taskIndex,
         status: "todo",
         created_by: "k6-user",
         created_at: "2024-01-01T00:00:00Z",
@@ -166,7 +166,7 @@ function generateFixture(
       });
     }
     const update = Y.encodeStateAsUpdate(doc);
-    syncUpdates[`update-${i}`] = toBase64(buildSyncUpdate(doc, update));
+    syncUpdates[`update-${i}`] = toBase64(buildSyncUpdate(update));
   }
 
   const awarenessUpdate1 = toBase64(

@@ -34,6 +34,13 @@ defmodule CoverageGate do
     end
 
     coverage_data = parse_lcov(lcov_path)
+
+    if coverage_data == %{} do
+      IO.puts(:stderr, "ERROR: No coverage records found in #{lcov_path}")
+      print_results([])
+      System.halt(1)
+    end
+
     results = check_coverage(coverage_data)
 
     print_results(results)

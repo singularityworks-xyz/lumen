@@ -258,12 +258,14 @@ function updateBunLockfile() {
   return true;
 }
 
-function updateCargoLockfile() {
+function updateCargoLockfile(): boolean {
   const decoder = new TextDecoder();
 
-  // Check if cargo is available before attempting to run it
+  const isWindows = process.platform === "win32";
+  const cargoCommand = isWindows ? ["where", "cargo"] : ["which", "cargo"];
+
   const cargoCheck = Bun.spawnSync({
-    cmd: ["which", "cargo"],
+    cmd: cargoCommand,
     stderr: "pipe",
     stdout: "pipe",
   });

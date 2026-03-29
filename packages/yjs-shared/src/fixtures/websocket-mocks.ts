@@ -1,10 +1,11 @@
 /** biome-ignore-all lint/performance/noNamespaceImport: lib0 requires namespace import */
 import { type Mock, mock } from "bun:test";
 import * as encoding from "lib0/encoding";
-
-const MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
-export const MESSAGE_WORKSPACE_DELETED = 3;
+import {
+  MESSAGE_AWARENESS,
+  MESSAGE_SYNC,
+  MESSAGE_WORKSPACE_DELETED,
+} from "../index";
 
 export interface MockWebSocket {
   close: Mock<() => void>;
@@ -100,6 +101,9 @@ export function collectMessages(mockWs: MockWebSocket): {
   const deleted: Uint8Array[] = [];
 
   for (const msg of mockWs.sent) {
+    if (msg.byteLength === 0) {
+      continue;
+    }
     const type = msg[0];
     if (type === MESSAGE_SYNC) {
       sync.push(msg);

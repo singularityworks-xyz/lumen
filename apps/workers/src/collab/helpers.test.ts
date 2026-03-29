@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-type MockFn = ReturnType<typeof mock<() => Promise<any>>>;
+type MockFn = ReturnType<typeof mock<() => Promise<unknown>>>;
 
 const prismaMock: {
   workspaceCollaborator: { findUnique: MockFn; upsert: MockFn; count: MockFn };
@@ -81,7 +81,9 @@ import {
   getCollaborator,
   getColorForUser,
   getShareInfo,
+  getUserInfo,
   getWorkspaceCollaboratorCount,
+  getWorkspaceName,
 } from "./helpers";
 
 describe("collab/helpers", () => {
@@ -360,8 +362,7 @@ describe("collab/helpers", () => {
         image: "https://img.com/a.png",
         email: "alice@test.com",
       });
-      const { getUserInfo: getUser } = await import("./helpers");
-      const result = await getUser("user-1");
+      const result = await getUserInfo("user-1");
       expect(result).toMatchObject({
         id: "user-1",
         name: "Alice",
@@ -371,15 +372,13 @@ describe("collab/helpers", () => {
 
     it("returns null when user not found", async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(null);
-      const { getUserInfo: getUser } = await import("./helpers");
-      const result = await getUser("user-missing");
+      const result = await getUserInfo("user-missing");
       expect(result).toBeNull();
     });
 
     it("returns null on DB error", async () => {
       prismaMock.user.findUnique.mockRejectedValueOnce(new Error("DB fail"));
-      const { getUserInfo: getUser } = await import("./helpers");
-      const result = await getUser("user-err");
+      const result = await getUserInfo("user-err");
       expect(result).toBeNull();
     });
   });
@@ -389,8 +388,7 @@ describe("collab/helpers", () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce({
         name: "My Workspace",
       });
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-1");
+      const result = await getWorkspaceName("ws-1");
       expect(result).toBe("My Workspace");
     });
 
@@ -403,8 +401,7 @@ describe("collab/helpers", () => {
           getMap: (key: string) => (key === "workspace" ? wsMap : new Map()),
         },
       });
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-room-fallback");
+      const result = await getWorkspaceName("ws-room-fallback");
       expect(result).toBe("Room Name");
     });
 
@@ -421,8 +418,7 @@ describe("collab/helpers", () => {
           getMap: (key: string) => (key === "workspace" ? wsMap : new Map()),
         },
       });
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-stored");
+      const result = await getWorkspaceName("ws-stored");
       expect(result).toBe("Stored Name");
     });
 
@@ -432,11 +428,10 @@ describe("collab/helpers", () => {
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
         yjsState: Buffer.from("state"),
       });
-      mockGetOrCreateRoom.mockReturnValueOnce({
+      mockGetRoom.mockReturnValueOnce({
         doc: { getMap: () => new Map() },
       });
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-empty");
+      const result = await getWorkspaceName("ws-empty");
       expect(result).toBeNull();
     });
 
@@ -444,8 +439,7 @@ describe("collab/helpers", () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
       mockGetRoom.mockReturnValueOnce(undefined);
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-none");
+      const result = await getWorkspaceName("ws-none");
       expect(result).toBeNull();
     });
 
@@ -453,8 +447,7 @@ describe("collab/helpers", () => {
       prismaMock.workspace.findUnique.mockRejectedValueOnce(
         new Error("DB fail")
       );
-      const { getWorkspaceName: getName } = await import("./helpers");
-      const result = await getName("ws-err");
+      const result = await getWorkspaceName("ws-err");
       expect(result).toBeNull();
     });
   });

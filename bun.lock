@@ -77,7 +77,7 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.9",
+      "version": "1.0.10",
     },
     "apps/web": {
       "name": "@lumen/web",
@@ -170,7 +170,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.25",
+      "version": "1.0.26",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
@@ -224,7 +224,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.10",
+      "version": "1.0.11",
       "dependencies": {
         "@prisma/adapter-pg": "^7.5.0",
         "@prisma/client": "^7.5.0",
@@ -288,7 +288,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.8",
+      "version": "0.0.10",
       "dependencies": {
         "lib0": "^0.2.117",
         "y-protocols": "^1.0.7",
