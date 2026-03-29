@@ -7,7 +7,12 @@ import {
   withSpan,
   withSpanAsync,
 } from "@lumen/logger/server";
-import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
+import {
+  MESSAGE_AWARENESS,
+  MESSAGE_SYNC,
+  MESSAGE_WORKSPACE_DELETED,
+  YJS_MAP_NAMES,
+} from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
@@ -16,9 +21,9 @@ import * as Y from "yjs";
 import { recordWsRoomJoinDuration } from "./metrics";
 
 const logger = createLogger({ name: "collab:room-manager" });
-const MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
-export const MESSAGE_WORKSPACE_DELETED = 3;
+
+// biome-ignore lint/performance/noBarrelFile: re-export needed for backward compatibility with existing imports
+export { MESSAGE_WORKSPACE_DELETED } from "@lumen/yjs-shared";
 
 export interface CollaboratorInfo {
   color: string;
@@ -50,7 +55,7 @@ interface Room {
   workspaceId: string;
 }
 
-class RoomManager {
+export class RoomManager {
   private readonly rooms = new Map<string, Room>();
   private readonly connectionToRoom = new Map<string, string>();
   private readonly persistenceDebounceMs = 5000;
@@ -833,6 +838,25 @@ class RoomManager {
    *  methods that rely on deletedWorkspaces. */
   clearDeletedWorkspaces(): void {
     this.deletedWorkspaces.clear();
+  }
+
+  /** Resets all internal state — intended for test isolation only.
+   *  Destroys all active Yjs docs, clears connection tracking, cancels
+   *  pending persistence timeouts, and resets deleted-workspace tracking. */
+  reset(): void {
+    for (const [, room] of this.rooms) {
+      if (room.persistenceTimeout) {
+        clearTimeout(room.persistenceTimeout);
+      }
+      if (room.cleanupTimeout) {
+        clearTimeout(room.cleanupTimeout);
+      }
+      room.doc.destroy();
+    }
+    this.rooms.clear();
+    this.connectionToRoom.clear();
+    this.deletedWorkspaces.clear();
+    this.pendingLoads.clear();
   }
 }
 

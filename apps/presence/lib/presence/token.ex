@@ -23,11 +23,35 @@ defmodule Presence.Token do
   end
 
   @doc """
+  Set JWKS directly in the cache for testing.
+  Clears any existing entry first to ensure test isolation.
+  """
+  def set_jwks_for_test(jwks) do
+    init_cache()
+    :ets.delete(@jwks_cache_table, :jwks)
+    timestamp = System.monotonic_time(:millisecond)
+    :ets.insert(@jwks_cache_table, {:jwks, jwks, timestamp})
+    :ok
+  end
+
+  @doc """
+  Clear the JWKS cache. Useful for test isolation.
+  """
+  def clear_jwks_cache do
+    init_cache()
+    :ets.delete(@jwks_cache_table, :jwks)
+    :ok
+  end
+
+  @doc """
   Verify a JWT token using JWKS from Better Auth.
   """
   def verify(token) do
-    with {:ok, jwks} <- get_jwks(),
-         {:ok, claims} <- verify_with_jwks(token, jwks) do
+    with {:ok, header} <- decode_header(token),
+         {:ok, kid} <- extract_kid(header),
+         {:ok, jwks} <- get_jwks(),
+         {:ok, key} <- find_key(jwks, kid),
+         {:ok, claims} <- verify_token_with_key(token, key) do
       {:ok, claims}
     else
       {:error, reason} ->
@@ -100,25 +124,27 @@ defmodule Presence.Token do
     now - timestamp < @jwks_cache_ttl_ms
   end
 
-  defp verify_with_jwks(token, jwks) do
-    # Find the key matching the token's kid (key ID)
-    with {:ok, header} <- decode_header(token),
-         kid <- Map.get(header, "kid"),
-         key <- find_key(jwks, kid),
-         {:ok, claims} <- verify_token_with_key(token, key) do
-      {:ok, claims}
-    else
-      nil ->
-        {:error, :key_not_found}
-
-      {:error, reason} ->
-        {:error, reason}
+  defp extract_kid(header) when is_map(header) do
+    case Map.get(header, "kid") do
+      nil -> {:error, :missing_kid}
+      kid -> {:ok, kid}
     end
   end
 
-  defp decode_header(token) do
+  defp extract_kid(_header), do: {:error, :invalid_header}
+
+  defp find_key(%{"keys" => keys}, kid) when is_list(keys) do
+    case Enum.find(keys, fn key -> is_map(key) and key["kid"] == kid end) do
+      nil -> {:error, :key_not_found}
+      key -> {:ok, key}
+    end
+  end
+
+  defp find_key(_jwks, _kid), do: {:error, :malformed_jwks}
+
+  defp decode_header(token) when is_binary(token) do
     case String.split(token, ".") do
-      [header_b64 | _] ->
+      [header_b64, _payload_b64, _signature_b64 | _] ->
         case Base.url_decode64(header_b64, padding: false) do
           {:ok, header_json} -> Jason.decode(header_json)
           :error -> {:error, :invalid_header}
@@ -129,9 +155,7 @@ defmodule Presence.Token do
     end
   end
 
-  defp find_key(%{"keys" => keys}, kid) do
-    Enum.find(keys, fn key -> key["kid"] == kid end)
-  end
+  defp decode_header(_token), do: {:error, :invalid_token_format}
 
   defp verify_token_with_key(token, key) do
     # Convert JWK to format JOSE expects

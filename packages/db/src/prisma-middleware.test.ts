@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const noop = () => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 };
 
 const loggerMock = {
@@ -36,7 +36,7 @@ const encryptPrivateKeyMock = mock<(plaintext: string) => Promise<string>>(
 
 const decryptPrivateKeyMock = mock<(data: string) => Promise<string>>(
   (data: string) => {
-    if (data.startsWith("encrypted:")) {
+    if (typeof data === "string" && data.startsWith("encrypted:")) {
       return Promise.resolve(data.slice("encrypted:".length));
     }
     return Promise.reject(
@@ -92,7 +92,7 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", privateKey: _args.data })
+        Promise.resolve({ id: "1", privateKey: (_args.data as any).privateKey })
       );
 
       await handlers.create!({
@@ -139,6 +139,20 @@ describe("prisma-middleware", () => {
 
       expect(encryptPrivateKeyMock).not.toHaveBeenCalled();
     });
+
+    it("re-throws encryption errors and records span error", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(new Error("encrypt failed"));
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.create!({
+          args: { data: { privateKey: "bad-key", kid: "k1" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("encrypt failed");
+    });
   });
 
   describe("update", () => {
@@ -177,6 +191,22 @@ describe("prisma-middleware", () => {
       expect(queryFn).toHaveBeenCalledWith({
         data: { privateKey: "updated-key" },
       });
+    });
+
+    it("re-throws encryption errors and records span error", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(
+        new Error("update encrypt failed")
+      );
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.update!({
+          args: { data: { privateKey: "bad-key" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("update encrypt failed");
     });
   });
 
@@ -221,6 +251,60 @@ describe("prisma-middleware", () => {
       });
 
       expect(encryptPrivateKeyMock).not.toHaveBeenCalled();
+    });
+
+    it("re-throws create encryption errors", async () => {
+      encryptPrivateKeyMock.mockRejectedValueOnce(
+        new Error("create encrypt failed")
+      );
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.upsert!({
+          args: {
+            create: { privateKey: "bad-create-key" },
+            update: { privateKey: "update-key" },
+          },
+          query: queryFn,
+        })
+      ).rejects.toThrow("create encrypt failed");
+    });
+
+    it("re-throws decryption errors on create", async () => {
+      const handlers = buildHandlers();
+
+      const queryFn = mock((_args: Record<string, unknown>) =>
+        Promise.resolve({ id: "1", privateKey: "bad-data" })
+      );
+
+      await expect(
+        handlers.create!({
+          args: { data: { privateKey: "my-raw-key", kid: "k1" } },
+          query: queryFn,
+        })
+      ).rejects.toThrow("Decryption failed");
+    });
+
+    it("re-throws update encryption errors", async () => {
+      // First call succeeds (for create), second call fails (for update)
+      encryptPrivateKeyMock
+        .mockResolvedValueOnce("encrypted:create-key")
+        .mockRejectedValueOnce(new Error("update encrypt failed"));
+      const handlers = buildHandlers();
+
+      const queryFn = mock(() => Promise.resolve({ id: "1" }));
+
+      await expect(
+        handlers.upsert!({
+          args: {
+            create: { privateKey: "create-key" },
+            update: { privateKey: "bad-update-key" },
+          },
+          query: queryFn,
+        })
+      ).rejects.toThrow("update encrypt failed");
     });
   });
 

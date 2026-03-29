@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockLoggerInfo = mock(() => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 });
 const mockLoggerWarn = mock(() => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 });
 const mockLoggerError = mock(() => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 });
 const mockLoggerDebug = mock(() => {
-  /* intentionally empty mock */
+  // intentionally empty mock
 });
 
 mock.module("@lumen/logger", () => ({

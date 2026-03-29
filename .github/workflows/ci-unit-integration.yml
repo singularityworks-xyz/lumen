@@ -61,7 +61,7 @@ jobs:
         run: bun run db:gen
 
       - name: Run worker unit tests
-        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
+        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
 
       - name: Run package unit tests
         run: |
@@ -169,7 +169,7 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/workers.setup.ts ./apps/workers/test/integration/*.test.ts
+        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/test/integration/*.test.ts
 
   coverage-gate:
     name: Coverage Gate

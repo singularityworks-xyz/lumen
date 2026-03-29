@@ -37,7 +37,18 @@ export function createJwksEncryptionExtension() {
                   throw error;
                 }
               }
-              return query(args);
+              const result = await query(args);
+              if (result?.privateKey && isEncryptionConfigured()) {
+                try {
+                  result.privateKey = await decryptPrivateKey(
+                    result.privateKey
+                  );
+                } catch (error) {
+                  recordSpanError(span, error);
+                  throw error;
+                }
+              }
+              return result;
             });
           },
 

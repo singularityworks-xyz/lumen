@@ -258,6 +258,50 @@ function updateBunLockfile() {
   return true;
 }
 
+function updateCargoLockfile(): boolean {
+  const decoder = new TextDecoder();
+
+  const isWindows = process.platform === "win32";
+  const cargoCommand = isWindows ? ["where", "cargo"] : ["which", "cargo"];
+
+  const cargoCheck = Bun.spawnSync({
+    cmd: cargoCommand,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (cargoCheck.exitCode !== 0) {
+    console.warn(
+      "Warning: cargo not found; skipping Cargo.lock update. " +
+        "Install Rust tooling if you need Cargo.lock to stay in sync."
+    );
+    return false;
+  }
+
+  const cargoLockPath = path.join(ROOT_DIR, "apps/native/src-tauri/Cargo.lock");
+  if (!fs.existsSync(cargoLockPath)) {
+    console.warn(
+      "Warning: Cargo.lock not found at expected path; skipping update."
+    );
+    return false;
+  }
+
+  const result = Bun.spawnSync({
+    cmd: ["cargo", "update", "-p", "lumen-singularityworks"],
+    cwd: path.join(ROOT_DIR, "apps/native/src-tauri"),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  if (result.exitCode !== 0) {
+    console.error("Warning: cargo update failed");
+    console.error(decoder.decode(result.stderr).trim());
+    return false;
+  }
+
+  return true;
+}
+
 function readVersion(file: string) {
   const content = fs.readFileSync(path.join(ROOT_DIR, file), "utf8");
   return getFileStrategy(file).readVersion(content);
@@ -628,6 +672,13 @@ function main() {
       );
     }
     stageFiles([lockfilePath]);
+  }
+
+  if ("apps/native" in state.workspaces) {
+    const cargoLockUpdated = updateCargoLockfile();
+    if (cargoLockUpdated) {
+      stageFiles(["apps/native/src-tauri/Cargo.lock"]);
+    }
   }
 
   state.triggerSignatures = Object.fromEntries(

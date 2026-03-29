@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["bun"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@lumen/db": ["./packages/db/src/index.ts"],
+      "@lumen/db/*": ["./packages/db/src/*"],
+      "@lumen/yjs-shared": ["./packages/yjs-shared/src/index.ts"],
+      "@lumen/yjs-shared/*": ["./packages/yjs-shared/src/*"],
+      "@web/*": ["./apps/web/src/*"],
+      "@workers/*": ["./apps/workers/src/*"]
+    }
+  },
+  "include": ["tests/**/*.ts", "tests/**/*.tsx", "scripts/**/*.ts"]
+}

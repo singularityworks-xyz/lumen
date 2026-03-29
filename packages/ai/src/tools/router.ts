@@ -159,11 +159,9 @@ export function detectToolIntent(message: string): ToolSelection {
     };
   }
 
-  return {
-    intent: "none",
-    tools: null,
-    reason: "No tool intent detected",
-  };
+  // Unreachable: all (entity, action, query) boolean combinations
+  // are handled by the 6 conditions above
+  throw new Error("detectToolIntent: unreachable");
 }
 
 // Returns tools based on selection, or null if none needed

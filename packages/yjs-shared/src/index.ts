@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const MESSAGE_SYNC = 0;
+export const MESSAGE_AWARENESS = 1;
+export const MESSAGE_WORKSPACE_DELETED = 3;
+
 export const YJS_MAP_NAMES = {
   WORKSPACE: "workspace",
   BOARDS: "boards",
@@ -442,3 +446,6 @@ export function getMapStats(
   }
   return stats;
 }
+
+// biome-ignore lint/performance/noBarrelFile: needed for fixture re-exports
+export * from "./fixtures/ydoc-fixtures";
