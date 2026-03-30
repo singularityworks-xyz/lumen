@@ -6,13 +6,16 @@ try {
   /* ignore */
 }
 
-import { describe, expect, it, mock } from "bun:test";
-import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { renderHook } from "@testing-library/react";
 
-const createMockAwareness = () => ({
-  setLocalStateField: mock(() => undefined) as any,
-  getLocalState: mock(() => null) as any,
-});
+let timeCounter = 1_000_000;
+Date.now = () => ++timeCounter;
+
+const mockAwareness = {
+  setLocalStateField: mock(() => undefined),
+  getLocalState: mock(() => null as any),
+};
 
 const mockCollaborators = [
   {
@@ -30,47 +33,53 @@ const mockCollaborators = [
   },
 ] as any;
 
-const mockUseCollaboration = mock(() => ({
-  isCollaborating: false,
-  awareness: null,
-  collaborators: [],
-  localUser: null,
-})) as any;
+const collabState = {
+  isCollaborating: false as boolean,
+  awareness: null as any,
+  collaborators: [] as any[],
+  localUser: null as any,
+};
 
 mock.module("@/src/features/collab", () => ({
-  useCollaboration: mockUseCollaboration,
+  useCollaboration: () => collabState,
 }));
+
+beforeEach(() => {
+  mockAwareness.setLocalStateField.mockClear();
+  mockAwareness.getLocalState.mockClear();
+  mockAwareness.getLocalState.mockImplementation(() => null);
+  collabState.isCollaborating = false;
+  collabState.awareness = null;
+  collabState.collaborators = [];
+  collabState.localUser = null;
+  timeCounter = 1_000_000;
+  Date.now = () => ++timeCounter;
+});
+
+const mockTask = {
+  id: "task-123",
+  column_id: "col-1",
+  board_id: "board-1",
+  content: "Test task",
+} as unknown as import("@/src/features/kanban").Task;
 
 describe("use-task-drag-presence", () => {
   it("starts drag and broadcasts to collaborators", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: {
-        id: "local-user",
-        name: "Local",
-        color: "#fff",
-        role: "editor",
-      },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test task",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask, 150, 250);
-    });
+    result.current.startDragging(mockTask, 150, 250);
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "draggingTask",
@@ -85,34 +94,21 @@ describe("use-task-drag-presence", () => {
   });
 
   it("updates drag position while moving", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: {
-        id: "local-user",
-        name: "Local",
-        color: "#fff",
-        role: "editor",
-      },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test task",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask, 100, 100);
-    });
+    result.current.startDragging(mockTask, 100, 100);
 
     mockAwareness.getLocalState.mockImplementation(() => ({
       draggingTask: {
@@ -124,9 +120,7 @@ describe("use-task-drag-presence", () => {
       },
     }));
 
-    act(() => {
-      result.current.updateDragPosition(200, 300);
-    });
+    result.current.updateDragPosition(200, 300);
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "draggingTask",
@@ -138,40 +132,25 @@ describe("use-task-drag-presence", () => {
   });
 
   it("fallback recreates lost drag state", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: {
-        id: "local-user",
-        name: "Local",
-        color: "#fff",
-        role: "editor",
-      },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test task",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask, 100, 100);
-    });
+    result.current.startDragging(mockTask, 100, 100);
 
     mockAwareness.getLocalState.mockImplementation(() => null);
 
-    act(() => {
-      result.current.updateDragPosition(250, 350);
-    });
+    result.current.updateDragPosition(250, 350);
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "draggingTask",
@@ -184,38 +163,22 @@ describe("use-task-drag-presence", () => {
   });
 
   it("clears drag state on stop", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: {
-        id: "local-user",
-        name: "Local",
-        color: "#fff",
-        role: "editor",
-      },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test task",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask);
-    });
-
-    act(() => {
-      result.current.stopDragging();
-    });
+    result.current.startDragging(mockTask);
+    result.current.stopDragging();
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "draggingTask",
@@ -224,35 +187,21 @@ describe("use-task-drag-presence", () => {
   });
 
   it("cleanup removes lingering drag presence", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: {
-        id: "local-user",
-        name: "Local",
-        color: "#fff",
-        role: "editor",
-      },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result, unmount } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test task",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask);
-    });
-
+    result.current.startDragging(mockTask);
     unmount();
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
@@ -262,13 +211,9 @@ describe("use-task-drag-presence", () => {
   });
 
   it("returns dragging collaborators", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -280,12 +225,8 @@ describe("use-task-drag-presence", () => {
   });
 
   it("returns empty draggingCollaborators when not collaborating", async () => {
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: false,
-      awareness: null,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = false;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -296,12 +237,8 @@ describe("use-task-drag-presence", () => {
   });
 
   it("getTaskDragCollaborator returns undefined when not collaborating", async () => {
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: false,
-      awareness: null,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = false;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -313,13 +250,9 @@ describe("use-task-drag-presence", () => {
   });
 
   it("getTaskDragCollaborator finds collaborator by taskId", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -331,13 +264,9 @@ describe("use-task-drag-presence", () => {
   });
 
   it("getTaskDragCollaborator returns undefined for unknown taskId", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -349,12 +278,8 @@ describe("use-task-drag-presence", () => {
   });
 
   it("draggedTasks returns empty when not collaborating", async () => {
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: false,
-      awareness: null,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = false;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -365,13 +290,9 @@ describe("use-task-drag-presence", () => {
   });
 
   it("draggedTasks returns collaborator drag states", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-      localUser: null,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = mockCollaborators;
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
@@ -383,52 +304,41 @@ describe("use-task-drag-presence", () => {
   });
 
   it("updateDragPosition returns early when not dragging", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: { id: "local", name: "L", color: "#fff", role: "editor" },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local",
+      name: "L",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    // Call updateDragPosition without starting drag first
-    act(() => {
-      result.current.updateDragPosition(100, 200);
-    });
+    result.current.updateDragPosition(100, 200);
 
-    // Should not call setLocalStateField since not dragging
     expect(mockAwareness.setLocalStateField).not.toHaveBeenCalled();
   });
 
   it("updateDragPosition throttles rapid updates", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-      localUser: { id: "local", name: "L", color: "#fff", role: "editor" },
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.localUser = {
+      id: "local",
+      name: "L",
+      color: "#fff",
+      role: "editor",
+    };
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"
     );
     const { result } = renderHook(() => useTaskDragPresence());
 
-    const mockTask = {
-      id: "task-123",
-      column_id: "col-1",
-      board_id: "board-1",
-      content: "Test",
-    } as unknown as import("@/src/features/kanban").Task;
-
-    act(() => {
-      result.current.startDragging(mockTask, 100, 100);
-    });
+    result.current.startDragging(mockTask, 100, 100);
 
     mockAwareness.getLocalState.mockImplementation(() => ({
       draggingTask: {
@@ -442,34 +352,26 @@ describe("use-task-drag-presence", () => {
 
     const callCountBefore = mockAwareness.setLocalStateField.mock.calls.length;
 
-    // Rapid updates within throttle window
-    act(() => {
-      result.current.updateDragPosition(101, 101);
-      result.current.updateDragPosition(102, 102);
-      result.current.updateDragPosition(103, 103);
-    });
+    result.current.updateDragPosition(101, 101);
+    result.current.updateDragPosition(102, 102);
+    result.current.updateDragPosition(103, 103);
 
-    // Due to throttle (24ms), not all calls should go through
     const callsAfter = mockAwareness.setLocalStateField.mock.calls.length;
     expect(callsAfter - callCountBefore).toBeLessThanOrEqual(3);
   });
 
   it("draggedTasks skips collaborators without draggingTask", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [
-        {
-          id: "user-2",
-          name: "User 2",
-          color: "#00ff00",
-          role: "editor",
-          draggingTask: null,
-        },
-      ],
-      localUser: null,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [
+      {
+        id: "user-2",
+        name: "User 2",
+        color: "#00ff00",
+        role: "editor",
+        draggingTask: null,
+      },
+    ];
 
     const { useTaskDragPresence } = await import(
       "@/src/hooks/use-task-drag-presence"

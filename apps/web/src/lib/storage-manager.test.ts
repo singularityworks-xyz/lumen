@@ -17,11 +17,14 @@ mock.module("idb-keyval", () => ({
   set: mockSet,
 }));
 
+const { _resetCachedNamespace } = await import("@/src/lib/storage-manager");
+
 beforeEach(() => {
   mockDel.mockReset();
   mockGet.mockReset();
   mockKeys.mockReset();
   mockSet.mockReset();
+  _resetCachedNamespace();
 
   globalThis.window = {
     location: { hostname: "localhost", port: "3000" },
@@ -126,415 +129,438 @@ describe("storage-manager", () => {
     });
   });
 
-  describe("StorageKeys", () => {
-    it("kanbanStore returns namespaced key", async () => {
-      const { StorageKeys } = await import("@/src/lib/storage-manager");
-
-      const key = StorageKeys.kanbanStore();
-      expect(key).toContain("lumen-app.example.com");
-      expect(key).toContain("kanban-store");
+  // All tests below need the production namespace pre-cached
+  describe("with production namespace", () => {
+    beforeEach(() => {
+      globalThis.window = {
+        location: { hostname: "app.example.com", port: "443" },
+      } as typeof window;
+      _resetCachedNamespace();
+      const { getStorageNamespace } = require("@/src/lib/storage-manager");
+      getStorageNamespace();
     });
 
-    it("collabPersistence returns namespaced key with workspace ID", async () => {
-      const { StorageKeys } = await import("@/src/lib/storage-manager");
+    describe("StorageKeys", () => {
+      it("kanbanStore returns namespaced key", async () => {
+        const { StorageKeys } = await import("@/src/lib/storage-manager");
 
-      const key = StorageKeys.collabPersistence("ws-123");
-      expect(key).toContain("lumen-app.example.com");
-      expect(key).toContain("collab-ws-123");
-    });
-
-    it("legacyKanbanStore returns static key", async () => {
-      const { StorageKeys } = await import("@/src/lib/storage-manager");
-
-      expect(StorageKeys.legacyKanbanStore()).toBe("lumen-kanban-store");
-    });
-  });
-
-  describe("clearCurrentEnvironment", () => {
-    it("deletes only current environment keys", async () => {
-      mockKeys.mockResolvedValue([
-        "lumen-app.example.com-kanban-store",
-        "lumen-app.example.com-collab-ws1",
-        "lumen-prod-kanban-store",
-        "lumen-ssr-kanban-store",
-      ]);
-      mockDel.mockResolvedValue();
-
-      const { clearCurrentEnvironment } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await clearCurrentEnvironment();
-
-      expect(mockDel).toHaveBeenCalledTimes(2);
-      expect(mockDel).toHaveBeenCalledWith(
-        "lumen-app.example.com-kanban-store"
-      );
-      expect(mockDel).toHaveBeenCalledWith("lumen-app.example.com-collab-ws1");
-      expect(mockDel).not.toHaveBeenCalledWith("lumen-prod-kanban-store");
-      expect(mockDel).not.toHaveBeenCalledWith("lumen-ssr-kanban-store");
-    });
-
-    it("returns early in SSR environment", async () => {
-      globalThis.window = undefined as unknown as typeof window;
-
-      const { clearCurrentEnvironment } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await clearCurrentEnvironment();
-
-      expect(mockKeys).not.toHaveBeenCalled();
-    });
-
-    it("throws when clearCurrentEnvironment fails", async () => {
-      mockKeys.mockRejectedValue(new Error("IDB error"));
-
-      const { clearCurrentEnvironment } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await expect(clearCurrentEnvironment()).rejects.toThrow("IDB error");
-    });
-
-    it("handles no matching keys on clear", async () => {
-      mockKeys.mockResolvedValue(["lumen-prod-kanban-store", "other-key"]);
-
-      const { clearCurrentEnvironment } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await clearCurrentEnvironment();
-
-      expect(mockDel).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("exportEnvironmentData", () => {
-    it("exports only current namespace keys", async () => {
-      mockKeys.mockResolvedValue([
-        "lumen-app.example.com-kanban-store",
-        "lumen-app.example.com-collab-ws1",
-        "lumen-prod-kanban-store",
-      ]);
-      mockGet.mockImplementation((key: string) => {
-        if (key === "lumen-app.example.com-kanban-store") {
-          return Promise.resolve({ data: "kanban" });
-        }
-        if (key === "lumen-app.example.com-collab-ws1") {
-          return Promise.resolve({ data: "collab" });
-        }
-        return Promise.resolve(null);
+        const key = StorageKeys.kanbanStore();
+        expect(key).toContain("lumen-app.example.com");
+        expect(key).toContain("kanban-store");
       });
 
-      const { exportEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
+      it("collabPersistence returns namespaced key with workspace ID", async () => {
+        const { StorageKeys } = await import("@/src/lib/storage-manager");
 
-      const result = await exportEnvironmentData();
-
-      expect(Object.keys(result)).toHaveLength(2);
-      expect(result["lumen-app.example.com-kanban-store"]).toBeDefined();
-      expect(result["lumen-prod-kanban-store"]).toBeUndefined();
-    });
-
-    it("returns empty object in SSR", async () => {
-      globalThis.window = undefined as unknown as typeof window;
-
-      const { exportEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      const result = await exportEnvironmentData();
-      expect(result).toEqual({});
-    });
-
-    it("throws when export fails", async () => {
-      mockKeys.mockRejectedValue(new Error("Export error"));
-
-      const { exportEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await expect(exportEnvironmentData()).rejects.toThrow("Export error");
-    });
-
-    it("handles empty key list", async () => {
-      mockKeys.mockResolvedValue([]);
-
-      const { exportEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      const result = await exportEnvironmentData();
-      expect(result).toEqual({});
-      expect(mockGet).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("importEnvironmentData", () => {
-    it("imports only matching namespace keys", async () => {
-      const importData = {
-        "lumen-app.example.com-kanban-store": { data: "new" },
-        "lumen-prod-kanban-store": { data: "old" },
-      };
-
-      const { importEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await importEnvironmentData(importData);
-
-      expect(mockSet).toHaveBeenCalledWith(
-        "lumen-app.example.com-kanban-store",
-        expect.anything()
-      );
-      expect(mockSet).not.toHaveBeenCalledWith(
-        "lumen-prod-kanban-store",
-        expect.anything()
-      );
-    });
-
-    it("returns early in SSR", async () => {
-      globalThis.window = undefined as unknown as typeof window;
-
-      const { importEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await importEnvironmentData({ key: "value" });
-      expect(mockSet).not.toHaveBeenCalled();
-    });
-
-    it("throws when import fails", async () => {
-      mockSet.mockRejectedValue(new Error("Import error"));
-
-      const { importEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await expect(
-        importEnvironmentData({ "lumen-app.example.com-kanban-store": {} })
-      ).rejects.toThrow("Import error");
-    });
-
-    it("handles empty data object", async () => {
-      const { importEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await importEnvironmentData({});
-
-      expect(mockSet).not.toHaveBeenCalled();
-    });
-
-    it("imports multiple matching keys", async () => {
-      const importData = {
-        "lumen-app.example.com-kanban-store": { boards: [] },
-        "lumen-app.example.com-collab-ws1": { doc: "data" },
-        "lumen-prod-kanban-store": { should: "skip" },
-      };
-
-      const { importEnvironmentData } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      await importEnvironmentData(importData);
-
-      expect(mockSet).toHaveBeenCalledTimes(2);
-      expect(mockSet).toHaveBeenCalledWith(
-        "lumen-app.example.com-kanban-store",
-        {
-          boards: [],
-        }
-      );
-      expect(mockSet).toHaveBeenCalledWith("lumen-app.example.com-collab-ws1", {
-        doc: "data",
-      });
-    });
-  });
-
-  describe("migrateFromLegacyStorage", () => {
-    it("copies only when new storage is empty", async () => {
-      mockGet.mockImplementation((key: string) => {
-        if (key === "lumen-kanban-store") {
-          return Promise.resolve({ data: "legacy" });
-        }
-        return Promise.resolve(null);
+        const key = StorageKeys.collabPersistence("ws-123");
+        expect(key).toContain("lumen-app.example.com");
+        expect(key).toContain("collab-ws-123");
       });
 
-      const { migrateFromLegacyStorage } = await import(
-        "@/src/lib/storage-manager"
-      );
+      it("legacyKanbanStore returns static key", async () => {
+        const { StorageKeys } = await import("@/src/lib/storage-manager");
 
-      const result = await migrateFromLegacyStorage();
-
-      expect(result).toBe(true);
-      expect(mockSet).toHaveBeenCalledWith(
-        "lumen-app.example.com-kanban-store",
-        {
-          data: "legacy",
-        }
-      );
+        expect(StorageKeys.legacyKanbanStore()).toBe("lumen-kanban-store");
+      });
     });
 
-    it("skips migration when new storage has data", async () => {
-      mockGet.mockImplementation((key: string) => {
-        if (key === "lumen-kanban-store") {
-          return Promise.resolve({ data: "legacy" });
-        }
-        if (key === "lumen-app.example.com-kanban-store") {
-          return Promise.resolve({ data: "existing" });
-        }
-        return Promise.resolve(null);
+    describe("clearCurrentEnvironment", () => {
+      it("deletes only current environment keys", async () => {
+        mockKeys.mockResolvedValue([
+          "lumen-app.example.com-kanban-store",
+          "lumen-app.example.com-collab-ws1",
+          "lumen-prod-kanban-store",
+          "lumen-ssr-kanban-store",
+        ]);
+        mockDel.mockResolvedValue();
+
+        const { clearCurrentEnvironment } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await clearCurrentEnvironment();
+
+        expect(mockDel).toHaveBeenCalledTimes(2);
+        expect(mockDel).toHaveBeenCalledWith(
+          "lumen-app.example.com-kanban-store"
+        );
+        expect(mockDel).toHaveBeenCalledWith(
+          "lumen-app.example.com-collab-ws1"
+        );
+        expect(mockDel).not.toHaveBeenCalledWith("lumen-prod-kanban-store");
+        expect(mockDel).not.toHaveBeenCalledWith("lumen-ssr-kanban-store");
       });
 
-      const { migrateFromLegacyStorage } = await import(
-        "@/src/lib/storage-manager"
-      );
+      it("returns early in SSR environment", async () => {
+        globalThis.window = undefined as unknown as typeof window;
 
-      const result = await migrateFromLegacyStorage();
+        const { clearCurrentEnvironment } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      expect(result).toBe(false);
-      expect(mockSet).not.toHaveBeenCalled();
-    });
+        await clearCurrentEnvironment();
 
-    it("returns false when no legacy data exists", async () => {
-      mockGet.mockResolvedValue(null);
-
-      const { migrateFromLegacyStorage } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      const result = await migrateFromLegacyStorage();
-
-      expect(result).toBe(false);
-    });
-
-    it("returns false in SSR", async () => {
-      globalThis.window = undefined as unknown as typeof window;
-
-      const { migrateFromLegacyStorage } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      const result = await migrateFromLegacyStorage();
-      expect(result).toBe(false);
-    });
-
-    it("returns false and logs when migration throws", async () => {
-      mockGet.mockRejectedValue(new Error("Storage error"));
-
-      const { migrateFromLegacyStorage } = await import(
-        "@/src/lib/storage-manager"
-      );
-
-      const result = await migrateFromLegacyStorage();
-      expect(result).toBe(false);
-    });
-
-    it("migrates legacy data to new key", async () => {
-      const legacyData = { boards: ["board1"], settings: { theme: "dark" } };
-      mockGet.mockImplementation((key: string) => {
-        if (key === "lumen-kanban-store") {
-          return Promise.resolve(legacyData);
-        }
-        return Promise.resolve(null);
+        expect(mockKeys).not.toHaveBeenCalled();
       });
 
-      const { migrateFromLegacyStorage, StorageKeys } = await import(
-        "@/src/lib/storage-manager"
-      );
+      it("throws when clearCurrentEnvironment fails", async () => {
+        mockKeys.mockRejectedValue(new Error("IDB error"));
 
-      const result = await migrateFromLegacyStorage();
+        const { clearCurrentEnvironment } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      expect(result).toBe(true);
-      expect(mockSet).toHaveBeenCalledWith(
-        StorageKeys.kanbanStore(),
-        legacyData
-      );
-    });
-  });
+        await expect(clearCurrentEnvironment()).rejects.toThrow("IDB error");
+      });
 
-  describe("getStorageStats", () => {
-    it("returns stats for current environment", async () => {
-      mockKeys.mockResolvedValue([
-        "lumen-app.example.com-kanban-store",
-        "lumen-app.example.com-collab-ws1",
-        "lumen-prod-kanban-store",
-      ]);
+      it("handles no matching keys on clear", async () => {
+        mockKeys.mockResolvedValue(["lumen-prod-kanban-store", "other-key"]);
 
-      const { getStorageStats } = await import("@/src/lib/storage-manager");
+        const { clearCurrentEnvironment } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      const stats = await getStorageStats();
-      expect(stats.namespace).toContain("lumen-app.example.com");
-      // getEnvironmentType uses current window (localhost from beforeEach)
-      expect(stats.environment).toBe("development");
-      expect(stats.keyCount).toBe(2);
-      expect(stats.keys).toHaveLength(2);
+        await clearCurrentEnvironment();
+
+        expect(mockDel).not.toHaveBeenCalled();
+      });
     });
 
-    it("returns SSR stats when no window", async () => {
-      globalThis.window = undefined as unknown as typeof window;
+    describe("exportEnvironmentData", () => {
+      it("exports only current namespace keys", async () => {
+        mockKeys.mockResolvedValue([
+          "lumen-app.example.com-kanban-store",
+          "lumen-app.example.com-collab-ws1",
+          "lumen-prod-kanban-store",
+        ]);
+        mockGet.mockImplementation((key: string) => {
+          if (key === "lumen-app.example.com-kanban-store") {
+            return Promise.resolve({ data: "kanban" });
+          }
+          if (key === "lumen-app.example.com-collab-ws1") {
+            return Promise.resolve({ data: "collab" });
+          }
+          return Promise.resolve(null);
+        });
 
-      const { getStorageStats } = await import("@/src/lib/storage-manager");
+        const { exportEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      const stats = await getStorageStats();
-      expect(stats.namespace).toBe("lumen-ssr");
-      expect(stats.environment).toBe("ssr");
-      expect(stats.keyCount).toBe(0);
+        const result = await exportEnvironmentData();
+
+        expect(Object.keys(result)).toHaveLength(2);
+        expect(result["lumen-app.example.com-kanban-store"]).toBeDefined();
+        expect(result["lumen-prod-kanban-store"]).toBeUndefined();
+      });
+
+      it("returns empty object in SSR", async () => {
+        globalThis.window = undefined as unknown as typeof window;
+
+        const { exportEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await exportEnvironmentData();
+        expect(result).toEqual({});
+      });
+
+      it("throws when export fails", async () => {
+        mockKeys.mockRejectedValue(new Error("Export error"));
+
+        const { exportEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await expect(exportEnvironmentData()).rejects.toThrow("Export error");
+      });
+
+      it("handles empty key list", async () => {
+        mockKeys.mockResolvedValue([]);
+
+        const { exportEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await exportEnvironmentData();
+        expect(result).toEqual({});
+        expect(mockGet).not.toHaveBeenCalled();
+      });
     });
 
-    it("returns empty stats when no keys match namespace", async () => {
-      mockKeys.mockResolvedValue(["lumen-prod-kanban-store", "other-key"]);
+    describe("importEnvironmentData", () => {
+      it("imports only matching namespace keys", async () => {
+        const importData = {
+          "lumen-app.example.com-kanban-store": { data: "new" },
+          "lumen-prod-kanban-store": { data: "old" },
+        };
 
-      const { getStorageStats } = await import("@/src/lib/storage-manager");
+        const { importEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      const stats = await getStorageStats();
-      expect(stats.keyCount).toBe(0);
-      expect(stats.keys).toEqual([]);
+        await importEnvironmentData(importData);
+
+        expect(mockSet).toHaveBeenCalledWith(
+          "lumen-app.example.com-kanban-store",
+          expect.anything()
+        );
+        expect(mockSet).not.toHaveBeenCalledWith(
+          "lumen-prod-kanban-store",
+          expect.anything()
+        );
+      });
+
+      it("returns early in SSR", async () => {
+        globalThis.window = undefined as unknown as typeof window;
+
+        const { importEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await importEnvironmentData({ key: "value" });
+        expect(mockSet).not.toHaveBeenCalled();
+      });
+
+      it("throws when import fails", async () => {
+        mockSet.mockRejectedValue(new Error("Import error"));
+
+        const { importEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await expect(
+          importEnvironmentData({ "lumen-app.example.com-kanban-store": {} })
+        ).rejects.toThrow("Import error");
+      });
+
+      it("handles empty data object", async () => {
+        const { importEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await importEnvironmentData({});
+
+        expect(mockSet).not.toHaveBeenCalled();
+      });
+
+      it("imports multiple matching keys", async () => {
+        const importData = {
+          "lumen-app.example.com-kanban-store": { boards: [] },
+          "lumen-app.example.com-collab-ws1": { doc: "data" },
+          "lumen-prod-kanban-store": { should: "skip" },
+        };
+
+        const { importEnvironmentData } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await importEnvironmentData(importData);
+
+        expect(mockSet).toHaveBeenCalledTimes(2);
+        expect(mockSet).toHaveBeenCalledWith(
+          "lumen-app.example.com-kanban-store",
+          {
+            boards: [],
+          }
+        );
+        expect(mockSet).toHaveBeenCalledWith(
+          "lumen-app.example.com-collab-ws1",
+          {
+            doc: "data",
+          }
+        );
+      });
     });
 
-    it("returns stats filtering by cached namespace", async () => {
-      mockKeys.mockResolvedValue([
-        "lumen-app.example.com-kanban-store",
-        "lumen-prod-kanban-store",
-      ]);
+    describe("migrateFromLegacyStorage", () => {
+      it("copies only when new storage is empty", async () => {
+        mockGet.mockImplementation((key: string) => {
+          if (key === "lumen-kanban-store") {
+            return Promise.resolve({ data: "legacy" });
+          }
+          return Promise.resolve(null);
+        });
 
-      const { getStorageStats } = await import("@/src/lib/storage-manager");
+        const { migrateFromLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      const stats = await getStorageStats();
-      expect(stats.keyCount).toBe(1);
-      expect(stats.keys).toContain("lumen-app.example.com-kanban-store");
-      expect(stats.keys).not.toContain("lumen-prod-kanban-store");
+        const result = await migrateFromLegacyStorage();
+
+        expect(result).toBe(true);
+        expect(mockSet).toHaveBeenCalledWith(
+          "lumen-app.example.com-kanban-store",
+          {
+            data: "legacy",
+          }
+        );
+      });
+
+      it("skips migration when new storage has data", async () => {
+        mockGet.mockImplementation((key: string) => {
+          if (key === "lumen-kanban-store") {
+            return Promise.resolve({ data: "legacy" });
+          }
+          if (key === "lumen-app.example.com-kanban-store") {
+            return Promise.resolve({ data: "existing" });
+          }
+          return Promise.resolve(null);
+        });
+
+        const { migrateFromLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await migrateFromLegacyStorage();
+
+        expect(result).toBe(false);
+        expect(mockSet).not.toHaveBeenCalled();
+      });
+
+      it("returns false when no legacy data exists", async () => {
+        mockGet.mockResolvedValue(null);
+
+        const { migrateFromLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await migrateFromLegacyStorage();
+
+        expect(result).toBe(false);
+      });
+
+      it("returns false in SSR", async () => {
+        globalThis.window = undefined as unknown as typeof window;
+
+        const { migrateFromLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await migrateFromLegacyStorage();
+        expect(result).toBe(false);
+      });
+
+      it("returns false and logs when migration throws", async () => {
+        mockGet.mockRejectedValue(new Error("Storage error"));
+
+        const { migrateFromLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await migrateFromLegacyStorage();
+        expect(result).toBe(false);
+      });
+
+      it("migrates legacy data to new key", async () => {
+        const legacyData = { boards: ["board1"], settings: { theme: "dark" } };
+        mockGet.mockImplementation((key: string) => {
+          if (key === "lumen-kanban-store") {
+            return Promise.resolve(legacyData);
+          }
+          return Promise.resolve(null);
+        });
+
+        const { migrateFromLegacyStorage, StorageKeys } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        const result = await migrateFromLegacyStorage();
+
+        expect(result).toBe(true);
+        expect(mockSet).toHaveBeenCalledWith(
+          StorageKeys.kanbanStore(),
+          legacyData
+        );
+      });
     });
-  });
 
-  describe("clearLegacyStorage", () => {
-    it("clears legacy key in browser", async () => {
-      mockDel.mockResolvedValue();
+    describe("getStorageStats", () => {
+      it("returns stats for current environment", async () => {
+        mockKeys.mockResolvedValue([
+          "lumen-app.example.com-kanban-store",
+          "lumen-app.example.com-collab-ws1",
+          "lumen-prod-kanban-store",
+        ]);
 
-      const { clearLegacyStorage } = await import("@/src/lib/storage-manager");
+        const { getStorageStats } = await import("@/src/lib/storage-manager");
 
-      await clearLegacyStorage();
-      expect(mockDel).toHaveBeenCalledWith("lumen-kanban-store");
+        const stats = await getStorageStats();
+        expect(stats.namespace).toContain("lumen-app.example.com");
+        // window is production domain (from production beforeEach)
+        expect(stats.environment).toBe("production");
+        expect(stats.keyCount).toBe(2);
+        expect(stats.keys).toHaveLength(2);
+      });
+
+      it("returns SSR stats when no window", async () => {
+        globalThis.window = undefined as unknown as typeof window;
+
+        const { getStorageStats } = await import("@/src/lib/storage-manager");
+
+        const stats = await getStorageStats();
+        expect(stats.namespace).toBe("lumen-ssr");
+        expect(stats.environment).toBe("ssr");
+        expect(stats.keyCount).toBe(0);
+      });
+
+      it("returns empty stats when no keys match namespace", async () => {
+        mockKeys.mockResolvedValue(["lumen-prod-kanban-store", "other-key"]);
+
+        const { getStorageStats } = await import("@/src/lib/storage-manager");
+
+        const stats = await getStorageStats();
+        expect(stats.keyCount).toBe(0);
+        expect(stats.keys).toEqual([]);
+      });
+
+      it("returns stats filtering by cached namespace", async () => {
+        mockKeys.mockResolvedValue([
+          "lumen-app.example.com-kanban-store",
+          "lumen-prod-kanban-store",
+        ]);
+
+        const { getStorageStats } = await import("@/src/lib/storage-manager");
+
+        const stats = await getStorageStats();
+        expect(stats.keyCount).toBe(1);
+        expect(stats.keys).toContain("lumen-app.example.com-kanban-store");
+        expect(stats.keys).not.toContain("lumen-prod-kanban-store");
+      });
     });
 
-    it("returns early in SSR", async () => {
-      globalThis.window = undefined as unknown as typeof window;
+    describe("clearLegacyStorage", () => {
+      it("clears legacy key in browser", async () => {
+        mockDel.mockResolvedValue();
 
-      const { clearLegacyStorage } = await import("@/src/lib/storage-manager");
+        const { clearLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      await clearLegacyStorage();
-      expect(mockDel).not.toHaveBeenCalled();
-    });
+        await clearLegacyStorage();
+        expect(mockDel).toHaveBeenCalledWith("lumen-kanban-store");
+      });
 
-    it("swallows errors when clear fails", async () => {
-      mockDel.mockRejectedValue(new Error("Delete error"));
+      it("returns early in SSR", async () => {
+        globalThis.window = undefined as unknown as typeof window;
 
-      const { clearLegacyStorage } = await import("@/src/lib/storage-manager");
+        const { clearLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
 
-      await expect(clearLegacyStorage()).resolves.toBeUndefined();
-    });
-  });
-});
+        await clearLegacyStorage();
+        expect(mockDel).not.toHaveBeenCalled();
+      });
+
+      it("swallows errors when clear fails", async () => {
+        mockDel.mockRejectedValue(new Error("Delete error"));
+
+        const { clearLegacyStorage } = await import(
+          "@/src/lib/storage-manager"
+        );
+
+        await expect(clearLegacyStorage()).resolves.toBeUndefined();
+      });
+    }); // end describe blocks inside with production namespace
+  }); // end with production namespace
+}); // end storage-manager

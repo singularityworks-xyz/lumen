@@ -23,6 +23,7 @@ interface MockMediaQueryList {
 }
 
 const originalMatchMedia = globalThis.matchMedia;
+const _savedWindow = globalThis.window;
 
 function setViewportWidth(width: number) {
   Object.defineProperty(window, "innerWidth", {
@@ -30,6 +31,15 @@ function setViewportWidth(width: number) {
     configurable: true,
     value: width,
   });
+}
+
+function setMatchMedia(fn: (query: string) => MockMediaQueryList) {
+  const mockFn = fn as unknown as typeof matchMedia;
+  globalThis.matchMedia = mockFn;
+  if (globalThis.window) {
+    (globalThis.window as unknown as Record<string, unknown>).matchMedia =
+      mockFn;
+  }
 }
 
 function createMockMediaQueryList(
@@ -57,6 +67,17 @@ function createMockMediaQueryList(
 }
 
 beforeEach(() => {
+  // Ensure window is a proper DOM window (other tests may replace it with plain objects)
+  if (typeof window.dispatchEvent !== "function") {
+    // Re-register happy-dom to restore proper window
+    try {
+      GlobalRegistrator.register();
+    } catch {
+      // Already registered, try to get the proper window
+      const { Window } = require("happy-dom");
+      globalThis.window = new Window() as unknown as typeof window;
+    }
+  }
   setViewportWidth(1024);
 });
 
@@ -69,8 +90,7 @@ describe("use-mobile", () => {
   describe("useIsMobile hook", () => {
     it("returns true when width is below breakpoint", async () => {
       setViewportWidth(500);
-      globalThis.matchMedia = ((query: string) =>
-        createMockMediaQueryList(query, true)) as unknown as typeof matchMedia;
+      setMatchMedia((query: string) => createMockMediaQueryList(query, true));
 
       const { useIsMobile } = await import("./use-mobile");
       const { result } = renderHook(() => useIsMobile());
@@ -85,8 +105,7 @@ describe("use-mobile", () => {
 
     it("returns false when width is above breakpoint", async () => {
       setViewportWidth(1024);
-      globalThis.matchMedia = ((query: string) =>
-        createMockMediaQueryList(query, false)) as unknown as typeof matchMedia;
+      setMatchMedia((query: string) => createMockMediaQueryList(query, false));
 
       const { useIsMobile } = await import("./use-mobile");
       const { result } = renderHook(() => useIsMobile());
@@ -98,7 +117,7 @@ describe("use-mobile", () => {
   describe("listener setup", () => {
     it("adds event listener on initialization", () => {
       let listenerAdded = false;
-      globalThis.matchMedia = ((query: string) => {
+      setMatchMedia((query: string) => {
         const mql = createMockMediaQueryList(query, false);
         const origAdd = mql.addEventListener;
         mql.addEventListener = (
@@ -109,7 +128,7 @@ describe("use-mobile", () => {
           origAdd(type, listener);
         };
         return mql;
-      }) as unknown as typeof matchMedia;
+      });
       const mql = globalThis.matchMedia("(max-width: 767px)");
       mql.addEventListener("change", () => undefined);
       expect(listenerAdded).toBe(true);
@@ -117,7 +136,7 @@ describe("use-mobile", () => {
 
     it("removes event listener on cleanup", () => {
       let listenerRemoved = false;
-      globalThis.matchMedia = ((query: string) => {
+      setMatchMedia((query: string) => {
         const mql = createMockMediaQueryList(query, false);
         const origRemove = mql.removeEventListener;
         mql.removeEventListener = (
@@ -128,7 +147,7 @@ describe("use-mobile", () => {
           origRemove(type, listener);
         };
         return mql;
-      }) as unknown as typeof matchMedia;
+      });
       const mql = globalThis.matchMedia("(max-width: 767px)");
       const handler = () => undefined;
       mql.addEventListener("change", handler);
@@ -140,11 +159,7 @@ describe("use-mobile", () => {
   describe("breakpoint transitions", () => {
     it("matches correct query for mobile detection", () => {
       const query = "(max-width: 767px)";
-      globalThis.matchMedia = ((q: string) =>
-        createMockMediaQueryList(
-          q,
-          q === query
-        )) as unknown as typeof matchMedia;
+      setMatchMedia((q: string) => createMockMediaQueryList(q, q === query));
       const mql = globalThis.matchMedia(query);
       expect(mql.matches).toBe(true);
     });

@@ -189,6 +189,11 @@ describe("state-sync", () => {
         column_ids: [],
       });
 
+      // Mark board-deleted as previously synced so the merge logic removes it
+      doc.getMap(YJS_MAP_NAMES.METADATA).set("syncedEntities", {
+        boards: ["board-1", "board-deleted"],
+      });
+
       const currentState: KanbanState = {
         ...createMinimalState(),
         boards: {

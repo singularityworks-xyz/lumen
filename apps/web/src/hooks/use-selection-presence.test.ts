@@ -6,51 +6,57 @@ try {
   /* ignore */
 }
 
-import { describe, expect, it, mock } from "bun:test";
-import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { renderHook } from "@testing-library/react";
 
-const createMockAwareness = () => ({
-  setLocalStateField: mock(() => undefined) as any,
-  getLocalState: mock(() => null) as any,
-});
+let timeCounter = 1_000_000;
+Date.now = () => ++timeCounter;
 
-const mockCollaborators = [
-  {
-    id: "user-1",
-    name: "User 1",
-    color: "#ff0000",
-    role: "editor" as const,
-    selectionBox: { x: 10, y: 20, width: 100, height: 50 },
-  },
-] as any;
+const mockAwareness = {
+  setLocalStateField: mock(() => undefined),
+  getLocalState: mock(() => null),
+};
 
-const mockUseCollaboration = mock(() => ({
-  isCollaborating: false,
-  awareness: null,
-  collaborators: [],
-})) as any;
+const collabState = {
+  isCollaborating: false as boolean,
+  awareness: null as any,
+  collaborators: [] as any[],
+};
 
 mock.module("@/src/features/collab", () => ({
-  useCollaboration: mockUseCollaboration,
+  useCollaboration: () => collabState,
 }));
+
+beforeEach(() => {
+  mockAwareness.setLocalStateField.mockClear();
+  mockAwareness.getLocalState.mockClear();
+  collabState.isCollaborating = false;
+  collabState.awareness = null;
+  collabState.collaborators = [];
+  timeCounter = 1_000_000;
+  Date.now = () => ++timeCounter;
+});
 
 describe("use-selection-presence", () => {
   it("reflects current board selection state", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [
+      {
+        id: "user-1",
+        name: "User 1",
+        color: "#ff0000",
+        role: "editor",
+        selectionBox: { x: 10, y: 20, width: 100, height: 50 },
+      },
+    ];
 
     const { useSelectionPresence } = await import(
       "@/src/hooks/use-selection-presence"
     );
     const { result } = renderHook(() => useSelectionPresence());
 
-    act(() => {
-      result.current.setSelectionBox({ x: 5, y: 10, width: 200, height: 100 });
-    });
+    result.current.setSelectionBox({ x: 5, y: 10, width: 200, height: 100 });
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "selectionBox",
@@ -59,29 +65,24 @@ describe("use-selection-presence", () => {
   });
 
   it("reflects task selection state from collaborators", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [
-        {
-          id: "user-2",
-          name: "User 2",
-          color: "#00ff00",
-          role: "owner" as const,
-          selection: ["task-1", "task-2"],
-        },
-      ],
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [
+      {
+        id: "user-2",
+        name: "User 2",
+        color: "#00ff00",
+        role: "owner",
+        selection: ["task-1", "task-2"],
+      },
+    ];
 
     const { useSelectionPresence } = await import(
       "@/src/hooks/use-selection-presence"
     );
     const { result } = renderHook(() => useSelectionPresence());
 
-    act(() => {
-      result.current.setSelectionBox({ x: 0, y: 0, width: 50, height: 30 });
-    });
+    result.current.setSelectionBox({ x: 0, y: 0, width: 50, height: 30 });
 
     expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
       "selectionBox",
@@ -90,21 +91,16 @@ describe("use-selection-presence", () => {
   });
 
   it("cleanup clears shared selection presence", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: [],
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [];
 
     const { useSelectionPresence } = await import(
       "@/src/hooks/use-selection-presence"
     );
     const { result, unmount } = renderHook(() => useSelectionPresence());
 
-    act(() => {
-      result.current.setSelectionBox({ x: 10, y: 20, width: 100, height: 50 });
-    });
+    result.current.setSelectionBox({ x: 10, y: 20, width: 100, height: 50 });
 
     unmount();
 
@@ -115,38 +111,38 @@ describe("use-selection-presence", () => {
   });
 
   it("does not update when not collaborating", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: false,
-      awareness: mockAwareness,
-      collaborators: [],
-    }));
+    collabState.isCollaborating = false;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [];
 
     const { useSelectionPresence } = await import(
       "@/src/hooks/use-selection-presence"
     );
     const { result } = renderHook(() => useSelectionPresence());
 
-    act(() => {
-      result.current.setSelectionBox({ x: 10, y: 20, width: 100, height: 50 });
-    });
+    result.current.setSelectionBox({ x: 10, y: 20, width: 100, height: 50 });
 
     expect(mockAwareness.setLocalStateField).not.toHaveBeenCalled();
   });
 
   it("returns collaborators for external observation", async () => {
-    const mockAwareness = createMockAwareness();
-    mockUseCollaboration.mockImplementation(() => ({
-      isCollaborating: true,
-      awareness: mockAwareness,
-      collaborators: mockCollaborators,
-    }));
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+    collabState.collaborators = [
+      {
+        id: "user-1",
+        name: "User 1",
+        color: "#ff0000",
+        role: "editor",
+        selectionBox: { x: 10, y: 20, width: 100, height: 50 },
+      },
+    ];
 
     const { useSelectionPresence } = await import(
       "@/src/hooks/use-selection-presence"
     );
     const { result } = renderHook(() => useSelectionPresence());
 
-    expect(result.current.collaborators).toEqual(mockCollaborators);
+    expect(result.current.collaborators).toEqual(collabState.collaborators);
   });
 });
