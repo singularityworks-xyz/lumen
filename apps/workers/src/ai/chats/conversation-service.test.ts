@@ -1,6 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
 
-// biome-ignore lint/suspicious/noExplicitAny: mock factory requires any
 mock.module("@lumen/db", () => ({
   prisma: {
     aiConversation: {
@@ -9,7 +8,6 @@ mock.module("@lumen/db", () => ({
       update: mock(() => ({})),
     },
     aiMessage: { create: mock(() => ({})), findMany: mock(() => []) },
-    // biome-ignore lint/suspicious/noExplicitAny: mock transaction callback
     $transaction: mock((fn: any) =>
       fn({
         aiMessage: {

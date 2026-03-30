@@ -78,7 +78,7 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.10",
+      "version": "1.0.11",
     },
     "apps/web": {
       "name": "@lumen/web",
@@ -171,7 +171,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.28",
+      "version": "1.0.30",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
