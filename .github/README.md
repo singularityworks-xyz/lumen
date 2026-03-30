@@ -5,7 +5,7 @@
     width="100%"
   />
 
-  <h1>Lumen</h1>
+  <h1>Lumen.</h1>
   <p><strong>Work, illuminated.</strong></p>
   <p>
     A local-first spatial workspace for free-form kanban, structured tasks,
@@ -21,11 +21,16 @@
 > [!IMPORTANT]
 > **Repository policy**
 >
-> - This repository is **source-available**, not open source in the OSI sense.
-> - It is published for product transparency, issue reporting, and technical discussion.
-> - **No external contributions are accepted.** Pull requests, unsolicited patches, and distribution requests are closed by policy. If your company needs an integration, partnership, or commercial arrangement, contact us directly.
-> - **Redistribution is not permitted.** Do not mirror, resell, rehost, republish, or distribute modified or unmodified builds of Lumen without prior written permission from Singularity Works.
-> - If you want to report a bug, raise a product concern, or discuss architecture, open an issue in this repository. That is the supported public channel.
+> This repository is **source-available**, not open source in the OSI sense. It
+> is published for product transparency, issue reporting, and technical
+> discussion. **No external contributions are accepted**: pull requests,
+> unsolicited patches, and distribution requests are closed by policy. If your
+> company needs an integration, partnership, or commercial arrangement, contact
+> us directly. **Redistribution is not permitted.** Do not mirror, resell,
+> rehost, republish, or distribute modified or unmodified builds of Lumen
+> without prior written permission from Singularity Works. If you want to
+> report a bug, raise a product concern, or discuss architecture, open an issue
+> in this repository. That is the supported public channel.
 
 ## What Lumen Is
 
@@ -43,39 +48,34 @@ like `todo`, `in progress`, `review`, and `done`, and keep multiple projects
 and parallel execution tracks on one spatial surface instead of scattering them
 across disconnected boards and chat threads.
 
-The product is designed around a few simple principles:
-
-- Spatial over hierarchical
-- Local-first before cloud-first
-- Realtime collaboration without surrendering determinism
-- Durable state that survives flaky networks and long sessions
-- Serious infrastructure under a calm interface
+The product is designed around a few simple principles: spatial organization
+over hierarchy, local-first durability before cloud dependence, realtime
+collaboration without surrendering determinism, and infrastructure that stays
+serious even when the interface remains calm.
 
 ## What Lumen Actually Does
 
 Lumen is built for people and teams who need more than a checklist and less
-than ceremony-heavy project software.
-
-- Build free-form kanban systems on an infinite canvas
-- Organize work visually instead of burying context in nested lists
-- Track AI coding agents, plans, and review queues across explicit work stages
-- Keep multiple projects and delivery tracks in one large spatial workspace
-- Keep working offline with durable local state
-- Turn on shared workspaces when you need realtime collaboration
-- See live presence instead of waiting on stale refreshes
-- Extend the workspace with AI and structured backend services where they are useful
+than ceremony-heavy project software. It lets you build free-form kanban
+systems on an infinite canvas, organize work visually instead of burying
+context in nested lists, and keep multiple projects and delivery tracks inside
+one large spatial workspace. It also works well as a control surface for
+AI-assisted execution: you can track coding agents, planning queues, review
+flows, and parallel stages in one place instead of scattering them across
+boards, chats, and disconnected tools. Underneath that surface, Lumen keeps
+local state durable offline, adds shared workspaces when collaboration is
+needed, shows live presence instead of stale refreshes, and extends the
+workspace with structured backend and AI services where they are genuinely
+useful.
 
 ## Collaboration And Support
 
 Singularity Works is not running this repository as a community-maintained
-project.
-
-- Use **Issues** for bug reports, breakage, regressions, and concrete requests
-- Use repository discussion channels for conversation if they are enabled
-- Do **not** open pull requests expecting review or merge
-- Do **not** treat this repository as a public extension surface or redistribution grant
-
-If a change is strategically important to your team, contact Singularity Works
+project. Use **Issues** for bug reports, regressions, breakage, and concrete
+requests, and use repository discussion channels for conversation if they are
+enabled. Do not open pull requests expecting review or merge, and do not treat
+this repository as a public extension surface or redistribution grant. If a
+change is strategically important to your team, contact Singularity Works
 instead of preparing an unsolicited patch set.
 
 ## Licensing And Distribution
@@ -100,11 +100,9 @@ resilience, and product sharpness over noise.
 Lumen is one of those systems: a spatial work environment engineered to feel
 calm at the surface and rigorous underneath.
 
-**Contact**
-
-- Email: [work@itssingularity.com](mailto:work@itssingularity.com)
-- Product site: https://lumen.itssingularity.com
-- App: https://canvas.itssingularity.com
+**Contact:** [work@itssingularity.com](mailto:work@itssingularity.com)  
+**Product site:** https://lumen.itssingularity.com  
+**App:** https://canvas.itssingularity.com
 
 <p align="center">
   <sub>Singularity Works. All rights reserved.</sub>
