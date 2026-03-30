@@ -506,8 +506,23 @@ function replaceCargoPackageVersion(content: string, version: string) {
   return `${lines.join("\n")}\n`;
 }
 
-function incrementVersion(version: string) {
+export function normalizeVersion(version: string) {
   const match = version.match(VERSION_PATTERN);
+  if (!match) {
+    throw new Error(`Unsupported version format: ${version}`);
+  }
+
+  const [, major, minor, patch] = match;
+  const patchNumber = Number(patch);
+  const normalizedMinor = Number(minor) + Math.floor(patchNumber / 100);
+  const normalizedPatch = patchNumber % 100;
+
+  return `${major}.${normalizedMinor}.${normalizedPatch}`;
+}
+
+export function incrementVersion(version: string) {
+  const normalizedVersion = normalizeVersion(version);
+  const match = normalizedVersion.match(VERSION_PATTERN);
   if (!match) {
     throw new Error(`Unsupported version format: ${version}`);
   }
@@ -515,7 +530,15 @@ function incrementVersion(version: string) {
   const [, major, minor, patch] = match;
   const nextPatch = Number(patch) + 1;
 
+  if (nextPatch >= 100) {
+    return `${major}.${Number(minor) + 1}.0`;
+  }
+
   return `${major}.${minor}.${nextPatch}`;
+}
+
+if (import.meta.main) {
+  main();
 }
 
 function hasOverlap(
@@ -692,5 +715,3 @@ function main() {
 
   writeState(state);
 }
-
-main();
