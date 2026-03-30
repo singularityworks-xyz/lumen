@@ -171,7 +171,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.27",
+      "version": "1.0.28",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",
@@ -289,7 +289,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "dependencies": {
         "lib0": "^0.2.117",
         "y-protocols": "^1.0.7",
