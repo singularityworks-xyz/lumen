@@ -3,7 +3,7 @@
     "target": "ES2021",
     "module": "preserve",
     "moduleResolution": "bundler",
-    "types": ["bun"],
+    "types": ["node", "bun-types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
