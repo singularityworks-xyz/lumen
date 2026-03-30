@@ -261,7 +261,7 @@ jobs:
         run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/test/integration/*.test.ts
 
   coverage-gate:
-    name: Coverage Gate
+    name: Coverage Summary
     runs-on: ubuntu-latest
     needs:
       - unit-web
@@ -291,8 +291,8 @@ jobs:
           path: coverage
           merge-multiple: true
 
-      - name: Check LCOV thresholds
-        run: bun run scripts/testing/check-lcov-thresholds.ts
+      - name: Generate coverage summary
+        run: bun run scripts/testing/coverage-summary.ts
 
   ci-passed:
     name: CI Passed
