@@ -1,6 +1,7 @@
 FROM oven/bun:alpine AS builder
 WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
+COPY scripts/install/prepare.ts ./scripts/install/
 COPY packages/db/package.json ./packages/db/
 COPY packages/logger/package.json ./packages/logger/
 COPY packages/ai/package.json ./packages/ai/

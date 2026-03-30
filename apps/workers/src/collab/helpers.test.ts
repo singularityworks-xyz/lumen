@@ -56,22 +56,6 @@ mock.module("@lumen/yjs-shared", () => ({
   YJS_MAP_NAMES: { WORKSPACE: "workspace" },
 }));
 
-// Provide a controllable roomManager mock
-const mockGetRoom = mock(() => undefined as unknown);
-const mockGetOrCreateRoom = mock(
-  () =>
-    ({
-      doc: { getMap: () => new Map() },
-    }) as unknown
-);
-
-mock.module("../../src/collab/room-manager", () => ({
-  roomManager: {
-    getRoom: mockGetRoom,
-    getOrCreateRoom: mockGetOrCreateRoom,
-  },
-}));
-
 import {
   addCollaborator,
   CURSOR_COLORS,
@@ -86,6 +70,8 @@ import {
   getWorkspaceName,
 } from "./helpers";
 
+import { roomManager } from "./room-manager";
+
 describe("collab/helpers", () => {
   beforeEach(() => {
     prismaMock.workspaceCollaborator.findUnique.mockClear();
@@ -98,8 +84,7 @@ describe("collab/helpers", () => {
     prismaMock.workspaceShare.create.mockClear();
     prismaMock.workspaceShare.count.mockClear();
     prismaMock.user.findUnique.mockClear();
-    mockGetRoom.mockClear();
-    mockGetOrCreateRoom.mockClear();
+    roomManager.reset();
   });
 
   describe("generateId", () => {
@@ -277,14 +262,10 @@ describe("collab/helpers", () => {
 
     it("creates workspace lazily with room name when available", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
-      // Simulate a room with workspace data
-      const wsMap = new Map();
-      wsMap.set("ws-room", { name: "Room Workspace" });
-      mockGetRoom.mockReturnValueOnce({
-        doc: {
-          getMap: (key: string) => (key === "workspace" ? wsMap : new Map()),
-        },
-      });
+      // Create a real room with workspace data
+      const room = roomManager.getOrCreateRoom("ws-room");
+      const workspaceMap = room.doc.getMap("workspace");
+      workspaceMap.set("ws-room", { name: "Room Workspace" });
       await addCollaborator("ws-room", "user-1", "OWNER");
       expect(prismaMock.workspace.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -394,50 +375,38 @@ describe("collab/helpers", () => {
 
     it("falls back to active room name", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
-      const wsMap = new Map();
-      wsMap.set("ws-room-fallback", { name: "Room Name" });
-      mockGetRoom.mockReturnValueOnce({
-        doc: {
-          getMap: (key: string) => (key === "workspace" ? wsMap : new Map()),
-        },
-      });
+      // Create a real room with workspace data
+      const room = roomManager.getOrCreateRoom("ws-room-fallback");
+      const workspaceMap = room.doc.getMap("workspace");
+      workspaceMap.set("ws-room-fallback", { name: "Room Name" });
       const result = await getWorkspaceName("ws-room-fallback");
       expect(result).toBe("Room Name");
     });
 
     it("falls back to stored state with getOrCreateRoom", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
-      mockGetRoom.mockReturnValueOnce(undefined);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
-        yjsState: Buffer.from("state"),
-      });
-      const wsMap = new Map();
-      wsMap.set("ws-stored", { name: "Stored Name" });
-      mockGetOrCreateRoom.mockReturnValueOnce({
-        doc: {
-          getMap: (key: string) => (key === "workspace" ? wsMap : new Map()),
-        },
-      });
+      // No active room - getRoom returns undefined
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
+      const room = roomManager.getOrCreateRoom("ws-stored");
+      const workspaceMap = room.doc.getMap("workspace");
+      workspaceMap.set("ws-stored", { name: "Stored Name" });
       const result = await getWorkspaceName("ws-stored");
       expect(result).toBe("Stored Name");
     });
 
     it("returns null when workspace has no name in stored state", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
-      mockGetRoom.mockReturnValueOnce(undefined);
-      prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
-        yjsState: Buffer.from("state"),
-      });
-      mockGetRoom.mockReturnValueOnce({
-        doc: { getMap: () => new Map() },
-      });
+      // No active room
+      prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
+      // Create room with empty workspace map
+      const room = roomManager.getOrCreateRoom("ws-empty");
+      room.doc.getMap("workspace"); // empty map
       const result = await getWorkspaceName("ws-empty");
       expect(result).toBeNull();
     });
 
     it("returns null when no workspace, room, or state exists", async () => {
       prismaMock.workspace.findUnique.mockResolvedValueOnce(null);
-      mockGetRoom.mockReturnValueOnce(undefined);
       prismaMock.workspaceState.findUnique.mockResolvedValueOnce(null);
       const result = await getWorkspaceName("ws-none");
       expect(result).toBeNull();

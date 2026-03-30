@@ -82,7 +82,7 @@
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.0.46",
+      "version": "1.0.47",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -171,7 +171,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.26",
+      "version": "1.0.27",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.10",

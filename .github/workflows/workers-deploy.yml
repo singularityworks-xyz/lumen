@@ -1,11 +1,8 @@
 name: Deploy Workers Service
 
 on:
-  push:
-    branches: [origin]
-    paths:
-      - "apps/workers/**"
-      - ".github/workflows/workers-deploy.yml"
+  workflow_call:
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -74,6 +71,8 @@ jobs:
           file: ./apps/workers/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=lumen-workers
+          cache-to: type=gha,mode=max,scope=lumen-workers
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

@@ -1,12 +1,8 @@
 name: Deploy Web Service
 
 on:
-  push:
-    branches: [origin]
-    paths:
-      - "apps/web/**"
-      - "package.json"
-      - ".github/workflows/web-deploy.yml"
+  workflow_call:
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -75,6 +71,8 @@ jobs:
           file: ./apps/web/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=lumen-web
+          cache-to: type=gha,mode=max,scope=lumen-web
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

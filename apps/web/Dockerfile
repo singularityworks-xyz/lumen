@@ -2,6 +2,7 @@ FROM oven/bun:alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
+COPY scripts/install/prepare.ts ./scripts/install/
 COPY packages/ai/package.json ./packages/ai/
 COPY packages/db/package.json ./packages/db/
 COPY packages/logger/package.json ./packages/logger/
