@@ -1,11 +1,8 @@
 name: Deploy Presence Service
 
 on:
-  push:
-    branches: [origin]
-    paths:
-      - "apps/presence/**"
-      - ".github/workflows/presence-deploy.yml"
+  workflow_call:
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

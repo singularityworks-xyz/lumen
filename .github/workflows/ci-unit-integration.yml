@@ -10,6 +10,7 @@ jobs:
     name: Detect Deploy Targets
     runs-on: ubuntu-latest
     outputs:
+      presence: ${{ steps.filter.outputs.presence }}
       native: ${{ steps.filter.outputs.native }}
       web: ${{ steps.filter.outputs.web }}
       workers: ${{ steps.filter.outputs.workers }}
@@ -47,6 +48,12 @@ jobs:
             echo "workers=false" >> "$GITHUB_OUTPUT"
           fi
 
+          if rg -q '^(apps/presence/|package\.json$|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
+            echo "presence=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "presence=false" >> "$GITHUB_OUTPUT"
+          fi
+
           if rg -q '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
@@ -68,8 +75,22 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Setup Beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+
+      - name: Install Presence dependencies
+        working-directory: apps/presence
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+
       - name: Run checks
-        run: bun run check
+        run: bun run check:ci
 
       - name: Run type checks
         run: bun run check-types
@@ -309,6 +330,18 @@ jobs:
       contents: read
       packages: write
     uses: singularityworks-xyz/lumen/.github/workflows/workers-deploy.yml@origin
+    secrets: inherit
+
+  deploy-presence:
+    name: Deploy Presence
+    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true' }}
+    needs:
+      - changes
+      - ci-passed
+    permissions:
+      contents: read
+      packages: write
+    uses: singularityworks-xyz/lumen/.github/workflows/presence-deploy.yml@origin
     secrets: inherit
 
   release-native:
