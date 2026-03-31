@@ -59,9 +59,10 @@ mock.module("../lib/encryption", () => ({
 
 mock.module("../lib/request-queue", () => ({
   aiRequestQueue: {
-    enqueue: mock((fn: () => Promise<unknown>) =>
-      Promise.resolve({ result: fn(), wasQueued: false })
-    ),
+    enqueue: mock(async (fn: () => Promise<unknown>) => {
+      const result = await fn();
+      return { result, wasQueued: false };
+    }),
   },
 }));
 

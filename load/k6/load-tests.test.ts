@@ -24,9 +24,10 @@ describe("ai-classifier-load config", () => {
   });
 
   it("has 5 ramp stages in ramp_test", () => {
-    // ramp_test has 5 stages, spike_test has 4 stages = 9 total
-    const durationMatches = src.match(/{ duration:/g);
-    expect(durationMatches?.length).toBe(9);
+    const rampBlockMatch = src.match(/ramp_test:[\s\S]*?stages:\s*\[([\s\S]*?)\]/);
+    expect(rampBlockMatch).toBeTruthy();
+    const durationMatches = rampBlockMatch![1].match(/{ duration:/g);
+    expect(durationMatches?.length).toBe(5);
   });
 
   it("defines custom metrics", () => {
@@ -55,9 +56,8 @@ describe("ai-classifier-load config", () => {
   it("defines 10 test messages", () => {
     const msgMatch = src.match(/MESSAGES = \[([\s\S]*?)\]/);
     expect(msgMatch).toBeTruthy();
-    const messages = msgMatch![1].match(/"/g);
-    // 10 messages = 20 quotes (opening + closing)
-    expect(messages?.length).toBe(20);
+    const messageMatches = Array.from(msgMatch![1].matchAll(/"((?:\\.|[^"\\])*)"/g));
+    expect(messageMatches.length).toBe(10);
   });
 
   it("exports handleSummary function", () => {

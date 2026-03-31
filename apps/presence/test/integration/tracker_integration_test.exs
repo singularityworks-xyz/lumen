@@ -27,13 +27,13 @@ defmodule Presence.TrackerIntegrationTest do
       assert Tracker.should_mark_idle?(now) == false
     end
 
-    test "returns true at exactly threshold + 1ms" do
-      threshold_activity = System.monotonic_time(:millisecond) - 5 * 60 * 1000 - 1
+    test "returns true at exactly threshold + 1s" do
+      threshold_activity = System.monotonic_time(:millisecond) - 5 * 60 * 1000 - 1_000
       assert Tracker.should_mark_idle?(threshold_activity) == true
     end
 
-    test "returns false at exactly threshold - 1ms" do
-      threshold_activity = System.monotonic_time(:millisecond) - 5 * 60 * 1000 + 1
+    test "returns false at exactly threshold - 1s" do
+      threshold_activity = System.monotonic_time(:millisecond) - 5 * 60 * 1000 + 1_000
       assert Tracker.should_mark_idle?(threshold_activity) == false
     end
 

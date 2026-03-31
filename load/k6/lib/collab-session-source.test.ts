@@ -90,7 +90,9 @@ describe("collab-session.ts structure", () => {
   });
 
   it("sendSyncUpdate wraps payload in try-catch", () => {
-    const sendSyncBlock = src.slice(src.indexOf("sendSyncUpdate ="));
+    const idx = src.indexOf("sendSyncUpdate =");
+    expect(idx).not.toBe(-1);
+    const sendSyncBlock = src.slice(idx);
     expect(sendSyncBlock).toContain("try {");
     expect(sendSyncBlock).toContain("catch {");
     expect(sendSyncBlock).toContain("return true");
@@ -98,19 +100,25 @@ describe("collab-session.ts structure", () => {
   });
 
   it("sendSyncUpdate includes workspaceId in payload", () => {
-    const sendSyncBlock = src.slice(src.indexOf("sendSyncUpdate ="));
+    const idx = src.indexOf("sendSyncUpdate =");
+    expect(idx).not.toBe(-1);
+    const sendSyncBlock = src.slice(idx);
     expect(sendSyncBlock).toContain("workspaceId");
     expect(sendSyncBlock).toContain("timestamp: Date.now()");
   });
 
   it("sendAwarenessUpdate wraps payload in try-catch", () => {
-    const sendAwareBlock = src.slice(src.indexOf("sendAwarenessUpdate ="));
+    const idx = src.indexOf("sendAwarenessUpdate =");
+    expect(idx).not.toBe(-1);
+    const sendAwareBlock = src.slice(idx);
     expect(sendAwareBlock).toContain("try {");
     expect(sendAwareBlock).toContain("catch {");
   });
 
   it("disconnect sends disconnect message then closes socket", () => {
-    const disconnectBlock = src.slice(src.indexOf("disconnect ="));
+    const idx = src.indexOf("disconnect =");
+    expect(idx).not.toBe(-1);
+    const disconnectBlock = src.slice(idx);
     expect(disconnectBlock).toContain('"disconnect"');
     expect(disconnectBlock).toContain("socket.close()");
   });

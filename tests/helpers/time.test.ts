@@ -8,11 +8,12 @@ import {
 
 const UUID_PATTERN = /^00000000-0000-4000-8000-\d{12}$/;
 const FIXED_TIMESTAMP = 1_700_000_000_000;
+const ORIGINAL_DATE_NOW = Date.now;
 
 describe("freezeTime", () => {
   afterEach(() => {
     // Restore real Date.now
-    Date.now = () => Date.now.call(Date);
+    Date.now = ORIGINAL_DATE_NOW;
   });
 
   it("freezes Date.now to the given timestamp", () => {
@@ -35,7 +36,7 @@ describe("freezeTime", () => {
 
 describe("advanceTime", () => {
   afterEach(() => {
-    Date.now = () => Date.now.call(Date);
+    Date.now = ORIGINAL_DATE_NOW;
   });
 
   it("advances the frozen time by the given milliseconds", () => {
@@ -64,7 +65,7 @@ describe("advanceTime", () => {
     expect(Date.now()).toBe(5000);
   });
 
-  it("advancing without prior freeze uses default", () => {
+  it("advancing after prior freeze uses provided time", () => {
     freezeTime(100);
     advanceTime(50);
     expect(Date.now()).toBe(150);

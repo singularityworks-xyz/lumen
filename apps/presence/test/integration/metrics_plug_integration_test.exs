@@ -43,13 +43,13 @@ defmodule Presence.MetricsPlugIntegrationTest do
         nil
       )
 
+      on_exit(fn -> :telemetry.detach({__MODULE__, ref}) end)
+
       conn = build_conn()
       get(conn, "/health")
 
       # Verify telemetry was emitted
       assert_receive {:telemetry, :endpoint_stop, _measurements, _metadata}, 1000
-
-      :telemetry.detach({__MODULE__, ref})
     end
   end
 end

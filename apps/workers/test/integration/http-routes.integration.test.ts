@@ -668,14 +668,13 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
 
     it("GET /api/share/:token handles share lookup without crashing", async () => {
       // getShareInfo has complex internal logic (getUserInfo, getWorkspaceName, roomManager)
-      // Verify the endpoint doesn't crash even when the share lookup has issues
+      // Verify the endpoint returns 404 when the share lookup finds nothing
       mockPrisma.workspaceShare.findUnique.mockResolvedValueOnce(null);
 
       const res = await app.handle(
         new Request("http://localhost/api/share/any-token")
       );
-      // Should return some response (404 or 200 depending on mock chain)
-      expect(res.status).toBeGreaterThanOrEqual(200);
+      expect(res.status).toBe(404);
     });
 
     it("POST /api/share/:token/join adds collaborator", async () => {

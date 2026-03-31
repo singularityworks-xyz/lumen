@@ -7,8 +7,14 @@ function isLeapYear(year: number): boolean {
 
 function daysSinceEpoch(year: number, month: number, day: number): number {
   let days = 0;
-  for (let y = 1970; y < year; y++) {
-    days += isLeapYear(y) ? 366 : 365;
+  if (year >= 1970) {
+    for (let y = 1970; y < year; y++) {
+      days += isLeapYear(y) ? 366 : 365;
+    }
+  } else {
+    for (let y = year; y < 1970; y++) {
+      days -= isLeapYear(y) ? 366 : 365;
+    }
   }
   for (let m = 1; m < month; m++) {
     const dim = DAYS_IN_MONTH[m - 1];
@@ -75,7 +81,16 @@ export function formatRelativeTime(
     return "Invalid date";
   }
 
-  const nowIso = options.nowIso ?? toIsoString(new Date());
+  let nowIso: string;
+  if (options.nowIso == null) {
+    nowIso = toIsoString(new Date());
+  } else {
+    const parsed = Date.parse(options.nowIso);
+    if (Number.isNaN(parsed)) {
+      throw new Error(`Invalid nowIso value: "${options.nowIso}"`);
+    }
+    nowIso = options.nowIso;
+  }
   const diffSec = diffSeconds(nowIso, dateIso);
   const absDiffSec = Math.abs(diffSec);
   const diffMin = Math.floor(absDiffSec / 60);
