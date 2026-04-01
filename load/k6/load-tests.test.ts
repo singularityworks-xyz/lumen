@@ -109,8 +109,8 @@ describe("ws-collab-ramp config", () => {
     expect(stages?.length).toBe(5);
   });
 
-  it("targets up to 100 VUs", () => {
-    expect(src).toContain("target: 100");
+  it("targets up to 20 VUs for same-workspace convergence", () => {
+    expect(src).toContain("target: 20");
   });
 
   it("requires 99% WS success rate", () => {
@@ -125,9 +125,9 @@ describe("ws-collab-ramp config", () => {
     expect(src).toContain("i < 10");
   });
 
-  it("uses workspace ID from VU ID", () => {
-    expect(src).toContain("ws-ramp-");
-    expect(src).toContain("__VU");
+  it("uses shared workspace ID from env", () => {
+    expect(src).toContain("WORKSPACE_ID");
+    expect(src).toContain("ws-ramp-shared");
   });
 });
 
@@ -145,16 +145,12 @@ describe("ws-collab-spike config", () => {
     expect(stages?.length).toBe(3);
   });
 
-  it("targets 100 VUs", () => {
-    expect(src).toContain("target: 100");
+  it("targets 50 VUs", () => {
+    expect(src).toContain("target: 50");
   });
 
   it("sends 5 sync updates per session", () => {
     expect(src).toContain("i < 5");
-  });
-
-  it("includes origin marker", () => {
-    expect(src).toContain('"spike-test"');
   });
 });
 
@@ -220,9 +216,9 @@ describe("collab-session source", () => {
     expect(src).toContain("status !== 101");
   });
 
-  it("sends init message on connect", () => {
-    expect(src).toContain('type: "sync"');
-    expect(src).toContain('action: "init"');
+  it("sends binary sync step1 on connect", () => {
+    expect(src).toContain("encodeSyncStep1");
+    expect(src).toContain("sendBinary");
   });
 
   it("sets up ping interval at 30 seconds", () => {
@@ -240,8 +236,7 @@ describe("collab-session source", () => {
     expect(src).toContain("return false");
   });
 
-  it("disconnect sends disconnect message", () => {
-    expect(src).toContain('type: "disconnect"');
+  it("disconnect closes socket", () => {
     expect(src).toContain("socket.close()");
   });
 

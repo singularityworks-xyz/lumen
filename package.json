@@ -1,6 +1,6 @@
 {
   "name": "lumen",
-  "version": "0.5.29",
+  "version": "0.5.30",
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@changesets/cli": "^2.30.0",
@@ -72,6 +72,7 @@
     "test:load:ramp": "k6 run load/k6/ws-collab-ramp.ts",
     "test:load:soak": "k6 run load/k6/ws-collab-soak.ts",
     "test:load:spike": "k6 run load/k6/ws-collab-spike.ts",
+    "test:load:convergence": "k6 run load/k6/ws-collab-convergence.ts",
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },

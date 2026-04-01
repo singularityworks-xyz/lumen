@@ -16,10 +16,11 @@ declare module "k6" {
 declare module "k6/ws" {
   export interface Socket {
     send(data: string): void;
+    sendBinary(data: ArrayBuffer | ArrayBufferLike): void;
     close(): void;
     setInterval(callback: () => void, interval: number): void;
     setTimeout(callback: () => void, delay: number): void;
-    on(event: string, callback: () => void): void;
+    on(event: string, callback: (...args: any[]) => void): void;
   }
 
   export interface Response {

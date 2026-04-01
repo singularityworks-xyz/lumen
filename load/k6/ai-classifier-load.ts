@@ -81,7 +81,7 @@ export default function () {
     headers: {
       "Content-Type": "application/json",
     },
-    timeout: "30s",
+    timeout: 30000,
   };
 
   const res = http.post(`${BASE_URL}/api/ai/chat`, payload, params);
