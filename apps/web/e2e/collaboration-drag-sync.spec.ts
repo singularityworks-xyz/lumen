@@ -216,9 +216,7 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     expect(boardBox).not.toBeNull();
 
     const startX = boardBox!.x + boardBox!.width / 2;
-    const startY = boardNode.boundingBox
-      ? boardBox!.y + boardBox!.height / 2
-      : 0;
+    const startY = boardBox!.y + boardBox!.height / 2;
 
     await ownerPage.mouse.move(startX, startY);
     await ownerPage.mouse.down();

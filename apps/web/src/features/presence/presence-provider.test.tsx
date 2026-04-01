@@ -226,7 +226,7 @@ describe("PresenceProvider", () => {
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
       expect(instances.length).toBe(1);
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       expect(opts.workspaceId).toBe("ws-1");
       expect(opts.userId).toBe("user-1");
       expect(opts.token).toBe("jwt-token-123");
@@ -269,7 +269,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       expect(typeof opts.onPresenceUpdate).toBe("function");
       expect(typeof opts.onConnectionChange).toBe("function");
     });
@@ -288,7 +288,7 @@ describe("PresenceProvider", () => {
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
       expect(instances.length).toBe(1);
-      const managerInstance = instances[0];
+      const managerInstance = instances[0]!;
 
       act(() => {
         unmount();
@@ -317,7 +317,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -357,7 +357,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -403,7 +403,7 @@ describe("PresenceProvider", () => {
       expect(screen.getByTestId("is-connected").textContent).toBe("false");
       expect(screen.getByTestId("current-user").textContent).toBe("user-1");
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -435,7 +435,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onConnectionChange = opts.onConnectionChange as (
         connected: boolean
       ) => void;
@@ -461,7 +461,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -522,7 +522,7 @@ describe("PresenceProvider", () => {
 
       expect(screen.getByTestId("user-count").textContent).toBe("0");
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -550,7 +550,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onConnectionChange = opts.onConnectionChange as (
         connected: boolean
       ) => void;
@@ -577,7 +577,7 @@ describe("PresenceProvider", () => {
       });
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
-      const firstOpts = getManagerOpts(instances[0]);
+      const firstOpts = getManagerOpts(instances[0]!);
       expect(firstOpts.workspaceId).toBe("ws-1");
 
       mockGetJwtToken.mockReset();
@@ -606,7 +606,7 @@ describe("PresenceProvider", () => {
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(2);
       expect(instances.length).toBe(2);
-      const secondOpts = getManagerOpts(instances[1]);
+      const secondOpts = getManagerOpts(instances[1]!);
       expect(secondOpts.workspaceId).toBe("ws-2");
     });
 
@@ -619,7 +619,7 @@ describe("PresenceProvider", () => {
       });
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
-      const firstInstance = instances[0];
+      const firstInstance = instances[0]!;
 
       mockGetJwtToken.mockReset();
       mockGetJwtToken.mockImplementation(() => {
@@ -689,7 +689,7 @@ describe("PresenceProvider", () => {
       });
 
       expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
-      const managerInstance = instances[0];
+      const managerInstance = instances[0]!;
 
       await act(async () => {
         rerender(
@@ -713,7 +713,7 @@ describe("PresenceProvider", () => {
         await flushMicrotasks();
       });
 
-      const opts = getManagerOpts(instances[0]);
+      const opts = getManagerOpts(instances[0]!);
       const onPresenceUpdate = opts.onPresenceUpdate as (
         users: PresenceUser[]
       ) => void;
@@ -740,8 +740,8 @@ describe("PresenceProvider", () => {
       ];
 
       act(() => {
-        onPresenceUpdate([users[0]]);
-        onPresenceUpdate([users[0], users[1]]);
+        onPresenceUpdate([users[0]!]);
+        onPresenceUpdate([users[0]!, users[1]!]);
         onPresenceUpdate(users);
       });
 

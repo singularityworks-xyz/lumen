@@ -26,7 +26,9 @@ mock.module("@lumen/logger", () => ({
 // Mock state-sync module
 const mockInitializeYjsForWorkspace = mock();
 const mockApplyYjsToStateWithRepair = mock(() => ({}));
-const mockObserveYjsChanges = mock(() => () => {});
+const mockObserveYjsChanges = mock((_d?: unknown, _cb?: () => void) => () => {
+  /* no-op */
+});
 
 mock.module("@/src/features/collab/sync/state-sync", () => ({
   initializeYjsForWorkspace: mockInitializeYjsForWorkspace,
@@ -1751,10 +1753,14 @@ describe("useYjsSync", () => {
       mockApplyYjsToStateWithRepair.mockReturnValue(state);
 
       let observeCallback: (() => void) | undefined;
-      mockObserveYjsChanges.mockImplementation((_d, cb) => {
-        observeCallback = cb;
-        return () => {};
-      });
+      mockObserveYjsChanges.mockImplementation(
+        (_d: unknown, cb: () => void) => {
+          observeCallback = cb;
+          return () => {
+            /* no-op */
+          };
+        }
+      );
 
       renderHook(() => useYjsSync(doc, true, "ws-1"));
 
