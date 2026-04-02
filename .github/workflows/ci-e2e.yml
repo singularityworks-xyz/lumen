@@ -156,7 +156,7 @@ jobs:
 
       - name: Run Playwright Firefox collaboration smoke
         id: playwright
-        run: bunx playwright test -c playwright/playwright.config.ts --project=firefox apps/web/e2e/collaboration-live-sync.spec.ts apps/web/e2e/collaboration-drag-sync.spec.ts apps/web/e2e/collaboration-presence-lifecycle.spec.ts apps/web/e2e/collaboration-reconnect-recovery.spec.ts
+        run: bunx playwright test -c playwright/playwright.config.ts --project=firefox apps/web/e2e/collaboration-live-sync.spec.ts apps/web/e2e/collaboration-drag-sync.spec.ts apps/web/e2e/collaboration-presence-lifecycle.spec.ts apps/web/e2e/collaboration-reconnect-recovery.spec.ts apps/web/e2e/collaboration-chat-comments.spec.ts apps/web/e2e/collaboration-permissions-and-delete.spec.ts apps/web/e2e/share-link-owner.spec.ts apps/web/e2e/share-link-editor.spec.ts
 
       - name: Upload traces
         if: steps.playwright.outcome == 'failure'
@@ -179,5 +179,91 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-firefox-screenshots
+          path: test-results/**/screenshot.png
+          retention-days: 14
+
+  e2e-cross-browser:
+    name: E2E Cross-Browser (Chrome + Firefox)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: lumen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun-cache
+        with:
+          bun-version: "1.3.11"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Setup Beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+
+      - name: Install Presence dependencies
+        working-directory: apps/presence
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+
+      - name: Setup Postgres test service
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
+        run: |
+          bun run db:gen
+          bun run db:push
+
+      - name: Seed auth/session fixtures
+        run: bun run scripts/testing/seed-e2e-auth.ts
+
+      - name: Install Playwright browsers (Chrome + Firefox)
+        run: bunx playwright install --with-deps chromium firefox
+
+      - name: Run cross-browser sync tests
+        id: playwright
+        env:
+          CROSS_BROWSER: "1"
+        run: bunx playwright test -c playwright/playwright.config.ts --project=chromium apps/web/e2e/collaboration-cross-browser.spec.ts
+
+      - name: Upload traces
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-cross-browser-traces
+          path: test-results/**/trace.zip
+          retention-days: 14
+
+      - name: Upload videos
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-cross-browser-videos
+          path: test-results/**/video.webm
+          retention-days: 14
+
+      - name: Upload screenshots
+        if: steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-cross-browser-screenshots
           path: test-results/**/screenshot.png
           retention-days: 14

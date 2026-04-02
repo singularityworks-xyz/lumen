@@ -1,47 +1,10 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
-  clearLocalStorageAndIndexedDB,
-  createShareLinkForFirstBoard,
   disableAnimations,
+  setupTwoUsers,
   waitForAppReady,
 } from "./helpers/commands";
-
-async function setupTwoUsers(browser: import("@playwright/test").Browser) {
-  const ownerContext = await browser.newContext();
-  const editorContext = await browser.newContext();
-  const ownerPage = await ownerContext.newPage();
-  const editorPage = await editorContext.newPage();
-
-  await clearLocalStorageAndIndexedDB(ownerPage);
-  await disableAnimations(ownerPage);
-  await ownerPage.goto("/");
-  await waitForAppReady(ownerPage);
-
-  const createFirstBoardButton = ownerPage.locator(
-    '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-  );
-  if (await createFirstBoardButton.isVisible()) {
-    await createFirstBoardButton.click();
-    await ownerPage.waitForTimeout(500);
-  }
-
-  await clearLocalStorageAndIndexedDB(editorPage);
-  await disableAnimations(editorPage);
-  await editorPage.goto("/");
-  await waitForAppReady(editorPage);
-
-  const shareLink = await createShareLinkForFirstBoard(ownerPage);
-  await editorPage.goto(shareLink);
-  await waitForAppReady(editorPage);
-
-  await editorPage
-    .locator('[data-testid="board-node"]')
-    .first()
-    .waitFor({ state: "visible", timeout: 10_000 });
-
-  return { ownerPage, editorPage, shareLink };
-}
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -63,28 +26,38 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await cleanupPages([ownerPage, editorPage]);
   });
 
-  test("board drag position syncs to editor and persists after reload", async () => {
+  test("board drag position syncs to editor with pixel-precise coordinates", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const boardBox = await boardNode.boundingBox();
     expect(boardBox).not.toBeNull();
 
     const startX = boardBox!.x + boardBox!.width / 2;
     const startY = boardBox!.y + boardBox!.height / 2;
+    const dragX = 200;
+    const dragY = 150;
 
     await ownerPage.mouse.move(startX, startY);
     await ownerPage.mouse.down();
-    await ownerPage.mouse.move(startX + 200, startY + 150, { steps: 10 });
+    await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 10 });
     await ownerPage.mouse.up();
     await ownerPage.waitForTimeout(1000);
 
+    // Owner board should have moved
+    const ownerBoxAfterDrag = await boardNode.boundingBox();
+    expect(ownerBoxAfterDrag).not.toBeNull();
+    expect(ownerBoxAfterDrag!.x).toBeCloseTo(boardBox!.x + dragX, -1);
+    expect(ownerBoxAfterDrag!.y).toBeCloseTo(boardBox!.y + dragY, -1);
+
+    // Editor should see the same position (within 10px tolerance for render timing)
     const editorBoard = editorPage
       .locator('[data-testid="board-node"]')
       .first();
     const editorBox = await editorBoard.boundingBox();
     expect(editorBox).not.toBeNull();
+    expect(Math.abs(editorBox!.x - ownerBoxAfterDrag!.x)).toBeLessThan(10);
+    expect(Math.abs(editorBox!.y - ownerBoxAfterDrag!.y)).toBeLessThan(10);
 
-    expect(editorBox!.x).toBeGreaterThan(boardBox!.x + 100);
-
+    // Reload both and verify persistence with exact coordinates
     await ownerPage.reload();
     await waitForAppReady(ownerPage);
     await editorPage.reload();
@@ -111,8 +84,13 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     expect(ownerBoxAfterReload).not.toBeNull();
     expect(editorBoxAfterReload).not.toBeNull();
 
-    const xDiff = Math.abs(ownerBoxAfterReload!.x - editorBoxAfterReload!.x);
-    expect(xDiff).toBeLessThan(50);
+    // Both should be at the same persisted position (within 10px)
+    expect(
+      Math.abs(ownerBoxAfterReload!.x - editorBoxAfterReload!.x)
+    ).toBeLessThan(10);
+    expect(
+      Math.abs(ownerBoxAfterReload!.y - editorBoxAfterReload!.y)
+    ).toBeLessThan(10);
   });
 
   test("column reorder syncs to editor immediately", async () => {

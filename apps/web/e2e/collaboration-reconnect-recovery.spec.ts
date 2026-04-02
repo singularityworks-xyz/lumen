@@ -1,47 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import {
-  clearLocalStorageAndIndexedDB,
-  createShareLinkForFirstBoard,
-  disableAnimations,
-  waitForAppReady,
-} from "./helpers/commands";
-
-async function setupTwoUsers(browser: import("@playwright/test").Browser) {
-  const ownerContext = await browser.newContext();
-  const editorContext = await browser.newContext();
-  const ownerPage = await ownerContext.newPage();
-  const editorPage = await editorContext.newPage();
-
-  await clearLocalStorageAndIndexedDB(ownerPage);
-  await disableAnimations(ownerPage);
-  await ownerPage.goto("/");
-  await waitForAppReady(ownerPage);
-
-  const createFirstBoardButton = ownerPage.locator(
-    '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-  );
-  if (await createFirstBoardButton.isVisible()) {
-    await createFirstBoardButton.click();
-    await ownerPage.waitForTimeout(500);
-  }
-
-  await clearLocalStorageAndIndexedDB(editorPage);
-  await disableAnimations(editorPage);
-  await editorPage.goto("/");
-  await waitForAppReady(editorPage);
-
-  const shareLink = await createShareLinkForFirstBoard(ownerPage);
-  await editorPage.goto(shareLink);
-  await waitForAppReady(editorPage);
-
-  await editorPage
-    .locator('[data-testid="board-node"]')
-    .first()
-    .waitFor({ state: "visible", timeout: 10_000 });
-
-  return { ownerPage, editorPage, shareLink };
-}
+import { setupTwoUsers, waitForAppReady } from "./helpers/commands";
 
 const DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
