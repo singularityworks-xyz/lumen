@@ -7,7 +7,7 @@ import type Elysia from "elysia";
 
 // Normalize path by replacing dynamic segments with placeholders
 // This prevents high cardinality from IDs, UUIDs, and tokens
-function normalizePath(pathname: string): string {
+export function normalizePath(pathname: string): string {
   return (
     pathname
       // Replace UUIDs (8-4-4-4-12 format)
