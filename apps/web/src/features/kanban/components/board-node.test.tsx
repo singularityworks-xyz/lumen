@@ -114,7 +114,7 @@ const mockCollaborators: {
 const mockStore = {
   setSelectedBoard: mockSetSelectedBoard,
   bringBoardToFront: mockBringBoardToFront,
-  interactionMode: "drag" as const,
+  interactionMode: "drag" as "drag" | "select",
   selectedBoardIds: [] as string[],
   toggleBoardSelection: mockToggleBoardSelection,
   clearBoardSelection: mockClearBoardSelection,
@@ -219,7 +219,12 @@ mock.module("@/src/components/ui/button", () => ({
   }: {
     children: React.ReactNode;
     onClick?: (e: React.MouseEvent) => void;
-  }) => React.createElement("button", { onClick, ...props }, children),
+  }) =>
+    React.createElement(
+      "button",
+      { type: "button", onClick, ...props },
+      children
+    ),
   buttonVariants: () => "",
 }));
 
