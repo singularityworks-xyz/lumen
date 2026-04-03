@@ -95,10 +95,35 @@ function createDragEndEvent(
   overrides: Partial<DragEndEvent> = {}
 ): DragEndEvent {
   return {
-    active: { id: "col-1", data: { current: null } },
+    active: {
+      id: "col-1",
+      data: { current: null },
+    } as unknown as DragEndEvent["active"],
     over: null,
     ...overrides,
   } as DragEndEvent;
+}
+
+function createOver(
+  id: string,
+  data: { current: { type: string; boardId: string; columnId?: string } }
+): DragEndEvent["over"] {
+  return {
+    id,
+    data,
+    rect: {
+      current: {
+        translated: { x: 0, y: 0 },
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+      },
+    },
+    disabled: false,
+  } as unknown as DragEndEvent["over"];
 }
 
 function createOverData(
@@ -267,10 +292,9 @@ describe("useColumnDragHandlers", () => {
   it("clears active data on drag end when no active data exists", () => {
     const { result } = setup();
     const endEvent = createDragEndEvent({
-      over: {
-        id: "col-2",
-        data: { current: createOverData("column", "board-1", "col-2") },
-      },
+      over: createOver("col-2", {
+        current: createOverData("column", "board-1", "col-2"),
+      }),
     });
 
     act(() => {
@@ -289,10 +313,9 @@ describe("useColumnDragHandlers", () => {
     });
 
     const endEvent = createDragEndEvent({
-      over: {
-        id: "col-3",
-        data: { current: createOverData("column", "board-1", "col-3") },
-      },
+      over: createOver("col-3", {
+        current: createOverData("column", "board-1", "col-3"),
+      }),
     });
 
     act(() => {
@@ -312,10 +335,9 @@ describe("useColumnDragHandlers", () => {
     });
 
     const endEvent = createDragEndEvent({
-      over: {
-        id: "col-4",
-        data: { current: createOverData("column", "board-2", "col-4") },
-      },
+      over: createOver("col-4", {
+        current: createOverData("column", "board-2", "col-4"),
+      }),
     });
 
     act(() => {
@@ -339,10 +361,9 @@ describe("useColumnDragHandlers", () => {
     });
 
     const endEvent = createDragEndEvent({
-      over: {
-        id: "board-2",
-        data: { current: createOverData("board-droppable", "board-2") },
-      },
+      over: createOver("board-2", {
+        current: createOverData("board-droppable", "board-2"),
+      }),
     });
 
     act(() => {
@@ -365,10 +386,7 @@ describe("useColumnDragHandlers", () => {
     });
 
     const endEvent = createDragEndEvent({
-      over: {
-        id: "unknown",
-        data: { current: { type: "unknown" } },
-      },
+      over: createOver("unknown", { current: { type: "unknown" } as any }),
     });
 
     act(() => {
@@ -389,10 +407,9 @@ describe("useColumnDragHandlers", () => {
     });
 
     const endEvent = createDragEndEvent({
-      over: {
-        id: "col-1",
-        data: { current: createOverData("column", "board-1", "col-1") },
-      },
+      over: createOver("col-1", {
+        current: createOverData("column", "board-1", "col-1"),
+      }),
     });
 
     act(() => {
@@ -463,7 +480,9 @@ describe("useKeyboardHandlers", () => {
     };
   }
 
-  function fireKeydown(eventInit: KeyboardEventInit) {
+  function fireKeydown(
+    eventInit: KeyboardEventInit & { target?: EventTarget; repeat?: boolean }
+  ) {
     if (keydownListener) {
       const event = new KeyboardEvent("keydown", eventInit);
       Object.defineProperty(event, "key", { value: eventInit.key });
@@ -472,7 +491,7 @@ describe("useKeyboardHandlers", () => {
       Object.defineProperty(event, "shiftKey", { value: eventInit.shiftKey });
       Object.defineProperty(event, "repeat", { value: eventInit.repeat });
       Object.defineProperty(event, "target", {
-        value: eventInit.target || document.body,
+        value: (eventInit as any).target || document.body,
       });
       keydownListener(event);
     }
@@ -892,14 +911,20 @@ describe("useSelectionHandlers", () => {
     selectionEl.style.height = "5px";
     document.body.appendChild(selectionEl);
 
-    const getBoundingClientRectMock = mock(() => ({
-      left: 100,
-      top: 100,
-      right: 105,
-      bottom: 105,
-      width: 5,
-      height: 5,
-    }));
+    const getBoundingClientRectMock = mock(
+      (): DOMRect =>
+        ({
+          left: 100,
+          top: 100,
+          right: 105,
+          bottom: 105,
+          width: 5,
+          height: 5,
+          x: 100,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect
+    );
 
     selectionEl.getBoundingClientRect = getBoundingClientRectMock;
 
@@ -920,14 +945,20 @@ describe("useSelectionHandlers", () => {
     selectionEl.className = "react-flow__selection";
     document.body.appendChild(selectionEl);
 
-    const getBoundingClientRectMock = mock(() => ({
-      left: 100,
-      top: 100,
-      right: 300,
-      bottom: 250,
-      width: 200,
-      height: 150,
-    }));
+    const getBoundingClientRectMock = mock(
+      (): DOMRect =>
+        ({
+          left: 100,
+          top: 100,
+          right: 300,
+          bottom: 250,
+          width: 200,
+          height: 150,
+          x: 100,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect
+    );
 
     selectionEl.getBoundingClientRect = getBoundingClientRectMock;
 
@@ -1006,14 +1037,20 @@ describe("useSelectionHandlers", () => {
     selectionEl.className = "react-flow__selection";
     document.body.appendChild(selectionEl);
 
-    const getBoundingClientRectMock = mock(() => ({
-      left: 100,
-      top: 100,
-      right: 100,
-      bottom: 200,
-      width: 0,
-      height: 100,
-    }));
+    const getBoundingClientRectMock = mock(
+      (): DOMRect =>
+        ({
+          left: 100,
+          top: 100,
+          right: 100,
+          bottom: 200,
+          width: 0,
+          height: 100,
+          x: 100,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect
+    );
 
     selectionEl.getBoundingClientRect = getBoundingClientRectMock;
 

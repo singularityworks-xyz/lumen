@@ -797,7 +797,7 @@ describe("BoardNodeComponent", () => {
     });
 
     render(
-      React.createElement(FreshComponent, {
+      React.createElement(FreshComponent as any, {
         id: "node-1",
         data: { boardId: "board-1", isSelected: false },
         selected: false,
@@ -924,7 +924,7 @@ describe("BoardNodeComponent", () => {
     setupStore();
 
     render(
-      React.createElement(FreshComponent, {
+      React.createElement(FreshComponent as any, {
         id: "node-1",
         data: { boardId: "board-1", isSelected: true },
         selected: true,
