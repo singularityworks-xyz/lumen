@@ -316,41 +316,16 @@ describe("collabRoutes", () => {
   // ─── 1. WebSocket auth queue FIFO ordering ──────────────────────────────────
 
   describe("WebSocket auth queue - FIFO ordering", () => {
-    it("processes pending auth entries in FIFO order under concurrent connects", async () => {
-      helpersMock.getCollaborator.mockImplementation(() =>
-        Promise.resolve({ role: "EDITOR" as Role } as any)
-      );
-      helpersMock.getWorkspaceCollaboratorCount.mockImplementation(() =>
-        Promise.resolve(2)
-      );
-      authMock.api.getSession.mockImplementation(() =>
-        Promise.resolve(makeSession({ id: "user-a" }) as any)
-      );
-
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // The implementation uses queue.push() in beforeHandle and queue.shift() in open
-      // This is classic FIFO ordering - first auth entry stored is first consumed
-      expect(true).toBe(true);
+    it.skip("processes pending auth entries in FIFO order under concurrent connects", () => {
+      // Skipped: requires mock WebSocket/open handler to test queue.push/shift FIFO behavior
     });
 
-    it("removes processed auth entry from queue after open handler consumes it", async () => {
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // After open() calls shift(), the queue entry is removed
-      // This prevents auth data from being reused by wrong connections
-      expect(true).toBe(true);
+    it.skip("removes processed auth entry from queue after open handler consumes it", () => {
+      // Skipped: requires mock WebSocket/open handler to verify queue cleanup
     });
 
-    it("cleans up empty queues after consuming auth entry", async () => {
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // When queue.length === 0 after shift(), pendingAuthQueues.delete(workspaceId)
-      // This prevents memory leaks from empty queue entries
-      expect(true).toBe(true);
+    it.skip("cleans up empty queues after consuming auth entry", () => {
+      // Skipped: requires mock WebSocket/open handler to verify pendingAuthQueues.delete
     });
   });
 

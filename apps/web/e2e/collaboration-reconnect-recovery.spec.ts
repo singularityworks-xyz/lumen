@@ -16,12 +16,8 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
   });
 
   test.afterEach(async () => {
-    if (ownerPage) {
-      await ownerPage.close();
-    }
-    if (editorPage) {
-      await editorPage.close();
-    }
+    await ownerPage.close();
+    await editorPage.close();
   });
 
   test("reconnect after websocket close recovers state", async () => {

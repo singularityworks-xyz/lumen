@@ -21,24 +21,22 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     const commentsDrawerTrigger = ownerPage.locator(
       '[data-testid="comments-drawer-trigger"]'
     );
-    if (await commentsDrawerTrigger.isVisible()) {
-      await commentsDrawerTrigger.click();
-      await ownerPage.waitForTimeout(500);
+    await expect(commentsDrawerTrigger).toBeVisible();
+    await commentsDrawerTrigger.click();
+    await ownerPage.waitForTimeout(500);
 
-      const newCommentInput = ownerPage.locator(
-        '[data-testid="new-comment-input"]'
-      );
-      if (await newCommentInput.isVisible()) {
-        await newCommentInput.fill("Test comment from owner");
-        await ownerPage.click('[data-testid="submit-comment"]');
-        await ownerPage.waitForTimeout(1000);
+    const newCommentInput = ownerPage.locator(
+      '[data-testid="new-comment-input"]'
+    );
+    await expect(newCommentInput).toBeVisible();
+    await newCommentInput.fill("Test comment from owner");
+    await ownerPage.click('[data-testid="submit-comment"]');
+    await ownerPage.waitForTimeout(1000);
 
-        const editorComment = editorPage.locator(
-          '[data-testid="comment"]:has-text("Test comment from owner")'
-        );
-        await expect(editorComment).toBeVisible({ timeout: 10_000 });
-      }
-    }
+    const editorComment = editorPage.locator(
+      '[data-testid="comment"]:has-text("Test comment from owner")'
+    );
+    await expect(editorComment).toBeVisible({ timeout: 10_000 });
   });
 
   test("chat message send/receive across two users", async () => {
@@ -137,7 +135,7 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
 
       const chatInput = ownerPage.locator('[data-testid="chat-input"]');
       if (await chatInput.isVisible()) {
-        for (let i = 0; i < 3; i++) {
+        for (const i of [0, 1, 2]) {
           await chatInput.fill(`Message ${i}`);
           await ownerPage.click('[data-testid="send-chat-message"]');
           await ownerPage.waitForTimeout(200);

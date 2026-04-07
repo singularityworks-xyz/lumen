@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+  clearLocalStorageAndIndexedDB,
   disableAnimations,
   setupTwoUsers,
   waitForAppReady,

@@ -272,7 +272,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -332,7 +332,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -394,7 +394,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -497,7 +497,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -908,10 +908,11 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      const manager = new PresenceManager({
-        ...defaultOptions,
-        onPresenceUpdate,
-      });
+      const manager = new PresenceManager(
+        defaultOptions({
+          onPresenceUpdate,
+        })
+      );
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -941,7 +942,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -971,10 +972,10 @@ describe("PresenceManager", () => {
       const users = onPresenceUpdate.mock.calls[0]![0];
       expect(users).toHaveLength(1);
       expect(users[0]!.id).toBe("user-1");
-      expect(users[0].name).toBe("Alice Primary");
-      expect(users[0].avatar).toBe("a1.png");
-      expect(users[0].status).toBe("online");
-      expect(users[0].joinedAt).toBe(100);
+      expect(users[0]!.name).toBe("Alice Primary");
+      expect(users[0]!.avatar).toBe("a1.png");
+      expect(users[0]!.status).toBe("online");
+      expect(users[0]!.joinedAt).toBe(100);
     });
   });
 
@@ -1105,7 +1106,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -1123,7 +1124,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -1142,7 +1143,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -1163,7 +1164,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -1187,7 +1188,7 @@ describe("PresenceManager", () => {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
       const onPresenceUpdate = mock();
-      new PresenceManager({ ...defaultOptions, onPresenceUpdate });
+      new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
       const chan = socket.channel.mock.results[0]!.value as MockChannel;
@@ -1208,10 +1209,11 @@ describe("PresenceManager", () => {
       const {
         PresenceManager,
       } = require("@/src/features/presence/presence-manager");
-      new PresenceManager({
-        ...defaultOptions,
-        workspaceId: "ws-abc-123",
-      });
+      new PresenceManager(
+        defaultOptions({
+          workspaceId: "ws-abc-123",
+        })
+      );
 
       const socket = mockSocketInstances[0]!;
       expect(socket.channel).toHaveBeenCalledWith("workspace:ws-abc-123", {});

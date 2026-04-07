@@ -74,7 +74,11 @@ mock.module("ai", () => ({
   generateText: mock(() => Promise.resolve({ text: "Generated summary text" })),
 }));
 
-import { needsSummarization, summarizeConversation } from "./summarization";
+import {
+  cleanupOldConversations,
+  needsSummarization,
+  summarizeConversation,
+} from "./summarization";
 
 beforeEach(() => {
   mockConversation = null;
@@ -186,7 +190,6 @@ describe("summarizeConversation", () => {
 
 describe("cleanupOldConversations", () => {
   it("returns zero counts when no old conversations", async () => {
-    const { cleanupOldConversations } = await import("./summarization");
     const result = await cleanupOldConversations();
     expect(result.conversationsDeleted).toBe(0);
     expect(result.messagesDeleted).toBe(0);

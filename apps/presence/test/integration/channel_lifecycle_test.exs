@@ -13,6 +13,13 @@ defmodule PresenceWeb.WorkspaceChannelIntegrationTest do
     Application.ensure_all_started(:phoenix)
     Application.ensure_all_started(:phoenix_pubsub)
     Application.ensure_all_started(:jose)
+
+    original_url = Application.get_env(:presence, :better_auth_url)
+
+    on_exit(fn ->
+      Application.put_env(:presence, :better_auth_url, original_url)
+    end)
+
     Application.put_env(:presence, :better_auth_url, "https://auth.example.com")
     :ok
   end

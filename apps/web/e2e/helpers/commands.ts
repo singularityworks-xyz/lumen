@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Browser, BrowserType, Page } from "@playwright/test";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   await page.evaluate(async () => {
@@ -147,46 +147,57 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   return { ownerPage, editorPage, shareLink };
 }
 
+export interface TwoUserSetupCrossBrowser extends TwoUserSetup {
+  editorBrowser: Browser;
+}
+
 /**
  * Sets up two users on different browser engines.
  * Owner uses the primary browser, editor uses the secondary browser type.
+ * Returns editorBrowser so callers can manage its lifecycle.
  */
 export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
-): Promise<TwoUserSetup> {
+): Promise<TwoUserSetupCrossBrowser> {
   const editorBrowser = await editorBrowserType.launch();
-  const ownerContext = await ownerBrowser.newContext();
-  const editorContext = await editorBrowser.newContext();
-  const ownerPage = await ownerContext.newPage();
-  const editorPage = await editorContext.newPage();
 
-  await clearLocalStorageAndIndexedDB(ownerPage);
-  await disableAnimations(ownerPage);
-  await ownerPage.goto("/");
-  await waitForAppReady(ownerPage);
+  try {
+    const ownerContext = await ownerBrowser.newContext();
+    const editorContext = await editorBrowser.newContext();
+    const ownerPage = await ownerContext.newPage();
+    const editorPage = await editorContext.newPage();
 
-  const createFirstBoardButton = ownerPage.locator(
-    '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-  );
-  if (await createFirstBoardButton.isVisible()) {
-    await createFirstBoardButton.click();
-    await ownerPage.waitForTimeout(500);
+    await clearLocalStorageAndIndexedDB(ownerPage);
+    await disableAnimations(ownerPage);
+    await ownerPage.goto("/");
+    await waitForAppReady(ownerPage);
+
+    const createFirstBoardButton = ownerPage.locator(
+      '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+    );
+    if (await createFirstBoardButton.isVisible()) {
+      await createFirstBoardButton.click();
+      await ownerPage.waitForTimeout(500);
+    }
+
+    await clearLocalStorageAndIndexedDB(editorPage);
+    await disableAnimations(editorPage);
+    await editorPage.goto("/");
+    await waitForAppReady(editorPage);
+
+    const shareLink = await createShareLinkForFirstBoard(ownerPage);
+    await editorPage.goto(shareLink);
+    await waitForAppReady(editorPage);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+
+    return { ownerPage, editorPage, shareLink, editorBrowser };
+  } catch (error) {
+    await editorBrowser.close();
+    throw error;
   }
-
-  await clearLocalStorageAndIndexedDB(editorPage);
-  await disableAnimations(editorPage);
-  await editorPage.goto("/");
-  await waitForAppReady(editorPage);
-
-  const shareLink = await createShareLinkForFirstBoard(ownerPage);
-  await editorPage.goto(shareLink);
-  await waitForAppReady(editorPage);
-
-  await editorPage
-    .locator('[data-testid="board-node"]')
-    .first()
-    .waitFor({ state: "visible", timeout: 10_000 });
-
-  return { ownerPage, editorPage, shareLink };
 }

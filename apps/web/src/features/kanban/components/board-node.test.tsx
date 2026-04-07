@@ -509,18 +509,18 @@ describe("BoardNodeComponent", () => {
     mockStore.selectedBoardIds = [];
     mockStore.interactionMode = "drag";
     mockCollaborators.length = 0;
-    mockSetSelectedBoard.mockClear();
-    mockBringBoardToFront.mockClear();
-    mockToggleBoardSelection.mockClear();
-    mockClearBoardSelection.mockClear();
-    mockRemoveBoard.mockClear();
-    mockOpenCreateTaskModal.mockClear();
-    mockOpenBoardQuickActions.mockClear();
-    mockOpenBoardDialog.mockClear();
-    mockUpdateBoardDimensions.mockClear();
-    mockOpenTaskDetailModal.mockClear();
-    mockUpdateCursor.mockClear();
-    mockUpdateSelection.mockClear();
+    mockSetSelectedBoard.mockReset();
+    mockBringBoardToFront.mockReset();
+    mockToggleBoardSelection.mockReset();
+    mockClearBoardSelection.mockReset();
+    mockRemoveBoard.mockReset();
+    mockOpenCreateTaskModal.mockReset();
+    mockOpenBoardQuickActions.mockReset();
+    mockOpenBoardDialog.mockReset();
+    mockUpdateBoardDimensions.mockReset();
+    mockOpenTaskDetailModal.mockReset();
+    mockUpdateCursor.mockReset();
+    mockUpdateSelection.mockReset();
   });
 
   it("returns null when board data not found in store", () => {

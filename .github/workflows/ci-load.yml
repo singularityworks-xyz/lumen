@@ -99,7 +99,7 @@ jobs:
         run: |
           k6 run load/k6/ws-collab-soak.ts \
             -e WS_URL=${{ github.event.inputs.ws_url || 'wss://staging.lumen.app' }} \
-            -e AUTH_TOKEN=${{ github.event.inputs.auth_token }} \
+            -e AUTH_TOKEN=${{ github.event.inputs.auth_token || secrets.SOAK_AUTH_TOKEN }} \
             -e WORKSPACE_ID=${{ github.event.inputs.workspace_id || 'ws-soak-shared' }}
 
   convergence:

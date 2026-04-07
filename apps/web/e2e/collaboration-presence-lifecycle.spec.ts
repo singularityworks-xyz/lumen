@@ -71,6 +71,7 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     await expect(cursorBefore).toBeVisible({ timeout: 5000 });
 
     await ownerPage.close();
+    ownerPage = null as any;
 
     await editorPage.waitForTimeout(3000);
 

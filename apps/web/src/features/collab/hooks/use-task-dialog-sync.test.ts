@@ -538,7 +538,7 @@ describe("useTaskDialogSync", () => {
       expect(mockSetInYjs).toHaveBeenCalledTimes(1);
       mockSetInYjs.mockClear();
 
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       const positionOnlyModal = {
         ...modal,

@@ -19,7 +19,12 @@ defmodule Presence.TokenTest do
 
     on_exit(fn ->
       Token.clear_jwks_cache()
-      Application.put_env(:presence, :better_auth_url, original_url)
+
+      if original_url != nil do
+        Application.put_env(:presence, :better_auth_url, original_url)
+      else
+        Application.delete_env(:presence, :better_auth_url)
+      end
     end)
 
     :ok
@@ -185,7 +190,8 @@ defmodule Presence.TokenTest do
       {_, _, jwks} = valid_jwt_token_with_jwks()
       Token.set_jwks_for_test(jwks)
 
-      # Verify cache is populated by checking verify works
+      assert {:ok, fetched_jwks} = Token.fetch_jwks()
+      assert fetched_jwks == jwks
       assert Token.init_cache() == :ok
     end
   end

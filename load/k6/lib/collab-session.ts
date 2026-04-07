@@ -9,7 +9,6 @@ const wsSyncMessagesSent = new Counter("ws_sync_messages_sent");
 const wsSyncMessagesReceived = new Counter("ws_sync_messages_received");
 const wsAwarenessSent = new Counter("ws_awareness_sent");
 const wsAwarenessReceived = new Counter("ws_awareness_received");
-const wsConvergenceDiverge = new Counter("ws_convergence_diverge");
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
@@ -37,10 +36,13 @@ class BinaryEncoder {
   private length = 0;
 
   writeVarUint(value: number): void {
-    const bytes: number[] = [];
-    if (value < 0) {
-      throw new Error("Cannot encode negative varuint");
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error("Cannot encode non-integer or negative varuint");
     }
+    if (value > Number.MAX_SAFE_INTEGER) {
+      throw new Error("Cannot encode value larger than MAX_SAFE_INTEGER as varuint");
+    }
+    const bytes: number[] = [];
     while (value > 0x7f) {
       bytes.push((value & 0x7f) | 0x80);
       value >>>= 7;
@@ -89,6 +91,9 @@ class BinaryDecoder {
     do {
       if (this.pos >= this.bytes.length) {
         throw new Error("BinaryDecoder: unexpected end of data");
+      }
+      if (shift >= 35) {
+        throw new Error("BinaryDecoder: varUint too long/malformed");
       }
       byte = this.view.getUint8(this.pos++);
       result |= (byte & 0x7f) << shift;
@@ -240,11 +245,11 @@ export function connectCollabSession(
     disconnect: () => {},
   };
 
-  session.response = ws.connect(fullUrl, {}, function (socket) {
+  const resp = ws.connect(fullUrl, {}, function (socket) {
     const connectEnd = Date.now();
     wsConnectDuration.add(connectEnd - connectStart);
 
-    if (session.response!.status !== 101) {
+    if (resp.status !== 101) {
       wsConnectSuccess.add(false);
       return;
     }
@@ -257,12 +262,11 @@ export function connectCollabSession(
     wsSyncMessagesSent.add(1);
 
     socket.setInterval(function () {
-      socket.send(
-        JSON.stringify({
-          type: "ping",
-          timestamp: Date.now(),
-        })
-      );
+      const pingEncoder = new BinaryEncoder();
+      pingEncoder.writeVarUint(MESSAGE_SYNC);
+      pingEncoder.writeVarUint(0);
+      const pingData = pingEncoder.toUint8Array();
+      socket.sendBinary(pingData.buffer);
     }, 30000);
 
     socket.on("binaryMessage", function (data: ArrayBuffer) {

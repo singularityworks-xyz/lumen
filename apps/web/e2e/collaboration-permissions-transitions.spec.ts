@@ -113,7 +113,7 @@ test.describe("E2E-16: Permission Transitions", () => {
     await expect(addColumnTrigger).toBeDisabled({ timeout: 5000 });
   });
 
-  test("share token expiry during session", async () => {
+  test("sync indicator is visible after joining via share link", async () => {
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
 

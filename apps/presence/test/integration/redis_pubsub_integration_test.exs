@@ -59,6 +59,8 @@ defmodule Presence.RedisPubSubIntegrationTest do
     test "returns not_configured with empty credentials" do
       Application.put_env(:presence, :upstash_redis_rest_url, "")
       Application.put_env(:presence, :upstash_redis_rest_token, "")
+      System.delete_env("UPSTASH_REDIS_REST_URL")
+      System.delete_env("UPSTASH_REDIS_REST_TOKEN")
 
       result =
         RedisPubSub.broadcast("presence:user_joined", %{

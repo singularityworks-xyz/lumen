@@ -23,7 +23,7 @@ defmodule PresenceWeb.Plugs.MetricsPlugTest do
 
       assert result.__struct__ == Plug.Conn
       assert result.private[:before_send] != nil
-      assert length(result.private[:before_send]) > 0
+      assert result.private[:before_send] != []
     end
 
     test "handles GET requests" do
@@ -55,7 +55,7 @@ defmodule PresenceWeb.Plugs.MetricsPlugTest do
         |> MetricsPlug.call([])
 
       # Verify before_send callback was registered
-      assert length(conn.private[:before_send] || []) > 0
+      assert (conn.private[:before_send] || []) != []
 
       # Execute the callbacks by sending the response
       conn = Plug.Conn.send_resp(conn, 200, "ok")

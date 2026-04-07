@@ -12,6 +12,27 @@ mock.module("@lumen/logger/server", () => ({
 
 import { normalizePath, otelMetrics } from "./otel-metrics";
 
+interface MockApp {
+  derive: (fn: () => unknown) => MockApp;
+  handle: (request: unknown, next: () => unknown) => unknown;
+  on: (event: string, fn: (ctx: unknown) => void) => MockApp;
+  onAfterResponse: (fn: (ctx: unknown) => void) => MockApp;
+  state: Record<string, unknown>;
+  use: (plugin: (app: MockApp) => void) => MockApp;
+}
+
+function createMockApp(): MockApp {
+  const app: MockApp = {
+    derive: mock((_fn: () => unknown) => app),
+    on: mock((_event: string, _fn: (ctx: unknown) => void) => app),
+    onAfterResponse: mock((_fn: (ctx: unknown) => void) => app),
+    use: mock((_plugin: (app: MockApp) => void) => app),
+    state: {},
+    handle: mock((_request: unknown, next: () => unknown) => next()),
+  };
+  return app;
+}
+
 describe("otel-metrics", () => {
   beforeEach(() => {
     mockIncrementRequestCount.mockClear();
@@ -24,18 +45,21 @@ describe("otel-metrics", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -62,18 +86,21 @@ describe("otel-metrics", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -100,18 +127,21 @@ describe("otel-metrics", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -138,18 +168,21 @@ describe("otel-metrics", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -176,18 +209,21 @@ describe("otel-metrics", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -205,22 +241,25 @@ describe("otel-metrics", () => {
       expect(mockIncrementErrorCount).not.toHaveBeenCalled();
     });
 
-    it("handles undefined/null status defaults to 200", () => {
+    it("handles undefined status defaults to 200", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 
@@ -243,22 +282,66 @@ describe("otel-metrics", () => {
       });
     });
 
+    it("handles null status defaults to 200", () => {
+      let capturedDerive: (() => unknown) | undefined;
+      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
+
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
+          capturedDerive = fn;
+          return mockApp;
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
+          capturedOnAfter = fn;
+          return mockApp;
+        }
+      );
+
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
+
+      const derived = capturedDerive?.() as Record<string, unknown>;
+
+      const mockCtx = {
+        request: {
+          url: "http://localhost/test",
+          method: "GET",
+        },
+        set: { status: null as unknown as undefined },
+        ...derived,
+      };
+
+      capturedOnAfter?.(mockCtx);
+
+      expect(mockIncrementRequestCount).toHaveBeenCalledWith({
+        method: "GET",
+        route: "/test",
+        status: "200",
+        service_name: "lumen-workers",
+      });
+    });
+
     it("preserves status 0 as 0", () => {
       let capturedDerive: (() => unknown) | undefined;
       let capturedOnAfter: ((ctx: unknown) => void) | undefined;
 
-      const mockApp = {
-        derive: mock((fn: () => unknown) => {
+      const mockApp = createMockApp();
+      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+        (fn: () => unknown) => {
           capturedDerive = fn;
           return mockApp;
-        }),
-        onAfterResponse: mock((fn: (ctx: unknown) => void) => {
+        }
+      );
+      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+        (fn: (ctx: unknown) => void) => {
           capturedOnAfter = fn;
           return mockApp;
-        }),
-      };
+        }
+      );
 
-      otelMetrics(mockApp as any);
+      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
 
       const derived = capturedDerive?.() as Record<string, unknown>;
 

@@ -88,10 +88,16 @@ mock.module("@/src/features/collab/sync/syncs", () => ({
 }));
 
 // Mock deep-equals
-const mockDiffEntityMaps = mock(() => ({
-  added: [],
-  changed: [],
-  removed: [],
+const mockDiffEntityMaps = mock<
+  () => {
+    added: unknown[];
+    changed: unknown[];
+    removed: string[];
+  }
+>(() => ({
+  added: [] as unknown[],
+  changed: [] as unknown[],
+  removed: [] as string[],
 }));
 
 mock.module("@/src/features/collab/utils/deep-equals", () => ({
@@ -1109,13 +1115,13 @@ describe("useYjsSync", () => {
         board_id: "board-1",
         column_id: "col-1",
         title: "Test Task",
-        priority: "medium",
+        priority: "medium" as const,
         progress: 0,
         position: 0,
         created_by: "user-1",
         created_at: "2024-01-01",
         updated_at: "2024-01-01",
-        status: "todo",
+        status: "todo" as const,
       };
 
       result.current.syncTask(task);
@@ -1216,6 +1222,11 @@ describe("useYjsSync", () => {
         id: "bc-1",
         source_board_id: "board-1",
         target_board_id: "board-2",
+        created_at: "2024-01-01",
+        lineStyle: "solid" as const,
+        showArrow: false,
+        sourceHandle: "right" as const,
+        targetHandle: "left" as const,
       };
 
       result.current.syncBoardConnection(connection);
@@ -1285,7 +1296,14 @@ describe("useYjsSync", () => {
 
       const { result } = renderHook(() => useYjsSync(doc, true, "ws-1"));
 
-      const position = { id: "ap-1", x: 100, y: 200, zIndex: 1 };
+      const position = {
+        id: "ap-1",
+        x: 100,
+        y: 200,
+        zIndex: 1,
+        height: 50,
+        width: 100,
+      };
 
       result.current.syncAreaPosition(position);
 
@@ -1754,8 +1772,8 @@ describe("useYjsSync", () => {
 
       let observeCallback: (() => void) | undefined;
       mockObserveYjsChanges.mockImplementation(
-        (_d: unknown, cb: () => void) => {
-          observeCallback = cb;
+        (_d?: unknown, _cb?: () => void) => {
+          observeCallback = _cb;
           return () => {
             /* no-op */
           };
