@@ -1,3 +1,5 @@
+const originalEnv = { ...process.env };
+
 process.env.DATABASE_URL = "postgres://dummy";
 process.env.BETTER_AUTH_URL = "http://localhost:3001";
 process.env.BETTER_AUTH_SECRET = "a".repeat(32);
@@ -6,7 +8,7 @@ process.env.GITHUB_CLIENT_SECRET = "dummy";
 process.env.WEB_URL = "http://localhost:3000";
 process.env.JWKS_ENCRYPTION_KEY = "a".repeat(32);
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { Role } from "@lumen/db";
 
@@ -312,51 +314,6 @@ function resetMocks() {
 describe("collabRoutes", () => {
   beforeEach(() => {
     resetMocks();
-  });
-
-  // ─── 1. WebSocket auth queue FIFO ordering ──────────────────────────────────
-
-  describe("WebSocket auth queue - FIFO ordering", () => {
-    it.skip("processes pending auth entries in FIFO order under concurrent connects", () => {
-      // Skipped: requires mock WebSocket/open handler to test queue.push/shift FIFO behavior
-    });
-
-    it.skip("removes processed auth entry from queue after open handler consumes it", () => {
-      // Skipped: requires mock WebSocket/open handler to verify queue cleanup
-    });
-
-    it.skip("cleans up empty queues after consuming auth entry", () => {
-      // Skipped: requires mock WebSocket/open handler to verify pendingAuthQueues.delete
-    });
-  });
-
-  // ─── 2. Invalid state vector input ──────────────────────────────────────────
-
-  describe("Invalid state vector handling", () => {
-    it("warns but does not crash on malformed base64 stateVector", async () => {
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // The implementation wraps Buffer.from(stateVector, "base64") in try/catch
-      // and logs a warning on failure without crashing
-      expect(true).toBe(true);
-    });
-
-    it("handles empty stateVector gracefully", async () => {
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // Empty string passed to Buffer.from("", "base64") returns empty buffer
-      expect(true).toBe(true);
-    });
-
-    it("handles non-base64 characters in stateVector gracefully", async () => {
-      const { collabRoutes } = await import("./routes");
-      expect(collabRoutes).toBeDefined();
-
-      // Buffer.from with invalid base64 returns a buffer but doesn't throw
-      expect(true).toBe(true);
-    });
   });
 
   // ─── 3. Session auth path vs token auth path ────────────────────────────────
@@ -1366,4 +1323,8 @@ describe("collabRoutes", () => {
       expect(true).toBe(true);
     });
   });
+});
+
+afterAll(() => {
+  process.env = originalEnv;
 });
