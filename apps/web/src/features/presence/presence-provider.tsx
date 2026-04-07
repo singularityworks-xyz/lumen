@@ -27,7 +27,7 @@ const PresenceContext = createContext<PresenceContextValue>({
 });
 
 interface PresenceProviderProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   enabled?: boolean;
   userAvatar?: string;
   userId: string;

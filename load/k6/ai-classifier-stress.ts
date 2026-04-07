@@ -50,7 +50,7 @@ export default function () {
     payload,
     {
       headers: { "Content-Type": "application/json" },
-      timeout: "30s",
+      timeout: 30000,
     }
   );
 

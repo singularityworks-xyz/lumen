@@ -3,22 +3,28 @@ name: CI Load
 on:
   workflow_dispatch:
     inputs:
-      base_url:
-        description: Target base URL
+      ws_url:
+        description: WebSocket URL (wss://...)
+        required: true
+        type: string
+      auth_token:
+        description: Authentication token
         required: true
         type: string
       scenario:
-        description: Scenario selector (ramp, spike, soak)
+        description: Scenario selector
         required: true
         type: choice
         options:
           - ramp
           - spike
           - soak
+          - convergence
       workspace_id:
-        description: Workspace token or seeded workspace ID
-        required: true
+        description: Shared workspace ID for convergence tests
+        required: false
         type: string
+        default: "ws-load-shared"
   schedule:
     - cron: "0 3 * * 1"
 
@@ -46,7 +52,8 @@ jobs:
       - name: Run k6 ramp test
         run: |
           k6 run load/k6/ws-collab-ramp.ts \
-            -e BASE_URL=${{ github.event.inputs.base_url }} \
+            -e WS_URL=${{ github.event.inputs.ws_url }} \
+            -e AUTH_TOKEN=${{ github.event.inputs.auth_token }} \
             -e WORKSPACE_ID=${{ github.event.inputs.workspace_id }}
 
   spike:
@@ -68,7 +75,8 @@ jobs:
       - name: Run k6 spike test
         run: |
           k6 run load/k6/ws-collab-spike.ts \
-            -e BASE_URL=${{ github.event.inputs.base_url }} \
+            -e WS_URL=${{ github.event.inputs.ws_url }} \
+            -e AUTH_TOKEN=${{ github.event.inputs.auth_token }} \
             -e WORKSPACE_ID=${{ github.event.inputs.workspace_id }}
 
   soak:
@@ -90,5 +98,29 @@ jobs:
       - name: Run k6 soak test
         run: |
           k6 run load/k6/ws-collab-soak.ts \
-            -e BASE_URL=${{ github.event.inputs.base_url || 'https://staging.lumen.app' }} \
-            -e WORKSPACE_ID=${{ github.event.inputs.workspace_id || 'default-workspace' }}
+            -e WS_URL=${{ github.event.inputs.ws_url || 'wss://staging.lumen.app' }} \
+            -e AUTH_TOKEN=${{ github.event.inputs.auth_token || secrets.SOAK_AUTH_TOKEN }} \
+            -e WORKSPACE_ID=${{ github.event.inputs.workspace_id || 'ws-soak-shared' }}
+
+  convergence:
+    name: Load Convergence
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'convergence'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run k6 convergence test
+        run: |
+          k6 run load/k6/ws-collab-convergence.ts \
+            -e WS_URL=${{ github.event.inputs.ws_url }} \
+            -e AUTH_TOKEN=${{ github.event.inputs.auth_token }} \
+            -e WORKSPACE_ID=${{ github.event.inputs.workspace_id || 'ws-convergence-test' }}

@@ -68,6 +68,24 @@ defmodule Presence.RedisPubSubTest do
     end
   end
 
+  describe "broadcast/2 when configured" do
+    test "returns error on HTTP connection failure" do
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:1")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:error, :http_error} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+    end
+  end
+
+  describe "command/1 when configured" do
+    test "returns error on HTTP connection failure" do
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:1")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:error, :http_error} = RedisPubSub.command(["GET", "key"])
+    end
+  end
+
   describe "edge cases" do
     test "handles empty channel name gracefully when not configured" do
       Application.delete_env(:presence, :upstash_redis_rest_url)

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Browser, BrowserType, Page } from "@playwright/test";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   await page.evaluate(async () => {
@@ -99,4 +99,105 @@ export async function createShareLinkForFirstBoard(
   await page.click('[data-testid="create-share-link-button"]');
   await page.waitForSelector('[data-testid="share-link-input"]');
   return page.locator('[data-testid="share-link-input"]').inputValue();
+}
+
+export interface TwoUserSetup {
+  editorPage: Page;
+  ownerPage: Page;
+  shareLink: string;
+}
+
+/**
+ * Sets up two users on the same browser engine using separate contexts.
+ * Returns both pages and the share link.
+ */
+export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
+  const ownerContext = await browser.newContext();
+  const editorContext = await browser.newContext();
+  const ownerPage = await ownerContext.newPage();
+  const editorPage = await editorContext.newPage();
+
+  await clearLocalStorageAndIndexedDB(ownerPage);
+  await disableAnimations(ownerPage);
+  await ownerPage.goto("/");
+  await waitForAppReady(ownerPage);
+
+  const createFirstBoardButton = ownerPage.locator(
+    '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+  );
+  if (await createFirstBoardButton.isVisible()) {
+    await createFirstBoardButton.click();
+    await ownerPage.waitForTimeout(500);
+  }
+
+  await clearLocalStorageAndIndexedDB(editorPage);
+  await disableAnimations(editorPage);
+  await editorPage.goto("/");
+  await waitForAppReady(editorPage);
+
+  const shareLink = await createShareLinkForFirstBoard(ownerPage);
+  await editorPage.goto(shareLink);
+  await waitForAppReady(editorPage);
+
+  await editorPage
+    .locator('[data-testid="board-node"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 10_000 });
+
+  return { ownerPage, editorPage, shareLink };
+}
+
+export interface TwoUserSetupCrossBrowser extends TwoUserSetup {
+  editorBrowser: Browser;
+}
+
+/**
+ * Sets up two users on different browser engines.
+ * Owner uses the primary browser, editor uses the secondary browser type.
+ * Returns editorBrowser so callers can manage its lifecycle.
+ */
+export async function setupTwoUsersCrossBrowser(
+  ownerBrowser: Browser,
+  editorBrowserType: BrowserType
+): Promise<TwoUserSetupCrossBrowser> {
+  const editorBrowser = await editorBrowserType.launch();
+
+  try {
+    const ownerContext = await ownerBrowser.newContext();
+    const editorContext = await editorBrowser.newContext();
+    const ownerPage = await ownerContext.newPage();
+    const editorPage = await editorContext.newPage();
+
+    await clearLocalStorageAndIndexedDB(ownerPage);
+    await disableAnimations(ownerPage);
+    await ownerPage.goto("/");
+    await waitForAppReady(ownerPage);
+
+    const createFirstBoardButton = ownerPage.locator(
+      '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+    );
+    if (await createFirstBoardButton.isVisible()) {
+      await createFirstBoardButton.click();
+      await ownerPage.waitForTimeout(500);
+    }
+
+    await clearLocalStorageAndIndexedDB(editorPage);
+    await disableAnimations(editorPage);
+    await editorPage.goto("/");
+    await waitForAppReady(editorPage);
+
+    const shareLink = await createShareLinkForFirstBoard(ownerPage);
+    await editorPage.goto(shareLink);
+    await waitForAppReady(editorPage);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+
+    return { ownerPage, editorPage, shareLink, editorBrowser };
+  } catch (error) {
+    await editorBrowser.close();
+    throw error;
+  }
 }

@@ -90,7 +90,8 @@ describe("color-icon-utils", () => {
     it("getTopColors returns within count limit", () => {
       const usage = { "#f43f5e": 5, "#3b82f6": 3, "#22c55e": 2 };
       const top = getTopColors(usage, 3);
-      expect(top.length).toBeLessThanOrEqual(3);
+      // +1 for the "none" sentinel entry
+      expect(top.length).toBeLessThanOrEqual(4);
     });
 
     it("getTopIcons returns deterministic results for same usage", () => {
@@ -98,15 +99,17 @@ describe("color-icon-utils", () => {
       const top1 = getTopIcons(usage, 3);
       const top2 = getTopIcons(usage, 3);
       expect(top1.map((i) => i.value)).toEqual(top2.map((i) => i.value));
-      expect(top1.length).toBe(3);
+      // +1 for the "none" sentinel entry
+      expect(top1.length).toBe(4);
     });
 
     it("getTopIcons truncates to topCount", () => {
       const usage = { star: 5, flag: 3, heart: 2, bookmark: 1, bolt: 0 };
       const top = getTopIcons(usage, 2);
-      expect(top.length).toBe(2);
-      expect(top[0]?.value).toBe("star");
-      expect(top[1]?.value).toBe("flag");
+      // +1 for the "none" sentinel entry
+      expect(top.length).toBe(3);
+      expect(top[1]?.value).toBe("star");
+      expect(top[2]?.value).toBe("flag");
     });
 
     it("incrementColorUsage returns valid usage record", () => {

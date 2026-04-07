@@ -23,10 +23,24 @@ export default defineConfig({
       use: { ...devices["Desktop Firefox"] },
     },
   ],
-  webServer: {
-    command: "bun run dev:web",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "cd apps/web && bun run dev",
+      url: "http://localhost:3000",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: "cd apps/workers && bun run dev",
+      url: "http://localhost:3002",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: "cd apps/presence && mix phx.server",
+      url: "http://localhost:4001",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

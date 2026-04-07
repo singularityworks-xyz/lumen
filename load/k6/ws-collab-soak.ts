@@ -1,8 +1,6 @@
 import { sleep } from "k6";
 import { Counter, Gauge } from "k6/metrics";
-import {
-  connectCollabSession,
-} from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session";
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");
@@ -22,43 +20,15 @@ export const options = {
   thresholds: {
     ws_connect_success: ["rate>0.99"],
     ws_connect_duration: ["p(95)<1000"],
+    ws_sync_messages_sent: ["count>0"],
+    ws_sync_messages_received: ["count>0"],
   },
 };
-
-function generateWorkspaceId(vuId: number): string {
-  return `ws-soak-${vuId}`;
-}
-
-function generateSyncData(counter: number) {
-  return {
-    ops: [
-      {
-        type: "update",
-        path: "content",
-        value: `soak-payload-${counter}-${Date.now()}`,
-      },
-    ],
-    clock: counter,
-    origin: "soak-test",
-  };
-}
-
-function generateAwarenessData(vuId: number) {
-  return {
-    user: `soak-user-${vuId}`,
-    cursor: {
-      line: Math.floor(Math.random() * 100),
-      col: Math.floor(Math.random() * 80),
-    },
-    lastSeen: Date.now(),
-  };
-}
 
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
-  const vuId = __VU;
-  const workspaceId = generateWorkspaceId(vuId);
+  const workspaceId = __ENV.WORKSPACE_ID || "ws-soak-shared";
 
   const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
 
@@ -72,17 +42,19 @@ export default function () {
   const sessionStart = Date.now();
   let updateCounter = 0;
 
-  const iterations = Math.floor(
-    (parseInt(soakDurationMinutes, 10) * 60) / 5
-  );
+  const iterations = Math.floor((parseInt(soakDurationMinutes, 10) * 60) / 5);
 
   for (let i = 0; i < iterations; i++) {
     updateCounter++;
 
-    session.sendSyncUpdate(generateSyncData(updateCounter));
+    session.sendSyncUpdate(__VU * 10000 + updateCounter);
 
     if (updateCounter % 3 === 0) {
-      session.sendAwarenessUpdate(generateAwarenessData(vuId));
+      session.sendAwarenessUpdate({
+        x: Math.floor(Math.random() * 1920),
+        y: Math.floor(Math.random() * 1080),
+        user: `soak-user-${__VU}`,
+      });
     }
 
     const elapsed = Date.now() - sessionStart;

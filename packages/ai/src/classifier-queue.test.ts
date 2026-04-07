@@ -1,4 +1,46 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
+// Mock generateText to eliminate network dependency
+mock.module("ai", () => {
+  const original = require("ai");
+  return {
+    ...original,
+    generateText: mock(({ prompt }: { prompt: string }) => {
+      const lower = prompt.toLowerCase();
+      if (lower.includes("delete") || lower.includes("remove")) {
+        return Promise.resolve({
+          text: '{"intent":"both","confidence":"high","reason":"destructive action"}',
+        });
+      }
+      if (
+        lower.includes("create") ||
+        lower.includes("add") ||
+        lower.includes("make")
+      ) {
+        return Promise.resolve({
+          text: '{"intent":"action","confidence":"high","reason":"action detected"}',
+        });
+      }
+      if (
+        lower.includes("show") ||
+        lower.includes("list") ||
+        lower.includes("find") ||
+        lower.includes("search") ||
+        lower.includes("task") ||
+        lower.includes("board") ||
+        lower.includes("column")
+      ) {
+        return Promise.resolve({
+          text: '{"intent":"query","confidence":"high","reason":"query detected"}',
+        });
+      }
+      return Promise.resolve({
+        text: '{"intent":"none","confidence":"high","reason":"no tool intent"}',
+      });
+    }),
+  };
+});
+
 import {
   classifyToolIntent,
   getClassifierQueueStats,

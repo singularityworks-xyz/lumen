@@ -260,6 +260,49 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
         run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/test/integration/*.test.ts
 
+  presence-tests:
+    name: Presence Tests
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.presence == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+
+      - name: Cache Elixir/Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hex
+            ~/.cache/rebar3
+            apps/presence/_build
+            apps/presence/deps
+          key: ${{ runner.os }}-beam-${{ hashFiles('apps/presence/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-beam-
+
+      - name: Install Presence dependencies
+        working-directory: apps/presence
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+
+      - name: Compile Presence
+        working-directory: apps/presence
+        run: mix compile
+
+      - name: Run Presence tests with coverage
+        working-directory: apps/presence
+        run: mix test --cover
+
   coverage-gate:
     name: Coverage Summary
     runs-on: ubuntu-latest
@@ -303,6 +346,7 @@ jobs:
       - unit-server-and-packages
       - integration-web
       - integration-workers
+      - presence-tests
       - coverage-gate
     steps:
       - name: Confirm CI status

@@ -14,8 +14,19 @@ defmodule Presence.TokenTest do
   end
 
   setup do
+    original_url = Application.get_env(:presence, :better_auth_url)
     Token.init_cache()
-    on_exit(fn -> Token.clear_jwks_cache() end)
+
+    on_exit(fn ->
+      Token.clear_jwks_cache()
+
+      if original_url != nil do
+        Application.put_env(:presence, :better_auth_url, original_url)
+      else
+        Application.delete_env(:presence, :better_auth_url)
+      end
+    end)
+
     :ok
   end
 
@@ -143,6 +154,45 @@ defmodule Presence.TokenTest do
       Token.set_jwks_for_test(jwks)
 
       assert {:ok, _} = Token.verify(token)
+    end
+
+    test "refetches JWKS when cache is expired" do
+      {token, _claims, jwks} = valid_jwt_token_with_jwks()
+      # Insert with a stale timestamp (older than 1 hour TTL)
+      stale_timestamp = System.monotonic_time(:millisecond) - 7_200_000
+      :ets.insert(:jwks_cache, {:jwks, jwks, stale_timestamp})
+
+      # With an unreachable auth URL, fetch fails and verify returns error
+      Application.put_env(:presence, :better_auth_url, "http://localhost:1")
+      result = Token.verify(token)
+      assert match?({:error, _}, result)
+    end
+
+    test "refetches JWKS when cache is empty" do
+      {token, _claims, _jwks} = valid_jwt_token_with_jwks()
+      # Clear cache completely
+      Token.clear_jwks_cache()
+
+      # With an unreachable auth URL, fetch fails and verify returns error
+      Application.put_env(:presence, :better_auth_url, "http://localhost:1")
+      result = Token.verify(token)
+      assert match?({:error, _}, result)
+    end
+  end
+
+  describe "fetch_jwks/0" do
+    test "returns error when auth URL is unreachable" do
+      Application.put_env(:presence, :better_auth_url, "http://localhost:1")
+      assert {:error, :jwks_fetch_failed} = Token.fetch_jwks()
+    end
+
+    test "caches JWKS after successful fetch" do
+      {_, _, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      assert {:ok, fetched_jwks} = Token.fetch_jwks()
+      assert fetched_jwks == jwks
+      assert Token.init_cache() == :ok
     end
   end
 

@@ -11,6 +11,11 @@ const logger = createLogger({ name: "[client] storage-manager" });
 // Cached namespace to avoid repeated calculations
 let cachedNamespace: string | null = null;
 
+/** @testonly Reset cached namespace for test isolation */
+export function _resetCachedNamespace(): void {
+  cachedNamespace = null;
+}
+
 // Get the storage namespace based on the current environment.
 // Automatically detects hostname and port without environment variables.
 export function getStorageNamespace(): string {

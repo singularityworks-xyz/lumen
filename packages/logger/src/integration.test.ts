@@ -91,6 +91,7 @@ const mockTracer = {
 };
 
 mock.module("@opentelemetry/api", () => ({
+  createContextKey: (name: string) => Symbol(name),
   trace: {
     getTracer: () => mockTracer,
     getActiveSpan: mockGetActiveSpan,
@@ -100,6 +101,17 @@ mock.module("@opentelemetry/api", () => ({
     active: mock(() => ({})),
   },
 }));
+
+mock.module("@opentelemetry/core", () => ({
+  createContextKey: (name: string) => Symbol(name),
+  suppressTracing: {
+    isTracingSuppressed: () => false,
+    suppressTracing: () => ({}),
+    unsuppressTracing: () => ({}),
+  },
+}));
+
+mock.module("@opentelemetry/otlp-exporter-base", () => ({}));
 
 const envMock = {
   NODE_ENV: "test",

@@ -6,6 +6,14 @@ import "@testing-library/jest-dom";
 
 GlobalRegistrator.register();
 
+// Make IS_REACT_ACT_ENVIRONMENT writable after happy-dom registers
+// testing-library/react tries to set this and happy-dom makes it readonly
+Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
+  value: true,
+  writable: true,
+  configurable: true,
+});
+
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: "development",
   OTEL_ENABLED: "false",

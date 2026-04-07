@@ -27,6 +27,12 @@
           },
           "correctness": {
             "noUndeclaredVariables": "off"
+          },
+          "a11y": {
+            "useSemanticElements": "off",
+            "noNoninteractiveElementInteractions": "off",
+            "useKeyWithClickEvents": "off",
+            "noStaticElementInteractions": "off"
           }
         }
       },

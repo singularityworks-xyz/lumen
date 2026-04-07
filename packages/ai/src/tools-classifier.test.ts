@@ -1,4 +1,43 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
+// Mock generateText to eliminate network dependency in async classifier tests
+mock.module("ai", () => {
+  const original = require("ai");
+  return {
+    ...original,
+    generateText: mock(({ prompt }: { prompt: string }) => {
+      const lower = prompt.toLowerCase();
+      if (lower.includes("delete") || lower.includes("remove")) {
+        return Promise.resolve({
+          text: '{"intent":"both","confidence":"high","reason":"destructive action"}',
+        });
+      }
+      if (
+        lower.includes("create") ||
+        lower.includes("add") ||
+        lower.includes("make")
+      ) {
+        return Promise.resolve({
+          text: '{"intent":"action","confidence":"high","reason":"action detected"}',
+        });
+      }
+      if (
+        lower.includes("show") ||
+        lower.includes("list") ||
+        lower.includes("find") ||
+        lower.includes("search")
+      ) {
+        return Promise.resolve({
+          text: '{"intent":"query","confidence":"high","reason":"query detected"}',
+        });
+      }
+      return Promise.resolve({
+        text: '{"intent":"none","confidence":"high","reason":"no tool intent"}',
+      });
+    }),
+  };
+});
+
 import { actionTools, allTools, queryTools } from "./tools/definitions";
 import {
   classifyToolIntent,
@@ -217,7 +256,7 @@ describe("classifyToolIntent (async)", () => {
   it("returns selection, classification, and queueStatus from async path", async () => {
     const { selection, classification, queueStatus } = await classifyToolIntent(
       "find tasks on board",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(selection).toHaveProperty("intent");
@@ -231,41 +270,40 @@ describe("classifyToolIntent (async)", () => {
     expect(queueStatus).toHaveProperty("isQueued");
   });
 
-  it("falls back to keyword detection with fake API key (LLM error path)", async () => {
+  it("classifies action intent from mock LLM response", async () => {
     const { selection, classification } = await classifyToolIntent(
       "create a new task",
-      "fake-api-key"
+      "test-api-key"
     );
 
-    expect(classification.confidence).toBe("low");
-    expect(classification.reason).toContain("LLM error");
-    expect(["action", "query"]).toContain(selection.intent);
+    expect(classification.confidence).toBe("high");
+    expect(selection.intent).toBe("action");
   });
 
-  it("falls back with keyword detection for query messages", async () => {
+  it("classifies query intent from mock LLM response", async () => {
     const { selection, classification } = await classifyToolIntent(
       "show me my tasks",
-      "fake-api-key"
+      "test-api-key"
     );
 
-    expect(classification.confidence).toBe("low");
+    expect(classification.confidence).toBe("high");
     expect(selection.intent).toBe("query");
   });
 
-  it("falls back with keyword detection for destructive messages", async () => {
+  it("classifies destructive messages as both", async () => {
     const { selection } = await classifyToolIntent(
       "delete this task",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(selection.intent).toBe("both");
     expect(selection.tools).toBe(allTools);
   });
 
-  it("falls back with keyword detection for chat messages", async () => {
+  it("classifies chat messages as none", async () => {
     const { selection } = await classifyToolIntent(
       "hello how are you",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(selection.intent).toBe("none");
@@ -275,7 +313,7 @@ describe("classifyToolIntent (async)", () => {
   it("handles previousMessage context parameter", async () => {
     const { selection } = await classifyToolIntent(
       "yes, do it",
-      "fake-api-key",
+      "test-api-key",
       "Should I delete this task?"
     );
 
@@ -286,7 +324,7 @@ describe("classifyToolIntent (async)", () => {
     const longMessage = "x".repeat(2000);
     const { selection } = await classifyToolIntent(
       "confirm",
-      "fake-api-key",
+      "test-api-key",
       longMessage
     );
 
@@ -296,7 +334,7 @@ describe("classifyToolIntent (async)", () => {
   it("queueStatus is not queued for immediate processing", async () => {
     const { queueStatus } = await classifyToolIntent(
       "find tasks",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(queueStatus.isQueued).toBe(false);
@@ -305,7 +343,7 @@ describe("classifyToolIntent (async)", () => {
   it("queueStatus.position is non-negative for immediate", async () => {
     const { queueStatus } = await classifyToolIntent(
       "show boards",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(queueStatus.position).toBeGreaterThanOrEqual(0);
@@ -314,7 +352,7 @@ describe("classifyToolIntent (async)", () => {
   it("queueStatus.estimatedWaitMs is 0 for immediate", async () => {
     const { queueStatus } = await classifyToolIntent(
       "list tasks",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(queueStatus.estimatedWaitMs).toBe(0);
@@ -323,7 +361,7 @@ describe("classifyToolIntent (async)", () => {
   it("action intent maps to allTools (not just actionTools)", async () => {
     const { selection } = await classifyToolIntent(
       "create a new board",
-      "fake-api-key"
+      "test-api-key"
     );
 
     // Even action intent returns allTools for context lookup
@@ -333,7 +371,7 @@ describe("classifyToolIntent (async)", () => {
   it("query intent maps to queryTools", async () => {
     const { selection } = await classifyToolIntent(
       "find blocked tasks",
-      "fake-api-key"
+      "test-api-key"
     );
 
     expect(selection.tools).toBe(queryTools);
@@ -341,9 +379,9 @@ describe("classifyToolIntent (async)", () => {
 
   it("concurrent async calls are processed", async () => {
     const results = await Promise.all([
-      classifyToolIntent("show me tasks", "fake-api-key"),
-      classifyToolIntent("create a task", "fake-api-key"),
-      classifyToolIntent("hello", "fake-api-key"),
+      classifyToolIntent("show me tasks", "test-api-key"),
+      classifyToolIntent("create a task", "test-api-key"),
+      classifyToolIntent("hello", "test-api-key"),
     ]);
 
     expect(results).toHaveLength(3);
