@@ -88,12 +88,17 @@ mock.module("phoenix", () => ({
   Channel: mock(),
 }));
 
+const loggerInfoMock = mock();
+const loggerWarnMock = mock();
+const loggerErrorMock = mock();
+const loggerDebugMock = mock();
+
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
-    info: mock(),
-    warn: mock(),
-    error: mock(),
-    debug: mock(),
+    info: loggerInfoMock,
+    warn: loggerWarnMock,
+    error: loggerErrorMock,
+    debug: loggerDebugMock,
   }),
 }));
 

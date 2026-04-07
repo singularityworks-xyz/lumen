@@ -7,6 +7,7 @@ process.env.WEB_URL = "http://localhost:3000";
 process.env.JWKS_ENCRYPTION_KEY = "a".repeat(32);
 
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+
 import type { Role } from "@lumen/db";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────

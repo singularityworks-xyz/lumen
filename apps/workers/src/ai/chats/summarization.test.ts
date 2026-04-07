@@ -117,6 +117,15 @@ describe("needsSummarization", () => {
     const result = await needsSummarization("conv-1");
     expect(result).toBe(false);
   });
+
+  it("returns true when unsummarized messages equals threshold (boundary)", async () => {
+    mockConversation = {
+      messageCount: 50,
+      summaryUpToIndex: 0,
+    };
+    const result = await needsSummarization("conv-1");
+    expect(result).toBe(true);
+  });
 });
 
 describe("summarizeConversation", () => {
@@ -181,10 +190,14 @@ describe("summarizeConversation", () => {
       messages,
     };
 
+    const { prisma } = require("@lumen/db");
+    prisma.aiMessage.deleteMany.mockClear();
+
     const result = await summarizeConversation("conv-1", {
       deleteOldMessages: false,
     });
     expect(result.success).toBe(true);
+    expect(prisma.aiMessage.deleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -193,5 +206,25 @@ describe("cleanupOldConversations", () => {
     const result = await cleanupOldConversations();
     expect(result.conversationsDeleted).toBe(0);
     expect(result.messagesDeleted).toBe(0);
+  });
+
+  it("returns non-zero counts when old conversations exist", async () => {
+    const { prisma } = require("@lumen/db");
+    prisma.aiConversation.findMany.mockImplementationOnce(() =>
+      Promise.resolve([
+        {
+          id: "conv-1",
+          messageCount: 5,
+          lastActiveAt: new Date(Date.now() - 100_000),
+        },
+      ])
+    );
+    prisma.aiConversation.deleteMany.mockImplementationOnce(() =>
+      Promise.resolve({ count: 1 })
+    );
+
+    const result = await cleanupOldConversations();
+    expect(result.conversationsDeleted).toBe(1);
+    expect(result.messagesDeleted).toBe(5);
   });
 });

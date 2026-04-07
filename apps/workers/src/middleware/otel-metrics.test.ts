@@ -33,6 +33,35 @@ function createMockApp(): MockApp {
   return app;
 }
 
+interface OtelTestMocks {
+  capturedDerive: (() => unknown) | undefined;
+  capturedOnAfter: ((ctx: unknown) => void) | undefined;
+  mockApp: MockApp;
+}
+
+function createOtelTestMocks(): OtelTestMocks {
+  const mockApp = createMockApp();
+  let capturedDerive: (() => unknown) | undefined;
+  let capturedOnAfter: ((ctx: unknown) => void) | undefined;
+
+  (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
+    (fn: () => unknown) => {
+      capturedDerive = fn;
+      return mockApp;
+    }
+  );
+  (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
+    (fn: (ctx: unknown) => void) => {
+      capturedOnAfter = fn;
+      return mockApp;
+    }
+  );
+
+  otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
+
+  return { mockApp, capturedDerive, capturedOnAfter };
+}
+
 describe("otel-metrics", () => {
   beforeEach(() => {
     mockIncrementRequestCount.mockClear();
@@ -42,25 +71,7 @@ describe("otel-metrics", () => {
 
   describe("middleware", () => {
     it("records request count on every response", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -83,25 +94,7 @@ describe("otel-metrics", () => {
     });
 
     it("records request duration calculated from _startTime", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -124,25 +117,7 @@ describe("otel-metrics", () => {
     });
 
     it("records error count for 4xx status", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -165,25 +140,7 @@ describe("otel-metrics", () => {
     });
 
     it("records error count for 5xx status", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -206,25 +163,7 @@ describe("otel-metrics", () => {
     });
 
     it("does not record error for 2xx status", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -242,25 +181,7 @@ describe("otel-metrics", () => {
     });
 
     it("handles undefined status defaults to 200", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -283,25 +204,7 @@ describe("otel-metrics", () => {
     });
 
     it("handles null status defaults to 200", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
@@ -324,25 +227,7 @@ describe("otel-metrics", () => {
     });
 
     it("preserves status 0 as 0", () => {
-      let capturedDerive: (() => unknown) | undefined;
-      let capturedOnAfter: ((ctx: unknown) => void) | undefined;
-
-      const mockApp = createMockApp();
-      (mockApp.derive as ReturnType<typeof mock>).mockImplementation(
-        (fn: () => unknown) => {
-          capturedDerive = fn;
-          return mockApp;
-        }
-      );
-      (mockApp.onAfterResponse as ReturnType<typeof mock>).mockImplementation(
-        (fn: (ctx: unknown) => void) => {
-          capturedOnAfter = fn;
-          return mockApp;
-        }
-      );
-
-      otelMetrics(mockApp as unknown as Parameters<typeof otelMetrics>[0]);
-
+      const { capturedDerive, capturedOnAfter } = createOtelTestMocks();
       const derived = capturedDerive?.() as Record<string, unknown>;
 
       const mockCtx = {
