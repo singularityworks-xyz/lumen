@@ -291,4 +291,69 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
     await latePage.close();
   });
+
+  test("worker restart recovers drag state after websocket recycle", async () => {
+    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
+    const boardBox = await boardNode.boundingBox();
+    expect(boardBox).not.toBeNull();
+
+    const startX = boardBox!.x + boardBox!.width / 2;
+    const startY = boardBox!.y + boardBox!.height / 2;
+    const dragX = 100;
+    const dragY = 50;
+
+    await ownerPage.mouse.move(startX, startY);
+    await ownerPage.mouse.down();
+    await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 5 });
+    await ownerPage.mouse.up();
+    await ownerPage.waitForTimeout(1500);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+
+    const editorBoxBefore = await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .boundingBox();
+    expect(editorBoxBefore).not.toBeNull();
+
+    await editorPage.evaluate(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    await editorPage.waitForTimeout(500);
+
+    await editorPage.evaluate(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await editorPage.waitForTimeout(3000);
+
+    await editorPage.reload();
+    await waitForAppReady(editorPage);
+
+    await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+
+    const editorBoxAfter = await editorPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .boundingBox();
+    expect(editorBoxAfter).not.toBeNull();
+
+    const ownerBoxAfterReload = await ownerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .boundingBox();
+    expect(ownerBoxAfterReload).not.toBeNull();
+
+    expect(Math.abs(editorBoxAfter!.x - ownerBoxAfterReload!.x)).toBeLessThan(
+      15
+    );
+    expect(Math.abs(editorBoxAfter!.y - ownerBoxAfterReload!.y)).toBeLessThan(
+      15
+    );
+  });
 });

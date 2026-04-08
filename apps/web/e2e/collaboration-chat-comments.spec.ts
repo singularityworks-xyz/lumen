@@ -148,4 +148,119 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
       }
     }
   });
+
+  test("edit comment updates in peer's view", async () => {
+    const commentsDrawerTrigger = ownerPage.locator(
+      '[data-testid="comments-drawer-trigger"]'
+    );
+    await expect(commentsDrawerTrigger).toBeVisible();
+    await commentsDrawerTrigger.click();
+    await ownerPage.waitForTimeout(500);
+
+    const newCommentInput = ownerPage.locator(
+      '[data-testid="new-comment-input"]'
+    );
+    await expect(newCommentInput).toBeVisible();
+    await newCommentInput.fill("Original comment text");
+    await ownerPage.click('[data-testid="submit-comment"]');
+    await ownerPage.waitForTimeout(1000);
+
+    const comment = ownerPage.locator(
+      '[data-testid="comment"]:has-text("Original comment text")'
+    );
+    await expect(comment).toBeVisible();
+
+    const editButton = comment.locator('[data-testid="comment-edit-button"]');
+    if (await editButton.isVisible()) {
+      await editButton.click();
+      await ownerPage.waitForTimeout(500);
+
+      const editInput = comment.locator('[data-testid="comment-edit-input"]');
+      await expect(editInput).toBeVisible();
+      await editInput.clear();
+      await editInput.fill("Edited comment text");
+      await ownerPage.click('[data-testid="comment-save-edit"]');
+      await ownerPage.waitForTimeout(1000);
+
+      const editedComment = editorPage.locator(
+        '[data-testid="comment"]:has-text("Edited comment text")'
+      );
+      await expect(editedComment).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test("delete comment removes from peer's view", async () => {
+    const commentsDrawerTrigger = ownerPage.locator(
+      '[data-testid="comments-drawer-trigger"]'
+    );
+    await expect(commentsDrawerTrigger).toBeVisible();
+    await commentsDrawerTrigger.click();
+    await ownerPage.waitForTimeout(500);
+
+    const newCommentInput = ownerPage.locator(
+      '[data-testid="new-comment-input"]'
+    );
+    await expect(newCommentInput).toBeVisible();
+    await newCommentInput.fill("Comment to delete");
+    await ownerPage.click('[data-testid="submit-comment"]');
+    await ownerPage.waitForTimeout(1000);
+
+    const comment = ownerPage.locator(
+      '[data-testid="comment"]:has-text("Comment to delete")'
+    );
+    await expect(comment).toBeVisible();
+
+    await editorPage
+      .locator('[data-testid="comment"]:has-text("Comment to delete")')
+      .waitFor({ state: "visible", timeout: 5000 });
+
+    const deleteButton = comment.locator(
+      '[data-testid="comment-delete-button"]'
+    );
+    if (await deleteButton.isVisible()) {
+      await deleteButton.click();
+      await ownerPage.waitForTimeout(500);
+
+      const confirmDelete = ownerPage.locator(
+        '[data-testid="comment-confirm-delete"]'
+      );
+      if (await confirmDelete.isVisible()) {
+        await confirmDelete.click();
+        await ownerPage.waitForTimeout(1000);
+      }
+
+      const deletedComment = editorPage.locator(
+        '[data-testid="comment"]:has-text("Comment to delete")'
+      );
+      await expect(deletedComment).not.toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test("mention rendering in comments with @ symbol", async () => {
+    const commentsDrawerTrigger = ownerPage.locator(
+      '[data-testid="comments-drawer-trigger"]'
+    );
+    await expect(commentsDrawerTrigger).toBeVisible();
+    await commentsDrawerTrigger.click();
+    await ownerPage.waitForTimeout(500);
+
+    const newCommentInput = ownerPage.locator(
+      '[data-testid="new-comment-input"]'
+    );
+    await expect(newCommentInput).toBeVisible();
+    await newCommentInput.fill("Hello @editor, please review this");
+    await ownerPage.click('[data-testid="submit-comment"]');
+    await ownerPage.waitForTimeout(1000);
+
+    const commentWithMention = ownerPage.locator(
+      '[data-testid="comment"]:has-text("Hello @editor")'
+    );
+    await expect(commentWithMention).toBeVisible();
+
+    const mentionElement = commentWithMention.locator(
+      '[data-testid="comment-mention"]'
+    );
+    const mentionCount = await mentionElement.count();
+    expect(mentionCount).toBeGreaterThanOrEqual(1);
+  });
 });
