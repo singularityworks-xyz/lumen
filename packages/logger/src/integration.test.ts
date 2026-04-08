@@ -124,6 +124,40 @@ mock.module("./env", () => ({
   env: envMock,
 }));
 
+mock.module("./config", () => ({
+  getOtelConfig: (serviceName: string) => {
+    if (typeof window !== "undefined") {
+      return {
+        enabled: false,
+        endpoint: "",
+        headers: {},
+        serviceName,
+        environment: "browser",
+      };
+    }
+    return {
+      enabled: envMock.OTEL_ENABLED && !!envMock.OTEL_EXPORTER_OTLP_ENDPOINT,
+      endpoint: envMock.OTEL_EXPORTER_OTLP_ENDPOINT || "",
+      headers: (() => {
+        const headersStr = envMock.OTEL_EXPORTER_OTLP_HEADERS;
+        if (!headersStr) return {};
+        const headers: Record<string, string> = {};
+        for (const part of headersStr.split(",")) {
+          const eqIndex = part.indexOf("=");
+          if (eqIndex > 0) {
+            const key = part.slice(0, eqIndex).trim();
+            const value = part.slice(eqIndex + 1).trim();
+            headers[key] = decodeURIComponent(value);
+          }
+        }
+        return headers;
+      })(),
+      serviceName,
+      environment: envMock.NODE_ENV,
+    };
+  },
+}));
+
 import { createChildLogger, createLogger, getOtelConfig } from "./index";
 import { getTraceContext, recordError, withSpan } from "./tracer";
 
