@@ -10,7 +10,11 @@ defmodule Presence.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      test_coverage: [
+        output: "cover",
+        summary: false
+      ]
     ]
   end
 
@@ -56,7 +60,8 @@ defmodule Presence.MixProject do
       {:opentelemetry_logger_metadata, "~> 0.2"},
       {:opentelemetry_api_experimental, "~> 0.5"},
       {:opentelemetry_experimental, "~> 0.5"},
-      {:logger_json, "~> 7.0"}
+      {:logger_json, "~> 7.0"},
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 
