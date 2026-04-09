@@ -16,7 +16,7 @@ mock.module("ai", () => {
       }
       if (mockShouldTimeout) {
         return new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Request timed out")), 30000);
+          setTimeout(() => reject(new Error("Request timed out")), 30_000);
         });
       }
       if (mockDelayMs > 0) {
@@ -233,7 +233,7 @@ describe("ClassifierQueue deterministic async tests", () => {
         classifyToolIntent("create task", "test-key"),
         classifyToolIntent("hello", "test-key"),
       ]);
-      const elapsed = Date.now() - start;
+      const _elapsed = Date.now() - start;
 
       expect(mockCallCount).toBe(3);
     });

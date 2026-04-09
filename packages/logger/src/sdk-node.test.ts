@@ -92,10 +92,7 @@ mock.module("@opentelemetry/api", () => {
   };
 });
 
-class OTLPExporterBase {
-  // biome-ignore lint/suspicious/noEmptyBlock: needed for subclassing
-  constructor() {}
-}
+class OTLPExporterBase {}
 
 mock.module("@opentelemetry/otlp-exporter-base", () => ({
   OTLPExporterBase,
@@ -125,7 +122,9 @@ mock.module("@opentelemetry/core", () => {
 mock.module("@opentelemetry/otlp-transformer", () => ({}));
 
 mock.module("@opentelemetry/sdk-metrics", () => {
-  function PeriodicExportingMetricReader() {}
+  function PeriodicExportingMetricReader() {
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: exported for type checking
+  }
   return {
     MeterProvider: mock(() => mockMeterProvider),
     PeriodicExportingMetricReader,

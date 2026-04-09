@@ -12,7 +12,7 @@ const NATIVE_DIR = join(
   "src-tauri"
 );
 
-function readSource(path: string): string {
+function _readSource(path: string): string {
   return readFileSync(join(NATIVE_DIR, path), "utf-8");
 }
 

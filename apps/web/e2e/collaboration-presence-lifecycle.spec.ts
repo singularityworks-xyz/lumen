@@ -1,9 +1,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
-  setupTwoUsers,
   clearLocalStorageAndIndexedDB,
   disableAnimations,
+  setupTwoUsers,
   waitForAppReady,
 } from "./helpers/commands";
 

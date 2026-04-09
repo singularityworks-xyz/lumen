@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
@@ -170,8 +171,8 @@ mock.module("@/src/hooks/use-task-drag-presence", () => ({
   }),
 }));
 
-import { TaskCard } from "./task-card";
 import type { Task } from "@/src/features/kanban";
+import { TaskCard } from "./task-card";
 
 // --- Helper functions ---
 

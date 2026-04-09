@@ -140,7 +140,9 @@ mock.module("./config", () => ({
       endpoint: envMock.OTEL_EXPORTER_OTLP_ENDPOINT || "",
       headers: (() => {
         const headersStr = envMock.OTEL_EXPORTER_OTLP_HEADERS;
-        if (!headersStr) return {};
+        if (!headersStr) {
+          return {};
+        }
         const headers: Record<string, string> = {};
         for (const part of headersStr.split(",")) {
           const eqIndex = part.indexOf("=");
