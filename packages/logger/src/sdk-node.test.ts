@@ -123,7 +123,7 @@ mock.module("@opentelemetry/otlp-transformer", () => ({}));
 
 mock.module("@opentelemetry/sdk-metrics", () => {
   function PeriodicExportingMetricReader() {
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: exported for type checking
+    /* exported for type checking */
   }
   return {
     MeterProvider: mock(() => mockMeterProvider),
