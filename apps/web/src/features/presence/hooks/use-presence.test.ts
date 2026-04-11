@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
-import { createElement } from "react";
+import { createElement, type FC } from "react";
 import { usePresence } from "./use-presence";
 
 interface MockPresenceManagerInstance {
@@ -56,13 +55,13 @@ const DEFAULT_PROPS = {
   enabled: true,
 };
 
-function TestComponent({
+const TestComponent: FC<Partial<typeof DEFAULT_PROPS>> = ({
   workspaceId = DEFAULT_PROPS.workspaceId,
   userId = DEFAULT_PROPS.userId,
   userName = DEFAULT_PROPS.userName,
   userAvatar = DEFAULT_PROPS.userAvatar,
   enabled = DEFAULT_PROPS.enabled,
-}: Partial<typeof DEFAULT_PROPS> = {}) {
+} = {}) => {
   const { users, isConnected, currentUser } = usePresence({
     workspaceId,
     userId,
@@ -95,7 +94,7 @@ function TestComponent({
       JSON.stringify(users.map((u) => u.id))
     )
   );
-}
+};
 
 function flushMicrotasks() {
   return new Promise((r) => setTimeout(r, 0));
@@ -185,7 +184,7 @@ describe("usePresence", () => {
 
       expect(MockPresenceManagerCtor).toHaveBeenCalled();
       expect(instances.length).toBe(1);
-      expect(instances[0].opts).toMatchObject({
+      expect(instances[0]!.opts).toMatchObject({
         workspaceId: "ws-1",
         userId: "user-1",
         userName: "Test User",
@@ -215,7 +214,7 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      expect(instances[0].opts).toMatchObject({
+      expect(instances[0]!.opts).toMatchObject({
         token: "test-jwt-token",
       });
     });
@@ -231,7 +230,7 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const manager = instances[0].opts as {
+      const manager = instances[0]!.opts as {
         onPresenceUpdate?: (...args: unknown[]) => void;
         onConnectionChange?: (...args: unknown[]) => void;
       };
@@ -251,7 +250,7 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const manager = instances[0].opts as {
+      const manager = instances[0]!.opts as {
         onPresenceUpdate?: (users: unknown[]) => void;
       };
 
@@ -278,7 +277,7 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const manager = instances[0].opts as {
+      const manager = instances[0]!.opts as {
         onConnectionChange?: (connected: boolean) => void;
       };
 
@@ -308,7 +307,7 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const manager = instances[0].opts as {
+      const manager = instances[0]!.opts as {
         onPresenceUpdate?: (users: unknown[]) => void;
       };
 
@@ -350,7 +349,7 @@ describe("usePresence", () => {
       unmount();
 
       expect(disconnectCalls.length).toBe(1);
-      expect(disconnectCalls[0]).toBe(instances[0]);
+      expect(disconnectCalls[0]).toBe(instances[0]!);
     });
   });
 
@@ -364,14 +363,17 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const firstInstance = instances[0];
+      const firstInstance = instances[0]!;
       expect(instances.length).toBe(1);
 
       await act(async () => {
         rerender(createElement(TestComponent, { workspaceId: "ws-2" }));
+        jwtTokenResolver!("test-jwt-token-2");
         await flushMicrotasks();
       });
 
+      expect(instances.length).toBe(2);
+      expect(instances[1]).not.toBe(firstInstance);
       expect(disconnectCalls.length).toBe(1);
       expect(disconnectCalls[0]).toBe(firstInstance);
     });
@@ -385,14 +387,17 @@ describe("usePresence", () => {
         await flushMicrotasks();
       });
 
-      const firstInstance = instances[0];
+      const firstInstance = instances[0]!;
       expect(instances.length).toBe(1);
 
       await act(async () => {
         rerender(createElement(TestComponent, { userId: "user-2" }));
+        jwtTokenResolver!("test-jwt-token-2");
         await flushMicrotasks();
       });
 
+      expect(instances.length).toBe(2);
+      expect(instances[1]).not.toBe(firstInstance);
       expect(disconnectCalls.length).toBe(1);
       expect(disconnectCalls[0]).toBe(firstInstance);
     });

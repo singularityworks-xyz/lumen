@@ -267,7 +267,7 @@ defmodule Presence.TokenTest do
   end
 
   describe "verify/1 header decode edge cases" do
-    test "handles token with non-map JSON in payload" do
+    test "returns error for token missing signature" do
       # Create a token where the payload decodes to a non-map (e.g., a list)
       {private_map, public_map} = generate_key_pair()
       kid = "test-key-#{System.unique_integer([:positive])}"
@@ -283,7 +283,7 @@ defmodule Presence.TokenTest do
       }
 
       {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
-      {protected, token} = JOSE.JWS.compact(token_map)
+      {_protected, _token} = JOSE.JWS.compact(token_map)
 
       # Decode and re-encode with a non-map payload (this is hard to create)
       # Instead, test the header decoding path with malformed but decodable header

@@ -1,8 +1,10 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { WorkspaceDeletedBanner } from "./workspace-deleted-banner";
+
+const SAVE_BUTTON_REGEX = /save as local workspace/i;
+const DISMISS_BUTTON_REGEX = /dismiss/i;
 
 const mockSetDeletedSharedWorkspace = mock(() => undefined);
 
@@ -58,23 +60,26 @@ describe("WorkspaceDeletedBanner", () => {
   it("renders Save as Local Workspace button", () => {
     render(createElement(WorkspaceDeletedBanner));
 
-    const buttons = screen.queryAllByRole("button");
-    expect(buttons.length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("button", { name: SAVE_BUTTON_REGEX })
+    ).toBeDefined();
   });
 
   it("renders Dismiss button", () => {
     render(createElement(WorkspaceDeletedBanner));
 
-    const buttons = screen.queryAllByRole("button");
-    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.getByRole("button", { name: DISMISS_BUTTON_REGEX })
+    ).toBeDefined();
   });
 
   it("calls setDeletedSharedWorkspace when Dismiss is clicked", () => {
     render(createElement(WorkspaceDeletedBanner));
 
-    const buttons = screen.queryAllByRole("button");
-    const dismissButton = buttons.at(-1);
-    dismissButton.click();
+    const dismissButton = screen.getByRole("button", {
+      name: DISMISS_BUTTON_REGEX,
+    });
+    fireEvent.click(dismissButton);
 
     expect(mockSetDeletedSharedWorkspace).toHaveBeenCalledWith(null);
   });

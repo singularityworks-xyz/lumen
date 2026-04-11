@@ -88,7 +88,7 @@ describe("Landing App Smoke Tests", () => {
     });
 
     it("has responsive navigation elements", () => {
-      expect(src).toContain("hidden") || expect(src).toContain("md:");
+      expect(src.includes("hidden") || src.includes("md:")).toBe(true);
     });
   });
 

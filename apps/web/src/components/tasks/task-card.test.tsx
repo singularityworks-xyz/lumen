@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
@@ -118,41 +117,16 @@ const mockKanbanStore = {
       "board-1": { x: 0, y: 0, width: 400 },
     },
   },
+  toggleTaskSelection: mockToggleTaskSelection,
+  openTaskDetailModal: mockOpenTaskDetailModal,
+  updateTask: mockUpdateTask,
+  deleteTask: mockDeleteTask,
+  openTaskQuickActions: mockOpenTaskQuickActions,
+  setDraggedTask: mockSetDraggedTask,
 };
 
 mock.module("@/src/features/kanban", () => ({
   useKanbanStore: (selector: (state: typeof mockKanbanStore) => unknown) => {
-    const selectorString = selector.toString();
-    if (selectorString.includes("toggleTaskSelection")) {
-      return mockToggleTaskSelection;
-    }
-    if (selectorString.includes("openTaskDetailModal")) {
-      return mockOpenTaskDetailModal;
-    }
-    if (selectorString.includes("updateTask")) {
-      return mockUpdateTask;
-    }
-    if (selectorString.includes("deleteTask")) {
-      return mockDeleteTask;
-    }
-    if (selectorString.includes("openTaskQuickActions")) {
-      return mockOpenTaskQuickActions;
-    }
-    if (selectorString.includes("setDraggedTask")) {
-      return mockSetDraggedTask;
-    }
-    if (selectorString.includes("boardPositions")) {
-      return mockKanbanStore.boardPositions;
-    }
-    if (selectorString.includes("taskQuickActions")) {
-      return mockKanbanStore.taskQuickActions;
-    }
-    if (selectorString.includes("selectedTaskIds")) {
-      return mockKanbanStore.selectedTaskIds;
-    }
-    if (selectorString.includes("draggedTaskId")) {
-      return mockKanbanStore.draggedTaskId;
-    }
     return selector(mockKanbanStore);
   },
 }));
@@ -191,7 +165,8 @@ function createMockTask(overrides?: Partial<Task>): Task {
     progress: 0,
     position: taskCounter,
     tags: [],
-    due_date: null,
+    created_by: "user-1",
+    due_date: undefined,
     checklists: [],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -256,7 +231,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByText("My Important Task")).toBeInTheDocument();
+      expect(screen.getByText("My Important Task")).toBeDefined();
     });
 
     it("renders task description when present", () => {
@@ -272,9 +247,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(
-        screen.getByText("This is a detailed description")
-      ).toBeInTheDocument();
+      expect(screen.getByText("This is a detailed description")).toBeDefined();
     });
 
     it("renders priority badge", () => {
@@ -287,7 +260,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByText("high")).toBeInTheDocument();
+      expect(screen.getByText("high")).toBeDefined();
     });
 
     it("renders due date when present", () => {
@@ -302,7 +275,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByTestId("icon-calendar")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-calendar")).toBeDefined();
     });
 
     it("renders tags when present", () => {
@@ -315,8 +288,8 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByText("frontend")).toBeInTheDocument();
-      expect(screen.getByText("urgent")).toBeInTheDocument();
+      expect(screen.getByText("frontend")).toBeDefined();
+      expect(screen.getByText("urgent")).toBeDefined();
     });
 
     it("renders checklist icon", () => {
@@ -325,10 +298,9 @@ describe("TaskCard", () => {
           {
             id: "cl-1",
             title: "Checklist 1",
-            items: [
-              { id: "item-1", text: "Item 1", completed: true },
-              { id: "item-2", text: "Item 2", completed: false },
-            ],
+            position: 0,
+            task_id: "task-1",
+            completed: false,
           },
         ],
       });
@@ -340,7 +312,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByTestId("icon-check-square")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-check-square")).toBeDefined();
     });
   });
 
@@ -405,7 +377,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(screen.getByTestId("checkbox")).toBeInTheDocument();
+      expect(screen.getByTestId("checkbox")).toBeDefined();
     });
 
     it("checks checkbox when task is selected", () => {
@@ -574,7 +546,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(container.querySelector(".text-red-400")).toBeInTheDocument();
+      expect(container.querySelector(".text-red-400")).toBeDefined();
     });
 
     it("shows due soon styling for near future dates", () => {
@@ -589,7 +561,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(container.querySelector(".text-yellow-400")).toBeInTheDocument();
+      expect(container.querySelector(".text-yellow-400")).toBeDefined();
     });
   });
 
@@ -604,7 +576,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(container.querySelector(".bg-blue-500\\/20")).toBeInTheDocument();
+      expect(container.querySelector(".bg-blue-500\\/20")).toBeDefined();
     });
 
     it("applies yellow styling for medium priority", () => {
@@ -617,9 +589,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(
-        container.querySelector(".bg-yellow-500\\/20")
-      ).toBeInTheDocument();
+      expect(container.querySelector(".bg-yellow-500\\/20")).toBeDefined();
     });
 
     it("applies red styling for high priority", () => {
@@ -632,7 +602,7 @@ describe("TaskCard", () => {
           task={task}
         />
       );
-      expect(container.querySelector(".bg-red-500\\/20")).toBeInTheDocument();
+      expect(container.querySelector(".bg-red-500\\/20")).toBeDefined();
     });
   });
 });

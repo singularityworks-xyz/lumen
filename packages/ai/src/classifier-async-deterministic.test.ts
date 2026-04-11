@@ -16,7 +16,7 @@ mock.module("ai", () => {
       }
       if (mockShouldTimeout) {
         return new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Request timed out")), 30_000);
+          setTimeout(() => reject(new Error("Request timed out")), 100);
         });
       }
       if (mockDelayMs > 0) {
@@ -169,14 +169,14 @@ describe("ClassifierQueue deterministic async tests", () => {
     });
 
     it("falls back to keyword detection when LLM is slow (simulated timeout)", async () => {
-      mockShouldFail = true;
+      mockShouldTimeout = true;
 
       const result = await classifyToolIntent("delete task", "test-key");
 
       expect(result.classification.confidence).toBe("low");
       expect(result.classification.intent).toBe("both");
 
-      mockShouldFail = false;
+      mockShouldTimeout = false;
     });
 
     it("queue full scenario falls back immediately to keywords", async () => {
@@ -220,12 +220,12 @@ describe("ClassifierQueue deterministic async tests", () => {
         trackOrder("third query"),
       ]);
 
-      expect(order).toHaveLength(3);
+      expect(order).toEqual(["first query", "second query", "third query"]);
     });
 
     it("concurrent requests under maxConcurrent are processed in parallel", async () => {
       mockCallCount = 0;
-      mockDelayMs = 5;
+      mockDelayMs = 50;
 
       const start = Date.now();
       await Promise.all([
@@ -233,9 +233,10 @@ describe("ClassifierQueue deterministic async tests", () => {
         classifyToolIntent("create task", "test-key"),
         classifyToolIntent("hello", "test-key"),
       ]);
-      const _elapsed = Date.now() - start;
+      const elapsed = Date.now() - start;
 
       expect(mockCallCount).toBe(3);
+      expect(elapsed).toBeLessThan(mockDelayMs * 3);
     });
 
     it("queue stats correctly reflect maxConcurrent=3 and maxQueueSize=20", () => {

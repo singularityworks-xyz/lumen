@@ -1,8 +1,6 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
-import { DiscussionTab } from "./discussion-tab";
 
 const REPLY_BUTTON_REGEX = /reply/i;
 const SEND_BUTTON_REGEX = /send/i;
@@ -64,6 +62,8 @@ mock.module("@/src/features/kanban/store/kanban-store", () => ({
 mock.module("@/src/lib/date", () => ({
   formatRelativeTime: () => "2m ago",
 }));
+
+import { DiscussionTab } from "./discussion-tab";
 
 function createChatMessage(
   id: string,

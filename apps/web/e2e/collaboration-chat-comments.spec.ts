@@ -171,22 +171,21 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     await expect(comment).toBeVisible();
 
     const editButton = comment.locator('[data-testid="comment-edit-button"]');
-    if (await editButton.isVisible()) {
-      await editButton.click();
-      await ownerPage.waitForTimeout(500);
+    await expect(editButton).toBeVisible();
+    await editButton.click();
+    await ownerPage.waitForTimeout(500);
 
-      const editInput = comment.locator('[data-testid="comment-edit-input"]');
-      await expect(editInput).toBeVisible();
-      await editInput.clear();
-      await editInput.fill("Edited comment text");
-      await ownerPage.click('[data-testid="comment-save-edit"]');
-      await ownerPage.waitForTimeout(1000);
+    const editInput = comment.locator('[data-testid="comment-edit-input"]');
+    await expect(editInput).toBeVisible();
+    await editInput.clear();
+    await editInput.fill("Edited comment text");
+    await ownerPage.click('[data-testid="comment-save-edit"]');
+    await ownerPage.waitForTimeout(1000);
 
-      const editedComment = editorPage.locator(
-        '[data-testid="comment"]:has-text("Edited comment text")'
-      );
-      await expect(editedComment).toBeVisible({ timeout: 5000 });
-    }
+    const editedComment = editorPage.locator(
+      '[data-testid="comment"]:has-text("Edited comment text")'
+    );
+    await expect(editedComment).toBeVisible({ timeout: 5000 });
   });
 
   test("delete comment removes from peer's view", async () => {
@@ -217,23 +216,22 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     const deleteButton = comment.locator(
       '[data-testid="comment-delete-button"]'
     );
-    if (await deleteButton.isVisible()) {
-      await deleteButton.click();
-      await ownerPage.waitForTimeout(500);
+    await expect(deleteButton).toBeVisible();
+    await deleteButton.click();
+    await ownerPage.waitForTimeout(500);
 
-      const confirmDelete = ownerPage.locator(
-        '[data-testid="comment-confirm-delete"]'
-      );
-      if (await confirmDelete.isVisible()) {
-        await confirmDelete.click();
-        await ownerPage.waitForTimeout(1000);
-      }
-
-      const deletedComment = editorPage.locator(
-        '[data-testid="comment"]:has-text("Comment to delete")'
-      );
-      await expect(deletedComment).not.toBeVisible({ timeout: 5000 });
+    const confirmDelete = ownerPage.locator(
+      '[data-testid="comment-confirm-delete"]'
+    );
+    if (await confirmDelete.isVisible()) {
+      await confirmDelete.click();
+      await ownerPage.waitForTimeout(1000);
     }
+
+    const deletedComment = editorPage.locator(
+      '[data-testid="comment"]:has-text("Comment to delete")'
+    );
+    await expect(deletedComment).not.toBeVisible({ timeout: 5000 });
   });
 
   test("mention rendering in comments with @ symbol", async () => {

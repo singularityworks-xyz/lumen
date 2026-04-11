@@ -1,14 +1,13 @@
 import { check, sleep } from "k6";
-import { Counter, Rate, Trend, Gauge } from "k6/metrics";
+import { Counter, Rate, Trend } from "k6/metrics";
 import { connectCollabSession } from "./lib/collab-session";
 
 const stateDivergenceCount = new Counter("state_divergence_count");
 const droppedAwarenessCount = new Counter("dropped_awareness_count");
-const staleCursorCleanupTime = new Gauge("stale_cursor_cleanup_time_ms");
-const memoryGrowthDuringSoak = new Gauge("memory_growth_bytes");
 const roomCleanupSuccess = new Rate("room_cleanup_success");
 const joinLatency = new Trend("join_latency_ms");
 const updatePropagationLatency = new Trend("update_propagation_latency_ms");
+const initialConnectSuccess = new Rate("initial_connect_success");
 const reconnectSuccessRate = new Rate("reconnect_success_rate");
 const presenceFanoutCount = new Counter("presence_fanout_count");
 
@@ -41,18 +40,24 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-churn-test";
 
+  if (!wsUrl || !authToken) {
+    console.error("WS_URL and AUTH_TOKEN environment variables are required");
+    initialConnectSuccess.add(false);
+    return;
+  }
+
   const joinStart = Date.now();
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken, workspaceId);
   const joinEnd = Date.now();
 
   joinLatency.add(joinEnd - joinStart);
 
   if (!session.established) {
-    reconnectSuccessRate.add(false);
+    initialConnectSuccess.add(false);
     return;
   }
 
-  reconnectSuccessRate.add(true);
+  initialConnectSuccess.add(true);
 
   const myLabel = `churn-user-${__VU}-${__ITER}`;
   const baseUpdate = __VU * 1000 + __ITER * 100;
@@ -98,7 +103,7 @@ export default function () {
   sleep(1);
 
   const reconnectStart = Date.now();
-  const reconnectSession = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  const reconnectSession = connectCollabSession(wsUrl, authToken, workspaceId);
   const reconnectEnd = Date.now();
 
   if (reconnectSession.established) {
@@ -117,7 +122,7 @@ export default function () {
 }
 
 export function handleSummary(data: {
-  metrics: Record<string, { values: { p(95): number; count: number } }>;
+  metrics: Record<string, { values: Record<string, number> }>;
 }) {
   return {
     "churn-summary": JSON.stringify(data.metrics, null, 2),

@@ -292,7 +292,7 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await latePage.close();
   });
 
-  test("worker restart recovers drag state after websocket recycle", async () => {
+  test("drag state persists through page reload after offline simulation", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const boardBox = await boardNode.boundingBox();
     expect(boardBox).not.toBeNull();

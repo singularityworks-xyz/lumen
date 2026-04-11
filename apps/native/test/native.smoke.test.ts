@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const NATIVE_DIR = join(
@@ -12,6 +12,9 @@ const NATIVE_DIR = join(
   "src-tauri"
 );
 
+const configPath = join(NATIVE_DIR, "tauri.conf.json");
+const config = JSON.parse(readFileSync(configPath, "utf-8"));
+
 function _readSource(path: string): string {
   return readFileSync(join(NATIVE_DIR, path), "utf-8");
 }
@@ -19,18 +22,12 @@ function _readSource(path: string): string {
 describe("Native App Smoke Tests", () => {
   describe("Tauri Configuration", () => {
     it("has valid tauri.conf.json", () => {
-      const configPath = join(NATIVE_DIR, "tauri.conf.json");
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-
       expect(config.productName).toBe("lumen-singularityworks");
       expect(config.identifier).toBe("com.itssingularity.lumen");
       expect(config.version).toBeDefined();
     });
 
     it("configures deep-link plugin for single-instance forwarding", () => {
-      const configPath = join(NATIVE_DIR, "tauri.conf.json");
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-
       expect(config.plugins).toBeDefined();
       expect(config.plugins["deep-link"]).toBeDefined();
       expect(config.plugins["deep-link"].desktop).toBeDefined();
@@ -38,9 +35,6 @@ describe("Native App Smoke Tests", () => {
     });
 
     it("configures main window with correct settings", () => {
-      const configPath = join(NATIVE_DIR, "tauri.conf.json");
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-
       expect(config.app.windows).toBeDefined();
       expect(config.app.windows.length).toBeGreaterThan(0);
 
@@ -52,9 +46,6 @@ describe("Native App Smoke Tests", () => {
     });
 
     it("has bundle configuration for release builds", () => {
-      const configPath = join(NATIVE_DIR, "tauri.conf.json");
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-
       expect(config.bundle).toBeDefined();
       expect(config.bundle.active).toBe(true);
       expect(config.bundle.targets).toBe("all");
@@ -63,9 +54,6 @@ describe("Native App Smoke Tests", () => {
     });
 
     it("has security CSP configuration", () => {
-      const configPath = join(NATIVE_DIR, "tauri.conf.json");
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-
       expect(config.app.security).toBeDefined();
       expect(config.app.security.csp).toContain("default-src 'self'");
     });
@@ -101,9 +89,7 @@ describe("Native App Smoke Tests", () => {
   describe("Build Artifacts", () => {
     it("has icons directory", () => {
       const iconsPath = join(NATIVE_DIR, "icons");
-      expect(() =>
-        readFileSync(join(iconsPath, "32x32.png"), "utf-8")
-      ).not.toThrow();
+      expect(existsSync(join(iconsPath, "32x32.png"))).toBe(true);
     });
 
     it("has capabilities directory for permissions", () => {

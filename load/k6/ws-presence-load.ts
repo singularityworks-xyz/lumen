@@ -1,17 +1,14 @@
 import { check, sleep } from "k6";
-import { Counter, Rate, Trend, Gauge } from "k6/metrics";
+import { Counter, Trend, Gauge } from "k6/metrics";
 import { connectCollabSession } from "./lib/collab-session";
 
 const presenceFanoutCount = new Counter("presence_fanout_count");
-const chatBurstCount = new Counter("chat_burst_count");
-const chatMessageLatency = new Trend("chat_message_latency_ms");
 const cursorMovementCount = new Counter("cursor_movement_count");
 const cursorPositionDrift = new Gauge("cursor_position_drift_pixels");
 const collaboratorCountGauge = new Gauge("collaborator_count");
 
 const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "20", 10);
 const CURSOR_ROUNDS = parseInt(__ENV.CURSOR_ROUNDS || "20", 10);
-const CHAT_BURST_SIZE = parseInt(__ENV.CHAT_BURST_SIZE || "10", 10);
 
 export const options = {
   scenarios: {
@@ -35,7 +32,12 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-presence-test";
 
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  if (!wsUrl || !authToken) {
+    console.error("WS_URL and AUTH_TOKEN environment variables are required");
+    return;
+  }
+
+  const session = connectCollabSession(wsUrl, authToken, workspaceId);
 
   if (!session.established) {
     return;
@@ -74,7 +76,6 @@ export default function () {
 
   check(session, {
     "session received presence updates": (s) => s.receivedAwareness === true,
-    "presence fanout working": () => session.receivedAwareness === true,
   });
 
   collaboratorCountGauge.add(session.receivedAwareness ? 1 : 0);

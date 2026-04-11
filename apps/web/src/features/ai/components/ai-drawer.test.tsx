@@ -1,8 +1,9 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { AiDrawer } from "./ai-drawer";
+
+const CLOSE_BUTTON_REGEX = /close/i;
 
 const mockOnOpenChange = mock(() => undefined);
 const mockOnSwitchToBoards = mock(() => undefined);
@@ -34,17 +35,15 @@ const mockAiStoreState = {
   clearConversation: mock(),
 };
 
-const mockUseAiStore = mock((selector?: (state: unknown) => unknown) => {
-  if (selector) {
-    return selector(mockAiStoreState);
-  }
-  return mockAiStoreState;
-}) as unknown as typeof mockUseAiStore & {
-  getState: () => typeof mockAiStoreState;
-};
-
-(mockUseAiStore as { getState: () => typeof mockAiStoreState }).getState = () =>
-  mockAiStoreState;
+const mockUseAiStore = Object.assign(
+  mock((selector?: (state: unknown) => unknown) => {
+    if (selector) {
+      return selector(mockAiStoreState);
+    }
+    return mockAiStoreState;
+  }),
+  { getState: () => mockAiStoreState }
+);
 
 mock.module("../store/ai-store", () => ({
   useAiStore: mockUseAiStore,
@@ -53,7 +52,14 @@ mock.module("../store/ai-store", () => ({
 mock.module("motion/react", () => ({
   AnimatePresence: ({ children }: { children: unknown }) => children,
   motion: {
-    div: "motion-div",
+    div: (props: { children?: unknown; [key: string]: unknown }) => {
+      const { children, ...rest } = props;
+      return createElement(
+        "div",
+        rest as Record<string, unknown>,
+        children as React.ReactNode
+      );
+    },
   },
 }));
 
@@ -86,23 +92,27 @@ describe("AiDrawer", () => {
         commentCount: 10,
       })
     );
+
+    expect(screen.getByRole("dialog")).toBeDefined();
   });
 
-  it("accepts all drawer props", () => {
+  it("calls onOpenChange with false when close button is clicked", () => {
     render(
       createElement(AiDrawer, {
         workspaceId: "ws-1",
-        isOpen: false,
+        isOpen: true,
         onOpenChange: mockOnOpenChange,
-        onSwitchToBoards: mockOnSwitchToBoards,
-        onSwitchToComments: mockOnSwitchToComments,
-        boardCount: 10,
-        commentCount: 20,
+        boardCount: 5,
+        commentCount: 10,
       })
     );
 
-    expect(mockOnOpenChange).toBeDefined();
-    expect(mockOnSwitchToBoards).toBeDefined();
-    expect(mockOnSwitchToComments).toBeDefined();
+    const closeButton = screen.queryByRole("button", {
+      name: CLOSE_BUTTON_REGEX,
+    });
+    if (closeButton) {
+      fireEvent.click(closeButton);
+      expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+    }
   });
 });

@@ -7,8 +7,9 @@ describe("authMacro", () => {
     expect(typeof authMacro).toBe("object");
   });
 
-  it("has macro property", async () => {
+  it("has macro property that is a function", async () => {
     const { authMacro } = await import("./auth-macro");
     expect(authMacro.macro).toBeDefined();
+    expect(typeof authMacro.macro).toBe("function");
   });
 });

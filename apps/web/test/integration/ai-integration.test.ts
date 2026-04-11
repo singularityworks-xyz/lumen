@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockNoOp = () => {
@@ -130,18 +129,19 @@ describe("AI Integration Tests", () => {
       const reader = response.body?.getReader();
 
       if (reader) {
-        const { done } = await reader.read();
-        if (done) {
-          const { value } = await reader
-            .read()
-            .catch(() => ({ value: undefined, done: true }));
-          if (!value) {
-            _streamInterrupted = true;
+        try {
+          while (true) {
+            const { done } = await reader.read();
+            if (done) {
+              break;
+            }
           }
+        } catch {
+          _streamInterrupted = true;
         }
       }
 
-      expect(true).toBe(true);
+      expect(_streamInterrupted).toBe(true);
     });
 
     it("accumulates partial chunks correctly", () => {
@@ -374,27 +374,27 @@ describe("AI Integration Tests", () => {
   describe("Conversation Save/Load/Delete", () => {
     const mockPrisma = {
       aiConversation: {
-        findUnique: mock(() => Promise.resolve(null)),
-        findMany: mock(() => Promise.resolve([])),
-        upsert: mock(() =>
+        findUnique: mock((_args?: unknown) => Promise.resolve(null as unknown)),
+        findMany: mock((_args?: unknown) => Promise.resolve([])),
+        upsert: mock((_args?: unknown) =>
           Promise.resolve({
             id: "conv-1",
             workspaceId: "ws-1",
             userId: "user-1",
-            title: null,
+            title: null as string | null,
             messageCount: 0,
-            summary: null,
+            summary: null as string | null,
             summaryUpToIndex: 0,
             lastActiveAt: new Date(),
             createdAt: new Date(),
           })
         ),
-        update: mock(() => Promise.resolve({})),
-        delete: mock(() => Promise.resolve({})),
+        update: mock((_args?: unknown) => Promise.resolve({})),
+        delete: mock((_args?: unknown) => Promise.resolve({})),
       },
       aiMessage: {
-        create: mock(() => Promise.resolve({ id: "msg-1" })),
-        deleteMany: mock(() => Promise.resolve({ count: 0 })),
+        create: mock((_args?: unknown) => Promise.resolve({ id: "msg-1" })),
+        deleteMany: mock((_args?: unknown) => Promise.resolve({ count: 0 })),
       },
     };
 
@@ -451,7 +451,7 @@ describe("AI Integration Tests", () => {
       });
 
       expect(result).toEqual(existingConv);
-      expect(result.messages).toHaveLength(2);
+      expect((result as typeof existingConv).messages).toHaveLength(2);
     });
 
     it("deletes specific message from conversation", async () => {
@@ -518,7 +518,7 @@ describe("AI Integration Tests", () => {
     });
 
     it("does not trigger title generation on subsequent messages", () => {
-      const messageCount = 5;
+      const messageCount: number = 5;
       const shouldGenerateTitle = messageCount === 0;
 
       expect(shouldGenerateTitle).toBe(false);

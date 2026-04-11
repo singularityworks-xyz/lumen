@@ -293,7 +293,6 @@ defmodule Presence.MetricsCoverageTest do
         end)
 
       assert length(events) == 1
-      assert length(events) == 1
     end
   end
 

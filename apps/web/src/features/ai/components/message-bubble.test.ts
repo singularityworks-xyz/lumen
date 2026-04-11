@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-const formatTokens = (tokens: number) => {
+function formatTokens(tokens: number): string {
   if (tokens >= 1000) {
     return `${(tokens / 1000).toFixed(1)}K`;
   }
   return tokens.toString();
-};
+}
 
 describe("message-bubble utilities", () => {
   describe("formatTokens", () => {

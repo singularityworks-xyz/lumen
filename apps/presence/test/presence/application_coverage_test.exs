@@ -5,6 +5,23 @@ defmodule Presence.ApplicationCoverageTest do
 
   describe "otel_enabled?/0" do
     test "returns false when otel_enabled is not set" do
+      original_otel = Application.get_env(:presence, :otel_enabled)
+      original_exporter = Application.get_env(:opentelemetry, :traces_exporter)
+
+      on_exit(fn ->
+        if original_otel != nil do
+          Application.put_env(:presence, :otel_enabled, original_otel)
+        else
+          Application.delete_env(:presence, :otel_enabled)
+        end
+
+        if original_exporter != nil do
+          Application.put_env(:opentelemetry, :traces_exporter, original_exporter)
+        else
+          Application.delete_env(:opentelemetry, :traces_exporter)
+        end
+      end)
+
       Application.delete_env(:presence, :otel_enabled)
       Application.delete_env(:opentelemetry, :traces_exporter)
 

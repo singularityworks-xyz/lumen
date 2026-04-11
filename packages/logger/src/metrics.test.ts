@@ -107,9 +107,11 @@ describe("metrics", () => {
       const getConnections = mock(() => 42);
       const mockObserver = { observe: mock(() => undefined) };
 
-      mockGaugeAddCallback.mockImplementationOnce((fn: any) => {
-        fn(mockObserver);
-      });
+      mockGaugeAddCallback.mockImplementationOnce(
+        (fn: (observer: { observe: (value: number) => void }) => void) => {
+          fn(mockObserver);
+        }
+      );
 
       createActiveConnectionsGauge(
         mockMeter as unknown as Meter,
