@@ -7,7 +7,12 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "./helpers/commands";
-import { MultiInstanceTopology } from "./lib/multi-instance-setup";
+import {
+  getSecondaryPresenceUrl,
+  getSecondaryWorkersUrl,
+  MultiInstanceTopology,
+  routePageToWorkers,
+} from "./lib/multi-instance-setup";
 
 const DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
@@ -281,6 +286,7 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
 
     test.beforeEach(async ({ browser }) => {
       await topology.startSecondaryWorkers();
+      await topology.startSecondaryPresence();
       const setup = await setupTwoUsers(browser);
       ownerPage = setup.ownerPage;
       editorPage = setup.editorPage;
@@ -292,6 +298,13 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     });
 
     test("state converges when routed to different workers", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -351,6 +364,13 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     });
 
     test("reconnect to secondary worker maintains data integrity", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -402,6 +422,74 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
 
       expect(ownerColumns).toBe(editorColumns);
       expect(ownerColumns).toBeGreaterThanOrEqual(1);
+    });
+
+    test("editor page actually connects to secondary workers instance", async ({
+      browser,
+    }) => {
+      const context1 = await browser.newContext();
+      const context2 = await browser.newContext();
+
+      const primaryPage = await context1.newPage();
+      const secondaryPage = await context2.newPage();
+
+      await clearLocalStorageAndIndexedDB(primaryPage);
+      await disableAnimations(primaryPage);
+      await primaryPage.goto("/");
+      await waitForAppReady(primaryPage);
+
+      const createFirstBoardButton = primaryPage.locator(
+        '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+      );
+      if (await createFirstBoardButton.isVisible()) {
+        await createFirstBoardButton.click();
+        await primaryPage.waitForTimeout(500);
+      }
+
+      const shareLink = await createShareLinkForFirstBoard(primaryPage);
+
+      await routePageToWorkers(
+        secondaryPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await secondaryPage.goto(shareLink);
+      await waitForAppReady(secondaryPage);
+      await secondaryPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
+
+      const primaryAddColumn = primaryPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .locator('[data-testid="add-column-trigger"]');
+      await primaryAddColumn.click();
+      await primaryPage.fill(
+        '[data-testid="column-name-input"]',
+        "Verify Routing Column"
+      );
+      await primaryPage.click('[data-testid="column-create-submit"]');
+      await primaryPage.waitForTimeout(1000);
+
+      await secondaryPage
+        .locator(
+          '[data-testid="kanban-column"]:has-text("Verify Routing Column")'
+        )
+        .waitFor({ state: "visible", timeout: 10_000 });
+
+      const primaryColumns = await primaryPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+      const secondaryColumns = await secondaryPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+
+      expect(primaryColumns).toBe(secondaryColumns);
+      expect(primaryColumns).toBeGreaterThanOrEqual(1);
+
+      await primaryPage.close();
+      await secondaryPage.close();
     });
   });
 

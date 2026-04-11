@@ -1,7 +1,7 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { connectCollabSession } from "./lib/collab-session";
-import { chromium, Browser, BrowserContext } from "k6/experimental/browser";
+import { browser } from "k6/browser";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
 const wsUpdateLatency = new Trend("hybrid_ws_update_latency_ms");
@@ -131,23 +131,14 @@ export const options = {
 };
 
 export async function runBrowserVu() {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
-
-  const context = await browser.newContext({
+  const page = await browser.newPage({
     viewport: { width: 1920, height: 1080 },
   });
-
-  const page = await context.newPage();
 
   try {
     await runBrowserScenario(page, __ITER);
   } finally {
     await page.close();
-    await context.close();
-    await browser.close();
   }
 }
 

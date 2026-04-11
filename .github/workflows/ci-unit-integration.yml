@@ -114,7 +114,7 @@ jobs:
         run: bun run db:gen
 
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.{ts,tsx} --coverage
+        run: bun run scripts/testing/test-scripts.ts coverage:web
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -150,16 +150,10 @@ jobs:
         run: bun run db:gen
 
       - name: Run worker unit tests
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
+        run: bun run scripts/testing/test-scripts.ts coverage:workers
 
       - name: Run package unit tests
-        run: |
-          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
+        run: bun run scripts/testing/test-scripts.ts coverage:packages
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -301,7 +295,7 @@ jobs:
 
       - name: Run Presence tests with coverage
         working-directory: apps/presence
-        run: mix test --cover
+        run: mix coveralls.lcov
 
       - name: Upload Presence coverage
         uses: actions/upload-artifact@v7
@@ -351,6 +345,14 @@ jobs:
         run: |
           cp -r coverage-unit-web/* coverage-unit-server/
           mv coverage-unit-server coverage
+
+      - name: Merge LCOV files for threshold gate
+        run: |
+          mkdir -p coverage/merged
+          cat coverage/bun/lcov.info > coverage/merged/lcov.info
+          if [ -f coverage-presence/lcov.info ]; then
+            cat coverage-presence/lcov.info >> coverage/merged/lcov.info
+          fi
 
       - name: Merge Presence coverage
         run: |

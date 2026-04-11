@@ -7,16 +7,33 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "./helpers/commands";
+import {
+  getSecondaryPresenceUrl,
+  getSecondaryWorkersUrl,
+  MultiInstanceTopology,
+  routePageToWorkers,
+} from "./lib/multi-instance-setup";
 
 const DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
 
 test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
+  let topology: MultiInstanceTopology;
+
+  test.beforeEach(() => {
+    topology = new MultiInstanceTopology();
+  });
+
+  test.afterEach(() => {
+    return topology.stopAll();
+  });
+
   test.describe("Two Workers Instances", () => {
     let ownerPage: Page;
     let editorPage: Page;
 
     test.beforeEach(async ({ browser }) => {
+      await topology.startSecondaryWorkers();
       const setup = await setupTwoUsers(browser);
       ownerPage = setup.ownerPage;
       editorPage = setup.editorPage;
@@ -28,6 +45,14 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     });
 
     test("state converges when clients connect to different workers instances", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -63,6 +88,14 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     });
 
     test("presence cursor appears across workers instances", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -78,6 +111,14 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     });
 
     test("disconnect from one workers reconnects to another workers", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -137,6 +178,14 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     });
 
     test("selection presence appears across workers instances", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -159,6 +208,9 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     let shareLink: string;
 
     test.beforeEach(async ({ browser }) => {
+      await topology.startSecondaryWorkers();
+      await topology.startSecondaryPresence();
+
       const context1 = await browser.newContext();
       const context2 = await browser.newContext();
       const context3 = await browser.newContext();
@@ -167,23 +219,27 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       user2Page = await context2.newPage();
       user3Page = await context3.newPage();
 
-      for (const page of [user1Page, user2Page, user3Page]) {
-        await clearLocalStorageAndIndexedDB(page);
-        await disableAnimations(page);
-        await page.goto("/");
-        await waitForAppReady(page);
+      await clearLocalStorageAndIndexedDB(user1Page);
+      await disableAnimations(user1Page);
+      await routePageToWorkers(
+        user1Page,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await user1Page.goto("/");
+      await waitForAppReady(user1Page);
 
-        const createFirstBoardButton = page.locator(
-          '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-        );
-        if (await createFirstBoardButton.isVisible()) {
-          await createFirstBoardButton.click();
-          await page.waitForTimeout(500);
-        }
+      const createFirstBoardButton = user1Page.locator(
+        '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+      );
+      if (await createFirstBoardButton.isVisible()) {
+        await createFirstBoardButton.click();
+        await user1Page.waitForTimeout(500);
       }
 
       shareLink = await createShareLinkForFirstBoard(user1Page);
 
+      await routePageToWorkers(user2Page, getSecondaryWorkersUrl());
       await user2Page.goto(shareLink);
       await waitForAppReady(user2Page);
       await user2Page
@@ -248,7 +304,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
 
       await user2Page.locator('[data-testid="board-node"]').first().hover();
       await user2Page.mouse.move(500, 400);
-      await user2Page.waitForTimeout(500);
+      await user1Page.waitForTimeout(500);
 
       const user3Cursors = user3Page.locator('[data-testid="peer-cursor"]');
       await expect(user3Cursors).toHaveCount(2, { timeout: 5000 });
@@ -260,6 +316,8 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     let editorPage: Page;
 
     test.beforeEach(async ({ browser }) => {
+      await topology.startSecondaryWorkers();
+      await topology.startSecondaryPresence();
       const setup = await setupTwoUsers(browser);
       ownerPage = setup.ownerPage;
       editorPage = setup.editorPage;
@@ -271,6 +329,13 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     });
 
     test("edits sync after reconnection to different instance", async () => {
+      await routePageToWorkers(
+        editorPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await editorPage.goto("/");
+      await waitForAppReady(editorPage);
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -327,6 +392,76 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
 
       expect(ownerColumns).toBeGreaterThanOrEqual(2);
       expect(ownerColumns).toBe(editorColumns);
+    });
+
+    test("users connected to different workers instances see consistent state", async ({
+      browser,
+    }) => {
+      await topology.startSecondaryWorkers();
+      await topology.startSecondaryPresence();
+
+      const context1 = await browser.newContext();
+      const context2 = await browser.newContext();
+
+      const primaryPage = await context1.newPage();
+      const secondaryPage = await context2.newPage();
+
+      await clearLocalStorageAndIndexedDB(primaryPage);
+      await disableAnimations(primaryPage);
+      await primaryPage.goto("/");
+      await waitForAppReady(primaryPage);
+
+      const createFirstBoardButton = primaryPage.locator(
+        '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+      );
+      if (await createFirstBoardButton.isVisible()) {
+        await createFirstBoardButton.click();
+        await primaryPage.waitForTimeout(500);
+      }
+
+      const shareLink = await createShareLinkForFirstBoard(primaryPage);
+
+      await routePageToWorkers(
+        secondaryPage,
+        getSecondaryWorkersUrl(),
+        getSecondaryPresenceUrl()
+      );
+      await secondaryPage.goto(shareLink);
+      await waitForAppReady(secondaryPage);
+      await secondaryPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
+
+      const primaryAddColumn = primaryPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .locator('[data-testid="add-column-trigger"]');
+      await primaryAddColumn.click();
+      await primaryPage.fill(
+        '[data-testid="column-name-input"]',
+        "Cross-Instance Column"
+      );
+      await primaryPage.click('[data-testid="column-create-submit"]');
+      await primaryPage.waitForTimeout(1000);
+
+      await secondaryPage
+        .locator(
+          '[data-testid="kanban-column"]:has-text("Cross-Instance Column")'
+        )
+        .waitFor({ state: "visible", timeout: 10_000 });
+
+      const primaryColumns = await primaryPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+      const secondaryColumns = await secondaryPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+
+      expect(primaryColumns).toBe(secondaryColumns);
+
+      await primaryPage.close();
+      await secondaryPage.close();
     });
   });
 });

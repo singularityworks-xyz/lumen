@@ -127,7 +127,7 @@ export class MultiInstanceTopology {
   }
 
   getPrimaryPresenceUrl(): string {
-    return `ws://localhost:${this.basePorts.presence.primary - 1}`;
+    return `ws://localhost:${this.basePorts.presence.primary}`;
   }
 }
 
@@ -170,3 +170,68 @@ export const SECONDARY_PORTS = {
   workers: DEFAULT_PORTS.workers.secondary,
   presence: DEFAULT_PORTS.presence.secondary,
 } as const;
+
+export interface WorkersRoutingOptions {
+  presenceUrl?: string;
+  workersUrl: string;
+}
+
+export async function createPageConnectedToWorkers(
+  page: Page,
+  workersUrl: string,
+  presenceUrl?: string
+): Promise<void> {
+  const normalizedWorkersUrl = workersUrl.endsWith("/")
+    ? workersUrl.slice(0, -1)
+    : workersUrl;
+  const normalizedPresenceUrl = presenceUrl?.endsWith("/")
+    ? presenceUrl.slice(0, -1)
+    : presenceUrl;
+
+  await page.addInitScript(
+    `(() => {
+      window.__TEST_WORKERS_URL__ = ${JSON.stringify(normalizedWorkersUrl)};
+      window.__TEST_PRESENCE_URL__ = ${JSON.stringify(normalizedPresenceUrl ?? "")};
+    })()`
+  );
+}
+
+export async function routePageToWorkers(
+  page: Page,
+  workersUrl: string,
+  presenceUrl?: string
+): Promise<void> {
+  const normalizedWorkersUrl = workersUrl.endsWith("/")
+    ? workersUrl.slice(0, -1)
+    : workersUrl;
+  const normalizedPresenceUrl = presenceUrl?.endsWith("/")
+    ? presenceUrl.slice(0, -1)
+    : presenceUrl;
+
+  await page.addInitScript(
+    `(() => {
+      Object.defineProperty(process.env, 'NEXT_PUBLIC_API_URL', {
+        get: () => ${JSON.stringify(normalizedWorkersUrl)},
+        configurable: true
+      });
+      Object.defineProperty(process.env, 'NEXT_PUBLIC_PRESENCE_WS_URL', {
+        get: () => ${JSON.stringify(normalizedPresenceUrl ?? normalizedWorkersUrl.replace("http", "ws"))},
+        configurable: true
+      });
+    })()`
+  );
+}
+
+export function getInstanceIdentifier(page: Page): Promise<{
+  workersInstance: string | null;
+  presenceInstance: string | null;
+}> {
+  return page.evaluate(() => ({
+    workersInstance:
+      (window as Window & { __WORKERS_INSTANCE_ID__?: string })
+        .__WORKERS_INSTANCE_ID__ ?? null,
+    presenceInstance:
+      (window as Window & { __PRESENCE_INSTANCE_ID__?: string })
+        .__PRESENCE_INSTANCE_ID__ ?? null,
+  }));
+}
