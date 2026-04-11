@@ -118,3 +118,30 @@ declare module "k6/http" {
   ): Response;
   export function batch(requests: Array<[string, string] | [string, string, object]>): Response[];
 }
+
+declare module "k6/execution" {
+  export const vus: number;
+  export const iterations: number;
+  export const instanceIterations: number;
+  export const vu: number;
+  export const instanceID: string;
+  export const group: string;
+}
+
+declare module "yjs" {
+  export class Doc {
+    clientID: number;
+    constructor();
+    getMap(name?: string): Map<any, any>;
+    getMaps(): Map<any, any>[];
+    getArray(name?: string): Array<any>;
+    getText(name?: string): any;
+    encodeStateAsUpdate(doc: Doc): Uint8Array;
+    encodeStateVector(doc: Doc): Uint8Array;
+    applyUpdate(doc: Doc, update: Uint8Array): void;
+  }
+  export function encodeStateAsUpdate(doc: Doc): Uint8Array;
+  export function encodeStateVector(doc: Doc): Uint8Array;
+  export function applyUpdate(doc: Doc, update: Uint8Array): void;
+  export function compareStateVectors(sv1: Uint8Array, sv2: Uint8Array): boolean;
+}

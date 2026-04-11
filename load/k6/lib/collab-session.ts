@@ -214,6 +214,8 @@ export interface CollabSession {
   receivedSyncStep2: boolean;
   receivedAwareness: boolean;
   receivedUpdates: number;
+  sentMessages: number;
+  lastMessageTime: number;
   sendSyncUpdate: (updateSeed: number) => boolean;
   sendAwarenessUpdate: (cursor: {
     x: number;
@@ -221,6 +223,13 @@ export interface CollabSession {
     user: string;
   }) => boolean;
   disconnect: () => void;
+}
+
+export interface CollabMetrics {
+  totalConnections: number;
+  totalSyncMessages: number;
+  totalAwarenessMessages: number;
+  averageLatency: number;
 }
 
 export function connectCollabSession(
@@ -240,6 +249,8 @@ export function connectCollabSession(
     receivedSyncStep2: false,
     receivedAwareness: false,
     receivedUpdates: 0,
+    sentMessages: 0,
+    lastMessageTime: Date.now(),
     sendSyncUpdate: () => false,
     sendAwarenessUpdate: () => false,
     disconnect: () => {},
@@ -302,6 +313,8 @@ export function connectCollabSession(
         const msg = encodeSyncUpdate(update);
         socket.sendBinary(msg.buffer);
         wsSyncMessagesSent.add(1);
+        session.sentMessages++;
+        session.lastMessageTime = Date.now();
         return true;
       } catch {
         wsMessageFailures.add(1);
@@ -322,6 +335,8 @@ export function connectCollabSession(
         const msg = encodeAwarenessUpdate(__VU, state);
         socket.sendBinary(msg.buffer);
         wsAwarenessSent.add(1);
+        session.sentMessages++;
+        session.lastMessageTime = Date.now();
         return true;
       } catch {
         wsMessageFailures.add(1);

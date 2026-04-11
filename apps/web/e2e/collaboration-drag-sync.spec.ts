@@ -6,6 +6,7 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "./helpers/commands";
+import { waitForCollabSync } from "./helpers/waits";
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -41,7 +42,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 10 });
     await ownerPage.mouse.up();
-    await ownerPage.waitForTimeout(1000);
+    // Wait for drag to complete and sync to peer
+    await ownerPage.waitForLoadState("networkidle");
 
     // Owner board should have moved
     const ownerBoxAfterDrag = await boardNode.boundingBox();
@@ -103,12 +105,16 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Column A");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    // Wait for first column to be created
+    await ownerPage
+      .locator('[data-testid="kanban-column"]:has-text("Column A")')
+      .waitFor({ state: "visible", timeout: 5000 });
 
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Column B");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    // Wait for second column to sync to editor
+    await waitForCollabSync(editorPage, "kanban-column", "Column B");
 
     await editorPage
       .locator('[data-testid="kanban-column"]:has-text("Column B")')
@@ -133,12 +139,16 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Source Col");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    // Wait for first column to be created
+    await ownerPage
+      .locator('[data-testid="kanban-column"]:has-text("Source Col")')
+      .waitFor({ state: "visible", timeout: 5000 });
 
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Target Col");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    // Wait for second column to sync to editor
+    await waitForCollabSync(editorPage, "kanban-column", "Target Col");
 
     const sourceColumn = ownerPage.locator(
       '[data-testid="kanban-column"]:has-text("Source Col")'
@@ -149,7 +159,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await addTaskTrigger.click();
     await ownerPage.fill('[data-testid="task-title-input"]', "Draggable Task");
     await ownerPage.click('[data-testid="task-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    // Wait for task to sync to editor
+    await waitForCollabSync(editorPage, "task-card", "Draggable Task");
 
     await editorPage
       .locator('[data-testid="task-card"]:has-text("Draggable Task")')
@@ -178,7 +189,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       { steps: 10 }
     );
     await ownerPage.mouse.up();
-    await ownerPage.waitForTimeout(1500);
+    // Wait for drag to complete and task to appear in target column on peer
+    await waitForCollabSync(editorPage, "task-card", "Draggable Task");
 
     const editorTargetColumn = editorPage.locator(
       '[data-testid="kanban-column"]:has-text("Target Col")'
@@ -201,7 +213,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(startX + 100, startY + 100, { steps: 5 });
     await ownerPage.keyboard.press("Escape");
-    await ownerPage.waitForTimeout(500);
+    // Wait for drag cancel to be processed
+    await ownerPage.waitForLoadState("networkidle");
 
     const boardAfterCancel = ownerPage
       .locator('[data-testid="board-node"]')
@@ -242,7 +255,10 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
     await ownerPage.keyboard.press("Enter");
     await editorPage.keyboard.press("Enter");
-    await ownerPage.waitForTimeout(2000);
+    // Wait for both edits to be processed and converged
+    await ownerPage
+      .locator('[data-testid="board-rename-dialog"]')
+      .waitFor({ state: "hidden", timeout: 5000 });
 
     const ownerBoardName = await ownerPage
       .locator('[data-testid="board-node"]')
@@ -266,7 +282,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Late Join Col");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    // Wait for column to sync to existing editor
+    await waitForCollabSync(editorPage, "kanban-column", "Late Join Col");
 
     await editorPage
       .locator('[data-testid="kanban-column"]:has-text("Late Join Col")')
@@ -306,7 +323,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 5 });
     await ownerPage.mouse.up();
-    await ownerPage.waitForTimeout(1500);
+    // Wait for drag to complete and position to sync
+    await ownerPage.waitForLoadState("networkidle");
 
     await editorPage
       .locator('[data-testid="board-node"]')
@@ -322,12 +340,18 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     await editorPage.evaluate(() => {
       window.dispatchEvent(new Event("offline"));
     });
-    await editorPage.waitForTimeout(500);
+    // Wait for offline state to be detected
+    await editorPage
+      .locator('[data-testid="sync-status-indicator"]')
+      .waitFor({ state: "visible", timeout: 5000 });
 
     await editorPage.evaluate(() => {
       window.dispatchEvent(new Event("online"));
     });
-    await editorPage.waitForTimeout(3000);
+    // Wait for reconnection
+    await editorPage
+      .locator('[data-testid="sync-status-indicator"]')
+      .waitFor({ state: "visible", timeout: 5000 });
 
     await editorPage.reload();
     await waitForAppReady(editorPage);

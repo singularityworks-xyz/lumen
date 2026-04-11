@@ -341,6 +341,9 @@ jobs:
       - name: Generate coverage summary
         run: bun run scripts/testing/coverage-summary.ts
 
+      - name: Run coverage threshold gate
+        run: bun run scripts/testing/check-lcov-thresholds.ts coverage/merged/lcov.info
+
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
