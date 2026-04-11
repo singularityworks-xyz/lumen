@@ -114,7 +114,7 @@ jobs:
         run: bun run db:gen
 
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.{ts,tsx} --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -325,14 +325,18 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage
+          path: coverage-unit-web
 
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage
-          merge-multiple: true
+          path: coverage-unit-server
+
+      - name: Merge coverage directories
+        run: |
+          cp -r coverage-unit-web/* coverage-unit-server/
+          mv coverage-unit-server coverage
 
       - name: Generate coverage summary
         run: bun run scripts/testing/coverage-summary.ts
