@@ -13,9 +13,25 @@ const mockMeter = {
 };
 
 mock.module("@opentelemetry/api", () => ({
+  createContextKey: (name: string) => Symbol(name),
   metrics: {
     getMeter: mock(() => mockMeter),
   },
+  trace: {
+    getTracer: mock(() => ({})),
+    getActiveSpan: mock(() => undefined),
+  },
+  context: {
+    active: mock(() => ({})),
+  },
+  diag: {
+    setLogger: mock(() => undefined),
+    info: mock(() => undefined),
+    warn: mock(() => undefined),
+    error: mock(() => undefined),
+  },
+  DiagLogLevel: { INFO: 9, WARN: 13, ERROR: 17 },
+  SpanStatusCode: { UNSET: 0, OK: 1, ERROR: 2 },
 }));
 
 import type { Meter } from "@opentelemetry/api";
@@ -91,9 +107,11 @@ describe("metrics", () => {
       const getConnections = mock(() => 42);
       const mockObserver = { observe: mock(() => undefined) };
 
-      mockGaugeAddCallback.mockImplementationOnce((fn: any) => {
-        fn(mockObserver);
-      });
+      mockGaugeAddCallback.mockImplementationOnce(
+        (fn: (observer: { observe: (value: number) => void }) => void) => {
+          fn(mockObserver);
+        }
+      );
 
       createActiveConnectionsGauge(
         mockMeter as unknown as Meter,

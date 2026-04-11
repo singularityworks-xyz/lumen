@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers } from "./helpers/commands";
+import {
+  clearLocalStorageAndIndexedDB,
+  disableAnimations,
+  setupTwoUsers,
+  waitForAppReady,
+} from "./helpers/commands";
 
 test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
   let ownerPage: Page;
@@ -88,5 +93,40 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
       '[data-testid="peer-selection"]'
     );
     await expect(selectionIndicator).toBeVisible({ timeout: 5000 });
+  });
+
+  test("duplicate tab from same user does not create broken user lists", async () => {
+    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
+    await boardNode.hover();
+    await ownerPage.waitForTimeout(500);
+
+    const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
+    await expect(cursorBefore).toBeVisible({ timeout: 5000 });
+
+    const ownerContext = await ownerPage.context();
+    const duplicatePage = await ownerContext.newPage();
+    await clearLocalStorageAndIndexedDB(duplicatePage);
+    await disableAnimations(duplicatePage);
+    await duplicatePage.goto("/");
+    await waitForAppReady(duplicatePage);
+
+    await duplicatePage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+
+    await duplicatePage.waitForTimeout(2000);
+
+    const cursorAfterDuplicate = editorPage.locator(
+      '[data-testid="peer-cursor"]'
+    );
+    await expect(cursorAfterDuplicate).toBeVisible({ timeout: 5000 });
+
+    const cursorCount = await editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .count();
+    expect(cursorCount).toBeLessThanOrEqual(2);
+
+    await duplicatePage.close();
   });
 });

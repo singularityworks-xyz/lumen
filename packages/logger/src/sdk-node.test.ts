@@ -48,6 +48,19 @@ const mockLoggerProvider = {
 // Track initialized state to control getOtelConfig mock
 let otelEnabled = true;
 
+mock.module("./env", () => ({
+  get env() {
+    return {
+      NODE_ENV: "test",
+      get OTEL_ENABLED() {
+        return otelEnabled;
+      },
+      OTEL_EXPORTER_OTLP_ENDPOINT: otelEnabled ? "http://localhost:4318" : "",
+      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+    };
+  },
+}));
+
 mock.module("@opentelemetry/api", () => {
   function DiagConsoleLogger() {
     /* mock */
@@ -79,6 +92,16 @@ mock.module("@opentelemetry/api", () => {
   };
 });
 
+class OTLPExporterBase {}
+
+mock.module("@opentelemetry/otlp-exporter-base", () => ({
+  OTLPExporterBase,
+}));
+
+mock.module("@opentelemetry/otlp-exporter-base/node-http", () => ({
+  OTLPNodeExporterBase: OTLPExporterBase,
+}));
+
 mock.module("@opentelemetry/core", () => {
   function createContextKey(_name: string) {
     return Symbol(_name);
@@ -96,14 +119,24 @@ mock.module("@opentelemetry/core", () => {
   };
 });
 
+mock.module("@opentelemetry/otlp-transformer", () => ({}));
+
+mock.module("@opentelemetry/sdk-metrics", () => {
+  function PeriodicExportingMetricReader() {
+    /* exported for type checking */
+  }
+  return {
+    MeterProvider: mock(() => mockMeterProvider),
+    PeriodicExportingMetricReader,
+  };
+});
+
 mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
   function OTLPLogExporter() {
     /* mock */
   }
   return { OTLPLogExporter };
 });
-
-mock.module("@opentelemetry/otlp-exporter-base", () => ({}));
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
   function OTLPMetricExporter() {
@@ -155,16 +188,6 @@ mock.module("@opentelemetry/api-logs", () => {
   };
 });
 
-mock.module("@opentelemetry/sdk-metrics", () => {
-  function PeriodicExportingMetricReader() {
-    /* mock */
-  }
-  return {
-    MeterProvider: mock(() => mockMeterProvider),
-    PeriodicExportingMetricReader,
-  };
-});
-
 mock.module("@opentelemetry/sdk-trace-node", () => {
   function BatchSpanProcessor() {
     /* mock */
@@ -174,16 +197,6 @@ mock.module("@opentelemetry/sdk-trace-node", () => {
     NodeTracerProvider: mock(() => mockTracerProvider),
   };
 });
-
-mock.module("./config", () => ({
-  getOtelConfig: (_serviceName: string) => ({
-    enabled: otelEnabled,
-    endpoint: otelEnabled ? "http://localhost:4318" : "",
-    environment: "test",
-    headers: { Authorization: "Bearer test" },
-    serviceName: "test-service",
-  }),
-}));
 
 import {
   getLoggerProvider,
