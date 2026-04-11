@@ -109,6 +109,14 @@ describe("AI Integration Tests", () => {
       expect(fullText).toContain('"type":"content_delta"');
       expect(fullText).toContain("Hello");
       expect(fullText).toContain("world");
+
+      const startIdx = fullText.indexOf("message_start");
+      const helloIdx = fullText.indexOf("Hello");
+      const worldIdx = fullText.indexOf(" world");
+      const completeIdx = fullText.indexOf("message_complete");
+      expect(startIdx).toBeLessThan(helloIdx);
+      expect(helloIdx).toBeLessThan(worldIdx);
+      expect(worldIdx).toBeLessThan(completeIdx);
     });
 
     it("handles connection interruption gracefully", async () => {
@@ -371,7 +379,7 @@ describe("AI Integration Tests", () => {
     });
   });
 
-  describe("Conversation Save/Load/Delete", () => {
+  describe("Conversation Save/Load/Delete (unit)", () => {
     const mockPrisma = {
       aiConversation: {
         findUnique: mock((_args?: unknown) => Promise.resolve(null as unknown)),
@@ -479,7 +487,7 @@ describe("AI Integration Tests", () => {
     });
   });
 
-  describe("Summarization After Threshold", () => {
+  describe("Summarization After Threshold (unit)", () => {
     it("triggers summarization at 50 message threshold", () => {
       const THRESHOLD = 50;
       const messageCount = 50;
@@ -509,7 +517,7 @@ describe("AI Integration Tests", () => {
     });
   });
 
-  describe("Title Generation Callback Wiring", () => {
+  describe("Title Generation Callback Wiring (unit)", () => {
     it("triggers title generation on first user message", () => {
       const messageCount = 0;
       const shouldGenerateTitle = messageCount === 0;
@@ -525,7 +533,7 @@ describe("AI Integration Tests", () => {
     });
   });
 
-  describe("Queue Pressure and Backoff Behavior", () => {
+  describe("Queue Pressure and Backoff Behavior (unit)", () => {
     it("returns queue status when request is queued", () => {
       const queueStatus = {
         isQueued: true,
@@ -556,7 +564,7 @@ describe("AI Integration Tests", () => {
     });
   });
 
-  describe("Rate-Limit Fallback Without External Network", () => {
+  describe("Rate-Limit Fallback Without External Network (unit)", () => {
     it("falls back to in-memory rate limiter when Upstash fails", async () => {
       const upstashAvailable = false;
       const inMemoryLimiter = {
