@@ -1,10 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { setupTwoUsers, waitForAppReady } from "./helpers/commands";
 import {
-  getStoreState,
-  setupTwoUsers,
-  waitForAppReady,
-} from "./helpers/commands";
+  assertNoOrphans,
+  captureNormalizedSnapshot,
+  compareTaskOrder,
+} from "./lib/normalized-state";
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -119,8 +120,14 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const ownerStoreState = await getStoreState(ownerPage);
-    const editorStoreState = await getStoreState(editorPage);
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
 
     const persistedOwnerTitle = await ownerPage
       .locator('[data-testid="task-card"]')
@@ -134,9 +141,6 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
     expect(persistedOwnerTitle).toBe(expectedTitle);
     expect(persistedEditorTitle).toBe(expectedTitle);
     expect(persistedOwnerTitle).toBe(persistedEditorTitle);
-
-    expect(ownerStoreState).not.toBeNull();
-    expect(editorStoreState).not.toBeNull();
   });
 
   test("comment edits conflict persists after reload", async () => {
@@ -225,8 +229,8 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
     );
     await expect(persistedOwnerComment).toBeVisible({ timeout: 5000 });
 
-    const ownerStoreState = await getStoreState(ownerPage);
-    expect(ownerStoreState).not.toBeNull();
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    assertNoOrphans(ownerSnapshot);
   });
 
   test("multiple rapid edits persist after reload", async () => {
@@ -290,11 +294,14 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
     expect(finalTitleAfterReload).toBe(finalTitleBeforeReload);
     expect(finalTitleAfterReload).toContain("Rapid Edit");
 
-    const ownerStoreState = await getStoreState(ownerPage);
-    const editorStoreState = await getStoreState(editorPage);
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
 
-    expect(ownerStoreState).not.toBeNull();
-    expect(editorStoreState).not.toBeNull();
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
   });
 
   test("conflicting task and comment edits persist after reload", async () => {
@@ -422,6 +429,15 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
+
     const persistedOwnerTaskTitle = await ownerPage
       .locator('[data-testid="task-card"]')
       .first()
@@ -447,11 +463,5 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
       `[data-testid="comment"]:has-text("${expectedComment}")`
     );
     await expect(persistedOwnerComment).toBeVisible({ timeout: 5000 });
-
-    const ownerStoreState = await getStoreState(ownerPage);
-    const editorStoreState = await getStoreState(editorPage);
-
-    expect(ownerStoreState).not.toBeNull();
-    expect(editorStoreState).not.toBeNull();
   });
 });

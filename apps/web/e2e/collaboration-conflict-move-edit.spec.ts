@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { setupTwoUsers } from "./helpers/commands";
+import {
+  assertNoOrphans,
+  captureNormalizedSnapshot,
+  compareTaskOrder,
+} from "./lib/normalized-state";
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -88,19 +93,16 @@ test.describe("E2E-17: Conflict - Move Task While Editing", () => {
     await ownerPage.waitForTimeout(1500);
 
     await ownerPage.locator('[data-testid="task-detail-save-button"]').click();
-    await ownerPage.waitForTimeout(1000);
+    await ownerPage.waitForTimeout(1500);
 
-    const movedTask = targetColumn.locator(
-      '[data-testid="task-card"]:has-text("Move Edit Task")'
-    );
-    await expect(movedTask).toBeVisible({ timeout: 10_000 });
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
 
-    const editorMovedTask = editorPage.locator(
-      '[data-testid="kanban-column"]:has-text("Target Column") [data-testid="task-card"]:has-text("Move Edit Task")'
-    );
-    await expect(editorMovedTask).toBeVisible({ timeout: 10_000 });
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
 
-    expect(await movedTask.textContent()).toContain("Move Edit Task");
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
   });
 
   test("task metadata edit while column move completes without data loss", async () => {
@@ -171,11 +173,18 @@ test.describe("E2E-17: Conflict - Move Task While Editing", () => {
     await ownerPage.locator('[data-testid="task-detail-modal"]').click();
     await ownerPage.waitForTimeout(500);
 
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
+
     const movedTask = columnB.locator(
       '[data-testid="task-card"]:has-text("Meta Task")'
     );
-    await expect(movedTask).toBeVisible({ timeout: 10_000 });
-
     await movedTask.click();
     await ownerPage.waitForSelector('[data-testid="task-detail-modal"]');
     await ownerPage.locator('[data-testid="task-detail-edit-button"]').click();

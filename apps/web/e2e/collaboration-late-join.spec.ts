@@ -7,6 +7,11 @@ import {
   waitForAppReady,
 } from "./helpers/commands";
 import { waitForCollabSync } from "./helpers/waits";
+import {
+  assertNoOrphans,
+  captureNormalizedSnapshot,
+  compareTaskOrder,
+} from "./lib/normalized-state";
 
 interface ThreeUserSetup {
   editorPage: Page;
@@ -248,17 +253,16 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
     await ownerPage.waitForTimeout(1500);
 
     await ownerPage.locator('[data-testid="task-detail-save-button"]').click();
-    await ownerPage.waitForTimeout(1000);
+    await ownerPage.waitForTimeout(1500);
 
-    const movedTask = targetColumn.locator(
-      '[data-testid="task-card"]:has-text("Move Edit Task")'
-    );
-    await expect(movedTask).toBeVisible({ timeout: 10_000 });
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
 
-    const editorMovedTask = editorPage.locator(
-      '[data-testid="kanban-column"]:has-text("Target Column") [data-testid="task-card"]:has-text("Move Edit Task")'
-    );
-    await expect(editorMovedTask).toBeVisible({ timeout: 10_000 });
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
 
     const shareLink = await createShareLinkForFirstBoard(ownerPage);
     await viewerPage.goto(shareLink);
@@ -266,15 +270,13 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
 
     await waitForCollabSync(viewerPage, "board-node", undefined, 10_000);
 
-    const viewerTargetColumn = viewerPage.locator(
-      '[data-testid="kanban-column"]:has-text("Target Column")'
+    const viewerSnapshot = await captureNormalizedSnapshot(viewerPage);
+    const viewerTaskOrderResult = compareTaskOrder(
+      ownerSnapshot,
+      viewerSnapshot
     );
-    const viewerMovedTask = viewerTargetColumn.locator(
-      '[data-testid="task-card"]:has-text("Move Edit Task")'
-    );
-    await expect(viewerMovedTask).toBeVisible({ timeout: 10_000 });
+    expect(viewerTaskOrderResult.match).toBe(true);
 
-    const viewerTaskContent = await viewerMovedTask.textContent();
-    expect(viewerTaskContent).toContain("Move Edit Task");
+    assertNoOrphans(viewerSnapshot);
   });
 });

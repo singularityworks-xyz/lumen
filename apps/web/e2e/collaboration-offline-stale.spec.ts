@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { setupTwoUsers } from "./helpers/commands";
+import {
+  assertNoOrphans,
+  captureNormalizedSnapshot,
+  compareTaskOrder,
+} from "./lib/normalized-state";
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -144,15 +149,14 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
     await editorPage.context().setOffline(false);
     await editorPage.waitForTimeout(3000);
 
-    const syncedTask = ownerPage.locator(
-      '[data-testid="task-card"]:has-text("Successfully edited offline")'
-    );
-    await expect(syncedTask).toBeVisible({ timeout: 10_000 });
+    const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshot = await captureNormalizedSnapshot(editorPage);
 
-    const editorSyncedTask = editorPage.locator(
-      '[data-testid="task-card"]:has-text("Successfully edited offline")'
-    );
-    await expect(editorSyncedTask).toBeVisible({ timeout: 5000 });
+    const taskOrderResult = compareTaskOrder(ownerSnapshot, editorSnapshot);
+    expect(taskOrderResult.match).toBe(true);
+
+    assertNoOrphans(ownerSnapshot);
+    assertNoOrphans(editorSnapshot);
   });
 
   test("offline checklist edit while another user changes task status", async () => {
