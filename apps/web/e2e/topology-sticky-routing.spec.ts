@@ -8,6 +8,9 @@ import {
   waitForAppReady,
 } from "./helpers/commands";
 import {
+  assertStateIntegrity,
+  captureStateSnapshot,
+  fetchWorkersInstanceId,
   getSecondaryPresenceUrl,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
@@ -376,6 +379,11 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -392,6 +400,8 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
           '[data-testid="kanban-column"]:has-text("Secondary Worker Column")'
         )
         .waitFor({ state: "visible", timeout: 10_000 });
+
+      const stateBeforeReconnect = await captureStateSnapshot(editorPage);
 
       const editorSession = await editorPage.context();
       await editorSession.clearCookies();
@@ -412,6 +422,13 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         .locator('[data-testid="board-node"]')
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
+
+      const stateAfterReconnect = await captureStateSnapshot(editorPage);
+      assertStateIntegrity(
+        stateBeforeReconnect,
+        stateAfterReconnect,
+        "secondary worker reconnect"
+      );
 
       const ownerColumns = await ownerPage
         .locator('[data-testid="kanban-column"]')
@@ -459,6 +476,15 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         .locator('[data-testid="board-node"]')
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
+
+      const primaryInstanceId = await fetchWorkersInstanceId(
+        "http://localhost:3002"
+      );
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(primaryInstanceId).toBe("workers-3002");
+      expect(secondaryInstanceId).toBe("workers-3003");
 
       const primaryAddColumn = primaryPage
         .locator('[data-testid="board-node"]')

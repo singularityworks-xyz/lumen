@@ -82,11 +82,38 @@ export async function waitForConnectionState(
 
 export async function waitForPresenceCursor(
   page: Page,
-  cursorTestId = "peer-cursor",
+  cursorOrCount?: string | number,
+  cursorTestIdOrTimeout?: string | number,
   timeout = 5000
-): Promise<Locator> {
+): Promise<Locator | Locator[]> {
+  let cursorTestId: string;
+  let expectedCount: number | undefined;
+  let resolvedTimeout = timeout;
+
+  if (cursorOrCount === undefined) {
+    cursorTestId = "peer-cursor";
+  } else if (typeof cursorOrCount === "number") {
+    expectedCount = cursorOrCount;
+    cursorTestId = (cursorTestIdOrTimeout as string) ?? "peer-cursor";
+    resolvedTimeout =
+      typeof cursorTestIdOrTimeout === "number"
+        ? cursorTestIdOrTimeout
+        : timeout;
+  } else {
+    cursorTestId = cursorOrCount;
+    resolvedTimeout = (cursorTestIdOrTimeout as number) ?? 5000;
+  }
+
   const cursor = page.locator(`[data-testid="${cursorTestId}"]`);
-  await cursor.waitFor({ state: "visible", timeout });
+
+  if (expectedCount !== undefined) {
+    await expect(cursor).toHaveCount(expectedCount, {
+      timeout: resolvedTimeout,
+    });
+    return cursor.all();
+  }
+
+  await cursor.waitFor({ state: "visible", timeout: resolvedTimeout });
   return cursor;
 }
 
@@ -102,4 +129,68 @@ export async function waitForPresenceCursorHidden(
 
 export async function waitForNetworkIdleForPage(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
+}
+
+export async function waitForReconnected(
+  page: Page,
+  syncIndicatorTestId = "sync-status-indicator",
+  timeout = 10_000
+): Promise<void> {
+  const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
+  await indicator.waitFor({ state: "visible", timeout });
+  await expect(indicator).toContainText(CONNECTED_REGEX, { timeout });
+}
+
+export async function waitForDisconnected(
+  page: Page,
+  syncIndicatorTestId = "sync-status-indicator",
+  timeout = 5000
+): Promise<void> {
+  const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
+  await indicator.waitFor({ state: "visible", timeout });
+  await expect(indicator).toContainText(DISCONNECTED_REGEX, { timeout });
+}
+
+export async function waitForPeerCursors(
+  page: Page,
+  expectedCount: number,
+  cursorTestId = "peer-cursor",
+  timeout = 5000
+): Promise<Locator[]> {
+  const cursor = page.locator(`[data-testid="${cursorTestId}"]`);
+  await expect(cursor).toHaveCount(expectedCount, { timeout });
+  return cursor.all();
+}
+
+export async function waitForCollabUpdate<T extends string>(
+  page: Page,
+  expectedTestId: string,
+  expectedText: T,
+  timeout = 10_000
+): Promise<Locator> {
+  const selector = `[data-testid="${expectedTestId}"]:has-text("${expectedText}")`;
+  const locator = page.locator(selector);
+  await locator.waitFor({ state: "visible", timeout });
+  return locator;
+}
+
+export async function waitForCollabUpdateCount(
+  page: Page,
+  testId: string,
+  expectedCount: number,
+  timeout = 10_000
+): Promise<Locator[]> {
+  const locator = page.locator(`[data-testid="${testId}"]`);
+  await expect(locator).toHaveCount(expectedCount, { timeout });
+  return locator.all();
+}
+
+export async function waitForPeerSelection(
+  page: Page,
+  selectionTestId = "peer-selection",
+  timeout = 5000
+): Promise<Locator> {
+  const selection = page.locator(`[data-testid="${selectionTestId}"]`);
+  await selection.waitFor({ state: "visible", timeout });
+  return selection;
 }

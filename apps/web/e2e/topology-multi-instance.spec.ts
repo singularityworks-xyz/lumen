@@ -8,13 +8,22 @@ import {
   waitForAppReady,
 } from "./helpers/commands";
 import {
+  waitForCollabUpdate,
+  waitForDisconnected,
+  waitForPresenceCursor,
+  waitForReconnected,
+} from "./helpers/waits";
+import {
+  assertStateIntegrity,
+  captureStateSnapshot,
+  fetchWorkersInstanceId,
   getSecondaryPresenceUrl,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
   routePageToWorkers,
 } from "./lib/multi-instance-setup";
 
-const DISCONNECTED_REGEX = /disconnected|offline/i;
+const _DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
 
 test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
@@ -58,6 +67,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -69,13 +83,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "Multi-Instance Column"
       );
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(1000);
-
-      await editorPage
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Multi-Instance Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "Multi-Instance Column"
+      );
 
       const ownerColumns = await ownerPage
         .locator('[data-testid="kanban-column"]')
@@ -104,10 +116,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
       await boardNode.hover();
       await ownerPage.mouse.move(400, 300);
-      await ownerPage.waitForTimeout(500);
-
-      const cursorIndicator = editorPage.locator('[data-testid="peer-cursor"]');
-      await expect(cursorIndicator).toBeVisible({ timeout: 5000 });
+      await waitForPresenceCursor(editorPage);
     });
 
     test("disconnect from one workers reconnects to another workers", async () => {
@@ -124,6 +133,13 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+
+      const stateBeforeReconnect = await captureStateSnapshot(editorPage);
+
       const syncIndicatorBefore = editorPage.locator(
         '[data-testid="sync-status-indicator"]'
       );
@@ -134,29 +150,19 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       await editorPage.evaluate(() => {
         window.dispatchEvent(new Event("offline"));
       });
-      await editorPage.waitForTimeout(1000);
-
-      const syncIndicatorDisconnected = editorPage.locator(
-        '[data-testid="sync-status-indicator"]'
-      );
-      await expect(syncIndicatorDisconnected).toContainText(
-        DISCONNECTED_REGEX,
-        {
-          timeout: 5000,
-        }
-      );
+      await waitForDisconnected(editorPage);
 
       await editorPage.evaluate(() => {
         window.dispatchEvent(new Event("online"));
       });
-      await editorPage.waitForTimeout(3000);
+      await waitForReconnected(editorPage);
 
-      const syncIndicatorReconnected = editorPage.locator(
-        '[data-testid="sync-status-indicator"]'
+      const stateAfterReconnect = await captureStateSnapshot(editorPage);
+      assertStateIntegrity(
+        stateBeforeReconnect,
+        stateAfterReconnect,
+        "disconnect/reconnect cycle"
       );
-      await expect(syncIndicatorReconnected).toContainText(CONNECTED_REGEX, {
-        timeout: 5000,
-      });
 
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
@@ -168,13 +174,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "Post-Reconnect Column"
       );
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(1000);
-
-      await editorPage
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Post-Reconnect Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "Post-Reconnect Column"
+      );
     });
 
     test("selection presence appears across workers instances", async () => {
@@ -234,7 +238,10 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       );
       if (await createFirstBoardButton.isVisible()) {
         await createFirstBoardButton.click();
-        await user1Page.waitForTimeout(500);
+        await user1Page
+          .locator('[data-testid="board-node"]')
+          .first()
+          .waitFor({ state: "visible", timeout: 10_000 });
       }
 
       shareLink = await createShareLinkForFirstBoard(user1Page);
@@ -273,19 +280,10 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "Load Balance Column"
       );
       await user1Page.click('[data-testid="column-create-submit"]');
-      await user1Page.waitForTimeout(1000);
-
-      await user2Page
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Load Balance Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
-
-      await user3Page
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Load Balance Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
+      await Promise.all([
+        waitForCollabUpdate(user2Page, "kanban-column", "Load Balance Column"),
+        waitForCollabUpdate(user3Page, "kanban-column", "Load Balance Column"),
+      ]);
 
       const user2Columns = await user2Page
         .locator('[data-testid="kanban-column"]')
@@ -300,14 +298,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     test("cursor presence visible for multiple peers", async () => {
       await user1Page.locator('[data-testid="board-node"]').first().hover();
       await user1Page.mouse.move(400, 300);
-      await user1Page.waitForTimeout(500);
+      await waitForPresenceCursor(user3Page);
 
       await user2Page.locator('[data-testid="board-node"]').first().hover();
       await user2Page.mouse.move(500, 400);
-      await user1Page.waitForTimeout(500);
-
-      const user3Cursors = user3Page.locator('[data-testid="peer-cursor"]');
-      await expect(user3Cursors).toHaveCount(2, { timeout: 5000 });
+      await waitForPresenceCursor(user3Page, 2);
     });
   });
 
@@ -341,6 +336,13 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+
+      const stateBeforeReconnect = await captureStateSnapshot(editorPage);
+
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -352,16 +354,12 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "Pre-Disconnect"
       );
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(1000);
-
-      await editorPage
-        .locator('[data-testid="kanban-column"]:has-text("Pre-Disconnect")')
-        .waitFor({ state: "visible", timeout: 10_000 });
+      await waitForCollabUpdate(editorPage, "kanban-column", "Pre-Disconnect");
 
       await editorPage.evaluate(() => {
         window.dispatchEvent(new Event("offline"));
       });
-      await editorPage.waitForTimeout(1000);
+      await waitForDisconnected(editorPage);
 
       await addColumnTrigger.click();
       await ownerPage.fill(
@@ -369,12 +367,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "During-Disconnect"
       );
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(500);
 
       await editorPage.evaluate(() => {
         window.dispatchEvent(new Event("online"));
       });
-      await editorPage.waitForTimeout(3000);
+      await waitForReconnected(editorPage);
 
       await editorPage.reload();
       await waitForAppReady(editorPage);
@@ -382,6 +379,13 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .locator('[data-testid="board-node"]')
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
+
+      const stateAfterReconnect = await captureStateSnapshot(editorPage);
+      assertStateIntegrity(
+        stateBeforeReconnect,
+        stateAfterReconnect,
+        "cross-instance reconnect"
+      );
 
       const ownerColumns = await ownerPage
         .locator('[data-testid="kanban-column"]')
@@ -416,7 +420,10 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       );
       if (await createFirstBoardButton.isVisible()) {
         await createFirstBoardButton.click();
-        await primaryPage.waitForTimeout(500);
+        await primaryPage
+          .locator('[data-testid="board-node"]')
+          .first()
+          .waitFor({ state: "visible", timeout: 10_000 });
       }
 
       const shareLink = await createShareLinkForFirstBoard(primaryPage);
@@ -433,6 +440,15 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
+      const primaryInstanceId = await fetchWorkersInstanceId(
+        "http://localhost:3002"
+      );
+      const secondaryInstanceId = await fetchWorkersInstanceId(
+        getSecondaryWorkersUrl()
+      );
+      expect(primaryInstanceId).toBe("workers-3002");
+      expect(secondaryInstanceId).toBe("workers-3003");
+
       const primaryAddColumn = primaryPage
         .locator('[data-testid="board-node"]')
         .first()
@@ -443,13 +459,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         "Cross-Instance Column"
       );
       await primaryPage.click('[data-testid="column-create-submit"]');
-      await primaryPage.waitForTimeout(1000);
-
-      await secondaryPage
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Cross-Instance Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
+      await waitForCollabUpdate(
+        secondaryPage,
+        "kanban-column",
+        "Cross-Instance Column"
+      );
 
       const primaryColumns = await primaryPage
         .locator('[data-testid="kanban-column"]')
