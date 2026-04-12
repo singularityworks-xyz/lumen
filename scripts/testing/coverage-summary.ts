@@ -58,7 +58,7 @@ export interface SubjectSummary {
 }
 
 const BUN_LCOV_SOURCE: CoverageSource = {
-  defaultPath: "coverage/bun/lcov.info",
+  defaultPath: "coverage/lcov.info",
   envVar: "BUN_LCOV_PATH",
 };
 
@@ -80,7 +80,7 @@ const SUBJECTS: SubjectConfig[] = [
     coverageSources: [BUN_LCOV_SOURCE],
     targetCoverage: 0.95,
     layers: [
-      { kind: "unit", patterns: ["apps/web/src/**/*.test.ts"] },
+      { kind: "unit", patterns: ["apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx"] },
       { kind: "integration", patterns: ["apps/web/test/integration/*.test.ts"] },
       { kind: "e2e", patterns: ["apps/web/e2e/*.spec.ts"] },
       { kind: "visual", patterns: ["apps/web/e2e/visual/*.spec.ts"] },
@@ -109,7 +109,6 @@ const SUBJECTS: SubjectConfig[] = [
       { kind: "exunit", patterns: ["apps/presence/test/**/*_test.exs"] },
       { kind: "e2e", patterns: ["apps/presence/e2e/*.spec.ts"] },
     ],
-    note: "ExUnit and browser tests exist, but CI does not publish Presence coverage yet.",
   },
   {
     id: "apps/native",
