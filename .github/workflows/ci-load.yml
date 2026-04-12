@@ -130,6 +130,14 @@ jobs:
     name: Hybrid Load
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'hybrid'
+    environment:
+      name: load-test
+      url: ${{ github.event.inputs.ws_url }}
+    env:
+      SCENARIO: hybrid
+      PROTOCOL_VUS: "50"
+      BROWSER_VUS: "3"
+      COHORT_SIZE: "50"
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -303,6 +303,13 @@ jobs:
         working-directory: apps/presence
         run: mix test --cover
 
+      - name: Upload Presence coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-presence
+          path: apps/presence/cover/lcov.info
+          retention-days: 7
+
   coverage-gate:
     name: Coverage Summary
     runs-on: ubuntu-latest
@@ -321,21 +328,40 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
       - name: Download unit-web coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage
+          path: coverage/unit-web
 
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage
-          merge-multiple: true
+          path: coverage/unit-server-and-packages
+
+      - name: Download Presence coverage
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-presence
+          path: coverage/presence
+        continue-on-error: true
+
+      - name: Merge LCOV files
+        run: |
+          mkdir -p coverage/merged
+          lcov --merge coverage/unit-web/lcov.info coverage/unit-server-and-packages/lcov.info -o coverage/merged/lcov.info
 
       - name: Generate coverage summary
         run: bun run scripts/testing/coverage-summary.ts
+
+      - name: Run Presence coverage gate
+        working-directory: apps/presence
+        run: LCOV_PATH=../coverage/presence/lcov.info mix run scripts/coverage_gate.exs
+        continue-on-error: true
 
   ci-passed:
     name: CI Passed
