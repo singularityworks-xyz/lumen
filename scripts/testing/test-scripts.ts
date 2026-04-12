@@ -34,35 +34,43 @@ async function main() {
   switch (command) {
     case "unit:web": {
       const files = findTestFiles("apps/web/src/**/*.test.{ts,tsx}");
-      console.log(`Running ${files.length} web unit tests...`);
-      const exitCode = await runBunTest([
-        "test",
-        "--preload",
-        "./tests/config/web.setup.ts",
-        ...files,
-      ]);
-      process.exit(exitCode);
+      console.log(`Running ${files.length} web unit tests in isolation...`);
+      let hasFailure = false;
+      for (const file of files) {
+        const code = await runBunTest([
+          "test",
+          "--preload",
+          "./tests/config/web.setup.ts",
+          file,
+        ]);
+        if (code !== 0) hasFailure = true;
+      }
+      process.exit(hasFailure ? 1 : 0);
     }
 
     case "unit:workers": {
       const files = findTestFiles("apps/workers/src/**/*.test.ts");
-      console.log(`Running ${files.length} workers unit tests...`);
-      const exitCode = await runBunTest([
-        "test",
-        "--preload",
-        "./packages/db/src/setup/workers.setup.ts",
-        ...files,
-      ]);
-      process.exit(exitCode);
+      console.log(`Running ${files.length} workers unit tests in isolation...`);
+      let hasFailure = false;
+      for (const file of files) {
+        const code = await runBunTest([
+          "test",
+          "--preload",
+          "./packages/db/src/setup/workers.setup.ts",
+          file,
+        ]);
+        if (code !== 0) hasFailure = true;
+      }
+      process.exit(hasFailure ? 1 : 0);
     }
 
     case "unit:packages": {
       const packages = [
-        { path: "packages/ai/src", pattern: "*.test.ts" },
-        { path: "packages/db/src", pattern: "*.test.ts" },
-        { path: "packages/logger/src", pattern: "*.test.ts" },
-        { path: "packages/native-bridge/src", pattern: "*.test.ts" },
-        { path: "packages/yjs-shared/src", pattern: "*.test.ts" },
+        { path: "packages/ai/src", pattern: "**/*.test.ts" },
+        { path: "packages/db/src", pattern: "**/*.test.ts" },
+        { path: "packages/logger/src", pattern: "**/*.test.ts" },
+        { path: "packages/native-bridge/src", pattern: "**/*.test.ts" },
+        { path: "packages/yjs-shared/src", pattern: "**/*.test.ts" },
       ];
 
       let exitCode = 0;
@@ -136,11 +144,11 @@ async function main() {
 
     case "coverage:packages": {
       const packages = [
-        { path: "packages/ai/src", pattern: "*.test.ts", threshold: 0.98 },
-        { path: "packages/db/src", pattern: "*.test.ts", threshold: 0.95 },
+        { path: "packages/ai/src", pattern: "**/*.test.ts", threshold: 0.98 },
+        { path: "packages/db/src", pattern: "**/*.test.ts", threshold: 0.95 },
         { path: "packages/logger/src", files: ["config.test.ts", "logger.test.ts", "tracer.test.ts", "metrics.test.ts"], threshold: 0.95 },
-        { path: "packages/native-bridge/src", pattern: "*.test.ts", threshold: 0.95 },
-        { path: "packages/yjs-shared/src", pattern: "*.test.ts", threshold: 0.95 },
+        { path: "packages/native-bridge/src", pattern: "**/*.test.ts", threshold: 0.95 },
+        { path: "packages/yjs-shared/src", pattern: "**/*.test.ts", threshold: 0.95 },
       ];
 
       let exitCode = 0;

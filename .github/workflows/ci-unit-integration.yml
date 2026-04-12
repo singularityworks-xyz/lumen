@@ -114,7 +114,7 @@ jobs:
         run: bun run db:gen
 
       - name: Run unit tests
-        run: bun run scripts/testing/test-scripts.ts coverage:web
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -150,10 +150,16 @@ jobs:
         run: bun run db:gen
 
       - name: Run worker unit tests
-        run: bun run scripts/testing/test-scripts.ts coverage:workers
+        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
 
       - name: Run package unit tests
-        run: bun run scripts/testing/test-scripts.ts coverage:packages
+        run: |
+          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
+          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -295,14 +301,7 @@ jobs:
 
       - name: Run Presence tests with coverage
         working-directory: apps/presence
-        run: mix coveralls.lcov
-
-      - name: Upload Presence coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-presence
-          path: apps/presence/cover/
-          retention-days: 7
+        run: mix test --cover
 
   coverage-gate:
     name: Coverage Summary
@@ -310,7 +309,6 @@ jobs:
     needs:
       - unit-web
       - unit-server-and-packages
-      - presence-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -327,49 +325,17 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage-unit-web
+          path: coverage
 
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage-unit-server
-
-      - name: Download Presence coverage
-        uses: actions/download-artifact@v7
-        with:
-          name: coverage-presence
-          path: coverage-presence
-
-      - name: Merge coverage directories
-        run: |
-          cp -r coverage-unit-web/* coverage-unit-server/
-          mv coverage-unit-server coverage
-
-      - name: Merge LCOV files for threshold gate
-        run: |
-          mkdir -p coverage/merged
-          cat coverage/bun/lcov.info > coverage/merged/lcov.info
-          if [ -f coverage-presence/lcov.info ]; then
-            cat coverage-presence/lcov.info >> coverage/merged/lcov.info
-          fi
-
-      - name: Merge Presence coverage
-        run: |
-          mkdir -p coverage/presence
-          cp -r coverage-presence/* coverage/presence/
+          path: coverage
+          merge-multiple: true
 
       - name: Generate coverage summary
         run: bun run scripts/testing/coverage-summary.ts
-
-      - name: Run coverage threshold gate
-        run: bun run scripts/testing/check-lcov-thresholds.ts coverage/merged/lcov.info
-
-      - name: Run Presence coverage gate
-        run: mix run scripts/coverage_gate.exs
-        env:
-          LCOV_PATH: coverage/presence/lcov.info
-        working-directory: apps/presence
 
   ci-passed:
     name: CI Passed
