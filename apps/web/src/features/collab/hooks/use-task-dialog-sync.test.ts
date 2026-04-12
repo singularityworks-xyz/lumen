@@ -10,6 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, renderHook } from "@testing-library/react";
 import * as Y from "yjs";
 
+const FIXED_TS = 1_700_000_000_000;
+let tsCounter = 0;
+const originalDateNow = Date.now;
+const mockDateNow = () => FIXED_TS + tsCounter++;
+
 // Mock entity-sync module
 const mockYjsMapNames = {
   TASK_DETAIL_MODALS: "taskDetailModals",
@@ -522,7 +527,10 @@ describe("useTaskDialogSync", () => {
       doc.destroy();
     });
 
-    it("should sync position changes after throttle period", async () => {
+    it("should sync position changes after throttle period", () => {
+      Date.now = mockDateNow;
+      tsCounter = 0;
+
       const doc = new Y.Doc();
 
       const { unmount } = renderHook(() => {
@@ -538,7 +546,7 @@ describe("useTaskDialogSync", () => {
       expect(mockSetInYjs).toHaveBeenCalledTimes(1);
       mockSetInYjs.mockClear();
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      tsCounter = 20;
 
       const positionOnlyModal = {
         ...modal,
@@ -550,6 +558,7 @@ describe("useTaskDialogSync", () => {
 
       expect(mockSetInYjs).toHaveBeenCalledTimes(1);
 
+      Date.now = originalDateNow;
       unmount();
       doc.destroy();
     });
@@ -847,6 +856,7 @@ describe("useTaskDialogSync", () => {
       const modal2 = createValidModal({ id: "modal-2" });
       triggerStoreUpdate({
         taskDetailModals: { "modal-1": modal, "modal-2": modal2 },
+        currentWorkspaceId: "ws-2",
       });
 
       expect(mockSetInYjs).toHaveBeenCalledWith(doc, modal2);
@@ -879,6 +889,7 @@ describe("useTaskDialogSync", () => {
       };
       triggerStoreUpdate({
         taskDetailModals: { "modal-1": positionOnlyModal },
+        currentWorkspaceId: "ws-2",
       });
 
       expect(mockSetInYjs).toHaveBeenCalled();
