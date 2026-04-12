@@ -1,5 +1,5 @@
 import "./bun.setup";
-import { afterEach, beforeEach } from "bun:test";
+import { afterEach, beforeEach, mock } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import "fake-indexeddb/auto";
 import "@testing-library/jest-dom";
@@ -98,4 +98,5 @@ afterEach(() => {
       process.env[key] = originalValue;
     }
   }
+  mock.restore();
 });

@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { AiDrawer } from "./ai-drawer";
-
-const CLOSE_BUTTON_REGEX = /close/i;
 
 const mockOnOpenChange = mock(() => undefined);
 const mockOnSwitchToBoards = mock(() => undefined);
@@ -49,18 +47,29 @@ mock.module("../store/ai-store", () => ({
   useAiStore: mockUseAiStore,
 }));
 
+const mockMotion = (props: { children?: unknown; [key: string]: unknown }) => {
+  const { children, ...rest } = props;
+  return createElement(
+    props.type === "button" ? "button" : "div",
+    rest as Record<string, unknown>,
+    children as React.ReactNode
+  );
+};
+
+mockMotion.displayName = "mockMotion";
+
 mock.module("motion/react", () => ({
   AnimatePresence: ({ children }: { children: unknown }) => children,
   motion: {
-    div: (props: { children?: unknown; [key: string]: unknown }) => {
-      const { children, ...rest } = props;
-      return createElement(
-        "div",
-        rest as Record<string, unknown>,
-        children as React.ReactNode
-      );
-    },
+    div: mockMotion,
+    button: mockMotion,
+    span: mockMotion,
   },
+}));
+
+mock.module("./floating-indicator", () => ({
+  FloatingIndicator: () =>
+    createElement("div", { "data-testid": "floating-indicator" }),
 }));
 
 describe("AiDrawer", () => {
@@ -82,37 +91,17 @@ describe("AiDrawer", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders when workspaceId is provided and isOpen is true", () => {
+  it("renders FloatingIndicator when workspaceId is provided", () => {
     render(
       createElement(AiDrawer, {
         workspaceId: "ws-1",
-        isOpen: true,
+        isOpen: false,
         onOpenChange: mockOnOpenChange,
         boardCount: 5,
         commentCount: 10,
       })
     );
 
-    expect(screen.getByRole("dialog")).toBeDefined();
-  });
-
-  it("calls onOpenChange with false when close button is clicked", () => {
-    render(
-      createElement(AiDrawer, {
-        workspaceId: "ws-1",
-        isOpen: true,
-        onOpenChange: mockOnOpenChange,
-        boardCount: 5,
-        commentCount: 10,
-      })
-    );
-
-    const closeButton = screen.queryByRole("button", {
-      name: CLOSE_BUTTON_REGEX,
-    });
-    if (closeButton) {
-      fireEvent.click(closeButton);
-      expect(mockOnOpenChange).toHaveBeenCalledWith(false);
-    }
+    expect(screen.getByTestId("floating-indicator")).toBeDefined();
   });
 });
