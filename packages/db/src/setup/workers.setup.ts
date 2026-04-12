@@ -1,4 +1,4 @@
-import { afterEach, beforeEach } from "bun:test";
+import { afterEach, beforeEach, mock } from "bun:test";
 
 const originalEnv: Record<string, string | undefined> = {
   DATABASE_URL: process.env.DATABASE_URL,
@@ -100,4 +100,5 @@ afterEach(() => {
       process.env[key] = originalValue;
     }
   }
+  mock.restore();
 });
