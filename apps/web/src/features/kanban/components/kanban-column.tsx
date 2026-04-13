@@ -429,6 +429,7 @@ export const KanbanColumn = memo(
         {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
         <div
           className="group cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"
+          data-testid="column-header"
           onContextMenu={handleHeaderContextMenu}
           ref={columnHeaderRef}
           {...attributes}

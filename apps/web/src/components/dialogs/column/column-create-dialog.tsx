@@ -201,13 +201,35 @@ export const ColumnCreateDialog = memo(
     const hasAccentColor = !!board?.accentColor;
     const hasNameError = !!nameError;
 
+    const dialogStyle = (() => {
+      const x = position?.x ?? 0;
+      const y = position?.y ?? 0;
+      const viewportWidth =
+        typeof window === "undefined" ? 1920 : window.innerWidth;
+      const viewportHeight =
+        typeof window === "undefined" ? 1080 : window.innerHeight;
+      const DIALOG_HEIGHT = 180;
+
+      let left = x;
+      let top = y;
+
+      if (x + DIALOG_WIDTH > viewportWidth - 20) {
+        left = Math.max(20, viewportWidth - DIALOG_WIDTH - 20);
+      }
+
+      if (y + DIALOG_HEIGHT > viewportHeight - 20) {
+        top = Math.max(20, viewportHeight - DIALOG_HEIGHT - 20);
+      }
+
+      return { left, top };
+    })();
+
     return (
       <div
         className="absolute z-50 rounded-lg"
         style={{
           width: DIALOG_WIDTH,
-          left: position?.x ?? 0,
-          top: position?.y ?? 0,
+          ...dialogStyle,
         }}
       >
         {dialogCollaborator && (

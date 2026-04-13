@@ -22,15 +22,15 @@ export const AddColumnPlaceholder = memo(
     const addColumn = useKanbanStore((state) => state.addColumn);
 
     const handleClick = useCallback(() => {
-      // Get button position for dialog placement
-      if (buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        // Position dialog to the right of the button
-        setDialogPosition({
-          x: rect.right + 20,
-          y: rect.top,
-        });
-      }
+      // Center dialog in viewport for reliability
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const DIALOG_WIDTH = 320;
+      const DIALOG_HEIGHT = 200;
+      setDialogPosition({
+        x: (viewportWidth - DIALOG_WIDTH) / 2,
+        y: (viewportHeight - DIALOG_HEIGHT) / 2,
+      });
       setIsDialogOpen(true);
     }, []);
 
