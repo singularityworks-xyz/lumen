@@ -29,7 +29,11 @@ test.describe("E2E-16: Permission Transitions", () => {
     );
     if (await createFirstBoardButton.isVisible()) {
       await createFirstBoardButton.click();
-      await ownerPage.waitForTimeout(500);
+      // Wait for board to be created and ready
+      await ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
     }
 
     await clearLocalStorageAndIndexedDB(editorPage);

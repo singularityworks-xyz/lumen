@@ -58,6 +58,12 @@ const app = new Elysia()
       uptime: process.uptime(),
     };
   })
+  .get("/instance-id", () => {
+    return {
+      instanceId: `workers-${env.PORT}`,
+      port: env.PORT,
+    };
+  })
   .onStart(() => {
     logger.info("Server starting", {
       port: env.PORT,

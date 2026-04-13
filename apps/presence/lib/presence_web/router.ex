@@ -11,5 +11,7 @@ defmodule PresenceWeb.Router do
 
   scope "/api", PresenceWeb do
     pipe_through(:api)
+
+    get("/test/token", TestTokenController, :generate)
   end
 end

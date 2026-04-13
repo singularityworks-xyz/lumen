@@ -45,7 +45,11 @@ export class PresenceManager {
   }
 
   private connect() {
-    const wsUrl = process.env.NEXT_PUBLIC_PRESENCE_WS_URL || "";
+    const wsUrl =
+      (window as Window & { __TEST_PRESENCE_URL__?: string })
+        .__TEST_PRESENCE_URL__ ||
+      process.env.NEXT_PUBLIC_PRESENCE_WS_URL ||
+      "";
 
     // Enforce secure WebSocket in production to prevent token interception
     if (process.env.NODE_ENV === "production" && !wsUrl.startsWith("wss://")) {

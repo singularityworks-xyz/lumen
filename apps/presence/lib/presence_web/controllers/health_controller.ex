@@ -6,11 +6,14 @@ defmodule PresenceWeb.HealthController do
   Returns 200 OK if the service is healthy.
   """
   def index(conn, _params) do
+    instance_id = "presence-#{conn.port}"
+
     conn
     |> put_status(:ok)
     |> json(%{
       status: "healthy",
       service: "presence",
+      instance_id: instance_id,
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
     })
   end

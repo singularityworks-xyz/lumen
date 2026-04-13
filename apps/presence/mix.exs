@@ -12,8 +12,10 @@ defmodule Presence.MixProject do
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
       test_coverage: [
-        output: "cover",
-        summary: false
+        output_dir: "cover",
+        summary: false,
+        tool: ExCoveralls,
+        type: "lcov"
       ]
     ]
   end
@@ -61,7 +63,8 @@ defmodule Presence.MixProject do
       {:opentelemetry_api_experimental, "~> 0.5"},
       {:opentelemetry_experimental, "~> 0.5"},
       {:logger_json, "~> 7.0"},
-      {:bypass, "~> 2.1", only: :test}
+      {:bypass, "~> 2.1", only: :test},
+      {:excoveralls, "~> 0.18", only: :test, runtime: false}
     ]
   end
 

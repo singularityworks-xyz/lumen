@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage/
+          path: coverage/bun/lcov.info
           retention-days: 7
 
       - name: Upload JUnit
@@ -165,7 +165,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage/
+          path: coverage/bun/lcov.info
           retention-days: 7
 
       - name: Upload JUnit
@@ -303,12 +303,22 @@ jobs:
         working-directory: apps/presence
         run: mix test --cover
 
+      - name: Upload Presence coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-presence
+          path: apps/presence/cover/lcov.info
+          retention-days: 7
+
   coverage-gate:
     name: Coverage Summary
     runs-on: ubuntu-latest
+    if: ${{ always() && needs.unit-web.result == 'success' && needs.unit-server-and-packages.result == 'success' }}
     needs:
+      - changes
       - unit-web
       - unit-server-and-packages
+      - presence-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -321,21 +331,52 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
       - name: Download unit-web coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
-          path: coverage
+          path: coverage/unit-web
 
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
-          path: coverage
-          merge-multiple: true
+          path: coverage/unit-server-and-packages
+
+      - name: Download Presence coverage
+        if: ${{ needs.presence-tests.result == 'success' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-presence
+          path: coverage/presence
+
+      - name: Setup Beam
+        if: ${{ needs.presence-tests.result == 'success' }}
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+
+      - name: Install Hex
+        if: ${{ needs.presence-tests.result == 'success' }}
+        run: mix local.hex --force
+
+      - name: Merge LCOV files
+        run: |
+          mkdir -p coverage/merged
+          lcov -a coverage/unit-web/lcov.info -a coverage/unit-server-and-packages/lcov.info -o coverage/merged/lcov.info
 
       - name: Generate coverage summary
-        run: bun run scripts/testing/coverage-summary.ts
+        run: |
+          BUN_LCOV_PATH=coverage/merged/lcov.info PRESENCE_LCOV_PATH=coverage/presence/lcov.info bun run scripts/testing/coverage-summary.ts
+
+      - name: Run Presence coverage gate
+        if: ${{ needs.presence-tests.result == 'success' && hashFiles('coverage/presence/lcov.info') != '' }}
+        run: LCOV_PATH=coverage/presence/lcov.info elixir apps/presence/scripts/coverage_gate.exs
 
   ci-passed:
     name: CI Passed

@@ -96,8 +96,10 @@ const TestComponent: FC<Partial<typeof DEFAULT_PROPS>> = ({
   );
 };
 
-function flushMicrotasks() {
-  return new Promise((r) => setTimeout(r, 0));
+async function flushMicrotasks() {
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 describe("usePresence", () => {
@@ -366,9 +368,18 @@ describe("usePresence", () => {
       const firstInstance = instances[0]!;
       expect(instances.length).toBe(1);
 
+      let secondResolver: ((token: string | null) => void) | null = null;
+      mockGetJwtToken.mockImplementation(() => {
+        return new Promise<string | null>((resolve) => {
+          secondResolver = resolve;
+        });
+      });
+
+      rerender(createElement(TestComponent, { workspaceId: "ws-2" }));
+
       await act(async () => {
-        rerender(createElement(TestComponent, { workspaceId: "ws-2" }));
-        jwtTokenResolver!("test-jwt-token-2");
+        await flushMicrotasks();
+        secondResolver!("test-jwt-token-2");
         await flushMicrotasks();
       });
 
@@ -390,9 +401,18 @@ describe("usePresence", () => {
       const firstInstance = instances[0]!;
       expect(instances.length).toBe(1);
 
+      let secondResolver: ((token: string | null) => void) | null = null;
+      mockGetJwtToken.mockImplementation(() => {
+        return new Promise<string | null>((resolve) => {
+          secondResolver = resolve;
+        });
+      });
+
+      rerender(createElement(TestComponent, { userId: "user-2" }));
+
       await act(async () => {
-        rerender(createElement(TestComponent, { userId: "user-2" }));
-        jwtTokenResolver!("test-jwt-token-2");
+        await flushMicrotasks();
+        secondResolver!("test-jwt-token-2");
         await flushMicrotasks();
       });
 

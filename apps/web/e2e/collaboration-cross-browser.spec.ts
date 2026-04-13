@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { setupTwoUsersCrossBrowser } from "./helpers/commands";
+import { waitForCollabSync } from "./helpers/waits";
 
 test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
   test.skip(
@@ -33,7 +34,8 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
         steps: 10,
       });
       await ownerPage.mouse.up();
-      await ownerPage.waitForTimeout(1500);
+      // Wait for drag to sync to Firefox
+      await ownerPage.waitForLoadState("networkidle");
 
       // Verify Chrome position moved
       const ownerBox = await boardNode.boundingBox();
@@ -73,12 +75,16 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       await addColumnTrigger.click();
       await ownerPage.fill('[data-testid="column-name-input"]', "XF Col A");
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(500);
+      // Wait for first column to be created
+      await ownerPage
+        .locator('[data-testid="kanban-column"]:has-text("XF Col A")')
+        .waitFor({ state: "visible", timeout: 5000 });
 
       await addColumnTrigger.click();
       await ownerPage.fill('[data-testid="column-name-input"]', "XF Col B");
       await ownerPage.click('[data-testid="column-create-submit"]');
-      await ownerPage.waitForTimeout(500);
+      // Wait for second column to sync to Firefox
+      await waitForCollabSync(editorPage, "kanban-column", "XF Col B");
 
       // Verify Firefox sees both columns
       await editorPage
@@ -95,7 +101,8 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
         "Cross-Browser Task"
       );
       await ownerPage.click('[data-testid="task-create-submit"]');
-      await ownerPage.waitForTimeout(1000);
+      // Wait for task to sync to Firefox
+      await waitForCollabSync(editorPage, "task-card", "Cross-Browser Task");
 
       // Wait for Firefox to see the task
       await editorPage
@@ -126,7 +133,8 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
         { steps: 10 }
       );
       await ownerPage.mouse.up();
-      await ownerPage.waitForTimeout(1500);
+      // Wait for drag to complete and task to appear in target column on Firefox
+      await waitForCollabSync(editorPage, "task-card", "Cross-Browser Task");
 
       // Verify Firefox shows the task in the target column
       const editorTargetColumn = editorPage.locator(
@@ -167,7 +175,10 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
         boardBox!.x + boardBox!.width / 2,
         boardBox!.y + boardBox!.height / 2
       );
-      await ownerPage.waitForTimeout(1000);
+      // Wait for cursor to appear on Firefox
+      await editorPage
+        .locator('[data-testid="remote-cursor"]')
+        .waitFor({ state: "visible", timeout: 5000 });
 
       // Verify Firefox shows a remote cursor
       const remoteCursor = editorPage.locator('[data-testid="remote-cursor"]');
@@ -208,7 +219,8 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
         steps: 10,
       });
       await editorPage.mouse.up();
-      await editorPage.waitForTimeout(1500);
+      // Wait for drag to sync to Chrome
+      await editorPage.waitForLoadState("networkidle");
 
       // Verify Firefox moved
       const editorBoxAfter = await editorBoard.boundingBox();
@@ -270,7 +282,10 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
 
       await ownerPage.keyboard.press("Enter");
       await editorPage.keyboard.press("Enter");
-      await ownerPage.waitForTimeout(2000);
+      // Wait for both edits to converge
+      await ownerPage
+        .locator('[data-testid="board-rename-dialog"]')
+        .waitFor({ state: "hidden", timeout: 5000 });
 
       // Both should converge to the same name
       const ownerName = await ownerPage

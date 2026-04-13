@@ -1,4 +1,9 @@
-import type { Browser, BrowserType, Page } from "@playwright/test";
+import type {
+  Browser,
+  BrowserContext,
+  BrowserType,
+  Page,
+} from "@playwright/test";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   await page.evaluate(async () => {
@@ -107,10 +112,6 @@ export interface TwoUserSetup {
   shareLink: string;
 }
 
-/**
- * Sets up two users on the same browser engine using separate contexts.
- * Returns both pages and the share link.
- */
 export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   const ownerContext = await browser.newContext();
   const editorContext = await browser.newContext();
@@ -127,7 +128,10 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   );
   if (await createFirstBoardButton.isVisible()) {
     await createFirstBoardButton.click();
-    await ownerPage.waitForTimeout(500);
+    await ownerPage
+      .locator('[data-testid="board-node"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
   }
 
   await clearLocalStorageAndIndexedDB(editorPage);
@@ -147,23 +151,22 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   return { ownerPage, editorPage, shareLink };
 }
 
-export interface TwoUserSetupCrossBrowser extends TwoUserSetup {
+export interface TwoUserCrossBrowserSetup {
   editorBrowser: Browser;
+  editorPage: Page;
+  ownerPage: Page;
+  shareLink: string;
 }
 
-/**
- * Sets up two users on different browser engines.
- * Owner uses the primary browser, editor uses the secondary browser type.
- * Returns editorBrowser so callers can manage its lifecycle.
- */
 export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
-): Promise<TwoUserSetupCrossBrowser> {
+): Promise<TwoUserCrossBrowserSetup> {
   const editorBrowser = await editorBrowserType.launch();
+  let ownerContext: BrowserContext | null = null;
 
   try {
-    const ownerContext = await ownerBrowser.newContext();
+    ownerContext = await ownerBrowser.newContext();
     const editorContext = await editorBrowser.newContext();
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();
@@ -178,7 +181,10 @@ export async function setupTwoUsersCrossBrowser(
     );
     if (await createFirstBoardButton.isVisible()) {
       await createFirstBoardButton.click();
-      await ownerPage.waitForTimeout(500);
+      await ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
     }
 
     await clearLocalStorageAndIndexedDB(editorPage);
@@ -196,8 +202,11 @@ export async function setupTwoUsersCrossBrowser(
       .waitFor({ state: "visible", timeout: 10_000 });
 
     return { ownerPage, editorPage, shareLink, editorBrowser };
-  } catch (error) {
+  } catch (e) {
     await editorBrowser.close();
-    throw error;
+    if (ownerContext) {
+      await ownerContext.close();
+    }
+    throw e;
   }
 }
