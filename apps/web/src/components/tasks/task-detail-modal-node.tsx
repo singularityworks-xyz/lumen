@@ -110,6 +110,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]",
             isShaking && "animate-shake"
           )}
+          data-testid="task-detail-modal"
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) {
               setIsFocused(false);
@@ -175,6 +176,7 @@ export const TaskDetailModalNodeComponent = memo<TaskDetailModalNodeProps>(
             </div>
             <button
               className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+              data-testid="close-button"
               onClick={() => closeTaskDetailModal(data.modalId)}
               type="button"
             >

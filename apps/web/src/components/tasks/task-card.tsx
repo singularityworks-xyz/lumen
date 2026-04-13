@@ -465,6 +465,7 @@ export const TaskCard = memo(
               : "border-border/40 dark:border-border/70"
           }`}
           data-task-id={task.id}
+          data-testid="task-card"
         >
           <div className="flex items-start gap-1.5">
             {showCheckbox && (
@@ -510,6 +511,7 @@ export const TaskCard = memo(
                 <div className="flex items-center gap-1.5">
                   <Badge
                     className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
+                    data-testid="task-priority-badge"
                     variant="outline"
                   >
                     {task.priority}
@@ -564,6 +566,7 @@ export const TaskCard = memo(
               : "border-border/40 dark:border-border/70"
         } ${task.status === "done" ? "bg-muted/30" : "bg-card"}`}
         data-task-id={task.id}
+        data-testid="task-card"
       >
         {dragCollaborator && (
           <TaskDragPresenceIndicator collaborator={dragCollaborator} />
@@ -689,6 +692,7 @@ export const TaskCard = memo(
                 <div className="flex items-center gap-1.5">
                   <Badge
                     className={`h-4 px-1.5 py-0 text-[9px] ${priorityColors[task.priority]}`}
+                    data-testid="task-priority-badge"
                     variant="outline"
                   >
                     {task.priority}
