@@ -187,6 +187,7 @@ export const CreateTaskForm = memo(
                 titleError && "border-destructive ring-2 ring-destructive/20",
                 isShaking && "animate-shake"
               )}
+              data-testid="task-title-input"
               id={`task-title-${modalId}`}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="What needs to be done?"
@@ -209,6 +210,7 @@ export const CreateTaskForm = memo(
               >
                 <ScaledSelectTrigger
                   className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all hover:bg-muted focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] data-[state=open]:border-primary/50 data-[state=open]:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:data-[state=open]:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)] dark:hover:bg-muted"
+                  data-testid="task-priority-select"
                   id={`task-priority-${modalId}`}
                 >
                   <ScaledSelectValue placeholder="Select priority" />
@@ -288,19 +290,21 @@ export const CreateTaskForm = memo(
                 <Loader className="h-3.5 w-3.5" />
                 Progress
               </Label>
-              <span
-                className={cn(
-                  "rounded-full px-2.5 py-0.5 font-semibold text-xs",
-                  progress === 100 &&
-                    "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-                  progress >= 50 &&
-                    progress < 100 &&
-                    "bg-amber-500/20 text-amber-600 dark:text-amber-400",
-                  progress < 50 && "bg-muted text-muted-foreground"
-                )}
-              >
-                {progress}%
-              </span>
+              <input
+                className="w-16 rounded-md border border-border/30 bg-muted/80 px-2 py-1 text-center text-xs shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3)]"
+                data-testid="task-progress-input"
+                max={100}
+                min={0}
+                onChange={(e) => {
+                  const value = Number.parseInt(e.target.value, 10);
+                  if (!Number.isNaN(value)) {
+                    handleProgressChange([Math.min(100, Math.max(0, value))]);
+                  }
+                }}
+                step={5}
+                type="number"
+                value={progress}
+              />
             </div>
             <div className="rounded-md border border-border/30 bg-muted/80 px-3 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]">
               <Slider
@@ -352,6 +356,7 @@ export const CreateTaskForm = memo(
         <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
           <Button
             className="h-7 flex-1 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+            data-testid="task-create-cancel"
             onClick={() => closeCreateTaskModal(modalId)}
             type="button"
             variant="ghost"
@@ -360,6 +365,7 @@ export const CreateTaskForm = memo(
           </Button>
           <Button
             className="h-7 flex-1 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+            data-testid="task-create-submit"
             type="submit"
           >
             Create Task

@@ -407,13 +407,18 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
                     >
                       <ScaledSelectTrigger
                         className="w-full rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                        data-testid="board-select-dropdown"
                         id={`target-board-${columnDialog.columnId}`}
                       >
                         <ScaledSelectValue placeholder="Select a board..." />
                       </ScaledSelectTrigger>
                       <ScaledSelectContent>
                         {availableTargetBoards.map((board) => (
-                          <ScaledSelectItem key={board.id} value={board.id}>
+                          <ScaledSelectItem
+                            data-testid="board-select-option"
+                            key={board.id}
+                            value={board.id}
+                          >
                             <Kanban className="h-3.5 w-3.5 text-primary" />
                             {board.name}
                           </ScaledSelectItem>
@@ -434,6 +439,7 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
                   </Button>
                   <Button
                     className="h-7 flex-1 rounded-md bg-primary/90 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                    data-testid="column-move-confirm"
                     disabled={!targetBoardId}
                     onClick={handleConfirm}
                     type="button"
