@@ -313,9 +313,12 @@ jobs:
   coverage-gate:
     name: Coverage Summary
     runs-on: ubuntu-latest
+    if: ${{ always() && needs.unit-web.result == 'success' && needs.unit-server-and-packages.result == 'success' }}
     needs:
+      - changes
       - unit-web
       - unit-server-and-packages
+      - presence-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -344,11 +347,23 @@ jobs:
           path: coverage/unit-server-and-packages
 
       - name: Download Presence coverage
+        if: ${{ needs.presence-tests.result == 'success' }}
         uses: actions/download-artifact@v7
         with:
           name: coverage-presence
           path: coverage/presence
-        continue-on-error: true
+
+      - name: Setup Beam
+        if: ${{ needs.presence-tests.result == 'success' }}
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+
+      - name: Install Hex
+        if: ${{ needs.presence-tests.result == 'success' }}
+        run: mix local.hex --force
 
       - name: Merge LCOV files
         run: |
@@ -360,8 +375,8 @@ jobs:
           BUN_LCOV_PATH=coverage/merged/lcov.info PRESENCE_LCOV_PATH=coverage/presence/lcov.info bun run scripts/testing/coverage-summary.ts
 
       - name: Run Presence coverage gate
-        working-directory: apps/presence
-        run: LCOV_PATH=../../coverage/presence/lcov.info mix run scripts/coverage_gate.exs
+        if: ${{ needs.presence-tests.result == 'success' && hashFiles('coverage/presence/lcov.info') != '' }}
+        run: LCOV_PATH=coverage/presence/lcov.info elixir apps/presence/scripts/coverage_gate.exs
 
   ci-passed:
     name: CI Passed
