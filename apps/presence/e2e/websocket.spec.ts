@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 interface PresenceState {
   presences: Record<
@@ -35,7 +35,7 @@ async function getTestToken(
 }
 
 async function connectWebSocket(
-  page: any,
+  page: Page,
   url: string,
   params: Record<string, string> = {}
 ): Promise<{
@@ -221,7 +221,7 @@ test.describe("WebSocket with Valid Token", () => {
     const baseURL = process.env.PRESENCE_URL || "http://localhost:4001";
 
     const { token: token1 } = await getTestToken(baseURL);
-    const { socket: socket1 } = await connectWebSocket(
+    const { socket: socket1, messages: messages1 } = await connectWebSocket(
       page,
       "ws://localhost:4001/socket",
       {
@@ -240,6 +240,12 @@ test.describe("WebSocket with Valid Token", () => {
     };
     socket1.send(JSON.stringify(joinMsg));
     await page.waitForTimeout(1000);
+
+    const presenceStateMsg = messages1.find(
+      (m) => m.event === "presence_state"
+    );
+    expect(presenceStateMsg).toBeDefined();
+    expect(presenceStateMsg?.payload).toBeDefined();
 
     const socket2Page = await page.context().newPage();
     const { token: token2 } = await getTestToken(baseURL);
@@ -263,6 +269,12 @@ test.describe("WebSocket with Valid Token", () => {
     socket2.send(JSON.stringify(joinMsg2));
     await socket2Page.waitForTimeout(1500);
 
+    const presenceDiffMsg = messages1.find((m) => m.event === "presence_diff");
+    expect(presenceDiffMsg).toBeDefined();
+    expect(presenceDiffMsg?.payload).toBeDefined();
+    expect(presenceDiffMsg?.payload).toHaveProperty("joins");
+    expect(presenceDiffMsg?.topic).toBe("workspace:diff-test-workspace");
+
     socket1.close();
     socket2.close();
     await socket2Page.close();
@@ -272,7 +284,7 @@ test.describe("WebSocket with Valid Token", () => {
     const baseURL = process.env.PRESENCE_URL || "http://localhost:4001";
     const { token } = await getTestToken(baseURL);
 
-    const { socket } = await connectWebSocket(
+    const { socket, messages } = await connectWebSocket(
       page,
       "ws://localhost:4001/socket",
       {
@@ -292,6 +304,11 @@ test.describe("WebSocket with Valid Token", () => {
     socket.send(JSON.stringify(joinChannelMessage));
     await page.waitForTimeout(1000);
 
+    const joinReply = messages.find(
+      (m) => m.event === "phx_reply" && m.payload?.status === "ok"
+    );
+    expect(joinReply).toBeDefined();
+
     const statusUpdateMessage = {
       topic: "workspace:status-test",
       event: "status_update",
@@ -301,6 +318,12 @@ test.describe("WebSocket with Valid Token", () => {
     };
     socket.send(JSON.stringify(statusUpdateMessage));
     await page.waitForTimeout(1000);
+
+    const statusReply = messages.find(
+      (m) => m.event === "phx_reply" && m.ref === "2"
+    );
+    expect(statusReply).toBeDefined();
+    expect(statusReply?.payload?.status).toBe("ok");
 
     socket.close();
   });
@@ -342,7 +365,7 @@ test.describe("WebSocket with Valid Token", () => {
     const baseURL = process.env.PRESENCE_URL || "http://localhost:4001";
     const { token } = await getTestToken(baseURL);
 
-    const { socket } = await connectWebSocket(
+    const { socket, messages } = await connectWebSocket(
       page,
       "ws://localhost:4001/socket",
       {
@@ -362,15 +385,27 @@ test.describe("WebSocket with Valid Token", () => {
     socket.send(JSON.stringify(joinChannelMessage));
     await page.waitForTimeout(1000);
 
+    const joinReply = messages.find(
+      (m) => m.event === "phx_reply" && m.payload?.status === "ok"
+    );
+    expect(joinReply).toBeDefined();
+
+    const pingTimestamp = Date.now();
     const activityPingMessage = {
       topic: "workspace:activity-test",
       event: "activity_ping",
-      payload: { timestamp: Date.now() },
+      payload: { timestamp: pingTimestamp },
       ref: "2",
       join_ref: null,
     };
     socket.send(JSON.stringify(activityPingMessage));
     await page.waitForTimeout(1000);
+
+    const pingReply = messages.find(
+      (m) => m.event === "phx_reply" && m.ref === "2"
+    );
+    expect(pingReply).toBeDefined();
+    expect(pingReply?.payload?.status).toBe("ok");
 
     socket.close();
   });

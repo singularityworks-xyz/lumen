@@ -361,8 +361,7 @@ jobs:
 
       - name: Run Presence coverage gate
         working-directory: apps/presence
-        run: LCOV_PATH=../coverage/presence/lcov.info mix run scripts/coverage_gate.exs
-        continue-on-error: true
+        run: LCOV_PATH=../../coverage/presence/lcov.info mix run scripts/coverage_gate.exs
 
   ci-passed:
     name: CI Passed

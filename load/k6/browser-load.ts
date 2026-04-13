@@ -1,4 +1,4 @@
-import { browser } from "k6/browser";
+import { browser, Page } from "k6/browser";
 import { Counter, Rate, Trend } from "k6/metrics";
 
 const dragLatency = new Trend("browser_drag_latency_ms");
@@ -15,7 +15,7 @@ const ITERATIONS_PER_VU = parseInt(__ENV.ITERATIONS || "5", 10);
 const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 
 async function simulateDrag(
-  page: any,
+  page: Page,
   startX: number,
   startY: number,
   endX: number,
@@ -33,7 +33,7 @@ async function simulateDrag(
   return Date.now() - startTime;
 }
 
-async function loginAndNavigate(page: any, workspaceId: string): Promise<boolean> {
+async function loginAndNavigate(page: Page, workspaceId: string): Promise<boolean> {
   try {
     const startTime = Date.now();
 
@@ -47,13 +47,14 @@ async function loginAndNavigate(page: any, workspaceId: string): Promise<boolean
 
     pageLoadTime.add(Date.now() - startTime);
     return true;
-  } catch {
+  } catch (err) {
+    console.error("Login and navigate failed:", err);
     return false;
   }
 }
 
 async function performDragTest(
-  page: any,
+  page: Page,
   boardId: string,
   contentionFactor: number
 ): Promise<{ success: boolean; latency: number }> {
@@ -83,7 +84,7 @@ async function performDragTest(
 }
 
 async function performTaskCreationTest(
-  page: any,
+  page: Page,
   columnId: string,
   taskIndex: number
 ): Promise<{ success: boolean; latency: number }> {
@@ -121,7 +122,7 @@ async function performTaskCreationTest(
 }
 
 async function performCommentDrawerTest(
-  page: any,
+  page: Page,
   boardId: string,
   commentCount: number
 ): Promise<{ success: boolean; latency: number }> {
@@ -209,7 +210,8 @@ async function runBrowserLoadScenario(iteration: number): Promise<void> {
     }
 
     await page.goto(`${BASE_URL}/logout`, { waitUntil: "networkidle" });
-  } catch {
+  } catch (err) {
+    console.error("Browser load scenario failed:", err);
   } finally {
     await page.close();
   }
@@ -221,7 +223,7 @@ async function runContentionTest(): Promise<void> {
   try {
     await page.goto(`${BASE_URL}/workspace/shared-test`, { waitUntil: "networkidle", timeout: 30000 });
 
-    const dragPromises: Promise<any>[] = [];
+    const dragPromises: Array<Promise<{ success: boolean; latency: number }>> = [];
 
     for (let i = 0; i < 3; i++) {
       const x = 100 + i * 200;
@@ -238,7 +240,8 @@ async function runContentionTest(): Promise<void> {
     await Promise.all(dragPromises);
 
     await page.waitForTimeout(1000);
-  } catch {
+  } catch (err) {
+    console.error("Contention test failed:", err);
   } finally {
     await page.close();
   }

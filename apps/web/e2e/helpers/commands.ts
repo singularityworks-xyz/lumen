@@ -1,4 +1,9 @@
-import type { Browser, BrowserType, Page } from "@playwright/test";
+import type {
+  Browser,
+  BrowserContext,
+  BrowserType,
+  Page,
+} from "@playwright/test";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   await page.evaluate(async () => {
@@ -157,10 +162,11 @@ export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
 ): Promise<TwoUserCrossBrowserSetup> {
-  const ownerContext = await ownerBrowser.newContext();
   const editorBrowser = await editorBrowserType.launch();
+  let ownerContext: BrowserContext | null = null;
 
   try {
+    ownerContext = await ownerBrowser.newContext();
     const editorContext = await editorBrowser.newContext();
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();
@@ -198,6 +204,9 @@ export async function setupTwoUsersCrossBrowser(
     return { ownerPage, editorPage, shareLink, editorBrowser };
   } catch (e) {
     await editorBrowser.close();
+    if (ownerContext) {
+      await ownerContext.close();
+    }
     throw e;
   }
 }

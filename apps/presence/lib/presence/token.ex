@@ -24,7 +24,7 @@ defmodule Presence.Token do
 
   @doc """
   Set JWKS directly in the cache for testing.
-  Appends new keys to existing keys so tokens minted earlier remain verifiable.
+  Merges keys by kid so newer keys replace existing ones with the same kid.
   """
   def set_jwks_for_test(jwks) do
     init_cache()
@@ -34,7 +34,8 @@ defmodule Presence.Token do
         [{:jwks, existing_jwks, _timestamp}] ->
           existing_keys = Map.get(existing_jwks, "keys", [])
           new_keys = Map.get(jwks, "keys", [])
-          %{existing_jwks | "keys" => existing_keys ++ new_keys}
+          merged_keys = merge_jwks_keys(new_keys, existing_keys)
+          %{existing_jwks | "keys" => merged_keys}
 
         _ ->
           jwks
@@ -43,6 +44,23 @@ defmodule Presence.Token do
     timestamp = System.monotonic_time(:millisecond)
     :ets.insert(@jwks_cache_table, {:jwks, updated_jwks, timestamp})
     :ok
+  end
+
+  defp merge_jwks_keys(new_keys, existing_keys) do
+    new_keys_map =
+      Enum.reduce(new_keys, %{}, fn key, acc ->
+        kid = Map.get(key, "kid")
+        if kid, do: Map.put(acc, kid, key), else: acc
+      end)
+
+    existing_keys_map =
+      Enum.reduce(existing_keys, %{}, fn key, acc ->
+        kid = Map.get(key, "kid")
+        if kid, do: Map.put(acc, kid, key), else: acc
+      end)
+
+    Map.merge(existing_keys_map, new_keys_map)
+    |> Map.values()
   end
 
   @doc """

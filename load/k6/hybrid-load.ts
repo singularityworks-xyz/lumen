@@ -1,7 +1,7 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { connectCollabSession } from "./lib/collab-session";
-import { browser } from "k6/browser";
+import { browser, Page } from "k6/browser";
 import * as Y from "yjs";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
@@ -95,7 +95,7 @@ function getSharedYjsDoc(workspaceId: string): Y.Doc {
   return globalYjsDoc;
 }
 
-async function performBrowserDrag(page: any, boardId: string, contentionFactor: number): Promise<number> {
+async function performBrowserDrag(page: Page, boardId: string, contentionFactor: number): Promise<number> {
   const startX = 100 + (contentionFactor * 17) % 400;
   const startY = 100 + (contentionFactor * 23) % 300;
   const endX = startX + 150 + contentionFactor * 11;
@@ -113,7 +113,7 @@ async function performBrowserDrag(page: any, boardId: string, contentionFactor: 
   return Date.now() - startTime;
 }
 
-async function runBrowserScenario(page: any, iteration: number): Promise<void> {
+async function runBrowserScenario(page: Page, iteration: number): Promise<void> {
   const workspaceId = `hybrid-browser-${__VU}-${iteration}`;
 
   try {

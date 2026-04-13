@@ -109,13 +109,16 @@ export class MultiInstanceTopology {
     await Promise.all(
       this.instances.map((instance) => {
         return new Promise<void>((resolve) => {
-          instance.process.once("exit", () => resolve());
+          let exited = false;
+          instance.process.once("exit", () => {
+            exited = true;
+            resolve();
+          });
           instance.process.kill("SIGTERM");
           setTimeout(() => {
-            if (!instance.process.killed) {
+            if (!exited) {
               instance.process.kill("SIGKILL");
             }
-            resolve();
           }, 5000);
         });
       })
@@ -177,17 +180,20 @@ export interface WorkersRoutingOptions {
   workersUrl: string;
 }
 
+function normalizeUrl(url?: string): string | undefined {
+  if (url === undefined) {
+    return undefined;
+  }
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
 export async function createPageConnectedToWorkers(
   page: Page,
   workersUrl: string,
   presenceUrl?: string
 ): Promise<void> {
-  const normalizedWorkersUrl = workersUrl.endsWith("/")
-    ? workersUrl.slice(0, -1)
-    : workersUrl;
-  const normalizedPresenceUrl = presenceUrl?.endsWith("/")
-    ? presenceUrl.slice(0, -1)
-    : presenceUrl;
+  const normalizedWorkersUrl = normalizeUrl(workersUrl);
+  const normalizedPresenceUrl = normalizeUrl(presenceUrl);
 
   await page.addInitScript(
     `(() => {
@@ -202,17 +208,13 @@ export async function routePageToWorkers(
   workersUrl: string,
   presenceUrl?: string
 ): Promise<void> {
-  const normalizedWorkersUrl = workersUrl.endsWith("/")
-    ? workersUrl.slice(0, -1)
-    : workersUrl;
-  const normalizedPresenceUrl = presenceUrl?.endsWith("/")
-    ? presenceUrl.slice(0, -1)
-    : presenceUrl;
+  const normalizedWorkersUrl = normalizeUrl(workersUrl);
+  const normalizedPresenceUrl = normalizeUrl(presenceUrl);
 
   await page.addInitScript(
     `(() => {
       window.__TEST_WORKERS_URL__ = ${JSON.stringify(normalizedWorkersUrl)};
-      window.__TEST_PRESENCE_URL__ = ${JSON.stringify(normalizedPresenceUrl ?? normalizedWorkersUrl.replace("http", "ws"))};
+      window.__TEST_PRESENCE_URL__ = ${JSON.stringify(normalizedPresenceUrl ?? normalizedWorkersUrl?.replace("http", "ws"))};
     })()`
   );
 }
@@ -269,17 +271,18 @@ export async function fetchPresenceInstanceId(
 }
 
 export async function getWorkersInstanceIdFromPage(
-  page: Page
+  page: Page,
+  url = "http://localhost:3002"
 ): Promise<string | null> {
   try {
-    const response = await page.evaluate(async (url) => {
-      const res = await fetch(`${url}/instance-id`);
+    const response = await page.evaluate(async (instanceUrl) => {
+      const res = await fetch(`${instanceUrl}/instance-id`);
       if (res.ok) {
         const data = await res.json();
         return data.instanceId ?? null;
       }
       return null;
-    }, "http://localhost:3002");
+    }, url);
     return response;
   } catch {
     return null;
