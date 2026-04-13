@@ -55,6 +55,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const column = page.locator(
       '[data-testid="kanban-column"]:has-text("Original Column")'
     );
+    await column.scrollIntoViewIfNeeded();
     await column
       .locator('[data-testid="column-header"]')
       .click({ button: "right" });
@@ -90,9 +91,14 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
 
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("0");
+    await page.waitForTimeout(300);
+
     const movableColumn = page.locator(
       '[data-testid="kanban-column"]:has-text("Movable Column")'
     );
+    await movableColumn.scrollIntoViewIfNeeded();
     await movableColumn
       .locator('[data-testid="column-header"]')
       .click({ button: "right" });
@@ -130,6 +136,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const column = page.locator(
       '[data-testid="kanban-column"]:has-text("Deletable Column")'
     );
+    await column.scrollIntoViewIfNeeded();
     await column
       .locator('[data-testid="column-header"]')
       .click({ button: "right" });
@@ -191,6 +198,10 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.fill('[data-testid="column-name-input"]', "Target Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
+
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("0");
+    await page.waitForTimeout(300);
 
     const sourceColumn = page.locator(
       '[data-testid="kanban-column"]:has-text("Source Column")'
