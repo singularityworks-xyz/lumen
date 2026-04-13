@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { setupTwoUsers } from "./helpers/commands";
+import {
+  assertServerClientMatch,
+  verifyServerClientStateMatch,
+} from "./lib/state-verification";
+
+const WORKSPACE_ID_REGEX = /workspace\/([^/]+)/;
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -33,7 +39,9 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
       "Conflict Column"
     );
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    await ownerPage.waitForSelector(
+      '[data-testid="kanban-column"]:has-text("Conflict Column")'
+    );
 
     const column = ownerPage.locator(
       '[data-testid="kanban-column"]:has-text("Conflict Column")'
@@ -42,7 +50,9 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     await addTaskTrigger.click();
     await ownerPage.fill('[data-testid="task-title-input"]', "Original Title");
     await ownerPage.click('[data-testid="task-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    await ownerPage.waitForSelector(
+      '[data-testid="task-card"]:has-text("Original Title")'
+    );
 
     const taskCard = ownerPage.locator(
       '[data-testid="task-card"]:has-text("Original Title")'
@@ -84,7 +94,14 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
 
     await ownerPage.click('[data-testid="task-detail-save-button"]');
     await editorPage.click('[data-testid="task-detail-save-button"]');
-    await ownerPage.waitForTimeout(2000);
+
+    // Wait for the modal to close and the final state to converge on both clients
+    await ownerPage
+      .locator('[data-testid="task-detail-modal"]')
+      .waitFor({ state: "hidden", timeout: 10_000 });
+    await editorPage
+      .locator('[data-testid="task-detail-modal"]')
+      .waitFor({ state: "hidden", timeout: 10_000 });
 
     const ownerFinalTitle = await ownerPage
       .locator('[data-testid="task-card"]')
@@ -100,6 +117,31 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
       ownerFinalTitle === "Owner Title Edit" ||
         ownerFinalTitle === "Editor Title Edit"
     ).toBeTruthy();
+
+    const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
+    const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
+    expect(workspaceId).toBeTruthy();
+
+    if (workspaceId) {
+      await ownerPage
+        .waitForFunction(
+          () => {
+            const store = document.querySelector(
+              '[data-testid="kanban-store"]'
+            );
+            return store?.getAttribute("data-sync-status") === "synced";
+          },
+          null,
+          { timeout: 15_000 }
+        )
+        .catch(() => null);
+
+      const verification = await verifyServerClientStateMatch(
+        ownerPage,
+        workspaceId
+      );
+      assertServerClientMatch(verification);
+    }
   });
 
   test("rapid successive edits converge to single value", async () => {
@@ -110,7 +152,9 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     await addColumnTrigger.click();
     await ownerPage.fill('[data-testid="column-name-input"]', "Rapid Column");
     await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    await ownerPage.waitForSelector(
+      '[data-testid="kanban-column"]:has-text("Rapid Column")'
+    );
 
     const column = ownerPage.locator(
       '[data-testid="kanban-column"]:has-text("Rapid Column")'
@@ -119,7 +163,9 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     await addTaskTrigger.click();
     await ownerPage.fill('[data-testid="task-title-input"]', "Rapid Task");
     await ownerPage.click('[data-testid="task-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    await ownerPage.waitForSelector(
+      '[data-testid="task-card"]:has-text("Rapid Task")'
+    );
 
     await ownerPage
       .locator('[data-testid="task-card"]:has-text("Rapid Task")')
@@ -136,11 +182,39 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     }
 
     await ownerPage.click('[data-testid="task-detail-save-button"]');
-    await ownerPage.waitForTimeout(1000);
+
+    await ownerPage
+      .locator('[data-testid="task-detail-modal"]')
+      .waitFor({ state: "hidden", timeout: 10_000 });
 
     const finalTitle = await ownerPage
       .locator('[data-testid="task-card"]:has-text("Rapid Edit")')
       .textContent();
     expect(finalTitle).toContain("Rapid Edit");
+
+    const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
+    const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
+    expect(workspaceId).toBeTruthy();
+
+    if (workspaceId) {
+      await ownerPage
+        .waitForFunction(
+          () => {
+            const store = document.querySelector(
+              '[data-testid="kanban-store"]'
+            );
+            return store?.getAttribute("data-sync-status") === "synced";
+          },
+          null,
+          { timeout: 15_000 }
+        )
+        .catch(() => null);
+
+      const verification = await verifyServerClientStateMatch(
+        ownerPage,
+        workspaceId
+      );
+      assertServerClientMatch(verification);
+    }
   });
 });

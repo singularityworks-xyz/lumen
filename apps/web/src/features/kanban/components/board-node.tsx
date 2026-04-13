@@ -586,6 +586,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
         `}
+          data-testid="board-node"
           onClick={handleClick}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -610,6 +611,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
           <div
             className="group flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
+            data-testid="board-header"
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();

@@ -24,45 +24,6 @@ interface Command {
   shortcut?: string;
 }
 
-const CommandButton = ({
-  cmd,
-  onAction,
-}: {
-  cmd: Command;
-  onAction: () => void;
-}) => {
-  const Icon = cmd.icon;
-  const isDisabled = cmd.disabled ?? false;
-
-  return (
-    <button
-      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] ${
-        isDisabled ? "cursor-not-allowed opacity-50" : "hover:bg-secondary/60"
-      }`}
-      disabled={isDisabled}
-      onClick={() => {
-        if (!isDisabled) {
-          cmd.action();
-          onAction();
-        }
-      }}
-      type="button"
-    >
-      <Icon
-        className={`h-4 w-4 ${isDisabled ? "text-muted-foreground/50" : "text-muted-foreground"}`}
-      />
-      <span className={isDisabled ? "text-muted-foreground" : ""}>
-        {cmd.label}
-      </span>
-      {cmd.shortcut && (
-        <span className="ml-auto text-muted-foreground text-xs">
-          {cmd.shortcut}
-        </span>
-      )}
-    </button>
-  );
-};
-
 export const CommandPalette = memo(() => {
   const showCommandPalette = useKanbanStore(
     (state) => state.showCommandPalette
@@ -234,6 +195,7 @@ export const CommandPalette = memo(() => {
       <button
         aria-label="Close command palette"
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+        data-testid="command-palette-backdrop"
         onClick={() => setShowCommandPalette(false)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -243,13 +205,17 @@ export const CommandPalette = memo(() => {
         type="button"
       />
 
-      <div className="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
+      <div
+        className="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2"
+        data-testid="command-palette"
+      >
         <div className="overflow-hidden rounded-lg border-2 border-border/50 bg-card shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2 border-border border-b px-4 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               autoFocus
               className="border-0 bg-transparent text-sm focus-visible:ring-0"
+              data-testid="command-palette-input"
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search commands..."
               value={query}
@@ -270,11 +236,39 @@ export const CommandPalette = memo(() => {
                   return (
                     <div className="py-2">
                       {filteredCommands.map((cmd) => (
-                        <CommandButton
-                          cmd={cmd}
+                        <button
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                          data-testid="command-item"
+                          disabled={cmd.disabled ?? false}
                           key={cmd.id}
-                          onAction={() => setQuery("")}
-                        />
+                          onClick={() => {
+                            if (!cmd.disabled) {
+                              cmd.action();
+                              setShowCommandPalette(false);
+                            }
+                          }}
+                          type="button"
+                        >
+                          <cmd.icon
+                            className={`h-4 w-4 ${
+                              cmd.disabled
+                                ? "text-muted-foreground/50"
+                                : "text-muted-foreground"
+                            }`}
+                          />
+                          <span
+                            className={
+                              cmd.disabled ? "text-muted-foreground" : ""
+                            }
+                          >
+                            {cmd.label}
+                          </span>
+                          {cmd.shortcut && (
+                            <span className="ml-auto text-muted-foreground text-xs">
+                              {cmd.shortcut}
+                            </span>
+                          )}
+                        </button>
                       ))}
                     </div>
                   );
@@ -291,6 +285,7 @@ export const CommandPalette = memo(() => {
                     {searchResults.map((result) => (
                       <div
                         className="flex flex-col gap-0.5 px-4 py-2 text-sm"
+                        data-testid="command-search-result"
                         key={result.taskId}
                       >
                         <div className="font-medium text-card-foreground">
@@ -300,6 +295,47 @@ export const CommandPalette = memo(() => {
                           {result.boardName} • {result.columnName}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                );
+              }
+              if (filteredCommands.length > 0) {
+                return (
+                  <div className="py-2">
+                    {filteredCommands.map((cmd) => (
+                      <button
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                        data-testid="command-item"
+                        disabled={cmd.disabled ?? false}
+                        key={cmd.id}
+                        onClick={() => {
+                          if (!cmd.disabled) {
+                            cmd.action();
+                            setShowCommandPalette(false);
+                          }
+                        }}
+                        type="button"
+                      >
+                        <cmd.icon
+                          className={`h-4 w-4 ${
+                            cmd.disabled
+                              ? "text-muted-foreground/50"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                        <span
+                          className={
+                            cmd.disabled ? "text-muted-foreground" : ""
+                          }
+                        >
+                          {cmd.label}
+                        </span>
+                        {cmd.shortcut && (
+                          <span className="ml-auto text-muted-foreground text-xs">
+                            {cmd.shortcut}
+                          </span>
+                        )}
+                      </button>
                     ))}
                   </div>
                 );

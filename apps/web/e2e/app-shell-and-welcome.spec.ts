@@ -27,7 +27,7 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
     await page.waitForLoadState("networkidle");
 
     const hasAppShell = await page
-      .locator('[data-testid="app-shell"]')
+      .locator('[data-testid="workspace-selector"]')
       .isVisible();
     expect(hasAppShell).toBeTruthy();
 

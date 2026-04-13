@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { setupTwoUsers } from "./helpers/commands";
+import {
+  assertServerClientMatch,
+  verifyServerClientStateMatch,
+} from "./lib/state-verification";
+
+const WORKSPACE_ID_REGEX = /workspace\/([^/]+)/;
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -87,9 +93,33 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     const modalAfterDelete = ownerPage.locator(
       '[data-testid="task-detail-modal"]'
     );
-    const modalVisible = await modalAfterDelete.isVisible().catch(() => false);
-    if (modalVisible) {
-      await ownerPage.waitForTimeout(1000);
+    await modalAfterDelete
+      .waitFor({ state: "hidden", timeout: 5000 })
+      .catch(() => null);
+
+    const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
+    const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
+    expect(workspaceId).toBeTruthy();
+
+    if (workspaceId) {
+      await ownerPage
+        .waitForFunction(
+          () => {
+            const store = document.querySelector(
+              '[data-testid="kanban-store"]'
+            );
+            return store?.getAttribute("data-sync-status") === "synced";
+          },
+          null,
+          { timeout: 15_000 }
+        )
+        .catch(() => null);
+
+      const verification = await verifyServerClientStateMatch(
+        ownerPage,
+        workspaceId
+      );
+      assertServerClientMatch(verification);
     }
   });
 
@@ -167,12 +197,36 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     );
     await expect(deletedTask).not.toBeVisible({ timeout: 5000 });
 
-    const modalVisible = await ownerPage
-      .locator('[data-testid="task-detail-modal"]')
-      .isVisible()
-      .catch(() => false);
-    if (modalVisible) {
-      await ownerPage.waitForTimeout(500);
+    const modalAfterDelete = ownerPage.locator(
+      '[data-testid="task-detail-modal"]'
+    );
+    await modalAfterDelete
+      .waitFor({ state: "hidden", timeout: 5000 })
+      .catch(() => null);
+
+    const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
+    const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
+    expect(workspaceId).toBeTruthy();
+
+    if (workspaceId) {
+      await ownerPage
+        .waitForFunction(
+          () => {
+            const store = document.querySelector(
+              '[data-testid="kanban-store"]'
+            );
+            return store?.getAttribute("data-sync-status") === "synced";
+          },
+          null,
+          { timeout: 15_000 }
+        )
+        .catch(() => null);
+
+      const verification = await verifyServerClientStateMatch(
+        ownerPage,
+        workspaceId
+      );
+      assertServerClientMatch(verification);
     }
   });
 });

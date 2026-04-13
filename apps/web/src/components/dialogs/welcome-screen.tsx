@@ -48,7 +48,10 @@ export const WelcomeScreen = memo(() => {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center px-4 sm:px-0">
+      <div
+        className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center px-4 sm:px-0"
+        data-testid="welcome-screen"
+      >
         <div className="pointer-events-auto relative w-full max-w-sm sm:max-w-md">
           <div className="relative rounded-2xl bg-linear-to-br from-background via-background to-muted p-6 shadow-[inset_0_2px_20px_rgba(0,0,0,0.3),inset_0_-2px_20px_rgba(255,255,255,0.05)] sm:rounded-3xl sm:p-12 dark:shadow-[inset_0_3px_20px_rgba(255,255,255,0.12),inset_0_-3px_20px_rgba(0,0,0,0.5)]">
             <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-primary/5 via-transparent to-primary/10 opacity-50 sm:rounded-3xl" />

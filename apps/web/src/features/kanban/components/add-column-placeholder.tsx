@@ -24,6 +24,7 @@ export const AddColumnPlaceholder = memo(
     return (
       <button
         className="group relative flex min-w-[285px] shrink-0 flex-col items-center justify-center gap-4 rounded-lg border-2 border-border/60 border-dashed bg-transparent p-8 transition-all duration-300 hover:border-primary/70 hover:bg-primary/5 hover:shadow-lg active:scale-[0.98]"
+        data-testid="add-column-trigger"
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

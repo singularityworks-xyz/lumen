@@ -6,15 +6,19 @@ import type {
 } from "@playwright/test";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
-  await page.evaluate(async () => {
-    localStorage.clear();
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase("lumen-kanban-store");
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error("IndexedDB blocked"));
+  try {
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.deleteDatabase("lumen-kanban-store");
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error("IndexedDB blocked"));
+      });
     });
-  });
+  } catch (_e) {
+    // Ignore about:blank cross-origin security errors on initial setup
+  }
 }
 
 export async function disableAnimations(page: Page) {
@@ -33,7 +37,7 @@ export async function disableAnimations(page: Page) {
 }
 
 export async function waitForAppReady(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
     () => {
       return (
