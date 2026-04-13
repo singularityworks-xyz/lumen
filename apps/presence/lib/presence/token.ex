@@ -24,13 +24,24 @@ defmodule Presence.Token do
 
   @doc """
   Set JWKS directly in the cache for testing.
-  Clears any existing entry first to ensure test isolation.
+  Appends new keys to existing keys so tokens minted earlier remain verifiable.
   """
   def set_jwks_for_test(jwks) do
     init_cache()
-    :ets.delete(@jwks_cache_table, :jwks)
+
+    updated_jwks =
+      case :ets.lookup(@jwks_cache_table, :jwks) do
+        [{:jwks, existing_jwks, _timestamp}] ->
+          existing_keys = Map.get(existing_jwks, "keys", [])
+          new_keys = Map.get(jwks, "keys", [])
+          %{existing_jwks | "keys" => existing_keys ++ new_keys}
+
+        _ ->
+          jwks
+      end
+
     timestamp = System.monotonic_time(:millisecond)
-    :ets.insert(@jwks_cache_table, {:jwks, jwks, timestamp})
+    :ets.insert(@jwks_cache_table, {:jwks, updated_jwks, timestamp})
     :ok
   end
 

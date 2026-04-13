@@ -356,7 +356,8 @@ jobs:
           lcov -a coverage/unit-web/lcov.info -a coverage/unit-server-and-packages/lcov.info -o coverage/merged/lcov.info
 
       - name: Generate coverage summary
-        run: bun run scripts/testing/coverage-summary.ts
+        run: |
+          BUN_LCOV_PATH=coverage/merged/lcov.info PRESENCE_LCOV_PATH=coverage/presence/lcov.info bun run scripts/testing/coverage-summary.ts
 
       - name: Run Presence coverage gate
         working-directory: apps/presence

@@ -211,14 +211,8 @@ export async function routePageToWorkers(
 
   await page.addInitScript(
     `(() => {
-      Object.defineProperty(process.env, 'NEXT_PUBLIC_API_URL', {
-        get: () => ${JSON.stringify(normalizedWorkersUrl)},
-        configurable: true
-      });
-      Object.defineProperty(process.env, 'NEXT_PUBLIC_PRESENCE_WS_URL', {
-        get: () => ${JSON.stringify(normalizedPresenceUrl ?? normalizedWorkersUrl.replace("http", "ws"))},
-        configurable: true
-      });
+      window.__TEST_WORKERS_URL__ = ${JSON.stringify(normalizedWorkersUrl)};
+      window.__TEST_PRESENCE_URL__ = ${JSON.stringify(normalizedPresenceUrl ?? normalizedWorkersUrl.replace("http", "ws"))};
     })()`
   );
 }

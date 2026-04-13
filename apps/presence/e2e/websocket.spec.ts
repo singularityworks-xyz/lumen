@@ -59,7 +59,7 @@ async function connectWebSocket(
       const data = JSON.parse(event.data);
       messages.push(data);
     } catch {
-      messages.push({ event: "parse_error", topic: "" } as any);
+      messages.push({ event: "parse_error", topic: "" });
     }
   };
 

@@ -6,11 +6,7 @@ defmodule PresenceWeb.HealthController do
   Returns 200 OK if the service is healthy.
   """
   def index(conn, _params) do
-    instance_id =
-      case Application.get_env(:presence, :port) do
-        nil -> "presence-4001"
-        port -> "presence-#{port}"
-      end
+    instance_id = "presence-#{conn.port}"
 
     conn
     |> put_status(:ok)

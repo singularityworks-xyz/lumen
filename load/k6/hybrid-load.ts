@@ -140,7 +140,16 @@ async function runBrowserScenario(page: any, iteration: number): Promise<void> {
   }
 }
 
-async function runProtocolVu(wsUrl: string, authToken: string, workspaceId: string): Promise<void> {
+export async function runProtocolVu(): Promise<void> {
+  const wsUrl = __ENV.WS_URL;
+  const authToken = __ENV.AUTH_TOKEN;
+  const workspaceId = __ENV.WORKSPACE_ID || "hybrid-load-test";
+
+  if (!wsUrl || !authToken) {
+    console.error("WS_URL and AUTH_TOKEN environment variables are required for protocol VUs");
+    return;
+  }
+
   const session = connectCollabSession(wsUrl, authToken, workspaceId);
 
   if (!session.established) {
@@ -311,16 +320,7 @@ export async function runBrowserVu() {
 }
 
 export default async function () {
-  const wsUrl = __ENV.WS_URL;
-  const authToken = __ENV.AUTH_TOKEN;
-  const workspaceId = __ENV.WORKSPACE_ID || "hybrid-load-test";
-
-  if (!wsUrl || !authToken) {
-    console.error("WS_URL and AUTH_TOKEN environment variables are required for protocol VUs");
-    return;
-  }
-
-  await runProtocolVu(wsUrl, authToken, workspaceId);
+  await runProtocolVu();
 }
 
 export function handleSummary(data: {

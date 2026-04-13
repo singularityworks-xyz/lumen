@@ -159,39 +159,45 @@ export async function setupTwoUsersCrossBrowser(
 ): Promise<TwoUserCrossBrowserSetup> {
   const ownerContext = await ownerBrowser.newContext();
   const editorBrowser = await editorBrowserType.launch();
-  const editorContext = await editorBrowser.newContext();
-  const ownerPage = await ownerContext.newPage();
-  const editorPage = await editorContext.newPage();
 
-  await clearLocalStorageAndIndexedDB(ownerPage);
-  await disableAnimations(ownerPage);
-  await ownerPage.goto("/");
-  await waitForAppReady(ownerPage);
+  try {
+    const editorContext = await editorBrowser.newContext();
+    const ownerPage = await ownerContext.newPage();
+    const editorPage = await editorContext.newPage();
 
-  const createFirstBoardButton = ownerPage.locator(
-    '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-  );
-  if (await createFirstBoardButton.isVisible()) {
-    await createFirstBoardButton.click();
-    await ownerPage
+    await clearLocalStorageAndIndexedDB(ownerPage);
+    await disableAnimations(ownerPage);
+    await ownerPage.goto("/");
+    await waitForAppReady(ownerPage);
+
+    const createFirstBoardButton = ownerPage.locator(
+      '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+    );
+    if (await createFirstBoardButton.isVisible()) {
+      await createFirstBoardButton.click();
+      await ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
+    }
+
+    await clearLocalStorageAndIndexedDB(editorPage);
+    await disableAnimations(editorPage);
+    await editorPage.goto("/");
+    await waitForAppReady(editorPage);
+
+    const shareLink = await createShareLinkForFirstBoard(ownerPage);
+    await editorPage.goto(shareLink);
+    await waitForAppReady(editorPage);
+
+    await editorPage
       .locator('[data-testid="board-node"]')
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
+
+    return { ownerPage, editorPage, shareLink, editorBrowser };
+  } catch (e) {
+    await editorBrowser.close();
+    throw e;
   }
-
-  await clearLocalStorageAndIndexedDB(editorPage);
-  await disableAnimations(editorPage);
-  await editorPage.goto("/");
-  await waitForAppReady(editorPage);
-
-  const shareLink = await createShareLinkForFirstBoard(ownerPage);
-  await editorPage.goto(shareLink);
-  await waitForAppReady(editorPage);
-
-  await editorPage
-    .locator('[data-testid="board-node"]')
-    .first()
-    .waitFor({ state: "visible", timeout: 10_000 });
-
-  return { ownerPage, editorPage, shareLink, editorBrowser };
 }
