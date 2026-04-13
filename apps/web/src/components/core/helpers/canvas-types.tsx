@@ -47,6 +47,10 @@ export type ConnectionDialogNode = Node<{
   boardId: string;
   [key: string]: unknown;
 }>;
+export type ShareDialogNode = Node<{
+  boardId: string;
+  [key: string]: unknown;
+}>;
 export type ColumnDialogNode = Node<{
   columnId: string;
   dialogId: string;
@@ -64,6 +68,7 @@ export type CanvasNode =
   | ColumnQuickActionsNode
   | BoardDialogNode
   | ConnectionDialogNode
+  | ShareDialogNode
   | ColumnDialogNode
   | Node<
       {

@@ -62,7 +62,9 @@ export interface OpenDialog {
     | "task-dialog"
     | "connection-dialog"
     | "create-task"
-    | "area-dialog";
+    | "area-dialog"
+    | "share-dialog"
+    | "column-create";
 }
 
 export interface DraggingTaskState {
