@@ -102,6 +102,7 @@ export const AiDrawerContent = memo(
     const [isClearing, setIsClearing] = useState(false);
     const isClearingRef = useRef(false);
     const { isAuthenticated } = useAuth();
+    const openProfileModal = useKanbanStore((state) => state.openProfileModal);
 
     // Check if workspace has AI enabled (for local workspaces)
     const workspace = useKanbanStore(
@@ -681,8 +682,159 @@ export const AiDrawerContent = memo(
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
           )}
         >
-          {/* Auth and local workspace overlays are removed temporarily for UI testing */}
           <AnimatePresence>
+            {!isAuthenticated && (
+              <motion.div
+                animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                transition={{ duration: 0.3 }}
+              >
+                <motion.div
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className={cn(
+                    "w-full max-w-64 rounded-2xl p-5",
+                    "bg-card/95 backdrop-blur-md",
+                    "border border-border/50",
+                    "shadow-[0_8px_30px_rgba(0,0,0,0.15),inset_0_2px_4px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(255,255,255,0.06)]",
+                    "dark:shadow-[0_8px_30px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  )}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <div className="mb-4 flex justify-center">
+                    <DotLoader
+                      className="gap-px"
+                      dotClassName={cn(
+                        "size-[4px] rounded-[1px]",
+                        "bg-primary/20 [&.active]:bg-primary"
+                      )}
+                      duration={100}
+                      frames={[
+                        [45, 38, 31, 24, 17, 23, 25],
+                        [38, 31, 24, 17, 10, 16, 18],
+                        [31, 24, 17, 10, 3, 9, 11],
+                        [24, 17, 10, 3, 2, 4],
+                        [17, 10, 3],
+                        [10, 3],
+                        [3],
+                        [],
+                        [45],
+                        [45, 38, 44, 46],
+                        [45, 38, 31, 37, 39],
+                        [45, 38, 31, 24, 30, 32],
+                      ]}
+                      repeatCount={-1}
+                    />
+                  </div>
+                  <h4 className="mb-1 text-center font-medium text-foreground text-sm">
+                    Sign in required
+                  </h4>
+                  <p className="mb-4 text-center text-muted-foreground text-xs">
+                    Larity requires authentication to provide AI assistance.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-muted/40 font-medium text-muted-foreground text-xs",
+                        "border border-border/40",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                        "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                        "hover:border-border/60 hover:bg-muted/60",
+                        "transition-all duration-200"
+                      )}
+                      onClick={onClose}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-primary/10 font-medium text-primary text-xs",
+                        "border border-primary/30",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                        "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                        "hover:border-primary/50 hover:bg-primary/20",
+                        "transition-all duration-200"
+                      )}
+                      onClick={() => openProfileModal()}
+                      type="button"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+            {isAuthenticated && !isAiEnabled && (
+              <motion.div
+                animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                transition={{ duration: 0.3 }}
+              >
+                <motion.div
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className={cn(
+                    "w-full max-w-72 rounded-2xl p-5",
+                    "bg-card/95 backdrop-blur-md",
+                    "border border-border/50",
+                    "shadow-[0_8px_30px_rgba(0,0,0,0.15),inset_0_2px_4px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(255,255,255,0.06)]",
+                    "dark:shadow-[0_8px_30px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                  )}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <div className="mb-4 flex justify-center">
+                    <LarityOrb size="lg" speed={0.3} />
+                  </div>
+                  <h4 className="mb-1 text-center font-medium text-foreground text-sm">
+                    AI Assistant Disabled
+                  </h4>
+                  <p className="mb-4 text-center text-muted-foreground text-xs">
+                    This is a local workspace. Enable Larity to get AI
+                    assistance with your tasks.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-muted/40 font-medium text-muted-foreground text-xs",
+                        "border border-border/40",
+                        "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
+                        "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                        "hover:border-border/60 hover:bg-muted/60",
+                        "transition-all duration-200"
+                      )}
+                      onClick={onClose}
+                      type="button"
+                    >
+                      Close
+                    </button>
+                    <button
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2",
+                        "bg-primary font-medium text-primary-foreground text-xs",
+                        "shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+                        "hover:bg-primary/90",
+                        "transition-all duration-200"
+                      )}
+                      onClick={() => setShowOptInDialog(true)}
+                      type="button"
+                    >
+                      Enable AI
+                    </button>
+                  </div>
+                  <p className="mt-3 text-center text-[9px] text-muted-foreground/60">
+                    Your data will be sent to our servers for AI processing
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
             {isStreaming && mounted && (
               <motion.div
                 animate={{ opacity: 1 }}
