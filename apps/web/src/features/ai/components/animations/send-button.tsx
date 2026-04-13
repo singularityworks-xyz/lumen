@@ -48,6 +48,7 @@ export const SendButton = memo(
           : "hover:border-border/60 hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_3px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_3px_rgba(0,0,0,0.2)]",
         !isStreaming && isDisabled && "cursor-not-allowed opacity-40"
       )}
+      data-testid="ai-send-button"
       disabled={!isStreaming && isDisabled}
       onClick={isStreaming ? onCancel : onSend}
       type="button"

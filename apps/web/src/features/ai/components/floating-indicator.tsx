@@ -34,6 +34,7 @@ export const FloatingIndicator = memo(
         "dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.7),-6px_0_16px_rgba(0,0,0,0.35),inset_0_3px_14px_rgba(255,255,255,0.15),inset_0_-3px_12px_rgba(0,0,0,0.55),inset_1px_0_7px_rgba(0,0,0,0.35)]",
         "group cursor-pointer transition-shadow duration-300"
       )}
+      data-testid="ai-floating-indicator"
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
       style={{ marginTop: "100px" }}

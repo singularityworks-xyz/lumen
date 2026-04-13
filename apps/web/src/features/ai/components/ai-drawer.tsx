@@ -47,7 +47,11 @@ export const AiDrawer = memo(
         if (e.key === "Escape" && isOpen) {
           onOpenChange(false);
         }
-        if (e.key === "a" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        if (
+          e.key.toLowerCase() === "a" &&
+          (e.metaKey || e.ctrlKey) &&
+          e.shiftKey
+        ) {
           e.preventDefault();
           onOpenChange(!isOpen);
         }
@@ -93,6 +97,7 @@ export const AiDrawer = memo(
               <motion.div
                 animate={{ opacity: 1 }}
                 className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+                data-testid="ai-drawer-backdrop"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}
                 onClick={handleClose}
