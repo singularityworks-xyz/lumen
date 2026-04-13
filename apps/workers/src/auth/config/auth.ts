@@ -2,8 +2,7 @@ import { prisma } from "@lumen/db";
 import { createLogger } from "@lumen/logger";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { bearer } from "better-auth/plugins";
-import { jwt } from "better-auth/plugins";
+import { bearer, jwt } from "better-auth/plugins";
 import { env } from "../../env";
 
 const logger = createLogger({ name: "auth:config" });

@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
   experimental: {
     cssChunking: true,
   },
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   images: {
     // Use unoptimized images for static export
     ...(isTauriBuild && { unoptimized: true }),
