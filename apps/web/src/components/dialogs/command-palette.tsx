@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Redo2, Search, Undo2, X, Zap } from "lucide-react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Input } from "@/src/components/ui/input";
 import {
   redo,
@@ -41,7 +41,7 @@ export const CommandPalette = memo(() => {
   const showWelcomeScreen = useShowWelcomeScreen();
   const [query, setQuery] = useState("");
 
-  const handleNewBoard = () => {
+  const handleNewBoard = useCallback(() => {
     if (!currentWorkspace) {
       return;
     }
@@ -52,7 +52,7 @@ export const CommandPalette = memo(() => {
       "New project board"
     );
     setShowCommandPalette(false);
-  };
+  }, [currentWorkspace, addBoard, setShowCommandPalette]);
 
   const handleUndo = () => {
     if (canUndoAction) {
@@ -122,11 +122,24 @@ export const CommandPalette = memo(() => {
       if (e.key === "Escape" && showCommandPalette) {
         setShowCommandPalette(false);
       }
+      if (
+        showCommandPalette &&
+        e.key.toLowerCase() === "n" &&
+        !(e.metaKey || e.ctrlKey)
+      ) {
+        e.preventDefault();
+        handleNewBoard();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showCommandPalette, setShowCommandPalette, showWelcomeScreen]);
+  }, [
+    showCommandPalette,
+    setShowCommandPalette,
+    showWelcomeScreen,
+    handleNewBoard,
+  ]);
 
   const filteredCommands = commands.filter((cmd) =>
     cmd.label.toLowerCase().includes(query.toLowerCase())

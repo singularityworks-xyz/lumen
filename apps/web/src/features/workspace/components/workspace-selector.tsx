@@ -411,6 +411,7 @@ export function WorkspaceSelector() {
             <DropdownMenuSeparator className="my-2 bg-border/50" />
             <DropdownMenuItem
               className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 font-medium transition-colors hover:bg-accent/50 focus:bg-accent/50 dark:focus:bg-accent/30 dark:hover:bg-accent/30"
+              data-testid="create-workspace-option"
               onClick={() => setShowCreateDialog(true)}
             >
               <Plus className="h-4 w-4" />
