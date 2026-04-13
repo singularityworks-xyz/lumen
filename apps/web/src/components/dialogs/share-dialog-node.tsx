@@ -17,6 +17,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { getJwtToken } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
@@ -77,7 +78,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
-    const env = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
     useEffect(() => {
       setPortalTarget(document.getElementById("board-connector-layer"));
@@ -140,7 +141,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       closeShareDialog();
     }, [closeShareDialog]);
 
-    const handleCreateShareLink = useCallback(() => {
+    const handleCreateShareLink = useCallback(async () => {
       if (!(currentWorkspaceId && workspace)) {
         return;
       }
@@ -148,7 +149,30 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       setIsLoading(true);
       try {
         const workspaceId = currentWorkspaceId;
-        const generatedLink = `${env}?share=${workspaceId}`;
+        const token = await getJwtToken();
+
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${workspaceId}/share`,
+          {
+            headers,
+            credentials: "include",
+            method: "POST",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to create share link");
+        }
+
+        const data = await response.json();
+        const generatedLink = data.url;
 
         setShareLink(generatedLink);
         setWorkspaceShareUrl(workspaceId, generatedLink);
@@ -157,7 +181,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       } finally {
         setIsLoading(false);
       }
-    }, [currentWorkspaceId, workspace, env, setWorkspaceShareUrl]);
+    }, [currentWorkspaceId, workspace, apiUrl, setWorkspaceShareUrl]);
 
     const handleCopyLink = useCallback(async () => {
       if (!shareLink) {
