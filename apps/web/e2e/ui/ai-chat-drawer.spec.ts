@@ -164,9 +164,6 @@ test.describe("E2E-AI-02: AI Chat Interactions", () => {
     await expect(clearButton).toBeVisible();
     await clearButton.click();
 
-    // Wait for confirmation modal to appear
-    await page.waitForTimeout(300);
-
     // Clear button opens a confirmation modal
     const confirmClearButton = page.locator(
       '[data-testid="confirm-clear-conversation"]'
@@ -174,10 +171,8 @@ test.describe("E2E-AI-02: AI Chat Interactions", () => {
     await expect(confirmClearButton).toBeVisible();
     await confirmClearButton.click();
 
-    // Wait for clear to complete
-    await page.waitForTimeout(300);
-
-    // Messages should be cleared
+    // Verify confirmation modal is gone and messages are cleared
+    await expect(confirmClearButton).not.toBeVisible();
     const messages = page.locator('[data-testid^="message-"]');
     await expect(messages).toHaveCount(0);
   });

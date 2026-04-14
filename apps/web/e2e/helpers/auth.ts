@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { Client } from "pg";
 
-const dbUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://lumen-sw:q4KVaf7YMfMMTpBMn39ZPMbVExt7P9@129.154.253.96:54669/lumendb";
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  throw new Error(
+    "DATABASE_URL environment variable is required for E2E tests"
+  );
+}
 const pgClient = new Client({ connectionString: dbUrl });
-pgClient.connect();
+const pgConnect = pgClient.connect();
 
 export interface SeedResult {
   cookieValue: string;
@@ -31,6 +34,7 @@ export interface SeedResult {
 }
 
 export async function seedE2EAuth(): Promise<SeedResult> {
+  await pgConnect;
   const userId = `e2e-user-${randomBytes(8).toString("hex")}`;
   const sessionId = `e2e-session-${randomBytes(8).toString("hex")}`;
   const sessionToken = `e2e-session-${userId}-${randomBytes(32).toString("base64url")}`;
@@ -91,6 +95,7 @@ export async function cleanupE2EAuth(
   userId: string,
   sessionId: string
 ): Promise<void> {
+  await pgConnect;
   await pgClient.query(
     `DELETE FROM "session" WHERE id = $1 AND "userId" = $2`,
     [sessionId, userId]

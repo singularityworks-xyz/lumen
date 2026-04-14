@@ -8,6 +8,23 @@ import {
 
 const WORKSPACE_ID_REGEX = /workspace\/([^/]+)/;
 
+async function ensureWorkspaceSyncedAndVerified(
+  page: Page,
+  workspaceId: string
+): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const store = document.querySelector('[data-testid="kanban-store"]');
+      return store?.getAttribute("data-sync-status") === "synced";
+    },
+    null,
+    { timeout: 15_000 }
+  );
+
+  const verification = await verifyServerClientStateMatch(page, workspaceId);
+  assertServerClientMatch(verification);
+}
+
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
     await page.close();
@@ -123,20 +140,7 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     expect(workspaceId).toBeTruthy();
 
     if (workspaceId) {
-      await ownerPage.waitForFunction(
-        () => {
-          const store = document.querySelector('[data-testid="kanban-store"]');
-          return store?.getAttribute("data-sync-status") === "synced";
-        },
-        null,
-        { timeout: 15_000 }
-      );
-
-      const verification = await verifyServerClientStateMatch(
-        ownerPage,
-        workspaceId
-      );
-      assertServerClientMatch(verification);
+      await ensureWorkspaceSyncedAndVerified(ownerPage, workspaceId);
     }
   });
 
@@ -193,20 +197,7 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     expect(workspaceId).toBeTruthy();
 
     if (workspaceId) {
-      await ownerPage.waitForFunction(
-        () => {
-          const store = document.querySelector('[data-testid="kanban-store"]');
-          return store?.getAttribute("data-sync-status") === "synced";
-        },
-        null,
-        { timeout: 15_000 }
-      );
-
-      const verification = await verifyServerClientStateMatch(
-        ownerPage,
-        workspaceId
-      );
-      assertServerClientMatch(verification);
+      await ensureWorkspaceSyncedAndVerified(ownerPage, workspaceId);
     }
   });
 });

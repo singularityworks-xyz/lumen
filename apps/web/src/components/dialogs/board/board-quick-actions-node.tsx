@@ -641,7 +641,8 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
 
       // Check if share dialog is already open for this board
       if (shareDialog?.boardId === boardId) {
-        // Ensure the existing dialog is visible
+        // Bring the existing dialog to front and ensure visible
+        bringDialogToFront(`share-dialog-${boardId}`);
         ensureDialogVisible(
           shareDialog.position.x,
           shareDialog.position.y,
@@ -666,6 +667,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       id,
       openShareDialog,
       ensureDialogVisible,
+      bringDialogToFront,
       shareDialog,
     ]);
 

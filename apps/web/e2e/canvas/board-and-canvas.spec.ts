@@ -81,10 +81,12 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     const boxAfterReload = await boardNodeAfterReload.boundingBox();
     expect(boxAfterReload).not.toBeNull();
 
-    // Check that position changed significantly (more tolerant)
+    // Check that position changed significantly (Euclidean distance + per-axis minimum)
     const xDiff = Math.abs((boxAfterReload?.x || 0) - (initialBox?.x || 0));
     const yDiff = Math.abs((boxAfterReload?.y || 0) - (initialBox?.y || 0));
-    expect(xDiff + yDiff).toBeGreaterThan(20);
+    const distance = Math.hypot(xDiff, yDiff);
+    expect(distance).toBeGreaterThan(40);
+    expect(xDiff > 10 || yDiff > 10).toBe(true);
   });
 
   test("focus behavior uses last viewport state", async ({ page }) => {

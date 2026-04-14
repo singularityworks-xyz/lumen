@@ -19,7 +19,6 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
       });
     });
   } catch (e: unknown) {
-    // Only ignore about:blank cross-origin security errors on initial setup
     const errorMessage = e instanceof Error ? e.message : String(e);
     const isSecurityError =
       errorMessage.includes("SecurityError") ||
@@ -27,7 +26,8 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
       errorMessage.includes("about:blank") ||
       (e instanceof Error && e.name === "SecurityError");
 
-    if (!isSecurityError) {
+    const isAboutBlank = (await page.url()) === "about:blank";
+    if (!(isSecurityError && isAboutBlank)) {
       throw e;
     }
   }

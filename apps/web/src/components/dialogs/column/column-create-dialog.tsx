@@ -63,6 +63,7 @@ export const ColumnCreateDialog = memo(
       (state) => state.bringDialogToFront
     );
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const getDialogZIndex = useKanbanStore((state) => state.getDialogZIndex);
     const dialogId = `column-create-dialog-${boardId}`;
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
@@ -213,9 +214,10 @@ export const ColumnCreateDialog = memo(
 
     return (
       <div
-        className="absolute z-50 rounded-lg"
+        className="absolute rounded-lg"
         style={{
           width: DIALOG_WIDTH,
+          zIndex: getDialogZIndex(dialogId),
           ...dialogStyle,
         }}
       >
@@ -245,6 +247,9 @@ export const ColumnCreateDialog = memo(
           }}
           role="dialog"
         >
+          <h2 className="sr-only" id="column-create-dialog-title">
+            Create Column
+          </h2>
           {connectorState &&
             portalTarget &&
             mounted &&
@@ -325,7 +330,7 @@ export const ColumnCreateDialog = memo(
               <div className="space-y-2">
                 <Label
                   className="font-medium text-foreground text-xs"
-                  htmlFor="column-name-input"
+                  htmlFor={`${dialogId}-name-input`}
                 >
                   Column Name <span className="text-destructive">*</span>
                 </Label>
@@ -337,7 +342,7 @@ export const ColumnCreateDialog = memo(
                       "border-destructive/50 focus:border-destructive/50"
                   )}
                   data-testid="column-name-input"
-                  id="column-name-input"
+                  id={`${dialogId}-name-input`}
                   onChange={(e) => handleNameChange(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key !== "Escape") {

@@ -115,9 +115,10 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
     await page.keyboard.press("Control+k");
     await page.waitForSelector('[data-testid="command-palette-input"]');
 
-    // Click outside the input first, then press 'n'
-    // The shortcut should work when focus is not in an editable element
-    await page.click('[data-testid="command-palette-backdrop"]');
+    // Move focus away from input without closing palette, then press shortcut
+    await page.evaluate(() =>
+      (document.activeElement as HTMLElement | null)?.blur()
+    );
     await page.keyboard.press("n");
     await page.waitForTimeout(500);
 

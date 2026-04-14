@@ -42,7 +42,7 @@ const DIALOG_WIDTH = 380;
 export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
   ({ data, selected }) => {
     const { flowToScreenPosition } = useReactFlow();
-    useViewport();
+    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const boardId = data.boardId;
@@ -79,13 +79,9 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     const [copied, setCopied] = useState(false);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const apiUrl =
-      typeof window === "undefined"
-        ? (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3002").replace(
-            "localhost",
-            "127.0.0.1"
-          )
-        : "";
+    const apiUrl = (
+      process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3002"
+    ).replace("localhost", "127.0.0.1");
 
     useEffect(() => {
       setPortalTarget(document.getElementById("board-connector-layer"));
@@ -124,6 +120,8 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     }, [board?.icon, board?.name]);
 
     const connectorState = useMemo(() => {
+      const _vp = { vpX, vpY, vpZoom };
+
       if (!(boardQuickActions && shareDialog?.position)) {
         return null;
       }
@@ -151,6 +149,9 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       flowToScreenPosition,
       boardPosition?.x,
       boardPosition?.y,
+      vpX,
+      vpY,
+      vpZoom,
     ]);
 
     const handleClose = useCallback(() => {
