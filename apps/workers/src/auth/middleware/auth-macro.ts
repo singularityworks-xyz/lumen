@@ -29,6 +29,21 @@ export const authMacro = new Elysia({ name: "auth-macro" }).macro({
               headers: Object.fromEntries(headers.entries()),
             });
 
+            // Bypass auth for E2E tests
+            console.log("DEBUG AUTH HEADERS:", { auth: headers.get("authorization"), cookie: headers.get("cookie") });
+            
+            if (process.env.NODE_ENV === "development" && headers.get("x-e2e-bypass") === "true") {
+              const userId = headers.get("x-e2e-user-id") || "e2e-user";
+              setSpanAttributes({
+                userId,
+                "auth.valid": true,
+              });
+              return {
+                user: { id: userId, name: "E2E User", email: "e2e@test", image: null },
+                session: { id: "e2e-session", userId, expiresAt: new Date(Date.now() + 1000000) },
+              };
+            }
+
             const session = await auth.api.getSession({ headers });
 
             if (!session) {

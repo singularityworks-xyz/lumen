@@ -1122,10 +1122,11 @@ export const AiDrawerContent = memo(
                           "bg-destructive/10 font-medium text-destructive text-xs",
                           "border border-destructive/30",
                           "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
-                          "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                          "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(0,0,0,0.15)]",
                           "hover:border-destructive/50 hover:bg-destructive/20",
                           "transition-all duration-200"
                         )}
+                        data-testid="confirm-clear-conversation"
                         onClick={handleClearConversation}
                         type="button"
                       >

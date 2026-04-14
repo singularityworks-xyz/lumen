@@ -1,9 +1,11 @@
+import { prisma } from "@lumen/db";
 import type {
   Browser,
   BrowserContext,
   BrowserType,
   Page,
 } from "@playwright/test";
+import { seedE2EAuth } from "./auth";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   try {
@@ -162,13 +164,30 @@ export async function createShareLinkForFirstBoard(
 
 export interface TwoUserSetup {
   editorPage: Page;
+  editorSeed?: any;
   ownerPage: Page;
+  ownerSeed?: any;
   shareLink: string;
 }
 
 export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
-  const ownerContext = await browser.newContext();
-  const editorContext = await browser.newContext();
+  const ownerSeed = await seedE2EAuth(prisma);
+  const editorSeed = await seedE2EAuth(prisma);
+
+  for (const c of ownerSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+  for (const c of editorSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+
+  const ownerContext = await browser.newContext({
+    storageState: ownerSeed.storageState,
+  });
+  const editorContext = await browser.newContext({
+    storageState: editorSeed.storageState,
+  });
+
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
 
@@ -208,13 +227,15 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
     .first()
     .waitFor({ state: "visible", timeout: 10_000 });
 
-  return { ownerPage, editorPage, shareLink };
+  return { ownerPage, editorPage, shareLink, ownerSeed, editorSeed };
 }
 
 export interface TwoUserCrossBrowserSetup {
   editorBrowser: Browser;
   editorPage: Page;
+  editorSeed?: any;
   ownerPage: Page;
+  ownerSeed?: any;
   shareLink: string;
 }
 
@@ -222,12 +243,26 @@ export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
 ): Promise<TwoUserCrossBrowserSetup> {
+  const ownerSeed = await seedE2EAuth(prisma);
+  const editorSeed = await seedE2EAuth(prisma);
+
+  for (const c of ownerSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+  for (const c of editorSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+
   const editorBrowser = await editorBrowserType.launch();
   let ownerContext: BrowserContext | null = null;
 
   try {
-    ownerContext = await ownerBrowser.newContext();
-    const editorContext = await editorBrowser.newContext();
+    ownerContext = await ownerBrowser.newContext({
+      storageState: ownerSeed.storageState,
+    });
+    const editorContext = await editorBrowser.newContext({
+      storageState: editorSeed.storageState,
+    });
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();
 
@@ -261,7 +296,14 @@ export async function setupTwoUsersCrossBrowser(
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    return { ownerPage, editorPage, shareLink, editorBrowser };
+    return {
+      ownerPage,
+      editorPage,
+      shareLink,
+      editorBrowser,
+      ownerSeed,
+      editorSeed,
+    };
   } catch (e) {
     await editorBrowser.close();
     if (ownerContext) {

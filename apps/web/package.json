@@ -82,6 +82,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@lumen/db": "workspace:^",
     "@lumen/configs": "workspace:^",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/lodash-es": "^4.17.12",
