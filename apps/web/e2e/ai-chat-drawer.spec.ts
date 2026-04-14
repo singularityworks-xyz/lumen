@@ -94,13 +94,14 @@ test.describe("E2E-AI-01: AI Chat Drawer", () => {
     const firstSuggestion = page
       .locator('[data-testid="suggestion-chip"]')
       .first();
-    const suggestionText = await firstSuggestion.textContent();
     await firstSuggestion.click();
 
     const input = page.locator('[data-testid="ai-chat-input"]');
     const value = await input.inputValue();
+    // Input should be filled with the suggestion's prompt (not the label)
     expect(value.length).toBeGreaterThan(0);
-    expect(value).toBe(suggestionText);
+    // The prompt should be longer and more descriptive than just a label
+    expect(value.length).toBeGreaterThan(10);
   });
 });
 
@@ -162,6 +163,14 @@ test.describe("E2E-AI-02: AI Chat Interactions", () => {
     const clearButton = page.locator('[data-testid="ai-clear-conversation"]');
     await expect(clearButton).toBeVisible();
     await clearButton.click();
+
+    // Clear button opens a confirmation modal
+    const confirmClearButton = page.locator(
+      'button:has-text("Clear"), [data-testid="confirm-clear-conversation"]'
+    );
+    await expect(confirmClearButton).toBeVisible();
+    await confirmClearButton.click();
+
     // Messages should be cleared
     const messages = page.locator('[data-testid^="message-"]');
     await expect(messages).toHaveCount(0);
