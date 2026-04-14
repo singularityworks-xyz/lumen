@@ -368,6 +368,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
               : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           )}
+          data-testid="task-quick-actions"
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) {
               setIsFocused(false);
@@ -548,6 +549,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
                 <TooltipTrigger asChild>
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    data-testid="task-duplicate-option"
                     onClick={handleDuplicate}
                     type="button"
                   >
@@ -566,6 +568,7 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
                 <TooltipTrigger asChild>
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+                    data-testid="task-delete-option"
                     onClick={handleMoveToTrash}
                     type="button"
                   >

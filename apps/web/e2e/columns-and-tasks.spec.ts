@@ -82,6 +82,12 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
+    // Wait for the new board to be visible
+    const targetBoardLocator = page.locator(
+      '[data-testid="board-node"]:has-text("Target Board")'
+    );
+    await expect(targetBoardLocator).toBeVisible({ timeout: 10_000 });
+
     const sourceBoard = page.locator('[data-testid="board-node"]').first();
     const addColumnTrigger = sourceBoard.locator(
       '[data-testid="add-column-trigger"]'
@@ -103,7 +109,9 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await movableColumn
       .locator('[data-testid="column-header"]')
       .click({ button: "right" });
-    await page.waitForSelector('[data-testid="column-move-option"]');
+    await page.waitForSelector('[data-testid="column-move-option"]', {
+      timeout: 5000,
+    });
     await page.click('[data-testid="column-move-option"]');
 
     await page.waitForSelector('[data-testid="board-select-dropdown"]');
@@ -264,7 +272,9 @@ test.describe("E2E-03: Column and Task CRUD", () => {
       '[data-testid="task-card"]:has-text("Original Task")'
     );
     await taskCard.click({ button: "right" });
-    await page.waitForSelector('[data-testid="task-duplicate-option"]');
+    await page.waitForSelector('[data-testid="task-duplicate-option"]', {
+      timeout: 5000,
+    });
     await page.click('[data-testid="task-duplicate-option"]');
 
     await page.waitForTimeout(500);
@@ -272,7 +282,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const duplicatedTask = page.locator(
       '[data-testid="task-card"]:has-text("Original Task (copy)")'
     );
-    await expect(duplicatedTask).toBeVisible();
+    await expect(duplicatedTask).toBeVisible({ timeout: 5000 });
   });
 
   test("delete task", async ({ page }) => {
@@ -297,15 +307,23 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const taskCard = page.locator(
       '[data-testid="task-card"]:has-text("Task To Delete")'
     );
+    await taskCard.waitFor({ state: "visible", timeout: 10_000 });
     await taskCard.click({ button: "right" });
-    await page.waitForSelector('[data-testid="task-delete-option"]');
+    // Wait for the quick actions menu to appear
+    await page.waitForSelector('[data-testid="task-quick-actions"]', {
+      state: "visible",
+      timeout: 5000,
+    });
+    await page.waitForSelector('[data-testid="task-delete-option"]', {
+      state: "visible",
+      timeout: 5000,
+    });
     await page.click('[data-testid="task-delete-option"]');
 
-    await page.waitForSelector('[data-testid="task-delete-confirm"]');
-    await page.click('[data-testid="task-delete-confirm"]');
+    // Task is moved to trash immediately (no confirmation dialog in quick actions)
+    await page.waitForTimeout(500);
 
-    await page.waitForTimeout(300);
-
+    // Task should no longer be visible in the column
     await expect(taskCard).not.toBeVisible();
   });
 });

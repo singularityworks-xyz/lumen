@@ -9,7 +9,9 @@ import {
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
-    await page.close();
+    if (page && !page.isClosed()) {
+      await page.close();
+    }
   }
 }
 

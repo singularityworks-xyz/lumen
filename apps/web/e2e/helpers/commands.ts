@@ -104,35 +104,60 @@ export async function createShareLinkForFirstBoard(
 ): Promise<string> {
   const boardNode = page.locator('[data-testid="board-node"]').first();
   await boardNode.waitFor({ state: "visible", timeout: 15_000 });
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(2000); // Waiting for background API calls to finish
 
   const workspaceSelector = page.locator('[data-testid="workspace-selector"]');
   await workspaceSelector.click({ timeout: 10_000 });
   await page.waitForSelector('[data-testid="workspace-option"]', {
     timeout: 10_000,
   });
+  await page.waitForTimeout(1000);
 
-  await boardNode
-    .locator('[data-testid="board-header"]')
-    .click({ button: "right", timeout: 10_000 });
-  await page.waitForSelector('[data-testid="board-share-option"]', {
-    timeout: 10_000,
-  });
-  await page.click('[data-testid="board-share-option"]', { timeout: 10_000 });
-  await page.waitForSelector('[data-testid="share-dialog"]', {
-    timeout: 10_000,
-  });
+  // Retry the share link button if it fails
+  let shareLink = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await boardNode
+        .locator('[data-testid="board-header"]')
+        .click({ button: "right", timeout: 10_000 });
+      await page.waitForSelector('[data-testid="board-share-option"]', {
+        timeout: 10_000,
+      });
+      await page.click('[data-testid="board-share-option"]', {
+        timeout: 10_000,
+      });
+      await page.waitForSelector('[data-testid="share-dialog"]', {
+        timeout: 10_000,
+      });
 
-  await page.waitForTimeout(500);
-  await page.click('[data-testid="create-share-link-button"]', {
-    timeout: 10_000,
-  });
-  await page.waitForSelector('[data-testid="share-link-input"]', {
-    timeout: 15_000,
-  });
-  return page
-    .locator('[data-testid="share-link-input"]')
-    .inputValue({ timeout: 10_000 });
+      await page.waitForTimeout(1000); // Give the board time to be fully initialized and persisted
+
+      await page.click('[data-testid="create-share-link-button"]', {
+        timeout: 5000,
+      });
+      await page.waitForSelector('[data-testid="share-link-input"]', {
+        timeout: 5000,
+      });
+      shareLink = await page
+        .locator('[data-testid="share-link-input"]')
+        .inputValue({ timeout: 5000 });
+      break;
+    } catch (e) {
+      if (attempt === 2) {
+        throw e;
+      }
+      await page.waitForTimeout(2000);
+      // close and reopen the dialog if it failed
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(1000);
+    }
+  }
+
+  if (!shareLink) {
+    throw new Error("Could not retrieve share link");
+  }
+
+  return shareLink;
 }
 
 export interface TwoUserSetup {
