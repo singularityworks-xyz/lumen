@@ -8,12 +8,7 @@ import type {
 import { cleanupE2EAuth, type SeedResult, seedE2EAuth } from "./auth";
 
 function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
-  let cleaned = false;
-  context.on("close", () => {
-    if (cleaned) {
-      return;
-    }
-    cleaned = true;
+  context.once("close", () => {
     void cleanupE2EAuth(seed.userId, seed.sessionId).catch((error) => {
       console.error("Failed to cleanup E2E auth seed", error);
     });

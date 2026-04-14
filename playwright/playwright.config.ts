@@ -2,14 +2,17 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
+const isIgnorableEnvLine = (line: string): boolean =>
+  !line || line.startsWith("#") || !line.includes("=");
+
 try {
   const workersEnvPath = fileURLToPath(
     new URL("../apps/workers/.env", import.meta.url)
   );
   const envConfig = readFileSync(workersEnvPath, "utf-8");
-  for (const rawLine of envConfig.split("\n")) {
+  for (const rawLine of envConfig.split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!(line && !line.startsWith("#") && line.includes("="))) {
+    if (isIgnorableEnvLine(line)) {
       continue;
     }
 

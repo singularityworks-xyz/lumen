@@ -130,6 +130,14 @@ export async function closeE2EAuthDb(): Promise<void> {
   }
 }
 
-process.once("beforeExit", () => {
-  void closeE2EAuthDb();
-});
+let shutdownPromise: Promise<void> | null = null;
+
+const handleProcessShutdown = (): void => {
+  if (!shutdownPromise) {
+    shutdownPromise = closeE2EAuthDb();
+  }
+};
+
+process.once("beforeExit", handleProcessShutdown);
+process.once("SIGINT", handleProcessShutdown);
+process.once("SIGTERM", handleProcessShutdown);
