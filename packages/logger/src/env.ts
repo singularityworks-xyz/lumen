@@ -9,7 +9,7 @@ export const env = createEnv({
     OTEL_ENABLED: z
       .string()
       .transform((v) => v === "true" || v === "1")
-      .default("false" as unknown as boolean),
+      .default(false),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
   },
