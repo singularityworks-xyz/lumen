@@ -9,7 +9,7 @@ if (!dbUrl) {
 }
 
 let pgClient: Client | null = null;
-let pgConnectPromise: Promise<void> | null = null;
+let pgConnectPromise: Promise<unknown> | null = null;
 
 async function getPgClient(): Promise<Client> {
   if (!pgClient) {
@@ -110,10 +110,10 @@ export async function cleanupE2EAuth(
   sessionId: string
 ): Promise<void> {
   const client = await getPgClient();
-  await client.query(
-    `DELETE FROM "session" WHERE id = $1 AND "userId" = $2`,
-    [sessionId, userId]
-  );
+  await client.query(`DELETE FROM "session" WHERE id = $1 AND "userId" = $2`, [
+    sessionId,
+    userId,
+  ]);
   await client.query(`DELETE FROM "user" WHERE id = $1`, [userId]);
 }
 
