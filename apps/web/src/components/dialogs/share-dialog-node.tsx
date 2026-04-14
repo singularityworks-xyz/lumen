@@ -76,12 +76,9 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [shareLink, setShareLink] = useState<string | null>(null);
+    const [shareError, setShareError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const apiUrl = (
-      process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3002"
-    ).replace("localhost", "127.0.0.1");
 
     useEffect(() => {
       setPortalTarget(document.getElementById("board-connector-layer"));
@@ -164,6 +161,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       }
 
       setIsLoading(true);
+      setShareError(null);
       try {
         const workspaceId = currentWorkspaceId;
         const token = await getJwtToken();
@@ -175,14 +173,11 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const response = await fetch(
-          `${apiUrl}/api/workspaces/${workspaceId}/share`,
-          {
-            headers,
-            credentials: "include",
-            method: "POST",
-          }
-        );
+        const response = await fetch(`/api/workspaces/${workspaceId}/share`, {
+          headers,
+          credentials: "include",
+          method: "POST",
+        });
 
         if (!response.ok) {
           throw new Error(
@@ -196,11 +191,12 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
         setShareLink(generatedLink);
         setWorkspaceShareUrl(workspaceId, generatedLink);
       } catch (error) {
-        console.error("DEBUG_SHARE_FETCH_ERROR", apiUrl, error);
+        console.error("Failed to create share link", error);
+        setShareError("Unable to create a share link right now.");
       } finally {
         setIsLoading(false);
       }
-    }, [currentWorkspaceId, workspace, apiUrl, setWorkspaceShareUrl]);
+    }, [currentWorkspaceId, workspace, setWorkspaceShareUrl]);
 
     const handleCopyLink = useCallback(async () => {
       if (!shareLink) {
@@ -363,6 +359,9 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
                 <Link2 className="mr-2 h-4 w-4" />
                 {isLoading ? "Creating..." : "Create Share Link"}
               </Button>
+            )}
+            {shareError && (
+              <p className="text-[10px] text-destructive">{shareError}</p>
             )}
           </div>
         </div>

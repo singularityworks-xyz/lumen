@@ -5,7 +5,20 @@ import type {
   Page,
 } from "@playwright/test";
 
-import { type SeedResult, seedE2EAuth } from "./auth";
+import { cleanupE2EAuth, type SeedResult, seedE2EAuth } from "./auth";
+
+function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
+  let cleaned = false;
+  context.on("close", () => {
+    if (cleaned) {
+      return;
+    }
+    cleaned = true;
+    void cleanupE2EAuth(seed.userId, seed.sessionId).catch((error) => {
+      console.error("Failed to cleanup E2E auth seed", error);
+    });
+  });
+}
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   try {
@@ -187,6 +200,8 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   const editorContext = await browser.newContext({
     storageState: editorSeed.storageState,
   });
+  registerSeedCleanup(ownerContext, ownerSeed);
+  registerSeedCleanup(editorContext, editorSeed);
 
   // Inject E2E bypass headers
   await ownerContext.route("**/api/**", (route) => {
@@ -282,6 +297,8 @@ export async function setupTwoUsersCrossBrowser(
     const editorContext = await editorBrowser.newContext({
       storageState: editorSeed.storageState,
     });
+    registerSeedCleanup(ownerContext, ownerSeed);
+    registerSeedCleanup(editorContext, editorSeed);
 
     await ownerContext.route("**/api/**", (route) => {
       const headers = route.request().headers();

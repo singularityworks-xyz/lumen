@@ -11,19 +11,8 @@ interface AuthUser {
   name: string | null;
 }
 
-function getBaseUrl(): string {
-  if (typeof window === "undefined") {
-    return env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1");
-  }
-  const origin = window.location.origin;
-  if (origin && origin !== "null") {
-    return origin;
-  }
-  return env.NEXT_PUBLIC_API_URL;
-}
-
 const authClient = createAuthClient({
-  baseURL: getBaseUrl(),
+  baseURL: env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1"),
   credentials: "include",
   plugins: [jwtClient()],
 });

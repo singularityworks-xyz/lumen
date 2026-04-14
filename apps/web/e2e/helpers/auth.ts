@@ -7,8 +7,22 @@ if (!dbUrl) {
     "DATABASE_URL environment variable is required for E2E tests"
   );
 }
-const pgClient = new Client({ connectionString: dbUrl });
-const pgConnect = pgClient.connect();
+
+let pgClient: Client | null = null;
+let pgConnectPromise: Promise<void> | null = null;
+
+async function getPgClient(): Promise<Client> {
+  if (!pgClient) {
+    pgClient = new Client({ connectionString: dbUrl });
+  }
+
+  if (!pgConnectPromise) {
+    pgConnectPromise = pgClient.connect();
+  }
+
+  await pgConnectPromise;
+  return pgClient;
+}
 
 export interface SeedResult {
   cookieValue: string;
@@ -34,7 +48,7 @@ export interface SeedResult {
 }
 
 export async function seedE2EAuth(): Promise<SeedResult> {
-  await pgConnect;
+  const client = await getPgClient();
   const userId = `e2e-user-${randomBytes(8).toString("hex")}`;
   const sessionId = `e2e-session-${randomBytes(8).toString("hex")}`;
   const sessionToken = `e2e-session-${userId}-${randomBytes(32).toString("base64url")}`;
@@ -42,7 +56,7 @@ export async function seedE2EAuth(): Promise<SeedResult> {
   const { createHash } = await import("node:crypto");
   const hashedToken = createHash("sha256").update(sessionToken).digest("hex");
 
-  await pgClient.query(
+  await client.query(
     `
     INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
     VALUES ($1, $2, $3, $4, NOW(), NOW())
@@ -51,7 +65,7 @@ export async function seedE2EAuth(): Promise<SeedResult> {
   );
 
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  await pgClient.query(
+  await client.query(
     `
     INSERT INTO "session" (id, "userId", token, "expiresAt", "createdAt", "updatedAt")
     VALUES ($1, $2, $3, $4, NOW(), NOW())
@@ -95,10 +109,27 @@ export async function cleanupE2EAuth(
   userId: string,
   sessionId: string
 ): Promise<void> {
-  await pgConnect;
-  await pgClient.query(
+  const client = await getPgClient();
+  await client.query(
     `DELETE FROM "session" WHERE id = $1 AND "userId" = $2`,
     [sessionId, userId]
   );
-  await pgClient.query(`DELETE FROM "user" WHERE id = $1`, [userId]);
+  await client.query(`DELETE FROM "user" WHERE id = $1`, [userId]);
 }
+
+export async function closeE2EAuthDb(): Promise<void> {
+  if (!pgClient) {
+    return;
+  }
+
+  try {
+    await pgClient.end();
+  } finally {
+    pgClient = null;
+    pgConnectPromise = null;
+  }
+}
+
+process.once("beforeExit", () => {
+  void closeE2EAuthDb();
+});

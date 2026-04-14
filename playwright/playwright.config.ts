@@ -1,19 +1,27 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 try {
-  const envConfig = readFileSync("../apps/workers/.env", "utf-8");
-  for (const line of envConfig.split("\\n")) {
-    const [key, ...value] = line.split("=");
-    if (key && value) {
-      process.env[key.trim()] = value.join("=").trim();
+  const workersEnvPath = fileURLToPath(
+    new URL("../apps/workers/.env", import.meta.url)
+  );
+  const envConfig = readFileSync(workersEnvPath, "utf-8");
+  for (const rawLine of envConfig.split("\n")) {
+    const line = rawLine.trim();
+    if (!(line && !line.startsWith("#") && line.includes("="))) {
+      continue;
+    }
+
+    const [rawKey, ...value] = line.split("=");
+    const key = rawKey.trim();
+    if (key && value.length > 0) {
+      process.env[key] = value.join("=").trim();
     }
   }
 } catch (_e) {
   // Ignore if .env file doesn't exist - tests will use default or CI env
 }
-
-process.env.NEXT_PUBLIC_API_URL = "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "../apps/web/e2e",
