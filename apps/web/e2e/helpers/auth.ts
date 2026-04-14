@@ -1,11 +1,9 @@
 import { randomBytes } from "node:crypto";
-// biome-ignore lint/style/useNodejsImportProtocol: pg doesn't have node: protocol
 import { Client } from "pg";
 
 const dbUrl =
   process.env.DATABASE_URL ||
   "postgresql://lumen-sw:q4KVaf7YMfMMTpBMn39ZPMbVExt7P9@129.154.253.96:54669/lumendb";
-// biome-ignore lint/suspicious/noExplicitAny: pg Client types
 const pgClient = new Client({ connectionString: dbUrl });
 pgClient.connect();
 
@@ -13,11 +11,10 @@ export interface SeedResult {
   cookieValue: string;
   sessionId: string;
   sessionToken: string;
-  // biome-ignore lint/suspicious/noExplicitAny: Playwright storage state format
   storageState: {
     cookies: Array<{
       domain: string;
-      expires?: number;
+      expires: number;
       httpOnly: boolean;
       name: string;
       path: string;
@@ -25,7 +22,7 @@ export interface SeedResult {
       secure: boolean;
       value: string;
     }>;
-    origins?: {
+    origins: {
       origin: string;
       localStorage: { name: string; value: string }[];
     }[];
@@ -78,6 +75,7 @@ export async function seedE2EAuth(): Promise<SeedResult> {
         expires: Math.floor(expiresAt.getTime() / 1000),
       },
     ],
+    origins: [],
   };
 
   return {

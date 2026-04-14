@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   // Disable cacheComponents (PPR) for Tauri builds - not compatible with static export
   cacheComponents: !isTauriBuild,
-  typedRoutes: true,
+  typedRoutes: false,
   turbopack: {},
   // Enable static export for Tauri builds
   ...(isTauriBuild && {

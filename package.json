@@ -48,7 +48,7 @@
     "check": "bash ./scripts/quality/run-check.sh",
     "check:ci": "bash ./scripts/quality/run-check-ci.sh",
     "check:rust": "cd apps/native/src-tauri && cargo fmt --all --check && cargo clippy --all-targets --all-features -- -D warnings",
-    "check-types": "turbo run check-types && bunx tsc --noEmit -p scripts/versioning/tsconfig.json && bunx tsc --noEmit -p tests/tsconfig.json && bunx tsc --noEmit -p tsconfig.json",
+    "check-types": "turbo run check-types && bunx tsc --noEmit -p scripts/versioning/tsconfig.json && bunx tsc --noEmit -p tests/tsconfig.json && bunx tsc --noEmit -p playwright/tsconfig.json && bunx tsc --noEmit -p tsconfig.json",
     "dep:check": "bunx sherif@latest --fix",
     "dep:up": "bunx taze major -w",
     "db:gen": "cd packages/db && bun prisma generate",

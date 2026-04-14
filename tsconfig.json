@@ -19,5 +19,10 @@
       "@workers/*": ["./apps/workers/src/*"]
     }
   },
-  "include": ["tests/**/*.ts", "tests/**/*.tsx", "scripts/**/*.ts"]
+  "include": [
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "scripts/**/*.ts",
+    "playwright/**/*.ts"
+  ]
 }

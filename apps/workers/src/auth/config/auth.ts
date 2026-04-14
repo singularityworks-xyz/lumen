@@ -69,22 +69,18 @@ logger.info("Better Auth initialized successfully", {
 });
 
 if (env.NODE_ENV === "development") {
-  // biome-ignore lint/suspicious/noExplicitAny: Better Auth internal API
   const originalGetSession = (
     auth.api as { getSession: (req: unknown) => Promise<unknown> }
   ).getSession;
 
-  // biome-ignore lint/suspicious/noExplicitAny: Better Auth internal API
   (auth.api as { getSession: (req: unknown) => Promise<unknown> }).getSession =
     (req: unknown): Promise<unknown> => {
       let bypass = false;
       let userId = "e2e-user";
-      // biome-ignore lint/suspicious/noExplicitAny: Headers can be different formats
       const headers = (req as { headers?: unknown }).headers;
 
       let cookieStr = "";
       if (headers && typeof headers === "object" && headers !== null) {
-        // biome-ignore lint/suspicious/noExplicitAny: Headers can be different formats
         const h = headers as {
           get?: (key: string) => string | null;
           [key: string]: unknown;
