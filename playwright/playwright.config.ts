@@ -1,5 +1,5 @@
+import { readFileSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
-import { readFileSync } from "fs";
 
 try {
   const envConfig = readFileSync("../apps/workers/.env", "utf-8");
@@ -9,7 +9,7 @@ try {
       process.env[key.trim()] = value.join("=").trim();
     }
   }
-} catch (e) {}
+} catch (_e) {}
 
 export default defineConfig({
   testDir: "../apps/web/e2e",

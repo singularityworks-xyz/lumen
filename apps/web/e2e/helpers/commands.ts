@@ -5,7 +5,31 @@ import type {
   BrowserType,
   Page,
 } from "@playwright/test";
-import { seedE2EAuth } from "./auth";
+
+interface SeedResult {
+  cookieValue: string;
+  sessionId: string;
+  sessionToken: string;
+  storageState: {
+    cookies: Array<{
+      domain: string;
+      httpOnly: boolean;
+      name: string;
+      path: string;
+      sameSite: "Lax" | "Strict" | "None";
+      secure: boolean;
+      value: string;
+    }>;
+  };
+  userId: string;
+}
+
+async function seedE2EAuth(): Promise<SeedResult> {
+  const { seedE2EAuth: seedFn } = await import(
+    "@lumen/db/scripts/seed-e2e-auth"
+  );
+  return seedFn(prisma);
+}
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   try {
@@ -18,7 +42,7 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
         request.onblocked = () => reject(new Error("IndexedDB blocked"));
       });
     });
-  } catch (e) {
+  } catch (e: unknown) {
     // Only ignore about:blank cross-origin security errors on initial setup
     const errorMessage = e instanceof Error ? e.message : String(e);
     const isSecurityError =
@@ -144,7 +168,7 @@ export async function createShareLinkForFirstBoard(
         .locator('[data-testid="share-link-input"]')
         .inputValue({ timeout: 5000 });
       break;
-    } catch (e) {
+    } catch (e: unknown) {
       if (attempt === 2) {
         throw e;
       }
@@ -164,15 +188,15 @@ export async function createShareLinkForFirstBoard(
 
 export interface TwoUserSetup {
   editorPage: Page;
-  editorSeed?: any;
+  editorSeed?: SeedResult;
   ownerPage: Page;
-  ownerSeed?: any;
+  ownerSeed?: SeedResult;
   shareLink: string;
 }
 
 export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
-  const ownerSeed = await seedE2EAuth(prisma);
-  const editorSeed = await seedE2EAuth(prisma);
+  const ownerSeed = await seedE2EAuth();
+  const editorSeed = await seedE2EAuth();
 
   for (const c of ownerSeed.storageState.cookies) {
     c.domain = "127.0.0.1";
@@ -233,9 +257,9 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
 export interface TwoUserCrossBrowserSetup {
   editorBrowser: Browser;
   editorPage: Page;
-  editorSeed?: any;
+  editorSeed?: SeedResult;
   ownerPage: Page;
-  ownerSeed?: any;
+  ownerSeed?: SeedResult;
   shareLink: string;
 }
 
@@ -243,8 +267,8 @@ export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
 ): Promise<TwoUserCrossBrowserSetup> {
-  const ownerSeed = await seedE2EAuth(prisma);
-  const editorSeed = await seedE2EAuth(prisma);
+  const ownerSeed = await seedE2EAuth();
+  const editorSeed = await seedE2EAuth();
 
   for (const c of ownerSeed.storageState.cookies) {
     c.domain = "127.0.0.1";
