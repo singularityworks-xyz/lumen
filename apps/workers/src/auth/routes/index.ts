@@ -58,6 +58,49 @@ if (typeof process !== "undefined") {
 }
 
 export const authRoutes = new Elysia({ name: "auth-routes" })
+  .post("/api/e2e/seed", async ({ body, set }) => {
+    if (process.env.NODE_ENV !== "development") {
+      set.status = 404;
+      return "Not found";
+    }
+    const { userId, name, email } = body as {
+      userId: string;
+      name: string;
+      email: string;
+    };
+
+    let user = await auth.api.internalAdapter.findUserByEmail(email);
+    if (!user) {
+      await auth.api.internalAdapter.createUser({
+        user: {
+          id: userId,
+          email,
+          name,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      user = await auth.api.internalAdapter.findUserByEmail(email);
+    }
+
+    if (!user) {
+      set.status = 500;
+      return "Failed to create user";
+    }
+
+    const session = await auth.api.internalAdapter.createSession(
+      user.user.id,
+      "E2E Test",
+      "127.0.0.1",
+      {
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    );
+
+    return { sessionToken: session.token };
+  })
   .onRequest(({ request }) => {
     const url = new URL(request.url);
     if (!url.pathname.includes("/token")) {

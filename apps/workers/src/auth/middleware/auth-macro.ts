@@ -31,6 +31,8 @@ export const authMacro = new Elysia({ name: "auth-macro" }).macro({
 
             // Bypass auth for E2E tests
             console.log("DEBUG AUTH HEADERS:", {
+              method: request.method,
+              url: request.url,
               auth: headers.get("authorization"),
               cookie: headers.get("cookie"),
             });

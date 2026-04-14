@@ -1,4 +1,3 @@
-import { prisma } from "@lumen/db";
 import type {
   Browser,
   BrowserContext,
@@ -6,15 +5,7 @@ import type {
   Page,
 } from "@playwright/test";
 
-// Import type from the seed file
-type SeedResult = import("@lumen/db/scripts/seed-e2e-auth").SeedResult;
-
-async function seedE2EAuth(): Promise<SeedResult> {
-  const { seedE2EAuth: seedFn } = await import(
-    "@lumen/db/scripts/seed-e2e-auth"
-  );
-  return seedFn(prisma);
-}
+import { type SeedResult, seedE2EAuth } from "./auth";
 
 export async function clearLocalStorageAndIndexedDB(page: Page) {
   try {
@@ -197,6 +188,25 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
     storageState: editorSeed.storageState,
   });
 
+  // Inject E2E bypass headers
+  await ownerContext.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = ownerSeed.userId;
+    }
+    route.continue({ headers });
+  });
+
+  await editorContext.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = editorSeed.userId;
+    }
+    route.continue({ headers });
+  });
+
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
 
@@ -272,6 +282,25 @@ export async function setupTwoUsersCrossBrowser(
     const editorContext = await editorBrowser.newContext({
       storageState: editorSeed.storageState,
     });
+
+    await ownerContext.route("**/api/**", (route) => {
+      const headers = route.request().headers();
+      if (route.request().method() !== "OPTIONS") {
+        headers["x-e2e-bypass"] = "true";
+        headers["x-e2e-user-id"] = ownerSeed.userId;
+      }
+      route.continue({ headers });
+    });
+
+    await editorContext.route("**/api/**", (route) => {
+      const headers = route.request().headers();
+      if (route.request().method() !== "OPTIONS") {
+        headers["x-e2e-bypass"] = "true";
+        headers["x-e2e-user-id"] = editorSeed.userId;
+      }
+      route.continue({ headers });
+    });
+
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();
 

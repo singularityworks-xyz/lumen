@@ -9,12 +9,15 @@ const logger = createLogger({ name: "auth:config" });
 
 logger.info("Initializing Better Auth with Prisma adapter");
 
+// E2E session regex - defined at top level for performance
+const E2E_SESSION_REGEX = /e2e-session-(e2e-user-[a-f0-9]+)-/;
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
   emailAndPassword: {
-    enabled: false,
+    enabled: process.env.NODE_ENV === "development",
   },
   socialProviders: {
     github: {
@@ -64,5 +67,77 @@ logger.info("Better Auth initialized successfully", {
   cookieStrategy: "compact",
   jwtEnabled: true,
 });
+
+if (env.NODE_ENV === "development") {
+  // biome-ignore lint/suspicious/noExplicitAny: Better Auth internal API
+  const originalGetSession = (
+    auth.api as { getSession: (req: unknown) => Promise<unknown> }
+  ).getSession;
+
+  // biome-ignore lint/suspicious/noExplicitAny: Better Auth internal API
+  (auth.api as { getSession: (req: unknown) => Promise<unknown> }).getSession =
+    (req: unknown): Promise<unknown> => {
+      let bypass = false;
+      let userId = "e2e-user";
+      // biome-ignore lint/suspicious/noExplicitAny: Headers can be different formats
+      const headers = (req as { headers?: unknown }).headers;
+
+      let cookieStr = "";
+      if (headers && typeof headers === "object" && headers !== null) {
+        // biome-ignore lint/suspicious/noExplicitAny: Headers can be different formats
+        const h = headers as {
+          get?: (key: string) => string | null;
+          [key: string]: unknown;
+        };
+        if (typeof h.get === "function") {
+          if (h.get("x-e2e-bypass") === "true") {
+            bypass = true;
+          }
+          userId = h.get("x-e2e-user-id") || userId;
+          cookieStr = h.get("cookie") || "";
+        } else {
+          if (h["x-e2e-bypass"] === "true") {
+            bypass = true;
+          }
+          userId = (h["x-e2e-user-id"] as string) || userId;
+          cookieStr = (h.cookie as string) || "";
+        }
+      }
+
+      if (cookieStr.includes("e2e-session-e2e-user-")) {
+        bypass = true;
+        const match = cookieStr.match(E2E_SESSION_REGEX);
+        if (match) {
+          userId = match[1];
+        }
+      }
+
+      if (bypass) {
+        // Return E2E bypass session
+        return Promise.resolve({
+          user: {
+            id: userId,
+            name: "E2E User",
+            email: `${userId}@e2e.test`,
+            emailVerified: true,
+            image: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          session: {
+            id: "e2e-session",
+            userId,
+            token: "e2e-token",
+            expiresAt: new Date(Date.now() + 100_000),
+            ipAddress: null,
+            userAgent: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+      }
+      return originalGetSession(req);
+    };
+}
 
 export type Auth = typeof auth;

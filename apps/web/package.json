@@ -83,6 +83,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@lumen/db": "workspace:^",
+    "@prisma/client": "^7.5.0",
+    "pg": "^8.13.1",
     "@lumen/configs": "workspace:^",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/lodash-es": "^4.17.12",

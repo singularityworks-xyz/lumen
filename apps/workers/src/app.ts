@@ -22,6 +22,8 @@ export function createApp(options?: { origins?: string[] }) {
           "Content-Type",
           "Authorization",
           "x-assistant-message-id",
+          "x-e2e-bypass",
+          "x-e2e-user-id",
         ],
         exposeHeaders: ["Set-Cookie"],
       })
