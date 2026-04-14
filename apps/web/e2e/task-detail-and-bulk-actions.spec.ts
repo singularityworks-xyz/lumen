@@ -98,7 +98,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
       .boundingBox();
 
     const closeButton = page.locator(
-      '[data-testid="task-detail-modal"] [data-testid="close-button"]'
+      '[data-testid="task-detail-modal"] [data-testid="task-detail-close-button"]'
     );
     await closeButton.click();
 
