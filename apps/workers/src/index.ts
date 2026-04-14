@@ -20,7 +20,7 @@ const logger = createLogger({ name: "workers:main" });
 const origins =
   env.ALLOWED_ORIGINS && env.ALLOWED_ORIGINS.length > 0
     ? env.ALLOWED_ORIGINS
-    : ["http://localhost:3000"];
+    : ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 const app = new Elysia()
   .use(opentelemetry())
@@ -34,6 +34,8 @@ const app = new Elysia()
         "Content-Type",
         "Authorization",
         "x-assistant-message-id",
+        "x-e2e-bypass",
+        "x-e2e-user-id",
       ],
       exposeHeaders: ["Set-Cookie"],
     })

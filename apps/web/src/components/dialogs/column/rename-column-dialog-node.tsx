@@ -356,6 +356,7 @@ export const RenameColumnDialogNodeComponent =
               <Input
                 autoFocus
                 className="h-8 rounded-md border border-border/30 bg-muted/80 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                data-testid="column-rename-input"
                 id={`column-name-${columnDialog.columnId}`}
                 onChange={(e) => handleNameChange(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -398,6 +399,7 @@ export const RenameColumnDialogNodeComponent =
               </Button>
               <Button
                 className="h-7 flex-1 rounded-md bg-primary/90 px-3 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                data-testid="column-rename-submit"
                 disabled={!columnDialog.inputValue?.trim()}
                 type="submit"
               >

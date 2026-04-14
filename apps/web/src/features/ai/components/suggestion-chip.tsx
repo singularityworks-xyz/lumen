@@ -18,6 +18,7 @@ export const SuggestionChip = memo(
         "hover:bg-muted hover:text-foreground",
         "transition-colors duration-200"
       )}
+      data-testid="suggestion-chip"
       onClick={onClick}
       type="button"
     >

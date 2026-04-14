@@ -50,12 +50,16 @@ export const BulkActionsBar = memo(() => {
   };
 
   return (
-    <div className="fixed right-0 bottom-0 left-0 z-40 md:right-4 md:bottom-4 md:left-4">
+    <div
+      className="fixed right-0 bottom-0 left-0 z-40 md:right-4 md:bottom-4 md:left-4"
+      data-testid="bulk-actions-bar"
+    >
       <div className="rounded-t border border-border/50 bg-card/95 px-3 py-2.5 shadow-xl backdrop-blur-md md:rounded-full dark:border-white/20">
         <div className="flex flex-col items-center justify-between gap-2 md:flex-row md:gap-3">
           <div className="flex items-center gap-1.5">
             <Badge
               className="rounded-full px-2 py-0.5 text-[10px]"
+              data-testid="bulk-selected-count"
               variant="secondary"
             >
               {selectedCount} selected
@@ -94,6 +98,7 @@ export const BulkActionsBar = memo(() => {
                     {(["low", "medium", "high"] as const).map((priority) => (
                       <button
                         className="w-full px-3 py-1.5 text-left text-xs capitalize transition-colors hover:bg-secondary/70"
+                        data-testid={`priority-option-${priority}`}
                         key={priority}
                         onClick={() => handlePriorityChange(priority)}
                         type="button"
@@ -161,7 +166,7 @@ export const BulkActionsBar = memo(() => {
               onOpenChange={setShowDeleteDialog}
               open={showDeleteDialog}
             >
-              <AlertDialogContent>
+              <AlertDialogContent data-testid="bulk-delete-confirm-dialog">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Tasks</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -172,7 +177,10 @@ export const BulkActionsBar = memo(() => {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete}>
+                  <AlertDialogAction
+                    data-testid="bulk-delete-confirm-button"
+                    onClick={handleBulkDelete}
+                  >
                     Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>

@@ -5,16 +5,40 @@ import type {
   Page,
 } from "@playwright/test";
 
-export async function clearLocalStorageAndIndexedDB(page: Page) {
-  await page.evaluate(async () => {
-    localStorage.clear();
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase("lumen-kanban-store");
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error("IndexedDB blocked"));
+import { cleanupE2EAuth, type SeedResult, seedE2EAuth } from "./auth";
+
+function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
+  context.once("close", () => {
+    cleanupE2EAuth(seed.userId, seed.sessionId).catch((error) => {
+      console.error("Failed to cleanup E2E auth seed", error);
     });
   });
+}
+
+export async function clearLocalStorageAndIndexedDB(page: Page) {
+  try {
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.deleteDatabase("lumen-kanban-store");
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error("IndexedDB blocked"));
+      });
+    });
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const isSecurityError =
+      errorMessage.includes("SecurityError") ||
+      errorMessage.includes("The operation is insecure") ||
+      errorMessage.includes("about:blank") ||
+      (e instanceof Error && e.name === "SecurityError");
+
+    const isAboutBlank = (await page.url()) === "about:blank";
+    if (!(isSecurityError && isAboutBlank)) {
+      throw e;
+    }
+  }
 }
 
 export async function disableAnimations(page: Page) {
@@ -33,7 +57,7 @@ export async function disableAnimations(page: Page) {
 }
 
 export async function waitForAppReady(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
     () => {
       return (
@@ -88,35 +112,119 @@ export async function deleteWorkspace(page: Page) {
 export async function createShareLinkForFirstBoard(
   page: Page
 ): Promise<string> {
-  const workspaceSelector = page.locator('[data-testid="workspace-selector"]');
-  await workspaceSelector.click();
-  await page.waitForSelector('[data-testid="workspace-option"]', {
-    timeout: 5000,
-  });
-
   const boardNode = page.locator('[data-testid="board-node"]').first();
-  await boardNode
-    .locator('[data-testid="board-header"]')
-    .click({ button: "right" });
-  await page.waitForSelector('[data-testid="board-share-option"]');
-  await page.click('[data-testid="board-share-option"]');
-  await page.waitForSelector('[data-testid="share-dialog"]');
-  await page.click('[data-testid="create-share-link-button"]');
-  await page.waitForSelector('[data-testid="share-link-input"]');
-  return page.locator('[data-testid="share-link-input"]').inputValue();
+  await boardNode.waitFor({ state: "visible", timeout: 15_000 });
+  await page.waitForTimeout(2000); // Waiting for background API calls to finish
+
+  const workspaceSelector = page.locator('[data-testid="workspace-selector"]');
+  await workspaceSelector.click({ timeout: 10_000 });
+  await page.waitForSelector('[data-testid="workspace-option"]', {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(1000);
+
+  // Retry the share link button if it fails
+  let shareLink = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await boardNode
+        .locator('[data-testid="board-header"]')
+        .click({ button: "right", timeout: 10_000 });
+      await page.waitForSelector('[data-testid="board-share-option"]', {
+        timeout: 10_000,
+      });
+      await page.click('[data-testid="board-share-option"]', {
+        timeout: 10_000,
+      });
+      await page.waitForSelector('[data-testid="share-dialog"]', {
+        timeout: 10_000,
+      });
+
+      await page.waitForTimeout(1000); // Give the board time to be fully initialized and persisted
+
+      await page.click('[data-testid="create-share-link-button"]', {
+        timeout: 5000,
+      });
+      await page.waitForSelector('[data-testid="share-link-input"]', {
+        timeout: 5000,
+      });
+      shareLink = await page
+        .locator('[data-testid="share-link-input"]')
+        .inputValue({ timeout: 5000 });
+      break;
+    } catch (e: unknown) {
+      if (attempt === 2) {
+        throw e;
+      }
+      await page.waitForTimeout(2000);
+      // close and reopen the dialog if it failed
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(1000);
+    }
+  }
+
+  if (!shareLink) {
+    throw new Error("Could not retrieve share link");
+  }
+
+  return shareLink;
 }
 
 export interface TwoUserSetup {
   editorPage: Page;
+  editorSeed?: SeedResult;
   ownerPage: Page;
+  ownerSeed?: SeedResult;
   shareLink: string;
 }
 
 export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
-  const ownerContext = await browser.newContext();
-  const editorContext = await browser.newContext();
+  const ownerSeed = await seedE2EAuth();
+  const editorSeed = await seedE2EAuth();
+
+  for (const c of ownerSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+  for (const c of editorSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+
+  const ownerContext = await browser.newContext({
+    storageState: ownerSeed.storageState,
+  });
+  const editorContext = await browser.newContext({
+    storageState: editorSeed.storageState,
+  });
+  registerSeedCleanup(ownerContext, ownerSeed);
+  registerSeedCleanup(editorContext, editorSeed);
+
+  // Inject E2E bypass headers
+  await ownerContext.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = ownerSeed.userId;
+    }
+    route.continue({ headers });
+  });
+
+  await editorContext.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = editorSeed.userId;
+    }
+    route.continue({ headers });
+  });
+
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
+
+  ownerPage.on("console", (msg) => {
+    if (msg.type() === "error") {
+      console.log(`PAGE ERROR: ${msg.text()}`);
+    }
+  });
 
   await clearLocalStorageAndIndexedDB(ownerPage);
   await disableAnimations(ownerPage);
@@ -148,13 +256,15 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
     .first()
     .waitFor({ state: "visible", timeout: 10_000 });
 
-  return { ownerPage, editorPage, shareLink };
+  return { ownerPage, editorPage, shareLink, ownerSeed, editorSeed };
 }
 
 export interface TwoUserCrossBrowserSetup {
   editorBrowser: Browser;
   editorPage: Page;
+  editorSeed?: SeedResult;
   ownerPage: Page;
+  ownerSeed?: SeedResult;
   shareLink: string;
 }
 
@@ -162,12 +272,47 @@ export async function setupTwoUsersCrossBrowser(
   ownerBrowser: Browser,
   editorBrowserType: BrowserType
 ): Promise<TwoUserCrossBrowserSetup> {
+  const ownerSeed = await seedE2EAuth();
+  const editorSeed = await seedE2EAuth();
+
+  for (const c of ownerSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+  for (const c of editorSeed.storageState.cookies) {
+    c.domain = "127.0.0.1";
+  }
+
   const editorBrowser = await editorBrowserType.launch();
   let ownerContext: BrowserContext | null = null;
 
   try {
-    ownerContext = await ownerBrowser.newContext();
-    const editorContext = await editorBrowser.newContext();
+    ownerContext = await ownerBrowser.newContext({
+      storageState: ownerSeed.storageState,
+    });
+    const editorContext = await editorBrowser.newContext({
+      storageState: editorSeed.storageState,
+    });
+    registerSeedCleanup(ownerContext, ownerSeed);
+    registerSeedCleanup(editorContext, editorSeed);
+
+    await ownerContext.route("**/api/**", (route) => {
+      const headers = route.request().headers();
+      if (route.request().method() !== "OPTIONS") {
+        headers["x-e2e-bypass"] = "true";
+        headers["x-e2e-user-id"] = ownerSeed.userId;
+      }
+      route.continue({ headers });
+    });
+
+    await editorContext.route("**/api/**", (route) => {
+      const headers = route.request().headers();
+      if (route.request().method() !== "OPTIONS") {
+        headers["x-e2e-bypass"] = "true";
+        headers["x-e2e-user-id"] = editorSeed.userId;
+      }
+      route.continue({ headers });
+    });
+
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();
 
@@ -201,7 +346,14 @@ export async function setupTwoUsersCrossBrowser(
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    return { ownerPage, editorPage, shareLink, editorBrowser };
+    return {
+      ownerPage,
+      editorPage,
+      shareLink,
+      editorBrowser,
+      ownerSeed,
+      editorSeed,
+    };
   } catch (e) {
     await editorBrowser.close();
     if (ownerContext) {

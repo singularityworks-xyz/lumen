@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Circle,
   GripVertical,
+  Plus,
   SquarePen,
   Trash2,
   User,
@@ -359,10 +360,29 @@ export const KanbanColumn = memo(
       ensureDialogVisible,
     ]);
 
+    const openCreateTaskModal = useKanbanStore(
+      (state) => state.openCreateTaskModal
+    );
+
+    const handleAddTaskClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const flowPos = calculateQuickActionsPosition();
+        openCreateTaskModal({
+          columnId: column.id,
+          boardId,
+          position: flowPos,
+          sourceType: "column-menu",
+        });
+      },
+      [column.id, boardId, openCreateTaskModal, calculateQuickActionsPosition]
+    );
+
     return (
       <section
         aria-label={`Column: ${column.name}`}
         className="relative flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        data-testid="kanban-column"
         id={`kanban-column-${column.id}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -409,6 +429,7 @@ export const KanbanColumn = memo(
         {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
         <div
           className="group cursor-grab bg-muted/90 px-2.5 py-2 active:cursor-grabbing dark:bg-secondary/90"
+          data-testid="column-header"
           onContextMenu={handleHeaderContextMenu}
           ref={columnHeaderRef}
           {...attributes}
@@ -484,6 +505,16 @@ export const KanbanColumn = memo(
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                aria-label="Add task to column"
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                data-testid="add-task-trigger"
+                onClick={handleAddTaskClick}
+                onPointerDown={(e) => e.stopPropagation()}
+                type="button"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
               <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {taskCount}
               </span>

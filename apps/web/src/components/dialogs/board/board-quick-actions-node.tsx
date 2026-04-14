@@ -14,6 +14,7 @@ import {
   Link2,
   Plus,
   Settings,
+  Share2,
   Trash2,
   X,
 } from "lucide-react";
@@ -79,6 +80,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const openConnectionDialog = useKanbanStore(
       (state) => state.openConnectionDialog
     );
+    const openShareDialog = useKanbanStore((state) => state.openShareDialog);
     const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
@@ -630,6 +632,45 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       ensureDialogVisible,
     ]);
 
+    const shareDialog = useKanbanStore((state) => state.shareDialog);
+
+    const handleShare = useCallback(() => {
+      if (!board) {
+        return;
+      }
+
+      // Check if share dialog is already open for this board
+      if (shareDialog?.boardId === boardId) {
+        // Bring the existing dialog to front and ensure visible
+        bringDialogToFront(`share-dialog-${boardId}`);
+        ensureDialogVisible(
+          shareDialog.position.x,
+          shareDialog.position.y,
+          380,
+          280
+        );
+        return;
+      }
+
+      const myNode = getNode(id);
+      if (myNode) {
+        const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
+        const dialogY = myNode.position.y;
+
+        openShareDialog(boardId, { x: dialogX, y: dialogY });
+        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 380, 280), 50);
+      }
+    }, [
+      board,
+      boardId,
+      getNode,
+      id,
+      openShareDialog,
+      ensureDialogVisible,
+      bringDialogToFront,
+      shareDialog,
+    ]);
+
     if (!board) {
       return null;
     }
@@ -827,6 +868,23 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
                       ? "Manage links to other boards"
                       : "No boards available"}
                   </p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    data-testid="board-share-option"
+                    onClick={handleShare}
+                    type="button"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    <span>Share</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Share this board with others</p>
                 </TooltipContent>
               </Tooltip>
 

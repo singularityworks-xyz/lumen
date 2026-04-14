@@ -12,6 +12,7 @@ import type {
   ColumnQuickActionsNode,
   ConnectionDialogNode,
   KanbanNode,
+  ShareDialogNode,
   TaskDetailModalNode,
   TaskModalNode,
   TaskQuickActionsNode,
@@ -42,6 +43,7 @@ export function useCanvasNodes() {
     useShallow((state) => Object.keys(state.boardDialogs))
   );
   const connectionDialog = useKanbanStore((state) => state.connectionDialog);
+  const shareDialog = useKanbanStore((state) => state.shareDialog);
   const columnDialogs = useKanbanStore((state) => state.columnDialogs);
   const columnQuickActions = useKanbanStore(
     (state) => state.columnQuickActions
@@ -290,6 +292,23 @@ export function useCanvasNodes() {
       });
     }
 
+    const shareDialogNodes: ShareDialogNode[] = [];
+    if (shareDialog) {
+      shareDialogNodes.push({
+        id: `share-dialog-${shareDialog.boardId}`,
+        type: "shareDialog",
+        position: {
+          x: shareDialog.position.x,
+          y: shareDialog.position.y,
+        },
+        data: { boardId: shareDialog.boardId },
+        style: {
+          zIndex: computeZIndex(`share-dialog-${shareDialog.boardId}`),
+        },
+        draggable: true,
+      });
+    }
+
     const columnDialogNodes: ColumnDialogNode[] = [];
     if (columnDialogs) {
       // biome-ignore lint/complexity/noForEach: skip
@@ -399,6 +418,7 @@ export function useCanvasNodes() {
       ...columnQuickActionsNodes,
       ...dialogNodes,
       ...connectionDialogNodes,
+      ...shareDialogNodes,
       ...columnDialogNodes,
       ...areaDialogNodes,
       ...commentClusterNodes,
@@ -420,6 +440,7 @@ export function useCanvasNodes() {
     boardDialogIds,
     boardDialogs,
     connectionDialog,
+    shareDialog,
     columnDialogs,
     taskQuickActions,
     columnQuickActions,

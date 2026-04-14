@@ -81,6 +81,7 @@ export const SyncStatusIndicator = memo(() => {
         <motion.div
           animate={{ opacity: 1, scale: 1 }}
           className="flex h-8 w-8 cursor-default items-center justify-center rounded-full bg-card/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
+          data-testid="sync-status-indicator"
           initial={{ opacity: 0, scale: 0.8 }}
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         >

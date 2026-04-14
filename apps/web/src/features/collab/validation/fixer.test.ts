@@ -52,6 +52,7 @@ const createMinimalState = (): KanbanState => ({
   shakingTaskDetailModalId: null,
   showCommandPalette: false,
   showMiniMap: false,
+  shareDialog: null,
   taskDetailModals: {},
   taskQuickActions: {},
   tasks: { byId: {}, allIds: [] },

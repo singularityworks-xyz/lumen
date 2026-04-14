@@ -84,6 +84,7 @@ export const MessageBubble = memo(
           "flex max-w-[90%] gap-2.5",
           isUser ? "ml-auto flex-row-reverse" : "mr-auto"
         )}
+        data-testid={isUser ? "message-user" : undefined}
         exit={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
         initial={{ opacity: 0, x: isUser ? 20 : -20, scale: 0.95 }}
         transition={{

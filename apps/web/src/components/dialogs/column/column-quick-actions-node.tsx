@@ -578,6 +578,7 @@ export const ColumnQuickActionsNodeComponent =
                 <TooltipTrigger asChild>
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+                    data-testid="column-rename-option"
                     onClick={handleRename}
                     type="button"
                   >
@@ -599,6 +600,7 @@ export const ColumnQuickActionsNodeComponent =
                         ? "hover:bg-accent hover:text-accent-foreground"
                         : "cursor-not-allowed opacity-50"
                     )}
+                    data-testid="column-move-option"
                     disabled={availableTargetBoards.length === 0}
                     onClick={
                       availableTargetBoards.length > 0
@@ -626,6 +628,7 @@ export const ColumnQuickActionsNodeComponent =
                 <TooltipTrigger asChild>
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+                    data-testid="column-delete-option"
                     onClick={handleDelete}
                     type="button"
                   >

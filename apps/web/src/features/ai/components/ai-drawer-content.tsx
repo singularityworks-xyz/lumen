@@ -667,6 +667,7 @@ export const AiDrawerContent = memo(
           "h-[70vh] max-h-175 min-h-100",
           "flex flex-col"
         )}
+        data-testid="ai-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
@@ -987,6 +988,7 @@ export const AiDrawerContent = memo(
                     "hover:bg-destructive/10",
                     "transition-all duration-200"
                   )}
+                  data-testid="ai-clear-conversation"
                   onClick={() => setShowClearConfirm(true)}
                   type="button"
                 >
@@ -1120,10 +1122,11 @@ export const AiDrawerContent = memo(
                           "bg-destructive/10 font-medium text-destructive text-xs",
                           "border border-destructive/30",
                           "shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_2px_rgba(0,0,0,0.08)]",
-                          "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(0,0,0,0.15)]",
+                          "dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(0,0,0,0.15)]",
                           "hover:border-destructive/50 hover:bg-destructive/20",
                           "transition-all duration-200"
                         )}
+                        data-testid="confirm-clear-conversation"
                         onClick={handleClearConversation}
                         type="button"
                       >
@@ -1207,6 +1210,7 @@ export const AiDrawerContent = memo(
                     "focus:overflow-y-auto",
                     "scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
                   )}
+                  data-testid="ai-chat-input"
                   disabled={isStreaming}
                   onChange={(e) => {
                     setInputValue(e.target.value);

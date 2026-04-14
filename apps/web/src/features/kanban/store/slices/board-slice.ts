@@ -43,6 +43,8 @@ type SliceCreator = (
   | "closeConnectionDialog"
   | "updateConnectionDialogPosition"
   | "updateConnectionDialogConfig"
+  | "openShareDialog"
+  | "closeShareDialog"
 >;
 
 export const createBoardSlice: SliceCreator = (set, get) => ({
@@ -577,6 +579,19 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
   closeConnectionDialog: () =>
     set((state) => {
       state.connectionDialog = null;
+    }),
+
+  openShareDialog: (boardId, position) =>
+    set((state) => {
+      state.shareDialog = {
+        boardId,
+        position,
+      };
+    }),
+
+  closeShareDialog: () =>
+    set((state) => {
+      state.shareDialog = null;
     }),
 
   updateConnectionDialogPosition: (position) =>

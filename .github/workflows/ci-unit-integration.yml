@@ -30,7 +30,8 @@ jobs:
           AFTER_SHA="${{ github.sha }}"
           ZERO_SHA="0000000000000000000000000000000000000000"
 
-          if [ "$BEFORE_SHA" = "$ZERO_SHA" ]; then
+          if [ "$BEFORE_SHA" = "$ZERO_SHA" ] || ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            echo "Falling back to changed files from current tree because before SHA is unavailable: $BEFORE_SHA"
             git ls-tree -r --name-only "$AFTER_SHA" > changed-files.txt
           else
             git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > changed-files.txt

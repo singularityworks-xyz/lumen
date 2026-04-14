@@ -221,6 +221,7 @@ export const TaskDetailForm = memo(
                 titleError && "border-destructive ring-2 ring-destructive/20",
                 isShaking && "animate-shake"
               )}
+              data-testid="task-detail-title-input"
               id={`task-title-${modalId}`}
               onChange={(e) => updateDraft({ draftTitle: e.target.value })}
               placeholder="Task title"
@@ -582,6 +583,7 @@ export const TaskDetailForm = memo(
           </Button>
           <Button
             className="h-7 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+            data-testid="task-detail-save-button"
             type="submit"
           >
             Save Changes

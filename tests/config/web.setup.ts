@@ -17,6 +17,8 @@ Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: "development",
   OTEL_ENABLED: "false",
+  NEXT_PUBLIC_API_URL: "http://localhost:3002",
+  NEXT_PUBLIC_PRESENCE_WS_URL: "ws://localhost:4000",
 };
 
 const originalEnv: Record<string, string | undefined> = {};

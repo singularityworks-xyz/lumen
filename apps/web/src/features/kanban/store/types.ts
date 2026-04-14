@@ -108,6 +108,10 @@ export interface KanbanState {
   selectedTaskIds: string[];
   selectionBox: { x: number; y: number; width: number; height: number } | null;
   shakingTaskDetailModalId: string | null;
+  shareDialog: {
+    boardId: string;
+    position: { x: number; y: number };
+  } | null;
   showCommandPalette: boolean;
   showMiniMap: boolean;
   taskDetailModals: Record<string, TaskDetailModalState>;
@@ -211,6 +215,7 @@ export interface KanbanActions {
   closeConnectionDialog: () => void;
   closeCreateTaskModal: (modalId: string) => void;
   closeProfileModal: () => void;
+  closeShareDialog: () => void;
   closeTaskDetailModal: (modalId: string) => void;
   closeTaskQuickActions: (taskId: string) => void;
   closeWorkspaceDialog: () => void;
@@ -332,6 +337,10 @@ export interface KanbanActions {
 
   // Profile modal actions
   openProfileModal: () => void;
+  openShareDialog: (
+    boardId: string,
+    position: { x: number; y: number }
+  ) => void;
   openTaskDetailModal: (options: {
     taskId: string;
     boardId: string;
