@@ -27,9 +27,11 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     topology = new MultiInstanceTopology();
   });
 
-  test.afterEach(() => {
-    return topology.stopAll();
+  test.afterEach(async () => {
+    await topology.stopAll();
   });
+
+  test.describe.configure({ mode: "serial" });
 
   test.describe("Session Affinity Tests", () => {
     let ownerPage: Page;
