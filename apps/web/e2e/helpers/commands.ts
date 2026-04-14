@@ -102,22 +102,37 @@ export async function deleteWorkspace(page: Page) {
 export async function createShareLinkForFirstBoard(
   page: Page
 ): Promise<string> {
+  const boardNode = page.locator('[data-testid="board-node"]').first();
+  await boardNode.waitFor({ state: "visible", timeout: 15_000 });
+  await page.waitForTimeout(1000);
+
   const workspaceSelector = page.locator('[data-testid="workspace-selector"]');
-  await workspaceSelector.click();
+  await workspaceSelector.click({ timeout: 10_000 });
   await page.waitForSelector('[data-testid="workspace-option"]', {
-    timeout: 5000,
+    timeout: 10_000,
   });
 
-  const boardNode = page.locator('[data-testid="board-node"]').first();
   await boardNode
     .locator('[data-testid="board-header"]')
-    .click({ button: "right" });
-  await page.waitForSelector('[data-testid="board-share-option"]');
-  await page.click('[data-testid="board-share-option"]');
-  await page.waitForSelector('[data-testid="share-dialog"]');
-  await page.click('[data-testid="create-share-link-button"]');
-  await page.waitForSelector('[data-testid="share-link-input"]');
-  return page.locator('[data-testid="share-link-input"]').inputValue();
+    .click({ button: "right", timeout: 10_000 });
+  await page.waitForSelector('[data-testid="board-share-option"]', {
+    timeout: 10_000,
+  });
+  await page.click('[data-testid="board-share-option"]', { timeout: 10_000 });
+  await page.waitForSelector('[data-testid="share-dialog"]', {
+    timeout: 10_000,
+  });
+
+  await page.waitForTimeout(500);
+  await page.click('[data-testid="create-share-link-button"]', {
+    timeout: 10_000,
+  });
+  await page.waitForSelector('[data-testid="share-link-input"]', {
+    timeout: 15_000,
+  });
+  return page
+    .locator('[data-testid="share-link-input"]')
+    .inputValue({ timeout: 10_000 });
 }
 
 export interface TwoUserSetup {
