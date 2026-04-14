@@ -178,7 +178,9 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
         );
 
         if (!response.ok) {
-          throw new Error("Failed to create share link");
+          throw new Error(
+            `Failed to create share link: ${response.status} ${response.statusText}`
+          );
         }
 
         const responseData = await response.json();
@@ -187,7 +189,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
         setShareLink(generatedLink);
         setWorkspaceShareUrl(workspaceId, generatedLink);
       } catch (error) {
-        console.error("Failed to create share link:", error);
+        console.error("DEBUG_SHARE_FETCH_ERROR", apiUrl, error);
       } finally {
         setIsLoading(false);
       }
