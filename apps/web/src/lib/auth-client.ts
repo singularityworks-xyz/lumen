@@ -12,7 +12,7 @@ interface AuthUser {
 }
 
 const authClient = createAuthClient({
-  baseURL: env.NEXT_PUBLIC_API_URL,
+  baseURL: env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1"),
   credentials: "include",
   plugins: [jwtClient()],
 });

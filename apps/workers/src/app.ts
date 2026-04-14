@@ -7,7 +7,10 @@ import { collabRoutes } from "./collab";
 import { WORKERS_VERSION } from "./version";
 
 export function createApp(options?: { origins?: string[] }) {
-  const origins = options?.origins ?? ["http://localhost:3000"];
+  const origins = options?.origins ?? [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ];
 
   const app = new Elysia()
     .use(

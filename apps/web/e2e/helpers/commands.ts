@@ -172,6 +172,12 @@ export async function setupTwoUsers(browser: Browser): Promise<TwoUserSetup> {
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
 
+  ownerPage.on("console", (msg) => {
+    if (msg.type() === "error") {
+      console.log(`PAGE ERROR: ${msg.text()}`);
+    }
+  });
+
   await clearLocalStorageAndIndexedDB(ownerPage);
   await disableAnimations(ownerPage);
   await ownerPage.goto("/");
