@@ -33,9 +33,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     topology = new MultiInstanceTopology();
   });
 
-  test.afterEach(() => {
-    return topology.stopAll();
+  test.afterEach(async () => {
+    await topology.stopAll();
   });
+
+  test.describe.configure({ mode: "serial" });
 
   test.describe("Two Workers Instances", () => {
     let ownerPage: Page;
