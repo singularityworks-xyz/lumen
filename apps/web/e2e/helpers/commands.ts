@@ -6,23 +6,8 @@ import type {
   Page,
 } from "@playwright/test";
 
-interface SeedResult {
-  cookieValue: string;
-  sessionId: string;
-  sessionToken: string;
-  storageState: {
-    cookies: Array<{
-      domain: string;
-      httpOnly: boolean;
-      name: string;
-      path: string;
-      sameSite: "Lax" | "Strict" | "None";
-      secure: boolean;
-      value: string;
-    }>;
-  };
-  userId: string;
-}
+// Import type from the seed file
+type SeedResult = import("@lumen/db/scripts/seed-e2e-auth").SeedResult;
 
 async function seedE2EAuth(): Promise<SeedResult> {
   const { seedE2EAuth: seedFn } = await import(

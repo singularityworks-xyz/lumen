@@ -9,7 +9,11 @@ try {
       process.env[key.trim()] = value.join("=").trim();
     }
   }
-} catch (_e) {}
+} catch (_e) {
+  // Ignore if .env file doesn't exist - tests will use default or CI env
+}
+
+process.env.NEXT_PUBLIC_API_URL = "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "../apps/web/e2e",
