@@ -127,6 +127,16 @@ export const CommandPalette = memo(() => {
         e.key.toLowerCase() === "n" &&
         !(e.metaKey || e.ctrlKey)
       ) {
+        // Ignore if focus is in an editable element
+        const target = e.target as HTMLElement;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+
         e.preventDefault();
         handleNewBoard();
       }

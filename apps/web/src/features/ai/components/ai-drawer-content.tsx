@@ -989,7 +989,7 @@ export const AiDrawerContent = memo(
                     "transition-all duration-200"
                   )}
                   data-testid="ai-clear-conversation"
-                  onClick={handleClearConversation}
+                  onClick={() => setShowClearConfirm(true)}
                   type="button"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1042,7 +1042,7 @@ export const AiDrawerContent = memo(
                     <SuggestionChip
                       key={suggestion.id}
                       label={suggestion.label}
-                      onClick={() => handleSuggestionClick(suggestion.label)}
+                      onClick={() => handleSuggestionClick(suggestion.prompt)}
                     />
                   ))}
                 </div>

@@ -26,10 +26,10 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
     await waitForAppReady(page);
     await page.waitForLoadState("networkidle");
 
-    const hasAppShell = await page
+    const hasWorkspaceSelector = await page
       .locator('[data-testid="workspace-selector"]')
       .isVisible();
-    expect(hasAppShell).toBeTruthy();
+    expect(hasWorkspaceSelector).toBeTruthy();
 
     const criticalErrors = consoleErrors.filter(
       (err) => !(err.includes("Warning") || err.includes("hydration"))

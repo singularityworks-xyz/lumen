@@ -16,8 +16,18 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
         request.onblocked = () => reject(new Error("IndexedDB blocked"));
       });
     });
-  } catch (_e) {
-    // Ignore about:blank cross-origin security errors on initial setup
+  } catch (e) {
+    // Only ignore about:blank cross-origin security errors on initial setup
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const isSecurityError =
+      errorMessage.includes("SecurityError") ||
+      errorMessage.includes("The operation is insecure") ||
+      errorMessage.includes("about:blank") ||
+      (e instanceof Error && e.name === "SecurityError");
+
+    if (!isSecurityError) {
+      throw e;
+    }
   }
 }
 

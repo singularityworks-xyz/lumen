@@ -632,8 +632,22 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       ensureDialogVisible,
     ]);
 
+    const shareDialog = useKanbanStore((state) => state.shareDialog);
+
     const handleShare = useCallback(() => {
       if (!board) {
+        return;
+      }
+
+      // Check if share dialog is already open for this board
+      if (shareDialog?.boardId === boardId) {
+        // Ensure the existing dialog is visible
+        ensureDialogVisible(
+          shareDialog.position.x,
+          shareDialog.position.y,
+          380,
+          280
+        );
         return;
       }
 
@@ -645,7 +659,15 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         openShareDialog(boardId, { x: dialogX, y: dialogY });
         setTimeout(() => ensureDialogVisible(dialogX, dialogY, 380, 280), 50);
       }
-    }, [board, boardId, getNode, id, openShareDialog, ensureDialogVisible]);
+    }, [
+      board,
+      boardId,
+      getNode,
+      id,
+      openShareDialog,
+      ensureDialogVisible,
+      shareDialog,
+    ]);
 
     if (!board) {
       return null;

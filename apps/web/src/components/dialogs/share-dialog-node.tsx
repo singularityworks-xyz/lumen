@@ -7,7 +7,7 @@ import {
   useViewport,
 } from "@xyflow/react";
 import { GripHorizontal, Link2, Share2, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
@@ -42,7 +42,7 @@ const DIALOG_WIDTH = 380;
 export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
   ({ data, selected }) => {
     const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const boardId = data.boardId;
@@ -77,6 +77,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     const [isLoading, setIsLoading] = useState(false);
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
@@ -102,9 +103,21 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       return Z_INDEX_BASE.DIALOGS + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
+    // Compute board icon using useMemo to avoid IIFE in JSX
+    const boardIcon = useMemo(() => {
+      const iconName = board?.icon;
+      const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
+      if (MappedIcon) {
+        return <MappedIcon className="h-3 w-3" />;
+      }
+      return (
+        <span className="flex h-4 w-4 items-center justify-center rounded bg-primary/20 font-bold text-[9px]">
+          {getInitials(board?.name ?? "")}
+        </span>
+      );
+    }, [board?.icon, board?.name]);
 
+    const connectorState = useMemo(() => {
       if (!(boardQuickActions && shareDialog?.position)) {
         return null;
       }
@@ -130,9 +143,6 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       boardQuickActions,
       shareDialog?.position,
       flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
       boardPosition?.x,
       boardPosition?.y,
     ]);
@@ -171,8 +181,8 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
           throw new Error("Failed to create share link");
         }
 
-        const data = await response.json();
-        const generatedLink = data.url;
+        const responseData = await response.json();
+        const generatedLink = responseData.url;
 
         setShareLink(generatedLink);
         setWorkspaceShareUrl(workspaceId, generatedLink);
@@ -187,14 +197,27 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       if (!shareLink) {
         return;
       }
+      // Clear any existing timeout to prevent calling setCopied after unmount
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
       try {
         await navigator.clipboard.writeText(shareLink);
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
       } catch (error) {
         console.error("Failed to copy link:", error);
       }
     }, [shareLink]);
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (copyTimeoutRef.current) {
+          clearTimeout(copyTimeoutRef.current);
+        }
+      };
+    }, []);
 
     if (!(board && shareDialog)) {
       return null;
@@ -284,17 +307,7 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
                     : {}
                 }
               >
-                {(() => {
-                  const iconName = board.icon;
-                  const MappedIcon = iconName ? ICON_MAP[iconName] : undefined;
-                  return MappedIcon ? (
-                    <MappedIcon className="h-3 w-3" />
-                  ) : (
-                    <span className="flex h-4 w-4 items-center justify-center rounded bg-primary/20 font-bold text-[9px]">
-                      {getInitials(board.name)}
-                    </span>
-                  );
-                })()}
+                {boardIcon}
                 <span className="max-w-20 truncate">{board.name}</span>
               </span>
               <button

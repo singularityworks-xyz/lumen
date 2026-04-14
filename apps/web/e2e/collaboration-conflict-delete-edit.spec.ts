@@ -93,27 +93,21 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     const modalAfterDelete = ownerPage.locator(
       '[data-testid="task-detail-modal"]'
     );
-    await modalAfterDelete
-      .waitFor({ state: "hidden", timeout: 5000 })
-      .catch(() => null);
+    await modalAfterDelete.waitFor({ state: "hidden", timeout: 5000 });
 
     const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
     const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
     expect(workspaceId).toBeTruthy();
 
     if (workspaceId) {
-      await ownerPage
-        .waitForFunction(
-          () => {
-            const store = document.querySelector(
-              '[data-testid="kanban-store"]'
-            );
-            return store?.getAttribute("data-sync-status") === "synced";
-          },
-          null,
-          { timeout: 15_000 }
-        )
-        .catch(() => null);
+      await ownerPage.waitForFunction(
+        () => {
+          const store = document.querySelector('[data-testid="kanban-store"]');
+          return store?.getAttribute("data-sync-status") === "synced";
+        },
+        null,
+        { timeout: 15_000 }
+      );
 
       const verification = await verifyServerClientStateMatch(
         ownerPage,
@@ -200,27 +194,21 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     const modalAfterDelete = ownerPage.locator(
       '[data-testid="task-detail-modal"]'
     );
-    await modalAfterDelete
-      .waitFor({ state: "hidden", timeout: 5000 })
-      .catch(() => null);
+    await modalAfterDelete.waitFor({ state: "hidden", timeout: 5000 });
 
     const workspaceIdMatch = ownerPage.url().match(WORKSPACE_ID_REGEX);
     const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : null;
     expect(workspaceId).toBeTruthy();
 
     if (workspaceId) {
-      await ownerPage
-        .waitForFunction(
-          () => {
-            const store = document.querySelector(
-              '[data-testid="kanban-store"]'
-            );
-            return store?.getAttribute("data-sync-status") === "synced";
-          },
-          null,
-          { timeout: 15_000 }
-        )
-        .catch(() => null);
+      await ownerPage.waitForFunction(
+        () => {
+          const store = document.querySelector('[data-testid="kanban-store"]');
+          return store?.getAttribute("data-sync-status") === "synced";
+        },
+        null,
+        { timeout: 15_000 }
+      );
 
       const verification = await verifyServerClientStateMatch(
         ownerPage,

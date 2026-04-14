@@ -92,6 +92,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.waitForTimeout(500);
 
     await page.keyboard.press("Escape");
+    // Press "0" to reset zoom to 100% (fit view) before moving column
     await page.keyboard.press("0");
     await page.waitForTimeout(300);
 
@@ -200,6 +201,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.waitForTimeout(500);
 
     await page.keyboard.press("Escape");
+    // Press "0" to reset zoom to 100% (fit view) before dragging task
     await page.keyboard.press("0");
     await page.waitForTimeout(300);
 

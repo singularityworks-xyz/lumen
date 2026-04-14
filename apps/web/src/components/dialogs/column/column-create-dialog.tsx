@@ -45,7 +45,7 @@ export const ColumnCreateDialog = memo(
     sourceElement,
   }: ColumnCreateDialogProps) => {
     const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    useViewport();
     const [isFocused, setIsFocused] = useState(false);
     const [columnName, setColumnName] = useState("");
     const [nameError, setNameError] = useState<string | null>(null);
@@ -108,16 +108,9 @@ export const ColumnCreateDialog = memo(
     }, [dialogFocusStack, dialogId]);
 
     const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
       if (!position) {
         return null;
       }
-
-      const myScreenPos = flowToScreenPosition({
-        x: position.x,
-        y: position.y,
-      });
 
       if (sourceElement) {
         const rect = sourceElement.getBoundingClientRect();
@@ -126,31 +119,25 @@ export const ColumnCreateDialog = memo(
             x: rect.right,
             y: rect.top + rect.height / 2,
           },
-          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
+          end: { x: position.x, y: position.y + 24 },
         };
       }
 
       if (boardPosition) {
+        // boardPosition is in flow coordinates, convert to screen for start point
         const boardScreenPos = flowToScreenPosition({
           x: boardPosition.x,
           y: boardPosition.y + 100,
         });
+        // position is already in screen coordinates (from AddColumnPlaceholder)
         return {
           start: boardScreenPos,
-          end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
+          end: { x: position.x, y: position.y + 20 },
         };
       }
 
       return null;
-    }, [
-      position,
-      sourceElement,
-      boardPosition,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    }, [position, sourceElement, boardPosition, flowToScreenPosition]);
 
     const handleSubmit = useCallback(
       (e: React.FormEvent) => {
@@ -324,7 +311,7 @@ export const ColumnCreateDialog = memo(
               <button
                 aria-label="Close create column dialog"
                 className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                data-testid="column-create-cancel"
+                data-testid="column-create-close"
                 onClick={handleCancel}
                 type="button"
               >
@@ -352,7 +339,11 @@ export const ColumnCreateDialog = memo(
                   data-testid="column-name-input"
                   id="column-name-input"
                   onChange={(e) => handleNameChange(e.target.value)}
-                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Escape") {
+                      e.stopPropagation();
+                    }
+                  }}
                   onPointerDown={(e) => e.stopPropagation()}
                   placeholder="Enter column name..."
                   ref={nameInputRef}
