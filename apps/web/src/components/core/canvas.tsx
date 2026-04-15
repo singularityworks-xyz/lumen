@@ -75,7 +75,6 @@ export function KanbanCanvas() {
   const canvas = useKanbanStore((s) => s.canvas);
   const setViewport = useKanbanStore((s) => s.setViewport);
   const updateBoardPosition = useKanbanStore((s) => s.updateBoardPosition);
-  const updateBoardDimensions = useKanbanStore((s) => s.updateBoardDimensions);
   const areas = useKanbanStore((s) => s.areas);
   const areaPositions = useKanbanStore((s) => s.areaPositions);
   const updateAreaPosition = useKanbanStore((s) => s.updateAreaPosition);
@@ -471,11 +470,24 @@ export function KanbanCanvas() {
         }
 
         if (change.type === "dimensions" && change.dimensions) {
+          // Handle mid-resize (resizing: true): skip entirely — React Flow's
+          // internal state already reflects these via onNodesChange above.
+          const isMidResize = "resizing" in change && change.resizing === true;
+          if (isMidResize) {
+            continue;
+          }
+
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
-          } else {
-            updateBoardDimensions(change.id, change.dimensions, true);
+          } else if ("resizing" in change && change.resizing === false) {
+            // User resize ended — persist final dimensions to store.
+            useKanbanStore
+              .getState()
+              .updateBoardDimensions(change.id, change.dimensions, true);
           }
+          // For initial measurements (no `resizing` property): skip to avoid
+          // polluting the zundo undo history. Board-node auto-resize effect
+          // keeps store in sync for content-driven dimension changes.
         }
       }
     },

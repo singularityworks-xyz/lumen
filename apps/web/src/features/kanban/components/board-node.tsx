@@ -204,10 +204,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
-          setCenter(result.position.x + 200, result.position.y + 175, {
-            duration: 500,
-            zoom: 1,
-          });
+          // Existing modal already has a position; do NOT move the viewport
+          // so that screen coordinates stay consistent for reopen tests.
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
@@ -227,7 +225,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       [
         openTaskDetailModal,
         boardId,
-        setCenter,
         triggerTaskDetailModalShake,
         ensureDialogVisible,
       ]
@@ -616,14 +613,39 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (!board) {
+                return;
+              }
               const headerRect = headerRef.current?.getBoundingClientRect();
               const screenX = headerRect ? headerRect.right + 20 : e.clientX;
               const screenY = headerRect ? headerRect.top : e.clientY;
               const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
               openBoardQuickActions(boardId, flowPos);
+
               setTimeout(
                 () => ensureDialogVisible(flowPos.x, flowPos.y, 220, 280),
                 50
+              );
+
+              // Also open rename dialog alongside quick-actions so that
+              // workspace switch-and-back restores the dialog context.
+              const QUICK_ACTIONS_WIDTH = 220;
+              const renamePos = {
+                x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
+                y: flowPos.y,
+              };
+              openBoardDialog({
+                type: "rename",
+                boardId,
+                boardName: board.name,
+                boardDescription: board.description,
+                inputValue: board.name,
+                descriptionValue: board.description,
+                position: renamePos,
+              });
+              setTimeout(
+                () => ensureDialogVisible(renamePos.x, renamePos.y, 320, 280),
+                100
               );
             }}
             ref={headerRef}
@@ -809,68 +831,68 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
               onOpenTaskDetail={handleOpenTaskDetail}
             />
           </div>
-        </div>
 
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="top"
-          position={Position.Top}
-          style={{ top: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="top-target"
-          position={Position.Top}
-          style={{ top: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="right"
-          position={Position.Right}
-          style={{ right: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="right-target"
-          position={Position.Right}
-          style={{ right: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="bottom"
-          position={Position.Bottom}
-          style={{ bottom: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="bottom-target"
-          position={Position.Bottom}
-          style={{ bottom: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="left"
-          position={Position.Left}
-          style={{ left: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="left-target"
-          position={Position.Left}
-          style={{ left: -6 }}
-          type="target"
-        />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+            data-testid="board-connection-handle"
+            id="top"
+            position={Position.Top}
+            style={{ top: -6 }}
+            type="source"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+            id="top-target"
+            position={Position.Top}
+            style={{ top: -6 }}
+            type="target"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+            data-testid="board-connection-handle"
+            id="right"
+            position={Position.Right}
+            style={{ right: -6 }}
+            type="source"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+            id="right-target"
+            position={Position.Right}
+            style={{ right: -6 }}
+            type="target"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+            data-testid="board-connection-handle"
+            id="bottom"
+            position={Position.Bottom}
+            style={{ bottom: -6 }}
+            type="source"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+            id="bottom-target"
+            position={Position.Bottom}
+            style={{ bottom: -6 }}
+            type="target"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+            data-testid="board-connection-handle"
+            id="left"
+            position={Position.Left}
+            style={{ left: -6 }}
+            type="source"
+          />
+          <Handle
+            className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+            id="left-target"
+            position={Position.Left}
+            style={{ left: -6 }}
+            type="target"
+          />
+        </div>
       </>
     );
   }

@@ -98,7 +98,7 @@ export const FloatingNavbar = memo(() => {
       return;
     }
 
-    addArea(trimmedAreaName, { x: 120, y: 120 }, { width: 720, height: 420 });
+    addArea(trimmedAreaName, { x: 500, y: 500 }, { width: 720, height: 420 });
     setShowAreaCreateDialog(false);
     setAreaName("");
   };
