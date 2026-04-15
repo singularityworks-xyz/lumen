@@ -538,27 +538,29 @@ describe("CollaborationProvider", () => {
   });
 
   describe("Missing JWT path", () => {
-    it("sets connectionState to error when getJwtToken returns null", async () => {
-      mockGetJwtToken.mockResolvedValue(null as unknown as string);
+    it("continues with session auth when getJwtToken returns null", async () => {
+      mockGetJwtToken.mockResolvedValue(null);
 
       const { getContext } = renderProvider();
       await act(async () => {
         await getContext().connect("ws-1");
       });
 
-      expect(getContext().connectionState).toBe("error");
-      expect(mockRecordError).toHaveBeenCalled();
+      expect(getContext().connectionState).toBe("connecting");
+      expect(wsInstances).toHaveLength(1);
+      expect(wsInstances[0]!.url).not.toContain("token=");
+      expect(mockRecordError).not.toHaveBeenCalled();
     });
 
-    it("does not create WebSocket when JWT is missing", async () => {
-      mockGetJwtToken.mockResolvedValue(null as unknown as string);
+    it("still creates WebSocket when JWT is missing", async () => {
+      mockGetJwtToken.mockResolvedValue(null);
 
       const { getContext } = renderProvider();
       await act(async () => {
         await getContext().connect("ws-1");
       });
 
-      expect(wsInstances).toHaveLength(0);
+      expect(wsInstances).toHaveLength(1);
     });
   });
 

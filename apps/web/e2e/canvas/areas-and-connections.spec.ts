@@ -1,9 +1,66 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
+
+async function createConnectionViaDialog(
+  sourceBoard: Locator,
+  targetName: string
+) {
+  const connectionDialog = await openConnectionDialog(sourceBoard);
+
+  const targetBoardButton = connectionDialog
+    .locator("button")
+    .filter({ hasText: targetName })
+    .first();
+  await expect(targetBoardButton).toBeVisible();
+  await targetBoardButton.click();
+
+  const createButton = connectionDialog
+    .locator(
+      '[data-testid="connection-style-save"]:has-text("Create Connection")'
+    )
+    .first();
+  await expect(createButton).toBeVisible();
+  await createButton.click();
+}
+
+async function openBoardQuickActions(sourceBoard: Locator) {
+  const page = sourceBoard.page();
+  const header = sourceBoard.locator('[data-testid="board-header"]');
+  await expect(header).toBeAttached();
+  await header.dispatchEvent("contextmenu", { button: 2 });
+
+  const quickActionsMenu = page
+    .locator('[data-testid="board-rename-option"]')
+    .first()
+    .locator('xpath=ancestor::*[@role="dialog"][1]');
+  await expect(quickActionsMenu).toBeVisible();
+
+  return quickActionsMenu;
+}
+
+async function openConnectionDialog(sourceBoard: Locator) {
+  const page = sourceBoard.page();
+  const quickActionsMenu = await openBoardQuickActions(sourceBoard);
+
+  const connectionsButton = quickActionsMenu
+    .locator('button:has-text("Connections")')
+    .first();
+  await expect(connectionsButton).toBeVisible();
+  await expect(connectionsButton).toBeEnabled();
+  await connectionsButton.click();
+
+  const connectionDialog = page
+    .locator('h4:has-text("Add New Connection")')
+    .first()
+    .locator('xpath=ancestor::*[@role="dialog"][1]');
+  await expect(connectionDialog).toBeVisible();
+
+  return connectionDialog;
+}
 
 test.describe("E2E-05: Area Management and Board Connections", () => {
   test.beforeEach(async ({ page }) => {
@@ -50,10 +107,22 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
     const areaBox = await area.boundingBox();
 
     const boardNode = page.locator('[data-testid="board-node"]').first();
+    const boardHeader = boardNode.locator('[data-testid="board-header"]');
     const boardBox = await boardNode.boundingBox();
 
     if (areaBox && boardBox) {
-      await boardNode.dragTo(area);
+      const headerBox = await boardHeader.boundingBox();
+      if (headerBox) {
+        await page.mouse.move(
+          headerBox.x + headerBox.width / 2,
+          headerBox.y + headerBox.height / 2
+        );
+        await page.mouse.down();
+        await page.mouse.move(areaBox.x + areaBox.width / 2, areaBox.y + 90, {
+          steps: 14,
+        });
+        await page.mouse.up();
+      }
     }
 
     await page.waitForTimeout(500);
@@ -80,11 +149,18 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
     const initialBox = await area.boundingBox();
     expect(initialBox).not.toBeNull();
 
-    await area.locator('[data-testid="area-header"]').hover();
+    const areaHeader = area.locator('[data-testid="area-header"]');
+    const areaHeaderBox = await areaHeader.boundingBox();
+    expect(areaHeaderBox).not.toBeNull();
+
+    await areaHeader.hover();
     await page.mouse.down();
     await page.mouse.move(
-      (initialBox?.x || 0) + 300,
-      (initialBox?.y || 0) + 100
+      (areaHeaderBox?.x || 0) + 300,
+      (areaHeaderBox?.y || 0) + 100,
+      {
+        steps: 12,
+      }
     );
     await page.mouse.up();
 
@@ -109,41 +185,26 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
 
     const board1 = page.locator('[data-testid="board-node"]').first();
     const board2 = page.locator('[data-testid="board-node"]').nth(1);
-
-    await board1.locator('[data-testid="board-connection-handle"]').hover();
-    await page.waitForTimeout(200);
-
-    const board1Box = await board1.boundingBox();
-    const board2Box = await board2.boundingBox();
-
-    if (board1Box && board2Box) {
-      await page.mouse.move(
-        board1Box.x + board1Box.width,
-        board1Box.y + board1Box.height / 2
-      );
-      await page.mouse.down();
-      await page.mouse.move(board2Box.x, board2Box.y + board2Box.height / 2);
-      await page.mouse.up();
-    }
+    await expect(board2).toContainText("Second Board for Connection");
+    await createConnectionViaDialog(board1, "Second Board for Connection");
 
     await page.waitForTimeout(500);
-
-    await board1.locator('[data-testid="board-connection-handle"]').hover();
-    await page.waitForTimeout(200);
 
     const connectionCountBefore = await page
       .locator('[data-testid="board-connection"]')
       .count();
+    expect(connectionCountBefore).toBeGreaterThan(0);
 
-    if (board1Box && board2Box) {
-      await page.mouse.move(
-        board1Box.x + board1Box.width,
-        board1Box.y + board1Box.height / 2
-      );
-      await page.mouse.down();
-      await page.mouse.move(board2Box.x, board2Box.y + board2Box.height / 2);
-      await page.mouse.up();
-    }
+    const connectionDialog = await openConnectionDialog(board1);
+    await expect(
+      connectionDialog.getByText("No available boards to connect").first()
+    ).toBeVisible();
+    await expect(
+      connectionDialog.getByText("Existing Connections")
+    ).toBeVisible();
+    await expect(
+      connectionDialog.getByText("Second Board for Connection").first()
+    ).toBeVisible();
 
     await page.waitForTimeout(500);
 
@@ -155,68 +216,60 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
 
   test("self-loop connection creation is blocked", async ({ page }) => {
     const board = page.locator('[data-testid="board-node"]').first();
-    const boardBox = await board.boundingBox();
-    expect(boardBox).not.toBeNull();
-
-    const initialConnections = await page
-      .locator('[data-testid="board-connection"]')
-      .count();
-
-    const handle = board
-      .locator('[data-testid="board-connection-handle"]')
+    const quickActions = await openBoardQuickActions(board);
+    const connectionsButton = quickActions
+      .locator('button:has-text("Connections")')
       .first();
-    await handle.hover();
-    await page.waitForTimeout(200);
-
-    if (boardBox) {
-      await page.mouse.move(
-        boardBox.x + boardBox.width,
-        boardBox.y + boardBox.height / 2
-      );
-      await page.mouse.down();
-      await page.mouse.move(boardBox.x + boardBox.width / 2, boardBox.y);
-      await page.mouse.up();
-    }
-
-    await page.waitForTimeout(500);
+    await expect(connectionsButton).toBeDisabled();
 
     const finalConnections = await page
       .locator('[data-testid="board-connection"]')
       .count();
-    expect(finalConnections).toBe(initialConnections);
+    expect(finalConnections).toBe(0);
   });
 
   test("connection style edits persist", async ({ page }) => {
+    const newBoardButton = page.locator('[data-testid="new-board-button"]');
+    await newBoardButton.click();
+    await page.fill(
+      '[data-testid="board-name-input"]',
+      "Second Board for Style Connection"
+    );
+    await page.click('[data-testid="board-create-submit"]');
+    await page.waitForTimeout(500);
+
     const board1 = page.locator('[data-testid="board-node"]').first();
     const board2 = page.locator('[data-testid="board-node"]').nth(1);
-
-    const board1Box = await board1.boundingBox();
-    const board2Box = await board2.boundingBox();
-
-    if (board1Box && board2Box) {
-      await page.mouse.move(
-        board1Box.x + board1Box.width,
-        board1Box.y + board1Box.height / 2
-      );
-      await page.mouse.down();
-      await page.mouse.move(board2Box.x, board2Box.y + board2Box.height / 2);
-      await page.mouse.up();
-    }
+    await expect(board2).toContainText("Second Board for Style Connection");
+    await createConnectionViaDialog(
+      board1,
+      "Second Board for Style Connection"
+    );
 
     await page.waitForTimeout(500);
 
-    const connection = page.locator('[data-testid="board-connection"]').first();
-    await connection.click({ button: "right" });
+    const connectionDialog = await openConnectionDialog(board1);
+    await expect(
+      connectionDialog.getByText("Second Board for Style Connection").first()
+    ).toBeVisible();
 
-    await page.waitForSelector('[data-testid="connection-edit-option"]');
-    await page.click('[data-testid="connection-edit-option"]');
+    const editButton = connectionDialog
+      .locator('button[title="Edit connection"]')
+      .first();
+    await expect(editButton).toBeVisible();
+    await editButton.click();
 
-    await page.waitForSelector('[data-testid="connection-style-select"]');
-    await page.selectOption(
-      '[data-testid="connection-style-select"]',
-      "dotted"
-    );
-    await page.click('[data-testid="connection-style-save"]');
+    const styleSelect = connectionDialog
+      .locator('[data-testid="connection-style-select"]')
+      .first();
+    await expect(styleSelect).toBeVisible();
+    await styleSelect.selectOption("dotted");
+
+    const saveButton = connectionDialog
+      .locator('[data-testid="connection-style-save"]:has-text("Save")')
+      .first();
+    await expect(saveButton).toBeVisible();
+    await saveButton.click();
 
     await page.reload();
     await waitForAppReady(page);
@@ -228,43 +281,54 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
   });
 
   test("connection label edits persist", async ({ page }) => {
+    const newBoardButton = page.locator('[data-testid="new-board-button"]');
+    await newBoardButton.click();
+    await page.fill(
+      '[data-testid="board-name-input"]',
+      "Second Board for Label Connection"
+    );
+    await page.click('[data-testid="board-create-submit"]');
+    await page.waitForTimeout(500);
+
     const board1 = page.locator('[data-testid="board-node"]').first();
     const board2 = page.locator('[data-testid="board-node"]').nth(1);
-
-    const board1Box = await board1.boundingBox();
-    const board2Box = await board2.boundingBox();
-
-    if (board1Box && board2Box) {
-      await page.mouse.move(
-        board1Box.x + board1Box.width,
-        board1Box.y + board1Box.height / 2
-      );
-      await page.mouse.down();
-      await page.mouse.move(board2Box.x, board2Box.y + board2Box.height / 2);
-      await page.mouse.up();
-    }
+    await expect(board2).toContainText("Second Board for Label Connection");
+    await createConnectionViaDialog(
+      board1,
+      "Second Board for Label Connection"
+    );
 
     await page.waitForTimeout(500);
 
-    const connection = page.locator('[data-testid="board-connection"]').first();
-    await connection.click({ button: "right" });
-    await page.click('[data-testid="connection-edit-option"]');
+    const connectionDialog = await openConnectionDialog(board1);
+    await expect(
+      connectionDialog.getByText("Second Board for Label Connection").first()
+    ).toBeVisible();
 
-    await page.waitForSelector('[data-testid="connection-label-input"]');
-    await page.fill(
-      '[data-testid="connection-label-input"]',
-      "Test Connection Label"
-    );
-    await page.click('[data-testid="connection-style-save"]');
+    const editButton = connectionDialog
+      .locator('button[title="Edit connection"]')
+      .first();
+    await expect(editButton).toBeVisible();
+    await editButton.click();
+
+    const labelInput = connectionDialog
+      .locator('[data-testid="connection-label-input"]')
+      .first();
+    await expect(labelInput).toBeVisible();
+    await labelInput.fill("Test Connection Label");
+
+    const saveButton = connectionDialog
+      .locator('[data-testid="connection-style-save"]:has-text("Save")')
+      .first();
+    await expect(saveButton).toBeVisible();
+    await saveButton.click();
 
     await page.reload();
     await waitForAppReady(page);
 
-    const connectionAfterReload = page
-      .locator('[data-testid="board-connection"]')
+    const connectionLabel = page
+      .locator('[data-testid="connection-label"]')
       .first();
-    await expect(
-      connectionAfterReload.locator('[data-testid="connection-label"]')
-    ).toContainText("Test Connection Label");
+    await expect(connectionLabel).toContainText("Test Connection Label");
   });
 });

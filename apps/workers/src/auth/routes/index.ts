@@ -102,6 +102,19 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     };
   })
 
+  // Explicit get-session route for E2E/dev auth bypass compatibility.
+  // Better Auth's handler may ignore custom bypass headers; this endpoint
+  // uses auth.api.getSession directly, which is patched in development.
+  .get("/api/auth/get-session", ({ headers }) =>
+    withSpanAsync("auth.getSession", async () => {
+      const session = await auth.api.getSession({
+        headers: toHeaders(headers),
+      });
+
+      return session ?? null;
+    })
+  )
+
   // Generate a one-time token for native app authentication
   // Called from the native-callback page (in external browser) after OAuth success
   .post("/api/auth/native/generate-token", async ({ headers, set }) =>

@@ -55,15 +55,18 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
 
   test("board dragging persists after reload", async ({ page }) => {
     const boardNode = page.locator('[data-testid="board-node"]').first();
+    const boardHeader = boardNode.locator('[data-testid="board-header"]');
     const initialBox = await boardNode.boundingBox();
     expect(initialBox).not.toBeNull();
 
-    await boardNode.hover();
+    const headerBox = await boardHeader.boundingBox();
+    expect(headerBox).not.toBeNull();
+
+    await boardHeader.hover();
     await page.mouse.down();
-    await page.mouse.move(
-      (initialBox?.x || 0) + 200,
-      (initialBox?.y || 0) + 100
-    );
+    await page.mouse.move((headerBox?.x || 0) + 240, (headerBox?.y || 0) + 80, {
+      steps: 12,
+    });
     await page.mouse.up();
 
     // Wait for drag to persist and IndexedDB to update

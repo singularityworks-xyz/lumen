@@ -609,7 +609,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
           <div
-            className="group flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
+            className="group board-drag-handle flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
             data-testid="board-header"
             onContextMenu={(e) => {
               e.preventDefault();

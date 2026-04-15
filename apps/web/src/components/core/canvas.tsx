@@ -607,11 +607,11 @@ export function KanbanCanvas() {
             fitView={nodes.length === 0}
             maxZoom={3}
             minZoom={0.1}
+            noDragClassName="nodrag"
+            nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable={
-              !showWelcomeScreen && interactionMode === "select"
-            }
+            nodesConnectable={!showWelcomeScreen}
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
             nodeTypes={{ ...nodeTypes, commentCluster: CommentClusterNode }}
             onConnect={handleConnect}

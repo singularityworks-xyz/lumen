@@ -380,6 +380,32 @@ interface UseEdgeHandlersProps {
   removeConnection: KanbanStore["removeConnection"];
 }
 
+const TARGET_HANDLE_SUFFIX = /-target$/;
+const SOURCE_HANDLE_SUFFIX = /-source$/;
+
+const normalizeHandlePosition = (
+  handle: string | null | undefined
+): "top" | "right" | "bottom" | "left" | undefined => {
+  if (!handle) {
+    return undefined;
+  }
+
+  const normalized = handle
+    .replace(TARGET_HANDLE_SUFFIX, "")
+    .replace(SOURCE_HANDLE_SUFFIX, "");
+
+  if (
+    normalized === "top" ||
+    normalized === "right" ||
+    normalized === "bottom" ||
+    normalized === "left"
+  ) {
+    return normalized;
+  }
+
+  return undefined;
+};
+
 export function useEdgeHandlers({
   onEdgesChange,
   addConnection,
@@ -404,10 +430,8 @@ export function useEdgeHandlers({
 
       if (source && target) {
         addConnection(source, target, {
-          sourceHandle:
-            (sourceHandle as "top" | "right" | "bottom" | "left") ?? undefined,
-          targetHandle:
-            (targetHandle as "top" | "right" | "bottom" | "left") ?? undefined,
+          sourceHandle: normalizeHandlePosition(sourceHandle),
+          targetHandle: normalizeHandlePosition(targetHandle),
         });
       }
     },

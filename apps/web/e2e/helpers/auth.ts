@@ -53,9 +53,6 @@ export async function seedE2EAuth(): Promise<SeedResult> {
   const sessionId = `e2e-session-${randomBytes(8).toString("hex")}`;
   const sessionToken = `e2e-session-${userId}-${randomBytes(32).toString("base64url")}`;
 
-  const { createHash } = await import("node:crypto");
-  const hashedToken = createHash("sha256").update(sessionToken).digest("hex");
-
   await client.query(
     `
     INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
@@ -70,7 +67,7 @@ export async function seedE2EAuth(): Promise<SeedResult> {
     INSERT INTO "session" (id, "userId", token, "expiresAt", "createdAt", "updatedAt")
     VALUES ($1, $2, $3, $4, NOW(), NOW())
   `,
-    [sessionId, userId, hashedToken, expiresAt]
+    [sessionId, userId, sessionToken, expiresAt]
   );
 
   console.log(

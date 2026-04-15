@@ -123,7 +123,7 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
         }}
       >
         <div
-          className="absolute top-0 left-0 flex cursor-move items-center gap-2 rounded-br-lg px-3 py-2"
+          className="area-drag-handle absolute top-0 left-0 flex cursor-move items-center gap-2 rounded-br-lg px-3 py-2"
           data-testid="area-header"
           onPointerDown={() => {
             isDraggingHeader.current = true;

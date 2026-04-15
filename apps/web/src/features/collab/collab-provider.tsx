@@ -25,6 +25,29 @@ const logger = createLogger({ name: "collab:provider" });
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_WORKSPACE_DELETED = 3;
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+function normalizeApiOriginForCurrentHost(rawApiUrl: string): URL {
+  const apiOrigin = new URL(rawApiUrl);
+
+  if (typeof window === "undefined") {
+    return apiOrigin;
+  }
+
+  const currentHost = window.location.hostname;
+  const isApiLoopback = LOOPBACK_HOSTS.has(apiOrigin.hostname);
+  const isCurrentLoopback = LOOPBACK_HOSTS.has(currentHost);
+
+  if (isApiLoopback && isCurrentLoopback) {
+    apiOrigin.hostname = currentHost;
+  }
+
+  return apiOrigin;
+}
+
+function toWebSocketProtocol(protocol: string): "ws:" | "wss:" {
+  return protocol === "https:" ? "wss:" : "ws:";
+}
 
 // Encode Uint8Array to base64 string in a browser-compatible way
 // Uses btoa for browsers, falls back to Buffer for Node environments
@@ -290,16 +313,18 @@ export function CollaborationProvider({
       const { getCurrentUser, getJwtToken } = await import(
         "@/src/lib/auth-client"
       );
-      const token = await getJwtToken();
+
+      const [token, sessionUser] = await Promise.all([
+        getJwtToken(),
+        getCurrentUser(),
+      ]);
+
       if (!token) {
-        const err = new Error("Failed to get JWT token for WebSocket");
-        recordError(err, { "workspace.id": workspaceId });
-        logger.error("Failed to get JWT token for WebSocket");
-        setConnectionState("error");
-        return;
+        logger.warn("JWT token unavailable, using session auth for WebSocket", {
+          workspaceId,
+        });
       }
 
-      const sessionUser = await getCurrentUser();
       if (sessionUser) {
         const userColor = getColorForUser(sessionUser.id);
         localUserInfoRef.current = {
@@ -334,15 +359,22 @@ export function CollaborationProvider({
       const stateVector = Y.encodeStateVector(doc);
       const stateVectorBase64 = uint8ArrayToBase64(stateVector);
 
-      const ws = new WebSocket(
-        `${wsUrl}/ws/collab/${workspaceId}?stateVector=${encodeURIComponent(stateVectorBase64)}`
-      );
+      const wsEndpoint = normalizeApiOriginForCurrentHost(apiUrl);
+      wsEndpoint.protocol = toWebSocketProtocol(wsEndpoint.protocol);
+      wsEndpoint.pathname = `/ws/collab/${workspaceId}`;
+      wsEndpoint.searchParams.set("stateVector", stateVectorBase64);
+      if (token) {
+        wsEndpoint.searchParams.set("token", token);
+      }
+
+      const ws = new WebSocket(wsEndpoint.toString());
       wsRef.current = ws;
 
       ws.binaryType = "arraybuffer";
 
       logger.info("Attempting WebSocket connection", {
         url: `${wsUrl}/ws/collab/${workspaceId}`,
+        hasToken: !!token,
       });
 
       ws.onopen = () => {

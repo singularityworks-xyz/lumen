@@ -167,7 +167,13 @@ export async function createShareLinkForFirstBoard(
     throw new Error("Could not retrieve share link");
   }
 
-  return shareLink;
+  const currentUrl = new URL(page.url());
+  const normalizedShareUrl = new URL(shareLink, currentUrl.origin);
+  normalizedShareUrl.protocol = currentUrl.protocol;
+  normalizedShareUrl.hostname = currentUrl.hostname;
+  normalizedShareUrl.port = currentUrl.port;
+
+  return normalizedShareUrl.toString();
 }
 
 export interface TwoUserSetup {
