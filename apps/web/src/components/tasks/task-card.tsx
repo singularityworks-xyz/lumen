@@ -103,7 +103,7 @@ export const TaskCard = memo(
         }
 
         if (needsPan) {
-          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 0 });
         }
       },
       [getViewport, setViewport]

@@ -194,7 +194,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         }
 
         if (needsPan) {
-          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 0 });
         }
       },
       [getViewport, setViewport]
@@ -204,12 +204,13 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
-          // Existing modal already has a position; do NOT move the viewport
-          // so that screen coordinates stay consistent for reopen tests.
+          // Existing modal — bring to front, shake, but don't move viewport.
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
-        } else if (!result.usedLastPosition) {
+        } else {
+          // New modal (including reopen with remembered position):
+          // always call ensureDialogVisible so viewport stays consistent.
           setTimeout(
             () =>
               ensureDialogVisible(
