@@ -6,7 +6,7 @@ import {
   NodeResizer as Resizer,
 } from "@xyflow/react";
 import { GripVertical, Layout, Palette, Trash2 } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import { ICON_MAP } from "../utils/color-icon-utils";
@@ -35,6 +35,7 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(area?.name ?? "");
+  const isDraggingHeader = useRef(false);
 
   const handleDoubleClick = useCallback(() => {
     setEditName(area?.name ?? "");
@@ -115,6 +116,7 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
             ? "border-gray-400 ring-2 ring-gray-400/30"
             : "border-gray-300 dark:border-gray-600"
         )}
+        data-testid="area-node"
         style={{
           backgroundColor: `${area.color}15`,
           borderColor: area.color,
@@ -122,6 +124,13 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
       >
         <div
           className="absolute top-0 left-0 flex cursor-move items-center gap-2 rounded-br-lg px-3 py-2"
+          data-testid="area-header"
+          onPointerDown={() => {
+            isDraggingHeader.current = true;
+          }}
+          onPointerUp={() => {
+            isDraggingHeader.current = false;
+          }}
           style={{
             backgroundColor: `${area.color}25`,
           }}
@@ -157,7 +166,13 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
             // biome-ignore lint/a11y/noStaticElementInteractions:skip
             <span
               className="cursor-text select-none font-semibold text-gray-700 text-sm dark:text-gray-300"
-              onDoubleClick={handleDoubleClick}
+              onDoubleClick={(e) => {
+                if (isDraggingHeader.current) {
+                  e.preventDefault();
+                  return;
+                }
+                handleDoubleClick();
+              }}
             >
               {area.name}
             </span>
@@ -166,6 +181,7 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
           {(area.board_ids?.length ?? 0) > 0 && (
             <span
               className="flex h-5 items-center gap-1 rounded-full px-2 font-medium text-[10px]"
+              data-testid="area-board-count"
               style={{
                 backgroundColor: `${area.color}40`,
                 color: area.color,

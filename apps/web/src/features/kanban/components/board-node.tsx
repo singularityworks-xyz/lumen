@@ -211,7 +211,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
-        } else {
+        } else if (!result.usedLastPosition) {
           setTimeout(
             () =>
               ensureDialogVisible(
@@ -812,7 +812,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         </div>
 
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="top"
           position={Position.Top}
           style={{ top: -6 }}
@@ -826,7 +827,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="right"
           position={Position.Right}
           style={{ right: -6 }}
@@ -840,7 +842,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="bottom"
           position={Position.Bottom}
           style={{ bottom: -6 }}
@@ -854,7 +857,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="left"
           position={Position.Left}
           style={{ left: -6 }}

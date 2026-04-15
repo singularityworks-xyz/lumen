@@ -235,6 +235,7 @@ export const DuplicateWorkspaceDialog = memo(
                 <Input
                   autoFocus
                   className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                  data-testid="workspace-duplicate-name-input"
                   id="workspace-name"
                   onChange={(e) => handleNameChange(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -256,6 +257,7 @@ export const DuplicateWorkspaceDialog = memo(
               </Button>
               <Button
                 className="h-8 rounded-md bg-emerald-500/90 text-white text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-emerald-500 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                data-testid="workspace-duplicate-submit"
                 disabled={!name.trim()}
                 type="submit"
               >

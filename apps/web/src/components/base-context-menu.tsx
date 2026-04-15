@@ -110,6 +110,7 @@ export const BaseContextMenu = memo(
                         ? "text-red-600 hover:bg-red-100 focus:bg-red-100 dark:text-red-400 dark:focus:bg-red-900/30 dark:hover:bg-red-900/30"
                         : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                     )}
+                    data-testid={item.id}
                     onClick={() => {
                       item.onClick();
                       onClose();

@@ -60,7 +60,16 @@ export const EdgeContextMenu = memo(
       },
     ];
 
-    return <BaseContextMenu items={items} onClose={onClose} x={x} y={y} />;
+    const itemsWithTestIds = items.map((item) => {
+      if (item.id === "edit-label") {
+        return { ...item, id: "connection-edit-option" };
+      }
+      return item;
+    });
+
+    return (
+      <BaseContextMenu items={itemsWithTestIds} onClose={onClose} x={x} y={y} />
+    );
   }
 );
 

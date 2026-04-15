@@ -228,6 +228,7 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
               ? "ring-2 ring-primary/50"
               : "ring-1 ring-border/50"
           )}
+          data-testid="board-rename-dialog"
           role="dialog"
         >
           <div

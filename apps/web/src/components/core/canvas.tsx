@@ -440,15 +440,17 @@ export function KanbanCanvas() {
                 const bcx = cx + bw / 2,
                   bcy = cy + bh / 2;
 
+                const DRAG_ATTACH_PADDING = 20;
+
                 let foundAreaId: string | null = null;
                 for (const areaId of areaPositions.allIds) {
                   const ap = areaPositions.byId[areaId];
                   if (
                     ap &&
-                    bcx >= ap.x &&
-                    bcx <= ap.x + ap.width &&
-                    bcy >= ap.y &&
-                    bcy <= ap.y + ap.height
+                    bcx >= ap.x - DRAG_ATTACH_PADDING &&
+                    bcx <= ap.x + ap.width + DRAG_ATTACH_PADDING &&
+                    bcy >= ap.y - DRAG_ATTACH_PADDING &&
+                    bcy <= ap.y + ap.height + DRAG_ATTACH_PADDING
                   ) {
                     foundAreaId = areaId;
                     break;

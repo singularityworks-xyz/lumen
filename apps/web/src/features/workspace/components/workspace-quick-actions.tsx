@@ -16,7 +16,6 @@ import { cn } from "@/src/lib/utils";
 
 interface WorkspaceQuickActionsProps {
   getButtonRect: () => DOMRect | null;
-  isDefaultWorkspace: boolean;
   onClose: () => void;
   onDelete: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
   onDuplicate: (buttonRef: React.RefObject<HTMLButtonElement | null>) => void;
@@ -86,7 +85,6 @@ export const WorkspaceQuickActions = memo(
   ({
     workspaceId: _workspaceId,
     workspaceName,
-    isDefaultWorkspace,
     onRename,
     onReset,
     onDuplicate,
@@ -258,21 +256,17 @@ export const WorkspaceQuickActions = memo(
               <span>Duplicate</span>
             </button>
 
-            {!isDefaultWorkspace && (
-              <>
-                <div className="my-0.5 h-px bg-border/50" />
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
-                  data-testid="workspace-delete-option"
-                  onClick={() => onDelete(deleteButtonRef)}
-                  ref={deleteButtonRef}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Workspace</span>
-                </button>
-              </>
-            )}
+            <div className="my-0.5 h-px bg-border/50" />
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-red-600 text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-red-100 dark:text-red-400 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)] dark:hover:bg-red-900/20"
+              data-testid="workspace-delete-option"
+              onClick={() => onDelete(deleteButtonRef)}
+              ref={deleteButtonRef}
+              type="button"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Workspace</span>
+            </button>
           </div>
         </div>
       </>

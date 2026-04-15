@@ -98,8 +98,6 @@ export function WorkspaceSelector() {
     return ws && user && ws.ownerId && ws.ownerId !== user.id;
   });
 
-  const defaultWorkspaceId = myWorkspaces[0];
-
   const quickActionsWorkspace = workspaceQuickActions
     ? workspaces.byId[workspaceQuickActions.workspaceId]
     : null;
@@ -439,9 +437,6 @@ export function WorkspaceSelector() {
         ) : (
           <WorkspaceQuickActions
             getButtonRect={getButtonRect}
-            isDefaultWorkspace={
-              workspaceQuickActions.workspaceId === defaultWorkspaceId
-            }
             onClose={closeWorkspaceQuickActions}
             onDelete={(ref) =>
               handleOpenDialog("delete", workspaceQuickActions.workspaceId, ref)

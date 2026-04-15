@@ -57,7 +57,9 @@ export const TaskCard = memo(
       [getTaskDragCollaborator, task.id]
     );
 
-    const showCheckbox = selectedTaskIds.length > 0;
+    const interactionMode = useKanbanStore((state) => state.interactionMode);
+    const showCheckbox =
+      selectedTaskIds.length > 0 || interactionMode === "select";
     const isBeingDragged = draggedTaskId === task.id;
 
     const VIEWPORT_PADDING = 100;
@@ -337,6 +339,8 @@ export const TaskCard = memo(
       }
 
       if (showCheckbox) {
+        e.stopPropagation();
+        toggleTaskSelection(task.id);
         return;
       }
 
@@ -347,7 +351,7 @@ export const TaskCard = memo(
           taskId: task.id,
           boardId,
         });
-        if (!result.isExisting) {
+        if (!(result.isExisting || result.usedLastPosition)) {
           setTimeout(
             () =>
               ensureDialogVisible(
@@ -459,7 +463,7 @@ export const TaskCard = memo(
     if (showCheckbox) {
       return (
         <div
-          className={`cursor-default rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
+          className={`relative cursor-default rounded border bg-card p-2 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md ${
             isSelected
               ? "border-primary shadow-lg"
               : "border-border/40 dark:border-border/70"
@@ -467,13 +471,27 @@ export const TaskCard = memo(
           data-task-id={task.id}
           data-testid="task-card"
         >
-          <div className="flex items-start gap-1.5">
+          <button
+            aria-label={`Toggle selection for task ${task.title}`}
+            className="absolute inset-0 z-10 rounded"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleTaskSelection(task.id);
+            }}
+            type="button"
+          >
+            <span className="sr-only">Toggle task selection</span>
+          </button>
+
+          <div className="pointer-events-none relative z-20 flex items-start gap-1.5">
             {showCheckbox && (
-              <Checkbox
-                checked={isSelected}
-                className="mt-0.5"
-                onCheckedChange={handleCheckboxChange}
-              />
+              <div className="pointer-events-auto">
+                <Checkbox
+                  checked={isSelected}
+                  className="mt-0.5"
+                  onCheckedChange={handleCheckboxChange}
+                />
+              </div>
             )}
             <div className="min-w-0 flex-1 space-y-1.5">
               <h4
@@ -633,7 +651,7 @@ export const TaskCard = memo(
                   taskId: task.id,
                   boardId,
                 });
-                if (!result.isExisting) {
+                if (!(result.isExisting || result.usedLastPosition)) {
                   setTimeout(
                     () =>
                       ensureDialogVisible(

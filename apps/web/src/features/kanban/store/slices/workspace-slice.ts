@@ -9,7 +9,7 @@ import {
   generateWorkspaceId,
 } from "../ids";
 import type { KanbanStore } from "../types";
-import { getNextZIndex } from "../utils";
+import { createDefaultWorkspace, getNextZIndex } from "../utils";
 
 const logger = createLogger({ name: "[client] kanban/workspace" });
 const NEXT_PUBLIC_API_URL = env.NEXT_PUBLIC_API_URL;
@@ -228,11 +228,6 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
 
   deleteWorkspace: async (workspaceId) => {
     const state = get();
-    if (state.workspaces.allIds[0] === workspaceId) {
-      logger.warn({ id: workspaceId }, "Cannot delete default workspace");
-      return false;
-    }
-
     const workspace = state.workspaces.byId[workspaceId];
     if (!workspace) {
       logger.warn({ id: workspaceId }, "Workspace not found");
@@ -354,8 +349,34 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
 
       // Switch to default workspace if currently viewing deleted workspace
       if (currentState.currentWorkspaceId === workspaceId) {
+        if (currentState.workspaces.allIds.length === 0) {
+          const { id: fallbackWorkspaceId, workspace: fallbackWorkspace } =
+            createDefaultWorkspace();
+          currentState.workspaces.byId[fallbackWorkspaceId] = fallbackWorkspace;
+          currentState.workspaces.allIds.push(fallbackWorkspaceId);
+        }
+
         currentState.currentWorkspaceId =
           currentState.workspaces.allIds[0] ?? null;
+        currentState.taskDetailModals = {};
+        currentState.createTaskModals = {};
+        currentState.boardQuickActions = {};
+        currentState.boardDialogs = {};
+        currentState.columnQuickActions = {};
+        currentState.columnDialogs = {};
+        currentState.taskQuickActions = {};
+        currentState.connectionDialog = null;
+        currentState.areaDialogs = {};
+        currentState.dialogFocusStack = [];
+        currentState.selectedTaskIds = [];
+        currentState.selectedBoardId = null;
+        currentState.selectedBoardIds = [];
+        currentState.workspaceQuickActions = null;
+        currentState.workspaceDialog = null;
+        currentState.shakingTaskDetailModalId = null;
+        currentState.draggedTaskId = null;
+        currentState.shareDialog = null;
+        currentState.selectionBox = null;
       }
     });
 

@@ -4,6 +4,7 @@ import type { StateCreator } from "zustand";
 import { create, useStore } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { shallow } from "zustand/shallow";
 import { createAreaSlice } from "./slices/area-slice";
 import { createBoardSlice } from "./slices/board-slice";
 import { createChatSlice } from "./slices/chat-slice";
@@ -71,6 +72,7 @@ export const useKanbanStore = create<KanbanStore>()(
         }
         return tracked;
       },
+      equality: (pastState, currentState) => shallow(pastState, currentState),
     }),
     {
       name: STORAGE_KEY,

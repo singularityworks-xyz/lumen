@@ -75,6 +75,8 @@ export function BoardEdgeComponent({
   return (
     <>
       <BaseEdge
+        data-style={lineStyle}
+        data-testid="board-connection"
         id={id}
         markerEnd={markerEnd}
         path={edgePath}
@@ -108,6 +110,7 @@ export function BoardEdgeComponent({
             ) : (
               <button
                 className="cursor-pointer rounded border border-border bg-background px-2 py-1 font-medium text-foreground text-xs shadow-sm transition-colors hover:bg-accent"
+                data-testid="connection-label"
                 onDoubleClick={handleLabelDoubleClick}
                 style={{ userSelect: "none" }}
                 type="button"
