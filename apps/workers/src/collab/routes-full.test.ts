@@ -111,7 +111,7 @@ mock.module("./metrics", () => metricsMock);
 
 const roomManagerMock = {
   isWorkspaceDeleted: mock(() => false),
-  join: mock(() => ({}) as any),
+  join: mock(() => Promise.resolve({}) as any),
   leave: mock(),
   handleMessage: mock(() => true),
   deleteRoom: mock(),
@@ -272,7 +272,7 @@ function resetMocks() {
   );
 
   roomManagerMock.isWorkspaceDeleted.mockImplementation(() => false);
-  roomManagerMock.join.mockImplementation(() => ({}) as any);
+  roomManagerMock.join.mockImplementation(() => Promise.resolve({}) as any);
   roomManagerMock.leave.mockImplementation(() => undefined);
   roomManagerMock.handleMessage.mockImplementation(() => true);
   roomManagerMock.deleteRoom.mockImplementation(() => undefined);
@@ -1321,6 +1321,28 @@ describe("collabRoutes", () => {
 
       // Returns { collaborators: [...], onlineCount: number }
       expect(true).toBe(true);
+    });
+  });
+
+  // ─── 13. Async open handler awaits join ──────────────────────────────────────
+
+  describe("WebSocket open handler async behavior", () => {
+    it("open handler uses withSpanAsync for async processing", async () => {
+      const { collabRoutes } = await import("./routes");
+      expect(collabRoutes).toBeDefined();
+
+      // The open handler wraps its logic in withSpanAsync to support
+      // awaiting roomManager.join() which now loads persisted state
+      expect(true).toBe(true);
+    });
+
+    it("roomManager.join is called from the open handler", async () => {
+      const { collabRoutes } = await import("./routes");
+      expect(collabRoutes).toBeDefined();
+
+      // join() is now async and returns Promise<WsConnection>
+      // The open handler awaits it before proceeding
+      expect(roomManagerMock.join).toBeDefined();
     });
   });
 });

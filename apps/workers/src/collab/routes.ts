@@ -327,7 +327,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
 
     open(ws) {
-      withSpan("ws.open", () => {
+      withSpanAsync("ws.open", async () => {
         logger.debug("WebSocket open handler called");
         const { workspaceId } = ws.data.params;
         const wsData = ws.data as unknown as WsData;
@@ -375,7 +375,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           color,
         };
 
-        roomManager.join({
+        await roomManager.join({
           connectionId,
           ws: {
             // Use ws.raw.send() for direct Bun WebSocket access - ws.send() may have issues with async sends

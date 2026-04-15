@@ -146,8 +146,8 @@ export class RoomManager {
     user: CollaboratorInfo;
     workspaceId: string;
     initialStateVector?: Uint8Array;
-  }): WsConnection {
-    return withSpan("room.join", () => {
+  }): Promise<WsConnection> {
+    return withSpanAsync("room.join", async () => {
       const joinStartTime = performance.now();
       const { connectionId, ws, user, workspaceId, initialStateVector } =
         options;
@@ -186,6 +186,17 @@ export class RoomManager {
       });
 
       const room = this.getOrCreateRoom(workspaceId);
+
+      // Load persisted state from database if room is fresh (no prior connections and empty doc).
+      // This ensures new device logins restore workspace content even when no peers are online.
+      // pendingLoads map deduplicates concurrent calls so multiple simultaneous joins only
+      // trigger one DB fetch.
+      if (room.connections.size === 0) {
+        const boardsMap = room.doc.getMap(YJS_MAP_NAMES.BOARDS);
+        if (boardsMap.size === 0) {
+          await this.loadRoomState(workspaceId);
+        }
+      }
 
       // Generate unique awareness client ID
       const awarenessClientId = Math.floor(
