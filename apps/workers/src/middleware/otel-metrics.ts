@@ -24,6 +24,9 @@ export function normalizePath(pathname: string): string {
   );
 }
 
+// Infrastructure probe endpoints — skip metrics to prevent cardinality bloat
+const INFRA_ROUTES = new Set(["/health", "/", "/instance-id"]);
+
 export const otelMetrics = (app: Elysia) => {
   return app
     .derive(() => ({
@@ -45,6 +48,11 @@ export const otelMetrics = (app: Elysia) => {
       const url = new URL(request.url);
       // Normalize path to avoid high cardinality from dynamic segments
       const route = normalizePath(url.pathname);
+
+      // Skip metrics for infrastructure probe endpoints
+      if (INFRA_ROUTES.has(route)) {
+        return;
+      }
 
       const attributes = {
         method,

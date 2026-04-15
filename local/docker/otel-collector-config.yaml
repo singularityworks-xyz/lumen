@@ -17,6 +17,38 @@ processors:
         from_attribute: service.name
         action: upsert
 
+  # Drop health check / infra probe spans
+  filter/health-traces:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/healthz"'
+        - 'attributes["http.route"] == "/"'
+        - 'attributes["http.route"] == "/instance-id"'
+        - 'attributes["url.path"] == "/health"'
+        - 'attributes["url.path"] == "/"'
+        - 'attributes["url.path"] == "/instance-id"'
+        - 'IsMatch(name, "GET /health.*")'
+        - 'name == "GET /"'
+        - 'name == "GET /instance-id"'
+
+  # Drop health check and noisy logs
+  filter/health-logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'IsMatch(body, ".*[Hh]ealth check.*")'
+        - 'IsMatch(body, ".*Root endpoint accessed.*")'
+        - 'IsMatch(body, ".*Web environment variables loaded.*")'
+
+  # Drop debug-level logs (only info+ in production)
+  filter/log-level:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'severity_number < SEVERITY_NUMBER_INFO'
+
 exporters:
   # Traces to Tempo via OTLP
   otlp/tempo:
@@ -44,7 +76,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [resource, batch]
+      processors: [filter/health-traces, resource, batch]
       exporters: [otlp/tempo]
 
     metrics:
@@ -54,5 +86,5 @@ service:
 
     logs:
       receivers: [otlp]
-      processors: [resource, batch]
+      processors: [filter/health-logs, filter/log-level, resource, batch]
       exporters: [otlphttp/loki]

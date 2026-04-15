@@ -358,10 +358,8 @@ describe("Logger", () => {
   });
 
   describe("OpenTelemetry emission", () => {
-    it("emits otel log with correct severity for each level", () => {
-      const levelToSeverity: Record<LogLevel, number> = {
-        trace: 1,
-        debug: 5,
+    it("emits otel log with correct severity for info and above", () => {
+      const levelToSeverity: Partial<Record<LogLevel, number>> = {
         info: 9,
         warn: 13,
         error: 17,
@@ -375,6 +373,15 @@ describe("Logger", () => {
         expect(emitMock).toHaveBeenCalled();
         const data = emitMock.mock.calls[0]![0];
         expect(data.attributes["logger.name"]).toBe("sev-test");
+      }
+    });
+
+    it("does NOT emit trace/debug to OTel", () => {
+      for (const level of ["trace", "debug"] as const) {
+        emitMock.mockClear();
+        const l = createLogger({ level, name: "sev-test" });
+        (l as unknown as Record<string, (m: string) => void>)[level]!("test");
+        expect(emitMock).not.toHaveBeenCalled();
       }
     });
 

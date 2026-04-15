@@ -427,38 +427,34 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
 
     message(ws, message) {
-      withSpan("ws.message", () => {
-        const data = ws.data as unknown as WsData;
-        const connectionId = data.connectionId;
-        const workspaceId = ws.data.params.workspaceId;
-        if (!connectionId) {
-          return;
-        }
+      const data = ws.data as unknown as WsData;
+      const connectionId = data.connectionId;
+      const workspaceId = ws.data.params.workspaceId;
+      if (!connectionId) {
+        return;
+      }
 
-        const messageSize =
-          message instanceof ArrayBuffer
+      const messageSize =
+        message instanceof ArrayBuffer
+          ? message.byteLength
+          : message instanceof Uint8Array
             ? message.byteLength
-            : message instanceof Uint8Array
-              ? message.byteLength
-              : 0;
+            : 0;
 
-        setSpanAttributes({ connectionId, messageSize });
-
-        if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
-          const msgData =
-            message instanceof ArrayBuffer ? new Uint8Array(message) : message;
-          const handled = roomManager.handleMessage(connectionId, msgData);
-          if (handled) {
-            recordWsMessage({ messageSize: messageSize.toString() });
-          } else {
-            recordWsConnectionError({
-              connectionId,
-              workspaceId,
-              error: "message_handle_failed",
-            });
-          }
+      if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
+        const msgData =
+          message instanceof ArrayBuffer ? new Uint8Array(message) : message;
+        const handled = roomManager.handleMessage(connectionId, msgData);
+        if (handled) {
+          recordWsMessage({ messageSize: messageSize.toString() });
+        } else {
+          recordWsConnectionError({
+            connectionId,
+            workspaceId,
+            error: "message_handle_failed",
+          });
         }
-      });
+      }
     },
 
     close(ws) {

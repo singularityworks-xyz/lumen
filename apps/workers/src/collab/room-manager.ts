@@ -164,7 +164,7 @@ export class RoomManager {
         const existingRoom = this.rooms.get(existingRoomId);
         const existingConn = existingRoom?.connections.get(connectionId);
         if (existingConn) {
-          logger.info("Reusing existing connection", {
+          logger.debug("Reusing existing connection", {
             connectionId,
             workspaceId,
           });
@@ -175,7 +175,7 @@ export class RoomManager {
       }
 
       // Role check: viewers can connect and receive, but writes blocked elsewhere
-      logger.info("Client joining room", {
+      logger.debug("Client joining room", {
         connectionId,
         workspaceId,
         userId: user.id,
@@ -241,7 +241,7 @@ export class RoomManager {
         connectionId,
       });
 
-      logger.info("Client joined room", {
+      logger.debug("Client joined room", {
         connectionId,
         workspaceId,
         userId: user.id,
@@ -283,7 +283,7 @@ export class RoomManager {
       this.connectionToRoom.delete(connectionId);
 
       setSpanAttributes({ "room.remainingConnections": room.connections.size });
-      logger.info("Client left room", {
+      logger.debug("Client left room", {
         connectionId,
         workspaceId,
         remainingConnections: room.connections.size,
@@ -600,7 +600,7 @@ export class RoomManager {
           "room.entityCounts.tasks": entityCounts.tasks,
         });
 
-        logger.info("Persisting room state", {
+        logger.debug("Persisting room state", {
           workspaceId,
           operation: "room.persist",
           stateSize: state.length,
@@ -768,7 +768,7 @@ export class RoomManager {
         room.doc.destroy();
         this.rooms.delete(workspaceId);
 
-        logger.info("Room cleaned up", { workspaceId });
+        logger.debug("Room cleaned up", { workspaceId });
       }
     }, 30_000);
   }

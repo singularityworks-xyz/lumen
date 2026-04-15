@@ -34,36 +34,42 @@ defmodule PresenceWeb.Plugs.MetricsPlug do
 
   defp record_metrics(conn, duration_ms) do
     route = normalize_path(conn.request_path)
-    method = conn.method
-    status = conn.status
 
-    metadata = %{
-      method: method,
-      route: route,
-      status: status
-    }
+    # Skip metrics for infrastructure probe endpoints
+    if route in ["/health", "/"] do
+      :ok
+    else
+      method = conn.method
+      status = conn.status
 
-    # Record the request metric
-    Presence.Metrics.record_http_request(duration_ms, metadata)
-
-    # Log slow requests (over 1 second)
-    if duration_ms > 1000 do
-      Logger.warning("Slow HTTP request",
+      metadata = %{
         method: method,
         route: route,
-        status: status,
-        duration_ms: duration_ms
-      )
-    end
+        status: status
+      }
 
-    # Log errors (5xx status codes)
-    if status >= 500 do
-      Logger.error("HTTP request error",
-        method: method,
-        route: route,
-        status: status,
-        duration_ms: duration_ms
-      )
+      # Record the request metric
+      Presence.Metrics.record_http_request(duration_ms, metadata)
+
+      # Log slow requests (over 1 second)
+      if duration_ms > 1000 do
+        Logger.warning("Slow HTTP request",
+          method: method,
+          route: route,
+          status: status,
+          duration_ms: duration_ms
+        )
+      end
+
+      # Log errors (5xx status codes)
+      if status >= 500 do
+        Logger.error("HTTP request error",
+          method: method,
+          route: route,
+          status: status,
+          duration_ms: duration_ms
+        )
+      end
     end
   end
 
