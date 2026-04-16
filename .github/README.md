@@ -1,38 +1,21 @@
-<div align="center">
-  <img
-    src="https://storage-r2.singularityworks.xyz/banner.png"
-    alt="Singularity Works banner"
-    width="100%"
-  />
+```
+ ⠀⠀⠀ ⠀⠀⢀⣠⠤⠶⠒⠚⠛⠓⢲⣶⡤
+⠀⠀⠀⠀⢀⡴⠚⠁⠁⠁⠁⣁⠵⠛⠉⠁⠀⠀⠀
+⠀⠀⢀⣴⠁⠁⠁⠁⠁⢁⡞⠁
+⠀⢠⡞⠁⠁⠁⠁⠁⢁⠏⠀⠀
+⢀⡾⠁⠁⠁⠁⠁⢁⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠀⠀⠀⠀⢠⡿     LUMEN - Work, illuminated.
+⣼⠁⠁⠁⠁⠁⠁⣹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⣶⡄⣰⣿      
+⣿⠁⠁⠁⠁⠁⠁⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⠏      A local-first spatial workspace for free-form kanban,
+⣿⠁⠁⠁⠁⠁⠁⢻⡄⠀⠀⠀⣴⠿⢿⣆⠀⢀⣴⣿⣿⣿⣿⠃       structured tasks, durable offline work, and 
+⢻⠁⠁⠁⠁⠁⠁⠉⣷⡀⠀⠀⣿⠀⠾⠏⣴⣿⣿⣿⣿⣿⡟        realtime collaboration with other goodies.
+⠈⢧⠁⠁⠁⠁⠁⠁⠉⠷⣄⠀⠹⡄⠀⠀⣿⣿⣿⣿⣿⣿⡇        
+⠀⠘⢆⠁⠁⠁⠁⠁⠁⠁⠉⠳⣄⠹⣦⡀⢿⣿⣿⣿⣿⣿⡇        https://lumen.itssingularity.com
+⠀⠀⠈⢳⡁⠁⠁⠁⠁⠁⠁⠁⠉⠙⠶⡿⣿⣿⣿⣿⣿⣿⠷
+⠀⠀⠀⠀⠉⠳⣅⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⣁⡥⠛⠁
+⠀⠀⠀⠀⠀⠀⠀⠉⠓⠳⢧⣥⣥⣥⡥⠥⠵⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+```
 
-  <h1>Lumen.</h1>
-  <p><strong>Work, illuminated.</strong></p>
-  <p>
-    A local-first spatial workspace for free-form kanban, structured tasks,
-    durable offline work, and optional realtime collaboration.
-  </p>
-  <p>
-    <a href="https://canvas.itssingularity.com">Open the app</a>
-    ·
-    <a href="https://lumen.itssingularity.com">Visit the product site</a>
-  </p>
-</div>
-
-> [!IMPORTANT]
-> **Repository policy**
->
-> This repository is **source-available**, not open source in the OSI sense. It
-> is published for product transparency, issue reporting, and technical
-> discussion. **No external contributions are accepted**: pull requests,
-> unsolicited patches, and distribution requests are closed by policy. If your
-> company needs an integration, partnership, or commercial arrangement, contact
-> us directly. **Redistribution is not permitted.** Do not mirror, resell,
-> rehost, republish, or distribute modified or unmodified builds of Lumen
-> without prior written permission from Singularity Works. If you want to
-> report a bug, raise a product concern, or discuss architecture, open an issue
-> in this repository. That is the supported public channel.
-
-## What Lumen Is
+### What Lumen Is ?
 
 Lumen is a spatial system for organizing work.
 
@@ -53,7 +36,7 @@ over hierarchy, local-first durability before cloud dependence, realtime
 collaboration without surrendering determinism, and infrastructure that stays
 serious even when the interface remains calm.
 
-## What Lumen Actually Does
+### What Lumen Actually Does !
 
 Lumen is built for people and teams who need more than a checklist and less
 than ceremony-heavy project software. It lets you build free-form kanban
@@ -68,7 +51,7 @@ needed, shows live presence instead of stale refreshes, and extends the
 workspace with structured backend and AI services where they are genuinely
 useful.
 
-## Collaboration And Support
+### Collaboration And Support !
 
 Singularity Works is not running this repository as a community-maintained
 project. Use **Issues** for bug reports, regressions, breakage, and concrete
@@ -78,32 +61,32 @@ this repository as a public extension surface or redistribution grant. If a
 change is strategically important to your team, contact Singularity Works
 instead of preparing an unsolicited patch set.
 
-## Licensing And Distribution
+<img alt="lumen" width="98%" src="https://github.com/user-attachments/assets/9a0a384d-77bd-4a8c-befb-919782d154a7" />
 
-This repository does **not** grant broad redistribution rights.
+### Licensing & Distribution !
 
-Unless Singularity Works publishes a separate written license for a specific
-component, this codebase should be treated as **all rights reserved,
-source-available software**. Visibility of the source is for review,
-discussion, and issue reporting. It is **not** permission to repackage the
-product, ship derivative builds, run public mirrors, or commercially distribute
-Lumen.
+> [!IMPORTANT]
+> This repository is **source-available**, not open source in the OSI sense. It
+> is published for product transparency, issue reporting, and technical
+> discussion. **No external contributions are accepted**: pull requests,
+> unsolicited patches, and distribution requests are closed by policy. If your
+> company needs an integration, partnership, or commercial arrangement, contact
+> us directly. **Redistribution is not permitted.** Do not mirror, resell,
+> rehost, republish, or distribute modified or unmodified builds of Lumen
+> without prior written permission from Singularity Works. If you want to
+> report a bug, raise a product concern, or discuss architecture, open an issue
+> in this repository. That is the supported public channel.
 
-If you need licensing, partnership, or deployment rights, contact the company
+This repository does **not** grant broad redistribution rights. If you need licensing, partnership, or deployment rights, contact the company
 directly.
 
-## About Singularity Works
-
-**Singularity Works** designs and ships software systems that value clarity,
-resilience, and product sharpness over noise.
-
-Lumen is one of those systems: a spatial work environment engineered to feel
-calm at the surface and rigorous underneath.
-
-**Contact:** [work@itssingularity.com](mailto:work@itssingularity.com)  
-**Product site:** https://lumen.itssingularity.com  
-**App:** https://canvas.itssingularity.com
+</br>
 
 <p align="center">
-  <sub>Singularity Works. All rights reserved.</sub>
+    <img
+    src="https://storage-r2.singularityworks.xyz/banner.png"
+    alt="Singularity Works banner"
+    width="100%"
+    />
+  <sub>Singularity Works. All rights reserved. work@itssingularity.com</sub>
 </p>
