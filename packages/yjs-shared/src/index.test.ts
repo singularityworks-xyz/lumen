@@ -4,6 +4,7 @@ import {
   AreaDialogSchema,
   AreaPositionSchema,
   AreaSchema,
+  assignSafeYjsClientId,
   BoardConnectionSchema,
   BoardDialogSchema,
   BoardPositionSchema,
@@ -19,10 +20,12 @@ import {
   ConnectionDialogSchema,
   CreateTaskModalSchema,
   createEntityMapSchema,
+  generateSafeYjsClientId,
   getMapStats,
   HandlePositionSchema,
   InteractionModeSchema,
   LineStyleSchema,
+  MAX_YJS_CLIENT_ID,
   PrioritySchema,
   parseWithDefault,
   TaskDetailModalSchema,
@@ -721,6 +724,25 @@ describe("yjs-shared schemas", () => {
     it("is deterministic", () => {
       const maps = { a: { size: 3 }, b: { size: 7 } };
       expect(getMapStats(maps)).toEqual(getMapStats(maps));
+    });
+  });
+
+  describe("safe Yjs client IDs", () => {
+    it("generates non-zero client IDs within supported range", () => {
+      for (let i = 0; i < 200; i++) {
+        const clientId = generateSafeYjsClientId();
+        expect(clientId).toBeGreaterThanOrEqual(1);
+        expect(clientId).toBeLessThanOrEqual(MAX_YJS_CLIENT_ID);
+      }
+    });
+
+    it("assignSafeYjsClientId writes the generated id to doc", () => {
+      const doc = { clientID: 0 };
+      const assigned = assignSafeYjsClientId(doc);
+
+      expect(doc.clientID).toBe(assigned);
+      expect(assigned).toBeGreaterThanOrEqual(1);
+      expect(assigned).toBeLessThanOrEqual(MAX_YJS_CLIENT_ID);
     });
   });
 });

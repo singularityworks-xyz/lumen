@@ -3,6 +3,7 @@
 
 import { createLogger } from "@lumen/logger";
 import { recordError, withSpanAsync } from "@lumen/logger/tracer";
+import { assignSafeYjsClientId } from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import {
@@ -337,6 +338,7 @@ export function CollaborationProvider({
       }
 
       const doc = new Y.Doc();
+      assignSafeYjsClientId(doc);
       docRef.current = doc;
 
       const awareness = new awarenessProtocol.Awareness(doc);

@@ -8,6 +8,7 @@ import {
   withSpanAsync,
 } from "@lumen/logger/server";
 import {
+  assignSafeYjsClientId,
   MESSAGE_AWARENESS,
   MESSAGE_SYNC,
   MESSAGE_WORKSPACE_DELETED,
@@ -91,6 +92,7 @@ export class RoomManager {
         logger.info("Creating new room", { workspaceId });
 
         const doc = new Y.Doc();
+        assignSafeYjsClientId(doc);
         const awareness = new awarenessProtocol.Awareness(doc);
 
         doc.getMap(YJS_MAP_NAMES.BOARDS);
