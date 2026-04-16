@@ -135,6 +135,14 @@ export const useKanbanStore = create<KanbanStore>()(
   )
 );
 
+if (typeof window !== "undefined") {
+  type KanbanWindow = Window & {
+    __KANBAN_STORE__?: typeof useKanbanStore;
+  };
+
+  (window as KanbanWindow).__KANBAN_STORE__ = useKanbanStore;
+}
+
 export const useTemporalStore = <T>(
   selector: (state: TemporalState<Partial<KanbanState>>) => T
 ): T => useStore(useKanbanStore.temporal, selector);

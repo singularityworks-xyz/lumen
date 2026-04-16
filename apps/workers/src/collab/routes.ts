@@ -35,6 +35,7 @@ import { type CollaboratorInfo, roomManager } from "./room-manager";
 const logger = createLogger({ name: "collab:routes" });
 
 interface WsData {
+  __pendingAuth?: PendingAuthEntry;
   collaborator?: { role: Role };
   connectionId?: string;
   connectionStartTime?: number;
@@ -64,24 +65,6 @@ interface PendingAuthEntry {
   };
 }
 
-// Store pending auth data as queues per workspace to ensure FIFO ordering
-// This fixes the race condition where concurrent connections could get mismatched auth data
-const pendingAuthQueues = new Map<string, PendingAuthEntry[]>();
-
-// Clean up old pending auth entries every 30 seconds
-setInterval(() => {
-  const now = Date.now();
-  for (const [workspaceId, queue] of pendingAuthQueues.entries()) {
-    // Filter out entries older than 30 seconds
-    const filtered = queue.filter((entry) => now - entry.timestamp <= 30_000);
-    if (filtered.length === 0) {
-      pendingAuthQueues.delete(workspaceId);
-    } else if (filtered.length !== queue.length) {
-      pendingAuthQueues.set(workspaceId, filtered);
-    }
-  }
-}, 30_000);
-
 export const collabRoutes = new Elysia({ name: "collab-routes" })
   .ws("/ws/collab/:workspaceId", {
     body: t.Any(),
@@ -93,11 +76,15 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       stateVector: t.Optional(t.String()),
     }),
 
-    beforeHandle({ params, headers, set, query }) {
+    beforeHandle(context) {
       return withSpanAsync("ws.auth", async () => {
+        const { params, headers, set, query } = context;
         const { workspaceId } = params;
         const { token } = query;
         const authMethod = token ? "jwt" : "session";
+        const wsContext = context as typeof context & {
+          __pendingAuth?: PendingAuthEntry;
+        };
 
         setSpanAttributes({ workspaceId, authMethod });
 
@@ -193,7 +180,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             // Generate unique connection ID for this WebSocket connection
             const connectionId = generateId(16);
 
-            // Push auth data to workspace queue for open handler to retrieve (FIFO)
+            // Attach auth data directly to this request context.
+            // Elysia copies context into ws.data during upgrade, so open() can read
+            // the exact auth payload for this socket without cross-connection races.
             const authEntry: PendingAuthEntry = {
               user: {
                 id: userId,
@@ -211,14 +200,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               timestamp: Date.now(),
               connectionStartTime: performance.now(),
             };
-            const queue = pendingAuthQueues.get(workspaceId) ?? [];
-            queue.push(authEntry);
-            pendingAuthQueues.set(workspaceId, queue);
+            wsContext.__pendingAuth = authEntry;
 
-            logger.debug("JWT auth successful, stored in pendingAuthQueues", {
+            logger.debug("JWT auth successful, attached to context", {
               userId,
               connectionId,
-              queueLength: queue.length,
             });
 
             // Return undefined to allow WebSocket upgrade to proceed
@@ -302,7 +288,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         // Generate unique connection ID for this WebSocket connection
         const connectionId = generateId(16);
 
-        // Push auth data to workspace queue for open handler to retrieve (FIFO)
+        // Attach auth data directly to this request context.
+        // Elysia copies context into ws.data during upgrade, so open() can read
+        // the exact auth payload for this socket without cross-connection races.
         const authEntry: PendingAuthEntry = {
           user: session.user,
           collaborator: collab,
@@ -311,14 +299,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           timestamp: Date.now(),
           connectionStartTime: performance.now(),
         };
-        const queue = pendingAuthQueues.get(workspaceId) ?? [];
-        queue.push(authEntry);
-        pendingAuthQueues.set(workspaceId, queue);
+        wsContext.__pendingAuth = authEntry;
 
-        logger.debug("Session auth successful, stored in pendingAuthQueues", {
+        logger.debug("Session auth successful, attached to context", {
           userId: session.user.id,
           connectionId,
-          queueLength: queue.length,
         });
 
         // Return undefined to allow WebSocket upgrade to proceed
@@ -332,18 +317,13 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         const { workspaceId } = ws.data.params;
         const wsData = ws.data as unknown as WsData;
 
-        // Get the first auth entry from the workspace queue (FIFO order)
-        // This ensures correct auth data assignment even with concurrent connections
-        const queue = pendingAuthQueues.get(workspaceId);
-        const authData = queue?.shift();
-
-        // Clean up empty queues
-        if (queue && queue.length === 0) {
-          pendingAuthQueues.delete(workspaceId);
-        }
+        // Read auth data from this socket's upgrade context.
+        // This is deterministic and avoids cross-connection mixups.
+        const authData = wsData.__pendingAuth;
+        wsData.__pendingAuth = undefined;
 
         if (!authData) {
-          logger.error("No pending auth data found for workspace", {
+          logger.error("No auth data found on WebSocket context", {
             workspaceId,
           });
           recordWsConnectionError({ workspaceId, error: "auth_data_missing" });

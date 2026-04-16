@@ -61,7 +61,7 @@ export function useJoinWorkspace({
     };
   } | null>(null);
 
-  const apiUrl = env.NEXT_PUBLIC_API_URL;
+  const apiUrl = env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1");
 
   const validateToken = useCallback(() => {
     if (!shareToken) {
@@ -108,7 +108,7 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [shareToken, onJoinError]);
+  }, [shareToken, onJoinError, apiUrl]);
 
   const joinWorkspace = useCallback(() => {
     if (!(shareToken && isAuthenticated && workspaceInfo)) {
@@ -166,7 +166,14 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [shareToken, isAuthenticated, workspaceInfo, onJoinSuccess, onJoinError]);
+  }, [
+    shareToken,
+    isAuthenticated,
+    workspaceInfo,
+    onJoinSuccess,
+    onJoinError,
+    apiUrl,
+  ]);
 
   // Start validation when share token is present
   useEffect(() => {

@@ -39,7 +39,7 @@ function KanbanPageContent() {
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
-  const apiUrl = env.NEXT_PUBLIC_API_URL;
+  const apiUrl = env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1");
 
   const handleJoinComplete = useCallback(
     async (data: JoinSuccessData | null) => {
@@ -135,7 +135,7 @@ function KanbanPageContent() {
         }
       }
     },
-    [shareToken, router, workspaces.byId, setCurrentWorkspace]
+    [apiUrl, shareToken, router, workspaces.byId, setCurrentWorkspace]
   );
 
   useEffect(() => {
@@ -159,13 +159,12 @@ function KanbanPageContent() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
       <WorkspaceDeletedBanner />
-      <JoinWorkspaceHandler
-        onComplete={handleJoinComplete}
-        shareToken={shareToken}
-      />
-
       {isReady ? (
         <>
+          <JoinWorkspaceHandler
+            onComplete={handleJoinComplete}
+            shareToken={shareToken}
+          />
           <ReactFlowProvider>
             <KanbanCanvas />
             <MobileNavbar position="bottom" />

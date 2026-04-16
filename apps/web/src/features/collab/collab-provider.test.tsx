@@ -539,7 +539,7 @@ describe("CollaborationProvider", () => {
 
   describe("Missing JWT path", () => {
     it("continues with session auth when getJwtToken returns null", async () => {
-      mockGetJwtToken.mockResolvedValue(null);
+      mockGetJwtToken.mockResolvedValue(null as unknown as string);
 
       const { getContext } = renderProvider();
       await act(async () => {
@@ -553,7 +553,7 @@ describe("CollaborationProvider", () => {
     });
 
     it("still creates WebSocket when JWT is missing", async () => {
-      mockGetJwtToken.mockResolvedValue(null);
+      mockGetJwtToken.mockResolvedValue(null as unknown as string);
 
       const { getContext } = renderProvider();
       await act(async () => {

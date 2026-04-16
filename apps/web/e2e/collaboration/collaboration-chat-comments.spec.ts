@@ -1,33 +1,85 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers, waitForAppReady } from "../helpers/commands";
-import { waitForCollabSync } from "../helpers/waits";
+import {
+  openChatDrawer,
+  openCommentsDrawer,
+  setupTwoUsers,
+  waitForAppReady,
+} from "../helpers/commands";
+import { waitForCollabSync, waitForCollabSyncHidden } from "../helpers/waits";
 
 test.describe("E2E-15: Chat and Comments Sync", () => {
   let ownerPage: Page;
   let editorPage: Page;
 
+  async function logChatDebugState(label: string): Promise<void> {
+    const ownerState = await ownerPage.evaluate(() => {
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => Record<string, unknown>;
+        };
+      };
+
+      const state = (
+        window as WindowWithKanbanStore
+      ).__KANBAN_STORE__?.getState();
+      const currentWorkspaceId =
+        typeof state?.currentWorkspaceId === "string"
+          ? state.currentWorkspaceId
+          : null;
+      const chatMessages =
+        typeof state?.chatMessages === "object" &&
+        state.chatMessages !== null &&
+        "allIds" in state.chatMessages &&
+        Array.isArray((state.chatMessages as { allIds?: unknown }).allIds)
+          ? ((state.chatMessages as { allIds: unknown[] }).allIds.length ?? 0)
+          : 0;
+
+      return { chatMessages, currentWorkspaceId };
+    });
+
+    const editorState = await editorPage.evaluate(() => {
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => Record<string, unknown>;
+        };
+      };
+
+      const state = (
+        window as WindowWithKanbanStore
+      ).__KANBAN_STORE__?.getState();
+      const currentWorkspaceId =
+        typeof state?.currentWorkspaceId === "string"
+          ? state.currentWorkspaceId
+          : null;
+      const chatMessages =
+        typeof state?.chatMessages === "object" &&
+        state.chatMessages !== null &&
+        "allIds" in state.chatMessages &&
+        Array.isArray((state.chatMessages as { allIds?: unknown }).allIds)
+          ? ((state.chatMessages as { allIds: unknown[] }).allIds.length ?? 0)
+          : 0;
+
+      return { chatMessages, currentWorkspaceId };
+    });
+
+    console.log(`${label} owner`, ownerState);
+    console.log(`${label} editor`, editorState);
+  }
+
   test.beforeEach(async ({ browser }) => {
-    const setup = await setupTwoUsers(browser);
+    const setup = await setupTwoUsers(browser, { requireBoardSync: false });
     ownerPage = setup.ownerPage;
     editorPage = setup.editorPage;
   });
 
   test.afterEach(async () => {
-    await ownerPage.close();
-    await editorPage.close();
+    await ownerPage?.close();
+    await editorPage?.close();
   });
 
   test("comment create appears in peer's view", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    await expect(commentsDrawerTrigger).toBeVisible();
-    await commentsDrawerTrigger.click();
-    // Wait for drawer animation to complete
-    await ownerPage
-      .locator('[data-testid="new-comment-input"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await openCommentsDrawer(ownerPage);
 
     const newCommentInput = ownerPage.locator(
       '[data-testid="new-comment-input"]'
@@ -36,7 +88,13 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     await newCommentInput.fill("Test comment from owner");
     await ownerPage.click('[data-testid="submit-comment"]');
     // Wait for comment to sync to peer's view via collaboration
-    await waitForCollabSync(editorPage, "comment", "Test comment from owner");
+    await openCommentsDrawer(editorPage);
+    await waitForCollabSync(
+      editorPage,
+      "comment",
+      "Test comment from owner",
+      30_000
+    );
 
     const editorComment = editorPage.locator(
       '[data-testid="comment"]:has-text("Test comment from owner")'
@@ -45,143 +103,86 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   });
 
   test("chat message send/receive across two users", async () => {
-    const chatTrigger = ownerPage.locator(
-      '[data-testid="chat-drawer-trigger"]'
+    await logChatDebugState("before-send");
+
+    await openChatDrawer(ownerPage);
+
+    const chatInput = ownerPage.locator('[data-testid="chat-input"]');
+    await chatInput.fill("Hello from owner");
+    await ownerPage.click('[data-testid="send-chat-message"]');
+
+    await logChatDebugState("after-send");
+
+    await openChatDrawer(editorPage);
+    await logChatDebugState("after-editor-open-chat");
+    await waitForCollabSync(editorPage, "chat-message", "Hello from owner");
+
+    const editorMessage = editorPage.locator(
+      '[data-testid="chat-message"]:has-text("Hello from owner")'
     );
-    if (await chatTrigger.isVisible()) {
-      await chatTrigger.click();
-      // Wait for chat drawer to open
-      const chatInput = ownerPage.locator('[data-testid="chat-input"]');
-      await chatInput.waitFor({ state: "visible", timeout: 5000 });
-
-      if (await chatInput.isVisible()) {
-        await chatInput.fill("Hello from owner");
-        await ownerPage.click('[data-testid="send-chat-message"]');
-        // Wait for message to sync to peer's view
-        await waitForCollabSync(editorPage, "chat-message", "Hello from owner");
-
-        const editorChatTrigger = editorPage.locator(
-          '[data-testid="chat-drawer-trigger"]'
-        );
-        if (await editorChatTrigger.isVisible()) {
-          await editorChatTrigger.click();
-          // Wait for peer's chat drawer to open
-          await editorPage
-            .locator(
-              '[data-testid="chat-message"]:has-text("Hello from owner")'
-            )
-            .waitFor({ state: "visible", timeout: 5000 });
-
-          const editorMessage = editorPage.locator(
-            '[data-testid="chat-message"]:has-text("Hello from owner")'
-          );
-          await expect(editorMessage).toBeVisible({ timeout: 10_000 });
-        }
-      }
-    }
+    await expect(editorMessage).toBeVisible({ timeout: 10_000 });
   });
 
   test("typing indicator visibility in chat", async () => {
-    const chatTrigger = ownerPage.locator(
-      '[data-testid="chat-drawer-trigger"]'
+    await openChatDrawer(ownerPage);
+    await openChatDrawer(editorPage);
+
+    const chatInput = ownerPage.locator('[data-testid="chat-input"]');
+    await chatInput.focus();
+    await ownerPage.keyboard.type("typing test", { delay: 100 });
+
+    const typingIndicator = editorPage.locator(
+      '[data-testid="typing-indicator"]'
     );
-    if (await chatTrigger.isVisible()) {
-      await chatTrigger.click();
-      // Wait for chat drawer to open
-      const chatInput = ownerPage.locator('[data-testid="chat-input"]');
-      await chatInput.waitFor({ state: "visible", timeout: 5000 });
-
-      if (await chatInput.isVisible()) {
-        await chatInput.focus();
-        await ownerPage.keyboard.type("typing test", { delay: 100 });
-
-        const editorChatTrigger = editorPage.locator(
-          '[data-testid="chat-drawer-trigger"]'
-        );
-        if (await editorChatTrigger.isVisible()) {
-          await editorChatTrigger.click();
-          // Wait for typing indicator to appear on peer's screen
-          await editorPage
-            .locator('[data-testid="typing-indicator"]')
-            .waitFor({ state: "visible", timeout: 5000 });
-
-          const typingIndicator = editorPage.locator(
-            '[data-testid="typing-indicator"]'
-          );
-          await expect(typingIndicator).toBeVisible({ timeout: 5000 });
-        }
-      }
-    }
+    await expect(typingIndicator).toBeVisible({ timeout: 5000 });
   });
 
   test("comment persistence after reload", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    if (await commentsDrawerTrigger.isVisible()) {
-      await commentsDrawerTrigger.click();
-      // Wait for comments drawer to open
-      const newCommentInput = ownerPage.locator(
-        '[data-testid="new-comment-input"]'
-      );
-      await newCommentInput.waitFor({ state: "visible", timeout: 5000 });
+    await openCommentsDrawer(ownerPage);
 
-      if (await newCommentInput.isVisible()) {
-        await newCommentInput.fill("Persistent comment");
-        await ownerPage.click('[data-testid="submit-comment"]');
-        // Wait for comment to be persisted
-        await waitForCollabSync(ownerPage, "comment", "Persistent comment");
-
-        await ownerPage.reload();
-        await waitForAppReady(ownerPage);
-
-        const persistedComment = ownerPage.locator(
-          '[data-testid="comment"]:has-text("Persistent comment")'
-        );
-        await expect(persistedComment).toBeVisible({ timeout: 10_000 });
-      }
-    }
-  });
-
-  test("rapid message ordering correctness", async () => {
-    const chatTrigger = ownerPage.locator(
-      '[data-testid="chat-drawer-trigger"]'
-    );
-    if (await chatTrigger.isVisible()) {
-      await chatTrigger.click();
-      // Wait for chat drawer to open
-      const chatInput = ownerPage.locator('[data-testid="chat-input"]');
-      await chatInput.waitFor({ state: "visible", timeout: 5000 });
-
-      if (await chatInput.isVisible()) {
-        for (const i of [0, 1, 2]) {
-          await chatInput.fill(`Message ${i}`);
-          await ownerPage.click('[data-testid="send-chat-message"]');
-          // Wait for each message to be sent and acknowledged
-          await ownerPage
-            .locator(`[data-testid="chat-message"]:has-text("Message ${i}")`)
-            .waitFor({ state: "visible", timeout: 3000 });
-        }
-
-        const messages = await ownerPage
-          .locator('[data-testid="chat-message"]')
-          .allTextContents();
-        expect(messages.length).toBeGreaterThanOrEqual(3);
-      }
-    }
-  });
-
-  test("edit comment updates in peer's view", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    await expect(commentsDrawerTrigger).toBeVisible();
-    await commentsDrawerTrigger.click();
-    // Wait for comments drawer to open
     const newCommentInput = ownerPage.locator(
       '[data-testid="new-comment-input"]'
     );
-    await newCommentInput.waitFor({ state: "visible", timeout: 5000 });
+    await expect(newCommentInput).toBeVisible();
+
+    await newCommentInput.fill("Persistent comment");
+    await ownerPage.click('[data-testid="submit-comment"]');
+    // Wait for comment to be persisted
+    await waitForCollabSync(ownerPage, "comment", "Persistent comment");
+
+    await ownerPage.reload();
+    await waitForAppReady(ownerPage);
+    await openCommentsDrawer(ownerPage);
+
+    const persistedComment = ownerPage.locator(
+      '[data-testid="comment"]:has-text("Persistent comment")'
+    );
+    await expect(persistedComment).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("rapid message ordering correctness", async () => {
+    await openChatDrawer(ownerPage);
+
+    const chatInput = ownerPage.locator('[data-testid="chat-input"]');
+    for (const i of [0, 1, 2]) {
+      await chatInput.fill(`Message ${i}`);
+      await ownerPage.click('[data-testid="send-chat-message"]');
+      await ownerPage
+        .locator(`[data-testid="chat-message"]:has-text("Message ${i}")`)
+        .waitFor({ state: "visible", timeout: 3000 });
+    }
+
+    const messages = await ownerPage
+      .locator('[data-testid="chat-message"]')
+      .allTextContents();
+    expect(messages.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("edit comment updates in peer's view", async () => {
+    await openCommentsDrawer(ownerPage);
+    const newCommentInput = ownerPage.locator(
+      '[data-testid="new-comment-input"]'
+    );
     await expect(newCommentInput).toBeVisible();
     await newCommentInput.fill("Original comment text");
     await ownerPage.click('[data-testid="submit-comment"]');
@@ -207,6 +208,7 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     await editInput.fill("Edited comment text");
     await ownerPage.click('[data-testid="comment-save-edit"]');
     // Wait for edited comment to sync to peer's view
+    await openCommentsDrawer(editorPage);
     await waitForCollabSync(editorPage, "comment", "Edited comment text");
 
     const editedComment = editorPage.locator(
@@ -216,21 +218,16 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   });
 
   test("delete comment removes from peer's view", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    await expect(commentsDrawerTrigger).toBeVisible();
-    await commentsDrawerTrigger.click();
-    // Wait for comments drawer to open
+    await openCommentsDrawer(ownerPage);
     const newCommentInput = ownerPage.locator(
       '[data-testid="new-comment-input"]'
     );
-    await newCommentInput.waitFor({ state: "visible", timeout: 5000 });
     await expect(newCommentInput).toBeVisible();
     await newCommentInput.fill("Comment to delete");
     await ownerPage.click('[data-testid="submit-comment"]');
     // Wait for comment to sync to both pages
     await waitForCollabSync(ownerPage, "comment", "Comment to delete");
+    await openCommentsDrawer(editorPage);
     await waitForCollabSync(editorPage, "comment", "Comment to delete");
 
     const comment = ownerPage.locator(
@@ -254,9 +251,12 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     if (await confirmDelete.isVisible()) {
       await confirmDelete.click();
       // Wait for comment deletion to sync to peer's view
-      await editorPage
-        .locator('[data-testid="comment"]:has-text("Comment to delete")')
-        .waitFor({ state: "hidden", timeout: 5000 });
+      await waitForCollabSyncHidden(
+        editorPage,
+        "comment",
+        "Comment to delete",
+        10_000
+      );
     }
 
     const deletedComment = editorPage.locator(
@@ -266,16 +266,10 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   });
 
   test("mention rendering in comments with @ symbol", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    await expect(commentsDrawerTrigger).toBeVisible();
-    await commentsDrawerTrigger.click();
-    // Wait for comments drawer to open
+    await openCommentsDrawer(ownerPage);
     const newCommentInput = ownerPage.locator(
       '[data-testid="new-comment-input"]'
     );
-    await newCommentInput.waitFor({ state: "visible", timeout: 5000 });
     await expect(newCommentInput).toBeVisible();
     await newCommentInput.fill("Hello @editor, please review this");
     await ownerPage.click('[data-testid="submit-comment"]');
