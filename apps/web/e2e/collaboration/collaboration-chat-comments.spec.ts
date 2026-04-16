@@ -12,59 +12,16 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   let ownerPage: Page;
   let editorPage: Page;
 
-  async function logChatDebugState(label: string): Promise<void> {
-    const ownerState = await ownerPage.evaluate(() => {
-      type WindowWithKanbanStore = Window & {
-        __KANBAN_STORE__?: {
-          getState: () => Record<string, unknown>;
-        };
-      };
+  async function closePageContext(page: Page | undefined): Promise<void> {
+    if (!page) {
+      return;
+    }
 
-      const state = (
-        window as WindowWithKanbanStore
-      ).__KANBAN_STORE__?.getState();
-      const currentWorkspaceId =
-        typeof state?.currentWorkspaceId === "string"
-          ? state.currentWorkspaceId
-          : null;
-      const chatMessages =
-        typeof state?.chatMessages === "object" &&
-        state.chatMessages !== null &&
-        "allIds" in state.chatMessages &&
-        Array.isArray((state.chatMessages as { allIds?: unknown }).allIds)
-          ? ((state.chatMessages as { allIds: unknown[] }).allIds.length ?? 0)
-          : 0;
-
-      return { chatMessages, currentWorkspaceId };
-    });
-
-    const editorState = await editorPage.evaluate(() => {
-      type WindowWithKanbanStore = Window & {
-        __KANBAN_STORE__?: {
-          getState: () => Record<string, unknown>;
-        };
-      };
-
-      const state = (
-        window as WindowWithKanbanStore
-      ).__KANBAN_STORE__?.getState();
-      const currentWorkspaceId =
-        typeof state?.currentWorkspaceId === "string"
-          ? state.currentWorkspaceId
-          : null;
-      const chatMessages =
-        typeof state?.chatMessages === "object" &&
-        state.chatMessages !== null &&
-        "allIds" in state.chatMessages &&
-        Array.isArray((state.chatMessages as { allIds?: unknown }).allIds)
-          ? ((state.chatMessages as { allIds: unknown[] }).allIds.length ?? 0)
-          : 0;
-
-      return { chatMessages, currentWorkspaceId };
-    });
-
-    console.log(`${label} owner`, ownerState);
-    console.log(`${label} editor`, editorState);
+    try {
+      await page.context().close();
+    } catch {
+      // Context may already be closed after timeout failures.
+    }
   }
 
   test.beforeEach(async ({ browser }) => {
@@ -74,8 +31,8 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   });
 
   test.afterEach(async () => {
-    await ownerPage?.close();
-    await editorPage?.close();
+    await closePageContext(ownerPage);
+    await closePageContext(editorPage);
   });
 
   test("comment create appears in peer's view", async () => {
@@ -103,18 +60,13 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   });
 
   test("chat message send/receive across two users", async () => {
-    await logChatDebugState("before-send");
-
     await openChatDrawer(ownerPage);
 
     const chatInput = ownerPage.locator('[data-testid="chat-input"]');
     await chatInput.fill("Hello from owner");
     await ownerPage.click('[data-testid="send-chat-message"]');
 
-    await logChatDebugState("after-send");
-
     await openChatDrawer(editorPage);
-    await logChatDebugState("after-editor-open-chat");
     await waitForCollabSync(editorPage, "chat-message", "Hello from owner");
 
     const editorMessage = editorPage.locator(
