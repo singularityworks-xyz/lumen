@@ -731,7 +731,7 @@ async function recoverEditorWorkspaceFromShare(
   }
 ): Promise<boolean> {
   const requireBoardSync = options.requireBoardSync;
-  const requireWorkspaceMatch = requireBoardSync;
+  const requireWorkspaceMatch = true;
   const joinResult = await joinWorkspaceFromShareToken(page, shareToken);
   const targetWorkspaceName =
     options.expectedWorkspaceName ?? joinResult.workspaceName;
@@ -998,14 +998,12 @@ export async function setupTwoUsers(
   await waitForAppReady(editorPage);
   await waitForShareJoinFlowToSettle(editorPage, shareToken, 6000);
 
-  let editorInExpectedWorkspace = requireBoardSync
-    ? await ensureExpectedWorkspaceSelected(
-        editorPage,
-        expectedWorkspaceName,
-        8000,
-        workspaceId ?? undefined
-      )
-    : true;
+  let editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
+    editorPage,
+    expectedWorkspaceName,
+    8000,
+    workspaceId ?? undefined
+  );
 
   try {
     await waitForConnectionState(
@@ -1060,7 +1058,7 @@ export async function setupTwoUsers(
     }
   } else {
     let editorSharedReady = await waitForSharedWorkspaceUi(editorPage, 5000);
-    let editorReadyForSharedUi = editorSharedReady;
+    let editorReadyForSharedUi = editorSharedReady && editorInExpectedWorkspace;
 
     if (!editorReadyForSharedUi) {
       editorSharedReady = await recoverEditorWorkspaceFromShare(
@@ -1072,7 +1070,13 @@ export async function setupTwoUsers(
           expectedWorkspaceName,
         }
       );
-      editorReadyForSharedUi = editorSharedReady;
+      editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
+        editorPage,
+        expectedWorkspaceName,
+        6000,
+        workspaceId ?? undefined
+      );
+      editorReadyForSharedUi = editorSharedReady && editorInExpectedWorkspace;
     }
 
     if (!editorReadyForSharedUi) {
