@@ -71,13 +71,50 @@ export async function waitForAppReady(page: Page) {
 }
 
 export async function openCommentsDrawer(page: Page): Promise<void> {
+  const newCommentInput = page.locator('[data-testid="new-comment-input"]');
+  if (await newCommentInput.isVisible()) {
+    return;
+  }
+
+  const commentsTab = page.locator(
+    'button:has-text("Comments"):not([data-testid="comments-drawer-trigger"])'
+  );
+
+  if (await commentsTab.last().isVisible()) {
+    try {
+      await commentsTab.last().click({ force: true });
+      await newCommentInput.waitFor({ state: "visible", timeout: 2500 });
+      return;
+    } catch {
+      // Fall through to trigger click.
+    }
+  }
+
   const commentsDrawerTrigger = page.locator(
     '[data-testid="comments-drawer-trigger"]'
   );
   await commentsDrawerTrigger.waitFor({ state: "visible", timeout: 10_000 });
-  await commentsDrawerTrigger.click({ force: true });
 
-  const newCommentInput = page.locator('[data-testid="new-comment-input"]');
+  try {
+    await commentsDrawerTrigger.click({ force: true });
+  } catch {
+    const clickedViaDom = await page.evaluate(() => {
+      const trigger = document.querySelector(
+        '[data-testid="comments-drawer-trigger"]'
+      ) as HTMLButtonElement | null;
+      if (!trigger) {
+        return false;
+      }
+
+      trigger.click();
+      return true;
+    });
+
+    if (!clickedViaDom) {
+      throw new Error("Unable to click comments drawer trigger");
+    }
+  }
+
   try {
     await newCommentInput.waitFor({ state: "visible", timeout: 2500 });
     return;
@@ -85,8 +122,28 @@ export async function openCommentsDrawer(page: Page): Promise<void> {
     // If drawer last opened on Discussion tab, switch back to Comments tab.
   }
 
-  const commentsTab = page.locator('button:has-text("Comments")').first();
-  await commentsTab.click({ force: true });
+  try {
+    await commentsTab.last().click({ force: true });
+  } catch {
+    const switchedViaDom = await page.evaluate(() => {
+      const candidates = Array.from(document.querySelectorAll("button"));
+      const tab = candidates.find((button) => {
+        const label = button.textContent?.toLowerCase() ?? "";
+        return (
+          label.includes("comments") &&
+          button.getAttribute("data-testid") !== "comments-drawer-trigger"
+        );
+      }) as HTMLButtonElement | undefined;
+
+      tab?.click();
+      return Boolean(tab);
+    });
+
+    if (!switchedViaDom) {
+      throw new Error("Unable to switch to comments tab");
+    }
+  }
+
   await newCommentInput.waitFor({ state: "visible", timeout: 10_000 });
 }
 
@@ -271,7 +328,32 @@ async function waitForCurrentWorkspaceId(
   return false;
 }
 
-async function isExpectedWorkspaceContext(
+function setCurrentWorkspaceFromStore(
+  page: Page,
+  workspaceId: string
+): Promise<boolean> {
+  return page.evaluate((id) => {
+    const store = (
+      window as Window & {
+        __KANBAN_STORE__?: {
+          getState?: () => {
+            setCurrentWorkspace?: (workspaceId: string | null) => void;
+          };
+        };
+      }
+    ).__KANBAN_STORE__;
+    const state = store?.getState?.();
+
+    if (!state || typeof state.setCurrentWorkspace !== "function") {
+      return false;
+    }
+
+    state.setCurrentWorkspace(id);
+    return true;
+  }, workspaceId);
+}
+
+function isExpectedWorkspaceContext(
   page: Page,
   options: {
     workspaceId?: string;
@@ -281,18 +363,15 @@ async function isExpectedWorkspaceContext(
 ): Promise<boolean> {
   const { workspaceId, workspaceName, workspaceIdTimeoutMs = 1200 } = options;
 
-  if (
-    workspaceName &&
-    (await isExpectedWorkspaceSelected(page, workspaceName))
-  ) {
-    return true;
-  }
-
   if (workspaceId) {
     return waitForCurrentWorkspaceId(page, workspaceId, workspaceIdTimeoutMs);
   }
 
-  return true;
+  if (workspaceName) {
+    return isExpectedWorkspaceSelected(page, workspaceName);
+  }
+
+  return Promise.resolve(true);
 }
 
 async function waitForShareJoinFlowToSettle(
@@ -356,6 +435,24 @@ async function ensureExpectedWorkspaceSelected(
       })
     ) {
       return true;
+    }
+
+    if (hasWorkspaceId && workspaceId) {
+      const switchedViaStore = await setCurrentWorkspaceFromStore(
+        page,
+        workspaceId
+      );
+
+      if (
+        switchedViaStore &&
+        (await isExpectedWorkspaceContext(page, {
+          workspaceId,
+          workspaceIdTimeoutMs: 1200,
+          workspaceName: hasWorkspaceName ? resolvedWorkspaceName : undefined,
+        }))
+      ) {
+        return true;
+      }
     }
 
     const switched = await selectSharedWorkspaceFromMenu(
@@ -998,11 +1095,27 @@ export async function setupTwoUsers(
   await waitForAppReady(editorPage);
   await waitForShareJoinFlowToSettle(editorPage, shareToken, 6000);
 
+  const editorJoinResult = await joinWorkspaceFromShareToken(
+    editorPage,
+    shareToken
+  );
+
+  if (!editorJoinResult.ok) {
+    throw new Error(
+      `Editor failed to join shared workspace (status=${editorJoinResult.status})`
+    );
+  }
+
+  const editorWorkspaceId =
+    editorJoinResult.workspaceId ?? workspaceId ?? undefined;
+  const editorWorkspaceName =
+    editorJoinResult.workspaceName ?? expectedWorkspaceName;
+
   let editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
     editorPage,
-    expectedWorkspaceName,
+    editorWorkspaceName,
     8000,
-    workspaceId ?? undefined
+    editorWorkspaceId
   );
 
   try {
@@ -1027,26 +1140,26 @@ export async function setupTwoUsers(
         shareToken,
         {
           requireBoardSync: true,
-          expectedWorkspaceName,
+          expectedWorkspaceName: editorWorkspaceName,
         }
       );
       editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
         editorPage,
-        expectedWorkspaceName,
+        editorWorkspaceName,
         6000,
-        workspaceId ?? undefined
+        editorWorkspaceId
       );
       editorReadyForBoardSync = editorHasBoard && editorInExpectedWorkspace;
     }
 
-    if (!editorReadyForBoardSync && workspaceId) {
-      await waitForSharedWorkspaceState(ownerPage, workspaceId, 10_000);
+    if (!editorReadyForBoardSync && editorWorkspaceId) {
+      await waitForSharedWorkspaceState(ownerPage, editorWorkspaceId, 10_000);
       editorHasBoard = await waitForBoardNodeVisible(editorPage, 5000);
       editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
         editorPage,
-        expectedWorkspaceName,
+        editorWorkspaceName,
         6000,
-        workspaceId ?? undefined
+        editorWorkspaceId
       );
       editorReadyForBoardSync = editorHasBoard && editorInExpectedWorkspace;
     }
@@ -1067,14 +1180,14 @@ export async function setupTwoUsers(
         shareToken,
         {
           requireBoardSync: false,
-          expectedWorkspaceName,
+          expectedWorkspaceName: editorWorkspaceName,
         }
       );
       editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
         editorPage,
-        expectedWorkspaceName,
+        editorWorkspaceName,
         6000,
-        workspaceId ?? undefined
+        editorWorkspaceId
       );
       editorReadyForSharedUi = editorSharedReady && editorInExpectedWorkspace;
     }
@@ -1092,6 +1205,29 @@ export async function setupTwoUsers(
       10_000
     );
   }
+
+  if (workspaceId) {
+    await setCurrentWorkspaceFromStore(ownerPage, workspaceId);
+    await waitForCurrentWorkspaceId(ownerPage, workspaceId, 3000);
+  }
+
+  if (editorWorkspaceId) {
+    await setCurrentWorkspaceFromStore(editorPage, editorWorkspaceId);
+    await waitForCurrentWorkspaceId(editorPage, editorWorkspaceId, 3000);
+  }
+
+  await waitForConnectionState(
+    ownerPage,
+    "sync-status-indicator",
+    "connected",
+    10_000
+  );
+  await waitForConnectionState(
+    editorPage,
+    "sync-status-indicator",
+    "connected",
+    10_000
+  );
 
   return { ownerPage, editorPage, shareLink, ownerSeed, editorSeed };
 }
@@ -1212,11 +1348,27 @@ export async function setupTwoUsersCrossBrowser(
     await waitForAppReady(editorPage);
     await waitForShareJoinFlowToSettle(editorPage, shareToken, 6000);
 
+    const editorJoinResult = await joinWorkspaceFromShareToken(
+      editorPage,
+      shareToken
+    );
+
+    if (!editorJoinResult.ok) {
+      throw new Error(
+        `Editor failed to join shared workspace (status=${editorJoinResult.status})`
+      );
+    }
+
+    const editorWorkspaceId =
+      editorJoinResult.workspaceId ?? workspaceId ?? undefined;
+    const editorWorkspaceName =
+      editorJoinResult.workspaceName ?? expectedWorkspaceName;
+
     let editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
       editorPage,
-      expectedWorkspaceName,
+      editorWorkspaceName,
       8000,
-      workspaceId ?? undefined
+      editorWorkspaceId
     );
 
     try {
@@ -1240,26 +1392,26 @@ export async function setupTwoUsersCrossBrowser(
         shareToken,
         {
           requireBoardSync: true,
-          expectedWorkspaceName,
+          expectedWorkspaceName: editorWorkspaceName,
         }
       );
       editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
         editorPage,
-        expectedWorkspaceName,
+        editorWorkspaceName,
         6000,
-        workspaceId ?? undefined
+        editorWorkspaceId
       );
       editorReadyForBoardSync = editorHasBoard && editorInExpectedWorkspace;
     }
 
-    if (!editorReadyForBoardSync && workspaceId) {
-      await waitForSharedWorkspaceState(ownerPage, workspaceId, 10_000);
+    if (!editorReadyForBoardSync && editorWorkspaceId) {
+      await waitForSharedWorkspaceState(ownerPage, editorWorkspaceId, 10_000);
       editorHasBoard = await waitForBoardNodeVisible(editorPage, 5000);
       editorInExpectedWorkspace = await ensureExpectedWorkspaceSelected(
         editorPage,
-        expectedWorkspaceName,
+        editorWorkspaceName,
         6000,
-        workspaceId ?? undefined
+        editorWorkspaceId
       );
       editorReadyForBoardSync = editorHasBoard && editorInExpectedWorkspace;
     }
@@ -1269,6 +1421,29 @@ export async function setupTwoUsersCrossBrowser(
         "Editor workspace did not load expected shared board after share join"
       );
     }
+
+    if (workspaceId) {
+      await setCurrentWorkspaceFromStore(ownerPage, workspaceId);
+      await waitForCurrentWorkspaceId(ownerPage, workspaceId, 3000);
+    }
+
+    if (editorWorkspaceId) {
+      await setCurrentWorkspaceFromStore(editorPage, editorWorkspaceId);
+      await waitForCurrentWorkspaceId(editorPage, editorWorkspaceId, 3000);
+    }
+
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
 
     return {
       ownerPage,
