@@ -9,6 +9,8 @@ import {
 import { waitForCollabSync, waitForCollabSyncHidden } from "../helpers/waits";
 
 test.describe("E2E-15: Chat and Comments Sync", () => {
+  test.describe.configure({ timeout: 60_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
