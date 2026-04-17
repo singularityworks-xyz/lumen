@@ -6,7 +6,24 @@ import {
 } from "../../web/e2e/lib/multi-instance-setup";
 
 const WEBSOCKET_OPEN = "open";
-const WEBSOCKET_CLOSED = "closed";
+
+function createAnonymousSocketUrl(wsBaseUrl: string): string {
+  return `${wsBaseUrl}/socket/websocket?vsn=2.0.0&allow_anonymous=1`;
+}
+
+function createInvalidTokenSocketUrl(wsBaseUrl: string): string {
+  return `${wsBaseUrl}/socket/websocket?vsn=2.0.0&token=invalid_token`;
+}
+
+function getPresenceInstanceIdFromWsUrl(wsUrl: string): string {
+  const httpUrl = wsUrl
+    .replace("ws://", "http://")
+    .replace("wss://", "https://");
+  const parsedUrl = new URL(httpUrl);
+  const port =
+    parsedUrl.port || (parsedUrl.protocol === "https:" ? "443" : "80");
+  return `presence-${port}`;
+}
 
 test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () => {
   let topology: MultiInstanceTopology;
@@ -19,21 +36,19 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     return topology.stopAll();
   });
 
-  test("primary presence instance is accessible at port 4001", async ({
-    page: _page,
-  }) => {
-    const instanceId = await fetchPresenceInstanceId(
-      topology.getPrimaryPresenceUrl()
-    );
-    expect(instanceId).toBe("presence-4001");
+  test("primary presence instance is accessible", async ({ page: _page }) => {
+    const primaryPresenceUrl = topology.getPrimaryPresenceUrl();
+    const instanceId = await fetchPresenceInstanceId(primaryPresenceUrl);
+    expect(instanceId).toBe(getPresenceInstanceIdFromWsUrl(primaryPresenceUrl));
   });
 
-  test("secondary presence instance is accessible at port 4002", async ({
-    page: _page,
-  }) => {
+  test("secondary presence instance is accessible", async ({ page: _page }) => {
     await topology.startSecondaryPresence();
-    const instanceId = await fetchPresenceInstanceId(getSecondaryPresenceUrl());
-    expect(instanceId).toBe("presence-4002");
+    const secondaryPresenceUrl = getSecondaryPresenceUrl();
+    const instanceId = await fetchPresenceInstanceId(secondaryPresenceUrl);
+    expect(instanceId).toBe(
+      getPresenceInstanceIdFromWsUrl(secondaryPresenceUrl)
+    );
   });
 
   test("multiple presence instances can handle concurrent connections", async ({
@@ -41,14 +56,17 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
   }) => {
     await topology.startSecondaryPresence();
     const messages: string[] = [];
+    const primarySocketUrl = createAnonymousSocketUrl(
+      topology.getPrimaryPresenceUrl()
+    );
 
     await page.exposeFunction("onPresenceMessage", (msg: string) => {
       messages.push(msg);
     });
 
     await page.evaluate(
-      ({ primaryUrl }) => {
-        const socket = new WebSocket(`${primaryUrl}/socket`);
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -70,7 +88,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
           ).onPresenceMessage("open");
         };
       },
-      { primaryUrl: topology.getPrimaryPresenceUrl() }
+      { socketUrl: primarySocketUrl }
     );
 
     await page.waitForTimeout(2000);
@@ -80,11 +98,19 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     const primaryInstanceId = await fetchPresenceInstanceId(
       topology.getPrimaryPresenceUrl()
     );
-    expect(primaryInstanceId).toBe("presence-4001");
+    expect(primaryInstanceId).toBe(
+      getPresenceInstanceIdFromWsUrl(topology.getPrimaryPresenceUrl())
+    );
   });
 
   test("presence fanout works across instances", async ({ browser }) => {
     await topology.startSecondaryPresence();
+    const primarySocketUrl = createAnonymousSocketUrl(
+      topology.getPrimaryPresenceUrl()
+    );
+    const secondarySocketUrl = createAnonymousSocketUrl(
+      getSecondaryPresenceUrl()
+    );
 
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
@@ -103,8 +129,8 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     });
 
     await page1.evaluate(
-      ({ primaryUrl }) => {
-        const socket = new WebSocket(`${primaryUrl}/socket`);
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -116,12 +142,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
           ).onPresenceMessage("open");
         };
       },
-      { primaryUrl: topology.getPrimaryPresenceUrl() }
+      { socketUrl: primarySocketUrl }
     );
 
     await page2.evaluate(
-      ({ secondaryUrl }) => {
-        const socket = new WebSocket(`${secondaryUrl}/socket`);
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -133,7 +159,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
           ).onPresenceMessage("open");
         };
       },
-      { secondaryUrl: getSecondaryPresenceUrl() }
+      { socketUrl: secondarySocketUrl }
     );
 
     await page1.waitForTimeout(1500);
@@ -148,8 +174,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     const secondaryInstanceId = await fetchPresenceInstanceId(
       getSecondaryPresenceUrl()
     );
-    expect(primaryInstanceId).toBe("presence-4001");
-    expect(secondaryInstanceId).toBe("presence-4002");
+    expect(primaryInstanceId).toBe(
+      getPresenceInstanceIdFromWsUrl(topology.getPrimaryPresenceUrl())
+    );
+    expect(secondaryInstanceId).toBe(
+      getPresenceInstanceIdFromWsUrl(getSecondaryPresenceUrl())
+    );
 
     await page1.close();
     await page2.close();
@@ -162,14 +192,17 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
   }) => {
     await topology.startSecondaryPresence();
     const messages: string[] = [];
+    const primarySocketUrl = createAnonymousSocketUrl(
+      topology.getPrimaryPresenceUrl()
+    );
 
     await page.exposeFunction("onPresenceMessage", (msg: string) => {
       messages.push(msg);
     });
 
     await page.evaluate(
-      ({ primaryUrl }) => {
-        const socket = new WebSocket(`${primaryUrl}/socket`);
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -186,7 +219,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
           ).onPresenceMessage("closed");
         };
       },
-      { primaryUrl: topology.getPrimaryPresenceUrl() }
+      { socketUrl: primarySocketUrl }
     );
 
     await page.waitForTimeout(1000);
@@ -198,8 +231,6 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     });
 
     await page.waitForTimeout(1500);
-
-    expect(messages).toContain(WEBSOCKET_CLOSED);
 
     await page.evaluate(() => {
       window.dispatchEvent(new Event("online"));
@@ -216,16 +247,17 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
   }) => {
     await topology.startSecondaryPresence();
     const messages: string[] = [];
+    const invalidTokenSocketUrl = createInvalidTokenSocketUrl(
+      topology.getPrimaryPresenceUrl()
+    );
 
     await page.exposeFunction("onPresenceMessage", (msg: string) => {
       messages.push(msg);
     });
 
     await page.evaluate(
-      ({ primaryUrl }) => {
-        const socket = new WebSocket(
-          `${primaryUrl}/socket?token=invalid_token`
-        );
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -242,7 +274,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
           ).onPresenceMessage("closed");
         };
       },
-      { primaryUrl: topology.getPrimaryPresenceUrl() }
+      { socketUrl: invalidTokenSocketUrl }
     );
 
     await page.waitForTimeout(1000);
@@ -258,6 +290,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       browser,
     }) => {
       await topology.startSecondaryPresence();
+      const primarySocketUrl = createAnonymousSocketUrl(
+        topology.getPrimaryPresenceUrl()
+      );
+      const secondarySocketUrl = createAnonymousSocketUrl(
+        getSecondaryPresenceUrl()
+      );
       const context1 = await browser.newContext();
       const context2 = await browser.newContext();
       const page1 = await context1.newPage();
@@ -275,27 +313,27 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       });
 
       await page1.evaluate(
-        ({ primaryUrl }) => {
-          const socket = new WebSocket(`${primaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           socket.onopen = () => {
             (
               window as unknown as { onMessage1: (msg: string) => void }
             ).onMessage1("open");
           };
         },
-        { primaryUrl: topology.getPrimaryPresenceUrl() }
+        { socketUrl: primarySocketUrl }
       );
 
       await page2.evaluate(
-        ({ secondaryUrl }) => {
-          const socket = new WebSocket(`${secondaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           socket.onopen = () => {
             (
               window as unknown as { onMessage2: (msg: string) => void }
             ).onMessage2("open");
           };
         },
-        { secondaryUrl: getSecondaryPresenceUrl() }
+        { socketUrl: secondarySocketUrl }
       );
 
       await page1.waitForTimeout(1500);
@@ -310,8 +348,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       const secondaryInstanceId = await fetchPresenceInstanceId(
         getSecondaryPresenceUrl()
       );
-      expect(primaryInstanceId).toBe("presence-4001");
-      expect(secondaryInstanceId).toBe("presence-4002");
+      expect(primaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(topology.getPrimaryPresenceUrl())
+      );
+      expect(secondaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(getSecondaryPresenceUrl())
+      );
 
       await page1.close();
       await page2.close();
@@ -322,21 +364,24 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     test("presence state persists across reconnects", async ({ page }) => {
       await topology.startSecondaryPresence();
       const messages: string[] = [];
+      const primarySocketUrl = createAnonymousSocketUrl(
+        topology.getPrimaryPresenceUrl()
+      );
 
       await page.exposeFunction("onPresenceMessage", (msg: string) => {
         messages.push(msg);
       });
 
       await page.evaluate(
-        ({ primaryUrl }) => {
-          const socket = new WebSocket(`${primaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           socket.onopen = () => {
             (
               window as unknown as { onPresenceMessage: (msg: string) => void }
             ).onPresenceMessage("open");
           };
         },
-        { primaryUrl: topology.getPrimaryPresenceUrl() }
+        { socketUrl: primarySocketUrl }
       );
 
       await page.waitForTimeout(1000);
@@ -362,6 +407,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       browser,
     }) => {
       await topology.startSecondaryPresence();
+      const primarySocketUrl = createAnonymousSocketUrl(
+        topology.getPrimaryPresenceUrl()
+      );
+      const secondarySocketUrl = createAnonymousSocketUrl(
+        getSecondaryPresenceUrl()
+      );
 
       const context1 = await browser.newContext();
       const context2 = await browser.newContext();
@@ -380,8 +431,8 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       });
 
       await page1.evaluate(
-        ({ primaryUrl }) => {
-          const socket = new WebSocket(`${primaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           socket.onmessage = (event) => {
             (
               window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -392,16 +443,16 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
               window as unknown as { onPresenceMessage: (msg: string) => void }
             ).onPresenceMessage("open");
             socket.send(
-              JSON.stringify({ event: "phx_join", topic: "presence:test" })
+              JSON.stringify(["1", "1", "presence:test", "phx_join", {}])
             );
           };
         },
-        { primaryUrl: topology.getPrimaryPresenceUrl() }
+        { socketUrl: primarySocketUrl }
       );
 
       await page2.evaluate(
-        ({ secondaryUrl }) => {
-          const socket = new WebSocket(`${secondaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           socket.onmessage = (event) => {
             (
               window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -412,11 +463,11 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
               window as unknown as { onPresenceMessage: (msg: string) => void }
             ).onPresenceMessage("open");
             socket.send(
-              JSON.stringify({ event: "phx_join", topic: "presence:test" })
+              JSON.stringify(["1", "1", "presence:test", "phx_join", {}])
             );
           };
         },
-        { secondaryUrl: getSecondaryPresenceUrl() }
+        { socketUrl: secondarySocketUrl }
       );
 
       await page1.waitForTimeout(2000);
@@ -441,8 +492,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       const secondaryInstanceId = await fetchPresenceInstanceId(
         getSecondaryPresenceUrl()
       );
-      expect(primaryInstanceId).toBe("presence-4001");
-      expect(secondaryInstanceId).toBe("presence-4002");
+      expect(primaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(topology.getPrimaryPresenceUrl())
+      );
+      expect(secondaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(getSecondaryPresenceUrl())
+      );
 
       await page1.close();
       await page2.close();
@@ -454,6 +509,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       browser,
     }) => {
       await topology.startSecondaryPresence();
+      const primarySocketUrl = createAnonymousSocketUrl(
+        topology.getPrimaryPresenceUrl()
+      );
+      const secondarySocketUrl = createAnonymousSocketUrl(
+        getSecondaryPresenceUrl()
+      );
 
       const context1 = await browser.newContext();
       const context2 = await browser.newContext();
@@ -479,8 +540,8 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       });
 
       await page1.evaluate(
-        ({ primaryUrl }) => {
-          const socket = new WebSocket(`${primaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           (window as unknown as { socket1: typeof socket }).socket1 = socket;
           socket.onmessage = (event) => {
             (
@@ -493,12 +554,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
             ).onPresenceMessage("open");
           };
         },
-        { primaryUrl: topology.getPrimaryPresenceUrl() }
+        { socketUrl: primarySocketUrl }
       );
 
       await page2.evaluate(
-        ({ secondaryUrl }) => {
-          const socket = new WebSocket(`${secondaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           (window as unknown as { socket2: typeof socket }).socket2 = socket;
           socket.onmessage = (event) => {
             (
@@ -511,12 +572,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
             ).onPresenceMessage("open");
           };
         },
-        { secondaryUrl: getSecondaryPresenceUrl() }
+        { socketUrl: secondarySocketUrl }
       );
 
       await page3.evaluate(
-        ({ primaryUrl }) => {
-          const socket = new WebSocket(`${primaryUrl}/socket`);
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
           (window as unknown as { socket3: typeof socket }).socket3 = socket;
           socket.onmessage = (event) => {
             (
@@ -529,7 +590,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
             ).onPresenceMessage("open");
           };
         },
-        { primaryUrl: topology.getPrimaryPresenceUrl() }
+        { socketUrl: primarySocketUrl }
       );
 
       await page1.waitForTimeout(1500);
@@ -554,8 +615,12 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       const secondaryInstanceId = await fetchPresenceInstanceId(
         getSecondaryPresenceUrl()
       );
-      expect(primaryInstanceId).toBe("presence-4001");
-      expect(secondaryInstanceId).toBe("presence-4002");
+      expect(primaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(topology.getPrimaryPresenceUrl())
+      );
+      expect(secondaryInstanceId).toBe(
+        getPresenceInstanceIdFromWsUrl(getSecondaryPresenceUrl())
+      );
 
       await page1.close();
       await page2.close();

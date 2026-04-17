@@ -50,6 +50,23 @@ defmodule PresenceWeb.UserSocket do
     end
   end
 
+  def connect(%{"allow_anonymous" => "1"}, socket, _connect_info) do
+    if allow_e2e_anonymous_socket?() do
+      anonymous_user_id = "e2e_anon_#{System.unique_integer([:positive])}"
+
+      socket =
+        socket
+        |> assign(:user_id, anonymous_user_id)
+        |> assign(:user_name, "E2E Anonymous")
+        |> assign(:user_avatar, "https://example.com/avatar.png")
+
+      {:ok, socket}
+    else
+      Logger.warning("WebSocket anonymous connection denied")
+      :error
+    end
+  end
+
   def connect(_params, _socket, _connect_info) do
     Logger.warning("WebSocket connection attempt without token")
     :error
@@ -70,6 +87,13 @@ defmodule PresenceWeb.UserSocket do
        }}
     else
       _ -> {:error, :invalid_claims}
+    end
+  end
+
+  defp allow_e2e_anonymous_socket? do
+    case System.get_env("ALLOW_E2E_ANON_SOCKET") do
+      value when value in ["1", "true", "TRUE"] -> true
+      _ -> false
     end
   end
 end

@@ -123,6 +123,47 @@ defmodule PresenceWeb.UserSocketTest do
     end
   end
 
+  describe "connect/3 with anonymous e2e mode" do
+    test "accepts anonymous connection when ALLOW_E2E_ANON_SOCKET is enabled" do
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.put_env("ALLOW_E2E_ANON_SOCKET", "true")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert {:ok, connected_socket} = result
+      assert connected_socket.assigns.user_name == "E2E Anonymous"
+      assert connected_socket.assigns.user_avatar == "https://example.com/avatar.png"
+      assert String.starts_with?(connected_socket.assigns.user_id, "e2e_anon_")
+    end
+
+    test "rejects anonymous connection when ALLOW_E2E_ANON_SOCKET is disabled" do
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.put_env("ALLOW_E2E_ANON_SOCKET", "false")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert :error = result
+    end
+  end
+
   describe "id/1" do
     test "returns user socket ID" do
       socket = socket_with_user(%{id: "user_123"})
