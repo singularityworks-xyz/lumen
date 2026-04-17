@@ -57,6 +57,46 @@ export async function disableAnimations(page: Page) {
   });
 }
 
+export interface AuthenticatedDevicePage {
+  context: BrowserContext;
+  page: Page;
+  seed: SeedResult;
+}
+
+export async function createAuthenticatedDevicePage(
+  browser: Browser
+): Promise<AuthenticatedDevicePage> {
+  const seed = await seedE2EAuth();
+  for (const cookie of seed.storageState.cookies) {
+    cookie.domain = "127.0.0.1";
+  }
+
+  const context = await browser.newContext({
+    storageState: seed.storageState,
+    serviceWorkers: "block",
+  });
+  registerSeedCleanup(context, seed);
+
+  await context.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = seed.userId;
+    }
+    route.continue({ headers });
+  });
+
+  const page = await context.newPage();
+  await clearLocalStorageAndIndexedDB(page);
+  await disableAnimations(page);
+
+  return {
+    context,
+    page,
+    seed,
+  };
+}
+
 export async function waitForAppReady(page: Page) {
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(

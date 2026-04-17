@@ -1457,14 +1457,13 @@ describe("collabRoutes", () => {
 
       const openPromise = openHandler?.(ws);
 
-      await Promise.resolve();
-      await Promise.resolve();
-
       expect(roomManagerMock.join).toHaveBeenCalledTimes(1);
 
       const pendingResult = await Promise.race([
         Promise.resolve(openPromise).then(() => "resolved" as const),
-        Promise.resolve("pending" as const),
+        new Promise<"pending">((resolve) => {
+          setTimeout(() => resolve("pending"), 0);
+        }),
       ]);
       expect(pendingResult).toBe("pending");
 

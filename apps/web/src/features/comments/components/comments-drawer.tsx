@@ -150,6 +150,18 @@ const CommentBubble = memo(
         exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         onClick={onClick}
+        onKeyDown={(event) => {
+          if (!onClick) {
+            return;
+          }
+
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onClick();
+          }
+        }}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
         transition={{
           type: "spring",
           stiffness: 400,
@@ -337,7 +349,7 @@ const CommentBubble = memo(
 CommentBubble.displayName = "CommentBubble";
 
 interface FloatingIndicatorProps {
-  commentCount: number;
+  badgeCount: number;
   icon: ReactNode;
   isOpen: boolean;
   label: string;
@@ -349,7 +361,7 @@ interface FloatingIndicatorProps {
 const FloatingIndicator = memo(
   ({
     onClick,
-    commentCount,
+    badgeCount,
     isOpen,
     icon,
     label,
@@ -362,7 +374,7 @@ const FloatingIndicator = memo(
         opacity: isOpen ? 0 : 1,
         scale: isOpen ? 0.8 : 1,
       }}
-      aria-label="Open comments"
+      aria-label={`Open ${label.toLowerCase()}`}
       className={cn(
         "fixed top-1/2 right-0 z-40",
         "flex flex-col items-center justify-center gap-1",
@@ -386,7 +398,7 @@ const FloatingIndicator = memo(
         <span className="text-muted-foreground transition-colors group-hover:text-primary">
           {icon}
         </span>
-        {commentCount > 0 && (
+        {badgeCount > 0 && (
           <motion.span
             animate={{ scale: 1 }}
             className={cn(
@@ -399,7 +411,7 @@ const FloatingIndicator = memo(
             )}
             initial={{ scale: 0 }}
           >
-            {commentCount > 99 ? "99+" : commentCount}
+            {badgeCount > 99 ? "99+" : badgeCount}
           </motion.span>
         )}
       </div>
@@ -966,7 +978,7 @@ export const CommentsDrawer = memo(
     return createPortal(
       <>
         <FloatingIndicator
-          commentCount={workspaceComments.filter((c) => !c.parentId).length}
+          badgeCount={workspaceComments.filter((c) => !c.parentId).length}
           icon={<MessageCircle className="h-5 w-5" />}
           isOpen={isOpen}
           label="Comments"
@@ -976,7 +988,7 @@ export const CommentsDrawer = memo(
         />
 
         <FloatingIndicator
-          commentCount={0}
+          badgeCount={0}
           icon={<Users className="h-5 w-5" />}
           isOpen={isOpen}
           label="Chat"

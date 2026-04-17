@@ -21,6 +21,9 @@ export function normalizeApiOriginForCurrentHost(rawApiUrl: string): URL {
 export function normalizeApiUrlForCurrentHost(rawApiUrl: string): string {
   const normalized = normalizeApiOriginForCurrentHost(rawApiUrl);
 
+  // Preserve whether the caller provided a trailing slash for bare origins.
+  // `URL#toString()` always emits `.../` for origin-only URLs, but several
+  // call sites expect a slashless origin when the input had no trailing slash.
   const inputHasTrailingSlash = rawApiUrl.endsWith("/");
   if (
     !inputHasTrailingSlash &&

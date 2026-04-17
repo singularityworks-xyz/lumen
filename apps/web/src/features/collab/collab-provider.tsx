@@ -348,13 +348,18 @@ export function CollaborationProvider({
         wsEndpoint.searchParams.set("token", token);
       }
 
+      const logUrl = new URL(wsEndpoint.toString());
+      if (logUrl.searchParams.has("token")) {
+        logUrl.searchParams.set("token", "[redacted]");
+      }
+
       const ws = new WebSocket(wsEndpoint.toString());
       wsRef.current = ws;
 
       ws.binaryType = "arraybuffer";
 
       logger.info("Attempting WebSocket connection", {
-        url: wsEndpoint.toString(),
+        url: logUrl.toString(),
         hasToken: !!token,
       });
 

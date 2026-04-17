@@ -119,9 +119,8 @@ export const AiDrawerContent = memo(
     // For local workspaces, user must explicitly opt-in
     const isAiEnabled = isSharedWorkspace || workspace?.aiEnabled === true;
     const isE2ETestRun =
-      typeof navigator !== "undefined" &&
-      navigator.webdriver === true &&
-      process.env.NODE_ENV !== "production";
+      typeof window !== "undefined" &&
+      (window as Window & { __E2E__?: boolean }).__E2E__ === true;
     const shouldShowAuthOverlay = !(isAuthenticated || isE2ETestRun);
     const shouldShowOptInOverlay =
       isAuthenticated && !isAiEnabled && !isE2ETestRun;

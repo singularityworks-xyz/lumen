@@ -1,9 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { cleanupE2EAuth, seedE2EAuth } from "../helpers/auth";
 import {
-  clearLocalStorageAndIndexedDB,
-  disableAnimations,
+  createAuthenticatedDevicePage,
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
@@ -36,6 +34,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => {
+  test.describe.configure({ timeout: 180_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
   let shareLink: string;
@@ -84,58 +84,36 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     // Close both devices to trigger room cleanup
     await cleanupPages([ownerPage, editorPage]);
 
-    // Simulate new device: fresh browser context with same auth but clean IndexedDB
-    const ownerSeed = await seedE2EAuth();
-    for (const c of ownerSeed.storageState.cookies) {
-      c.domain = "127.0.0.1";
+    const { context: newDeviceContext, page: newDevicePage } =
+      await createAuthenticatedDevicePage(browser);
+
+    try {
+      // Navigate to the share link (which sets the workspace)
+      await newDevicePage.goto(shareLink);
+      await waitForAppReady(newDevicePage);
+
+      // Verify the board is visible
+      await newDevicePage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 15_000 });
+
+      // Verify the column and task restored from DB
+      const restoredColumn = newDevicePage.locator(
+        '[data-testid="kanban-column"]:has-text("Restore Column")'
+      );
+      await expect(restoredColumn).toBeVisible({ timeout: 15_000 });
+
+      const restoredTask = newDevicePage.locator(
+        '[data-testid="task-card"]:has-text("Restore Task")'
+      );
+      await expect(restoredTask).toBeVisible({ timeout: 10_000 });
+
+      const snapshot = await captureNormalizedSnapshot(newDevicePage);
+      assertNoOrphans(snapshot);
+    } finally {
+      await newDeviceContext.close();
     }
-    const newDeviceContext = await browser.newContext({
-      storageState: ownerSeed.storageState,
-    });
-    newDeviceContext.once("close", () => {
-      cleanupE2EAuth(ownerSeed.userId, ownerSeed.sessionId).catch((err) => {
-        console.error("Cleanup failed:", err);
-      });
-    });
-
-    await newDeviceContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = ownerSeed.userId;
-      }
-      route.continue({ headers });
-    });
-
-    const newDevicePage = await newDeviceContext.newPage();
-    await clearLocalStorageAndIndexedDB(newDevicePage);
-    await disableAnimations(newDevicePage);
-
-    // Navigate to the share link (which sets the workspace)
-    await newDevicePage.goto(shareLink);
-    await waitForAppReady(newDevicePage);
-
-    // Verify the board is visible
-    await newDevicePage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .waitFor({ state: "visible", timeout: 15_000 });
-
-    // Verify the column and task restored from DB
-    const restoredColumn = newDevicePage.locator(
-      '[data-testid="kanban-column"]:has-text("Restore Column")'
-    );
-    await expect(restoredColumn).toBeVisible({ timeout: 15_000 });
-
-    const restoredTask = newDevicePage.locator(
-      '[data-testid="task-card"]:has-text("Restore Task")'
-    );
-    await expect(restoredTask).toBeVisible({ timeout: 10_000 });
-
-    const snapshot = await captureNormalizedSnapshot(newDevicePage);
-    assertNoOrphans(snapshot);
-
-    await newDevicePage.close();
   });
 
   test("restore works after server room cleanup (no peers)", async ({
@@ -174,48 +152,26 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     // Wait for room cleanup timeout (30s + buffer)
     await new Promise((resolve) => setTimeout(resolve, 35_000));
 
-    // New device connects - should restore from DB
-    const ownerSeed = await seedE2EAuth();
-    for (const c of ownerSeed.storageState.cookies) {
-      c.domain = "127.0.0.1";
+    const { context: newDeviceContext, page: newDevicePage } =
+      await createAuthenticatedDevicePage(browser);
+
+    try {
+      await newDevicePage.goto(shareLink);
+      await waitForAppReady(newDevicePage);
+
+      // Verify content restored from DB after room was cleaned up
+      const restoredColumn = newDevicePage.locator(
+        '[data-testid="kanban-column"]:has-text("Cleanup Column")'
+      );
+      await expect(restoredColumn).toBeVisible({ timeout: 15_000 });
+
+      const restoredTask = newDevicePage.locator(
+        '[data-testid="task-card"]:has-text("Cleanup Task")'
+      );
+      await expect(restoredTask).toBeVisible({ timeout: 10_000 });
+    } finally {
+      await newDeviceContext.close();
     }
-    const newDeviceContext = await browser.newContext({
-      storageState: ownerSeed.storageState,
-    });
-    newDeviceContext.once("close", () => {
-      cleanupE2EAuth(ownerSeed.userId, ownerSeed.sessionId).catch((err) => {
-        console.error("Cleanup failed:", err);
-      });
-    });
-
-    await newDeviceContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = ownerSeed.userId;
-      }
-      route.continue({ headers });
-    });
-
-    const newDevicePage = await newDeviceContext.newPage();
-    await clearLocalStorageAndIndexedDB(newDevicePage);
-    await disableAnimations(newDevicePage);
-
-    await newDevicePage.goto(shareLink);
-    await waitForAppReady(newDevicePage);
-
-    // Verify content restored from DB after room was cleaned up
-    const restoredColumn = newDevicePage.locator(
-      '[data-testid="kanban-column"]:has-text("Cleanup Column")'
-    );
-    await expect(restoredColumn).toBeVisible({ timeout: 15_000 });
-
-    const restoredTask = newDevicePage.locator(
-      '[data-testid="task-card"]:has-text("Cleanup Task")'
-    );
-    await expect(restoredTask).toBeVisible({ timeout: 10_000 });
-
-    await newDevicePage.close();
   });
 
   test("hybrid: peer online then offline, new device restores from DB", async ({
@@ -250,43 +206,21 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     await editorPage.close();
     await ownerPage.close();
 
-    // New device joins - should restore from persisted DB state
-    const ownerSeed = await seedE2EAuth();
-    for (const c of ownerSeed.storageState.cookies) {
-      c.domain = "127.0.0.1";
+    const { context: newDeviceContext, page: newDevicePage } =
+      await createAuthenticatedDevicePage(browser);
+
+    try {
+      await newDevicePage.goto("/");
+      await waitForAppReady(newDevicePage);
+
+      // Verify the column exists on the new device
+      // (owner still has room in memory, so this tests peer sync works)
+      const newDeviceColumn = newDevicePage.locator(
+        '[data-testid="kanban-column"]:has-text("Hybrid Column")'
+      );
+      await expect(newDeviceColumn).toBeVisible({ timeout: 15_000 });
+    } finally {
+      await newDeviceContext.close();
     }
-    const newDeviceContext = await browser.newContext({
-      storageState: ownerSeed.storageState,
-    });
-    newDeviceContext.once("close", () => {
-      cleanupE2EAuth(ownerSeed.userId, ownerSeed.sessionId).catch((err) => {
-        console.error("Cleanup failed:", err);
-      });
-    });
-
-    await newDeviceContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = ownerSeed.userId;
-      }
-      route.continue({ headers });
-    });
-
-    const newDevicePage = await newDeviceContext.newPage();
-    await clearLocalStorageAndIndexedDB(newDevicePage);
-    await disableAnimations(newDevicePage);
-
-    await newDevicePage.goto("/");
-    await waitForAppReady(newDevicePage);
-
-    // Verify the column exists on the new device
-    // (owner still has room in memory, so this tests peer sync works)
-    const newDeviceColumn = newDevicePage.locator(
-      '[data-testid="kanban-column"]:has-text("Hybrid Column")'
-    );
-    await expect(newDeviceColumn).toBeVisible({ timeout: 15_000 });
-
-    await newDevicePage.close();
   });
 });

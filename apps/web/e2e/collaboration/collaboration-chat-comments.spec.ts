@@ -184,14 +184,6 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     );
   }
 
-  function countByTestIdAndText(
-    page: Page,
-    testId: string,
-    text: string
-  ): Promise<number> {
-    return page.locator(`[data-testid="${testId}"]`, { hasText: text }).count();
-  }
-
   async function waitForPeerChatMessageVisible(
     page: Page,
     messageText: string
@@ -357,12 +349,12 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
       await openCommentsDrawer(page);
 
       const [drawerComments, boardCommentNodes] = await Promise.all([
-        countByTestIdAndText(page, "comment", commentText),
-        countByTestIdAndText(page, "comment-node", commentText),
+        countVisibleByTestIdAndText(page, "comment", commentText),
+        countVisibleByTestIdAndText(page, "comment-node", commentText),
       ]);
 
       expect(drawerComments + boardCommentNodes).toBeGreaterThan(0);
-    }).toPass({ timeout: 180_000, intervals: [500, 1000, 2000] });
+    }).toPass({ timeout: 120_000, intervals: [500, 1000, 2000] });
   }
 
   async function waitForPeerCommentNodeHidden(
@@ -374,8 +366,8 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
       await openCommentsDrawer(page);
 
       const [drawerComments, boardCommentNodes] = await Promise.all([
-        countByTestIdAndText(page, "comment", commentText),
-        countByTestIdAndText(page, "comment-node", commentText),
+        countVisibleByTestIdAndText(page, "comment", commentText),
+        countVisibleByTestIdAndText(page, "comment-node", commentText),
       ]);
 
       expect(drawerComments + boardCommentNodes).toBe(0);

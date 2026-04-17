@@ -1,7 +1,15 @@
 "use client";
 
 import { Grid3X3 } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useKanbanStore } from "@/src/features/kanban";
 
 interface SelectionContextMenuProps {
@@ -27,6 +35,99 @@ export const SelectionContextMenu = memo(
     const addArea = useKanbanStore((state) => state.addArea);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [areaName, setAreaName] = useState("New Area");
+    const [mounted, setMounted] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const [menuPosition, setMenuPosition] = useState({
+      x: screenX,
+      y: screenY,
+    });
+    const [dialogPosition, setDialogPosition] = useState({
+      x: screenX,
+      y: screenY,
+    });
+
+    const clampToViewport = useCallback(
+      (xPos: number, yPos: number, widthPx: number, heightPx: number) => {
+        const viewportMargin = 8;
+        const maxX = window.innerWidth - widthPx - viewportMargin;
+        const maxY = window.innerHeight - heightPx - viewportMargin;
+
+        return {
+          x: Math.min(
+            Math.max(xPos, viewportMargin),
+            Math.max(maxX, viewportMargin)
+          ),
+          y: Math.min(
+            Math.max(yPos, viewportMargin),
+            Math.max(maxY, viewportMargin)
+          ),
+        };
+      },
+      []
+    );
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    useLayoutEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      const menuElement = menuRef.current;
+      if (!menuElement) {
+        return;
+      }
+
+      const rect = menuElement.getBoundingClientRect();
+      setMenuPosition(
+        clampToViewport(screenX, screenY, rect.width, rect.height)
+      );
+    }, [mounted, screenX, screenY, clampToViewport]);
+
+    useLayoutEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      if (!showCreateDialog) {
+        return;
+      }
+
+      const dialogElement = dialogRef.current;
+      if (!dialogElement) {
+        return;
+      }
+
+      const rect = dialogElement.getBoundingClientRect();
+      setDialogPosition(
+        clampToViewport(screenX, screenY, rect.width, rect.height)
+      );
+    }, [mounted, showCreateDialog, screenX, screenY, clampToViewport]);
+
+    useEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") {
+          return;
+        }
+
+        if (showCreateDialog) {
+          setShowCreateDialog(false);
+          return;
+        }
+
+        onClose();
+      };
+
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [mounted, onClose, showCreateDialog]);
 
     const handleCreateArea = useCallback(() => {
       addArea(areaName.trim() || "New Area", { x, y }, { width, height });
@@ -34,7 +135,11 @@ export const SelectionContextMenu = memo(
       onClose();
     }, [addArea, areaName, x, y, width, height, onClose]);
 
-    return (
+    if (!mounted || typeof document === "undefined") {
+      return null;
+    }
+
+    return createPortal(
       <>
         {showCreateDialog && (
           <>
@@ -42,16 +147,12 @@ export const SelectionContextMenu = memo(
               aria-label="Close create area dialog"
               className="fixed inset-0 z-9998 bg-black/50"
               onClick={() => setShowCreateDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setShowCreateDialog(false);
-                }
-              }}
               type="button"
             />
             <div
               className="fixed z-9999 w-80 overflow-hidden rounded-lg border-2 border-border/50 bg-card"
-              style={{ top: screenY, left: screenX }}
+              ref={dialogRef}
+              style={{ top: dialogPosition.y, left: dialogPosition.x }}
             >
               <div className="border-border/30 border-b px-3 py-2">
                 <span className="font-semibold text-xs">Create Area</span>
@@ -68,6 +169,9 @@ export const SelectionContextMenu = memo(
                   className="h-8 w-full rounded border border-border/40 bg-muted/50 px-2 text-sm"
                   data-testid="area-name-input"
                   onChange={(e) => setAreaName(e.target.value)}
+                  onFocus={(event) => {
+                    event.currentTarget.select();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       setShowCreateDialog(false);
@@ -99,19 +203,15 @@ export const SelectionContextMenu = memo(
 
         <button
           aria-label="Close selection menu"
-          className="absolute inset-0 z-40"
+          className="fixed inset-0 z-40"
           onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              onClose();
-            }
-          }}
           type="button"
         />
 
         <div
-          className="absolute z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-          style={{ top: screenY, left: screenX }}
+          className="fixed z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          ref={menuRef}
+          style={{ top: menuPosition.y, left: menuPosition.x }}
         >
           <div className="border-border/30 border-b px-3 py-1.5">
             <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -131,7 +231,8 @@ export const SelectionContextMenu = memo(
             Create Area
           </button>
         </div>
-      </>
+      </>,
+      document.body
     );
   }
 );

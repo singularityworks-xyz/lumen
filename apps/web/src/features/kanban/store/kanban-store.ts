@@ -72,7 +72,7 @@ export const useKanbanStore = create<KanbanStore>()(
         }
         return tracked;
       },
-      equality: (pastState, currentState) => shallow(pastState, currentState),
+      equality: shallow,
     }),
     {
       name: STORAGE_KEY,

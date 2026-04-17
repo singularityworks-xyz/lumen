@@ -2,6 +2,7 @@ process.env.DATABASE_URL = "postgres://dummy";
 
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
+import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as encoding from "lib0/encoding";
 
 const prismaMock = {
@@ -154,29 +155,8 @@ function buildAwarenessMessage(): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-const testWorkspaces = [
-  "ws-test",
-  "ws-del",
-  "ws-del-expire",
-  "ws-persist",
-  "ws-persist2",
-  "ws-load",
-  "ws-cleanup",
-  "ws-delete",
-  "ws-viewer",
-  "ws-aware",
-  "ws-conn-reuse",
-];
-
 afterEach(() => {
-  for (const wsId of testWorkspaces) {
-    try {
-      roomManager.deleteRoom(wsId);
-    } catch {
-      /* ignore */
-    }
-  }
-  roomManager.clearDeletedWorkspaces();
+  roomManager.reset();
 });
 
 describe("RoomManager - deleted workspaces", () => {
@@ -627,7 +607,7 @@ describe("RoomManager - join loads persisted state", () => {
     prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
       workspaceId: "ws-load-join",
       yjsState: mockYjsState,
-    } as any);
+    });
 
     const { ws } = createMockWs();
     await roomManager.join({
@@ -679,7 +659,7 @@ describe("RoomManager - join loads persisted state", () => {
               resolve({
                 workspaceId: "ws-concurrent",
                 yjsState: mockYjsState,
-              } as any),
+              }),
             50
           )
         )
@@ -723,12 +703,20 @@ describe("RoomManager - join loads persisted state", () => {
     // Simulate board data being added to the room's doc
     const room = roomManager.getRoom(preloadedWs);
     expect(room).toBeDefined();
-    room!.doc.getMap("boards").set("board-1", { id: "board-1" });
+    room!.doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", { id: "board-1" });
 
     prismaMock.workspaceState.findUnique.mockClear();
 
     // Remove connection so room has 0 connections but has board data
     roomManager.leave("conn-preload-1");
+
+    // Keep this deterministic: cancellation avoids cleanup timeout racing this join.
+    const idleRoom = roomManager.getRoom(preloadedWs);
+    expect(idleRoom).toBeDefined();
+    if (idleRoom?.cleanupTimeout) {
+      clearTimeout(idleRoom.cleanupTimeout);
+      idleRoom.cleanupTimeout = null;
+    }
 
     // New join should NOT load because boardsMap.size > 0
     const { ws: ws2 } = createMockWs();
