@@ -63,19 +63,35 @@ export interface AuthenticatedDevicePage {
   seed: SeedResult;
 }
 
+function cloneStorageStateWithLoopbackDomain(
+  storageState: SeedResult["storageState"]
+): SeedResult["storageState"] {
+  return {
+    cookies: storageState.cookies.map((cookie) => ({
+      ...cookie,
+      domain: "127.0.0.1",
+    })),
+    origins: storageState.origins.map((origin) => ({
+      ...origin,
+      localStorage: origin.localStorage.map((entry) => ({ ...entry })),
+    })),
+  };
+}
+
 export async function createAuthenticatedDevicePage(
-  browser: Browser
+  browser: Browser,
+  existingSeed?: SeedResult
 ): Promise<AuthenticatedDevicePage> {
-  const seed = await seedE2EAuth();
-  for (const cookie of seed.storageState.cookies) {
-    cookie.domain = "127.0.0.1";
-  }
+  const seed = existingSeed ?? (await seedE2EAuth());
+  const storageState = cloneStorageStateWithLoopbackDomain(seed.storageState);
 
   const context = await browser.newContext({
-    storageState: seed.storageState,
+    storageState,
     serviceWorkers: "block",
   });
-  registerSeedCleanup(context, seed);
+  if (!existingSeed) {
+    registerSeedCleanup(context, seed);
+  }
 
   await context.route("**/api/**", (route) => {
     const headers = route.request().headers();
@@ -660,7 +676,17 @@ export async function createShareLinkForFirstBoard(
         timeout: 10_000,
       });
 
-      await page.waitForTimeout(1000); // Give the board time to be fully initialized and persisted
+      await page.waitForFunction(
+        () => {
+          const button = document.querySelector(
+            '[data-testid="create-share-link-button"]'
+          );
+          return (
+            button instanceof HTMLButtonElement && button.disabled === false
+          );
+        },
+        { timeout: 10_000 }
+      );
 
       await page.click('[data-testid="create-share-link-button"]', {
         timeout: 5000,

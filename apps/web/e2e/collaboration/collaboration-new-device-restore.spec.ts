@@ -5,6 +5,7 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
+import { waitForConnectionState } from "../helpers/waits";
 import {
   assertNoOrphans,
   captureNormalizedSnapshot,
@@ -14,11 +15,13 @@ async function cleanupPages(pages: Page[]) {
   const closedContexts = new Set<ReturnType<Page["context"]>>();
 
   for (const page of pages) {
-    if (page.isClosed()) {
+    let context: ReturnType<Page["context"]>;
+    try {
+      context = page.context();
+    } catch {
       continue;
     }
 
-    const context = page.context();
     if (closedContexts.has(context)) {
       continue;
     }
@@ -31,6 +34,118 @@ async function cleanupPages(pages: Page[]) {
       // Context may already be closed in teardown race paths.
     }
   }
+}
+
+interface JoinWorkspaceResult {
+  ok: boolean;
+  status: number;
+  workspaceId?: string;
+}
+
+function joinWorkspaceFromShareToken(
+  page: Page,
+  shareToken: string
+): Promise<JoinWorkspaceResult> {
+  return page.evaluate(async (token) => {
+    try {
+      const response = await fetch(`/api/share/${token}/join`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        workspaceId?: string;
+      };
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        workspaceId: payload.workspaceId,
+      };
+    } catch {
+      return {
+        ok: false,
+        status: 0,
+      };
+    }
+  }, shareToken);
+}
+
+async function setCurrentWorkspaceById(
+  page: Page,
+  workspaceId: string
+): Promise<void> {
+  const didSetWorkspace = await page.evaluate((id) => {
+    const store = (
+      window as Window & {
+        __KANBAN_STORE__?: {
+          getState?: () => {
+            currentWorkspaceId?: string | null;
+            setCurrentWorkspace?: (nextWorkspaceId: string | null) => void;
+          };
+        };
+      }
+    ).__KANBAN_STORE__;
+
+    const state = store?.getState?.();
+    if (!state || typeof state.setCurrentWorkspace !== "function") {
+      return false;
+    }
+
+    state.setCurrentWorkspace(id);
+    return true;
+  }, workspaceId);
+
+  if (!didSetWorkspace) {
+    throw new Error("Unable to set current workspace from store");
+  }
+
+  await page.waitForFunction(
+    (id) => {
+      const store = (
+        window as Window & {
+          __KANBAN_STORE__?: {
+            getState?: () => { currentWorkspaceId?: string | null };
+          };
+        }
+      ).__KANBAN_STORE__;
+      return store?.getState?.().currentWorkspaceId === id;
+    },
+    workspaceId,
+    { timeout: 10_000 }
+  );
+}
+
+async function openSharedWorkspaceOnNewDevice(
+  page: Page,
+  shareLink: string
+): Promise<void> {
+  const shareToken = new URL(shareLink).searchParams.get("share");
+  if (!shareToken) {
+    throw new Error("Share link is missing share token");
+  }
+
+  await page.goto(shareLink);
+  await waitForAppReady(page);
+
+  const joinResult = await joinWorkspaceFromShareToken(page, shareToken);
+  if (!joinResult.ok) {
+    throw new Error(
+      `Failed to join shared workspace from new device (status=${joinResult.status})`
+    );
+  }
+
+  if (!joinResult.workspaceId) {
+    throw new Error("Share join response missing workspaceId");
+  }
+
+  await setCurrentWorkspaceById(page, joinResult.workspaceId);
+  await waitForConnectionState(
+    page,
+    "sync-status-indicator",
+    "connected",
+    20_000
+  );
 }
 
 test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => {
@@ -81,16 +196,15 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     // Wait for persistence (debounce is 5s)
     await ownerPage.waitForTimeout(7000);
 
-    // Close both devices to trigger room cleanup
-    await cleanupPages([ownerPage, editorPage]);
+    // Close both pages to drop active room connections.
+    await ownerPage.close();
+    await editorPage.close();
 
     const { context: newDeviceContext, page: newDevicePage } =
       await createAuthenticatedDevicePage(browser);
 
     try {
-      // Navigate to the share link (which sets the workspace)
-      await newDevicePage.goto(shareLink);
-      await waitForAppReady(newDevicePage);
+      await openSharedWorkspaceOnNewDevice(newDevicePage, shareLink);
 
       // Verify the board is visible
       await newDevicePage
@@ -156,8 +270,7 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
       await createAuthenticatedDevicePage(browser);
 
     try {
-      await newDevicePage.goto(shareLink);
-      await waitForAppReady(newDevicePage);
+      await openSharedWorkspaceOnNewDevice(newDevicePage, shareLink);
 
       // Verify content restored from DB after room was cleaned up
       const restoredColumn = newDevicePage.locator(
@@ -210,8 +323,7 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
       await createAuthenticatedDevicePage(browser);
 
     try {
-      await newDevicePage.goto("/");
-      await waitForAppReady(newDevicePage);
+      await openSharedWorkspaceOnNewDevice(newDevicePage, shareLink);
 
       // Verify the column exists on the new device
       // (owner still has room in memory, so this tests peer sync works)

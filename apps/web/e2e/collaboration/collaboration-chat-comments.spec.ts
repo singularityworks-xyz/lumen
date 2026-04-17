@@ -588,6 +588,12 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
     test.slow();
 
     await ensureBothConnected();
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      20_000
+    );
 
     await openCommentsDrawer(ownerPage);
     const newCommentInput = ownerPage.locator(
