@@ -19,3 +19,4 @@ config :phoenix,
 
 # Test environment marker
 config :presence, env: :test
+config :presence, :allow_e2e_anon_socket, true

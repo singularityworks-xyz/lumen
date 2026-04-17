@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+const ISO8601_UTC_TIMESTAMP_REGEX =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/;
+const ISO8601_MICROSECONDS_TO_MILLISECONDS_REGEX = /\.(\d{3})\d*Z$/;
+
 test.describe("Health Endpoint", () => {
   test("returns healthy status", async ({ request }) => {
     const response = await request.get("/health");
@@ -18,10 +22,15 @@ test.describe("Health Endpoint", () => {
     const body = await response.json();
 
     expect(typeof body.timestamp).toBe("string");
+    expect(body.timestamp).toMatch(ISO8601_UTC_TIMESTAMP_REGEX);
     expect(Date.parse(body.timestamp)).not.toBeNaN();
 
     const parsedResult = new Date(body.timestamp).toISOString();
-    expect(parsedResult.endsWith("Z")).toBeTruthy();
+    const normalizedTimestamp = body.timestamp.replace(
+      ISO8601_MICROSECONDS_TO_MILLISECONDS_REGEX,
+      ".$1Z"
+    );
+    expect(normalizedTimestamp).toBe(parsedResult);
   });
 
   test("handles concurrent requests", async ({ request }) => {
@@ -55,6 +64,7 @@ test.describe("Health Endpoint - Browser", () => {
 });
 
 test.describe("Visual Regression", () => {
+  // Follow-up tracked in docs/presence-health-screenshot-follow-up.md (GitHub issue creation currently blocked by local gh auth).
   test.fixme("health endpoint screenshot", async ({ page }) => {
     await page.goto("/health");
     await expect(page).toHaveScreenshot("health-endpoint.png", {

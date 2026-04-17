@@ -2,6 +2,8 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   createAuthenticatedDevicePage,
+  joinWorkspaceFromShareToken,
+  setCurrentWorkspaceFromStore,
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
@@ -36,65 +38,11 @@ async function cleanupPages(pages: Page[]) {
   }
 }
 
-interface JoinWorkspaceResult {
-  ok: boolean;
-  status: number;
-  workspaceId?: string;
-}
-
-function joinWorkspaceFromShareToken(
-  page: Page,
-  shareToken: string
-): Promise<JoinWorkspaceResult> {
-  return page.evaluate(async (token) => {
-    try {
-      const response = await fetch(`/api/share/${token}/join`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        workspaceId?: string;
-      };
-
-      return {
-        ok: response.ok,
-        status: response.status,
-        workspaceId: payload.workspaceId,
-      };
-    } catch {
-      return {
-        ok: false,
-        status: 0,
-      };
-    }
-  }, shareToken);
-}
-
 async function setCurrentWorkspaceById(
   page: Page,
   workspaceId: string
 ): Promise<void> {
-  const didSetWorkspace = await page.evaluate((id) => {
-    const store = (
-      window as Window & {
-        __KANBAN_STORE__?: {
-          getState?: () => {
-            currentWorkspaceId?: string | null;
-            setCurrentWorkspace?: (nextWorkspaceId: string | null) => void;
-          };
-        };
-      }
-    ).__KANBAN_STORE__;
-
-    const state = store?.getState?.();
-    if (!state || typeof state.setCurrentWorkspace !== "function") {
-      return false;
-    }
-
-    state.setCurrentWorkspace(id);
-    return true;
-  }, workspaceId);
+  const didSetWorkspace = await setCurrentWorkspaceFromStore(page, workspaceId);
 
   if (!didSetWorkspace) {
     throw new Error("Unable to set current workspace from store");
@@ -150,6 +98,10 @@ async function openSharedWorkspaceOnNewDevice(
 
 test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => {
   test.describe.configure({ timeout: 180_000 });
+
+  const ROOM_CLEANUP_TTL_MS = 30_000;
+  const ROOM_CLEANUP_BUFFER_MS = 5000;
+  const ROOM_CLEANUP_WAIT_MS = ROOM_CLEANUP_TTL_MS + ROOM_CLEANUP_BUFFER_MS;
 
   let ownerPage: Page;
   let editorPage: Page;
@@ -264,7 +216,7 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     await editorPage.close();
 
     // Wait for room cleanup timeout (30s + buffer)
-    await new Promise((resolve) => setTimeout(resolve, 35_000));
+    await new Promise((resolve) => setTimeout(resolve, ROOM_CLEANUP_WAIT_MS));
 
     const { context: newDeviceContext, page: newDevicePage } =
       await createAuthenticatedDevicePage(browser);

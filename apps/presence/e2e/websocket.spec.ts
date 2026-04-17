@@ -39,7 +39,7 @@ interface PhoenixWireObjectMessage {
   topic: string;
 }
 
-const DEFAULT_PRESENCE_HTTP_URL = "http://localhost:4000";
+const DEFAULT_PRESENCE_HTTP_URL = "http://127.0.0.1:4010";
 
 interface MessageWindow extends Window {
   onMessage: (msg: string) => void;
@@ -158,9 +158,12 @@ async function connectWebSocket(
 }> {
   const messages: PhoenixMessage[] = [];
   let openResolver: (() => void) | undefined;
+  let openReject: ((reason?: unknown) => void) | undefined;
+  let didOpen = false;
   let closeResolver: () => void;
-  const openPromise = new Promise<void>((resolve) => {
+  const openPromise = new Promise<void>((resolve, reject) => {
     openResolver = resolve;
+    openReject = reject;
   });
   const closePromise = new Promise<void>((resolve) => {
     closeResolver = resolve;
@@ -172,8 +175,11 @@ async function connectWebSocket(
   const socket = new WebSocket(wsUrl);
 
   socket.onopen = () => {
+    didOpen = true;
     messages.push({ event: "socket_open", topic: "socket" });
     openResolver?.();
+    openResolver = undefined;
+    openReject = undefined;
   };
 
   socket.onmessage = (event) => {
@@ -191,7 +197,20 @@ async function connectWebSocket(
   };
 
   socket.onclose = () => {
+    if (!didOpen) {
+      openReject?.(new Error("WebSocket closed before open"));
+      openResolver = undefined;
+      openReject = undefined;
+    }
     closeResolver();
+  };
+
+  socket.onerror = () => {
+    if (!didOpen) {
+      openReject?.(new Error("WebSocket error before open"));
+      openResolver = undefined;
+      openReject = undefined;
+    }
   };
 
   await openPromise;

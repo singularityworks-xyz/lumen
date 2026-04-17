@@ -11,8 +11,7 @@ defmodule PresenceWeb.TestTokenController do
       name = "Test User"
       image = "https://example.com/avatar.png"
 
-      better_auth_url =
-        Application.get_env(:presence, :better_auth_url) || "http://localhost:3002"
+      better_auth_url = Application.fetch_env!(:presence, :better_auth_url)
 
       claims = %{
         "sub" => user_id,

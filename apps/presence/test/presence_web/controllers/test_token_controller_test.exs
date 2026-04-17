@@ -1,5 +1,5 @@
 defmodule PresenceWeb.TestTokenControllerTest do
-  use PresenceWeb.ConnCase, async: true
+  use PresenceWeb.ConnCase, async: false
 
   describe "generate/2" do
     test "returns token with better auth issuer/audience in test env", %{conn: conn} do
@@ -7,7 +7,13 @@ defmodule PresenceWeb.TestTokenControllerTest do
       Application.put_env(:presence, :better_auth_url, "http://localhost:3002")
 
       on_exit(fn ->
-        Application.put_env(:presence, :better_auth_url, previous_better_auth_url)
+        if is_nil(previous_better_auth_url) do
+          Application.delete_env(:presence, :better_auth_url)
+        else
+          Application.put_env(:presence, :better_auth_url, previous_better_auth_url)
+        end
+
+        Presence.Token.clear_jwks_cache()
       end)
 
       conn = get(conn, "/api/test/token")

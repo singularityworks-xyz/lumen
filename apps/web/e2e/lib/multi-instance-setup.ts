@@ -16,7 +16,7 @@ export interface InstanceProcess {
 }
 
 function resolvePrimaryPresencePort(): number {
-  const fallbackPort = 4000;
+  const fallbackPort = 4010;
   const configuredPresenceUrl = process.env.PRESENCE_URL;
 
   if (!configuredPresenceUrl) {

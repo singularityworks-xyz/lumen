@@ -213,6 +213,8 @@ function makeSession(
 }
 
 function resetMocks() {
+  withSpanAsyncMock.mockClear();
+
   prismaMock.workspace.findUnique.mockImplementation(() =>
     Promise.resolve(null as any)
   );

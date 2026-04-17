@@ -9,6 +9,8 @@ defmodule PresenceWeb.UserSocket do
   require OpenTelemetry.Tracer
   require Presence.Tracer, as: PresenceTracer
 
+  @allow_e2e_anon_socket Application.compile_env(:presence, :allow_e2e_anon_socket, false)
+
   channel("workspace:*", PresenceWeb.WorkspaceChannel)
 
   @impl true
@@ -91,9 +93,10 @@ defmodule PresenceWeb.UserSocket do
   end
 
   defp allow_e2e_anonymous_socket? do
-    case System.get_env("ALLOW_E2E_ANON_SOCKET") do
-      value when value in ["1", "true", "TRUE"] -> true
-      _ -> false
-    end
+    @allow_e2e_anon_socket and
+      case System.get_env("ALLOW_E2E_ANON_SOCKET") do
+        value when value in ["1", "true", "TRUE"] -> true
+        _ -> false
+      end
   end
 end

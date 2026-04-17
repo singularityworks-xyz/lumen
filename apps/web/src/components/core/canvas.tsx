@@ -442,6 +442,7 @@ export function KanbanCanvas() {
                   bcy = cy + bh / 2;
 
                 let foundAreaId: string | null = null;
+                let closestDistance = Number.POSITIVE_INFINITY;
                 for (const areaId of areaPositions.allIds) {
                   const ap = areaPositions.byId[areaId];
                   if (
@@ -451,8 +452,17 @@ export function KanbanCanvas() {
                     bcy >= ap.y - DRAG_ATTACH_PADDING &&
                     bcy <= ap.y + ap.height + DRAG_ATTACH_PADDING
                   ) {
-                    foundAreaId = areaId;
-                    break;
+                    const areaCenterX = ap.x + ap.width / 2;
+                    const areaCenterY = ap.y + ap.height / 2;
+                    const distanceToAreaCenter = Math.hypot(
+                      bcx - areaCenterX,
+                      bcy - areaCenterY
+                    );
+
+                    if (distanceToAreaCenter < closestDistance) {
+                      closestDistance = distanceToAreaCenter;
+                      foundAreaId = areaId;
+                    }
                   }
                 }
                 if (foundAreaId) {

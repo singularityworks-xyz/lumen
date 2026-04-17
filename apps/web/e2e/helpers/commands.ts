@@ -132,13 +132,14 @@ export async function openCommentsDrawer(page: Page): Promise<void> {
     return;
   }
 
-  const commentsTab = page.locator(
-    'button:has-text("Comments"):not([data-testid="comments-drawer-trigger"])'
+  const commentsDrawerPanel = page.locator('[data-testid="comments-drawer"]');
+  const commentsTab = commentsDrawerPanel.locator(
+    '[data-testid="comments-tab-button"]'
   );
 
-  if (await commentsTab.last().isVisible()) {
+  if (await commentsDrawerPanel.isVisible()) {
     try {
-      await commentsTab.last().click({ force: true });
+      await commentsTab.click({ force: true });
       await newCommentInput.waitFor({ state: "visible", timeout: 2500 });
       return;
     } catch {
@@ -178,21 +179,25 @@ export async function openCommentsDrawer(page: Page): Promise<void> {
     // If drawer last opened on Discussion tab, switch back to Comments tab.
   }
 
+  await commentsDrawerPanel.waitFor({ state: "visible", timeout: 10_000 });
+
   try {
-    await commentsTab.last().click({ force: true });
+    await commentsTab.click({ force: true });
   } catch {
     const switchedViaDom = await page.evaluate(() => {
-      const candidates = Array.from(document.querySelectorAll("button"));
-      const tab = candidates.find((button) => {
-        const label = button.textContent?.toLowerCase() ?? "";
-        return (
-          label.includes("comments") &&
-          button.getAttribute("data-testid") !== "comments-drawer-trigger"
-        );
-      }) as HTMLButtonElement | undefined;
+      const panel = document.querySelector(
+        '[data-testid="comments-drawer"]'
+      ) as HTMLElement | null;
+      const tab = panel?.querySelector(
+        '[data-testid="comments-tab-button"]'
+      ) as HTMLButtonElement | null;
 
-      tab?.click();
-      return Boolean(tab);
+      if (!tab) {
+        return false;
+      }
+
+      tab.click();
+      return true;
     });
 
     if (!switchedViaDom) {
@@ -384,7 +389,7 @@ async function waitForCurrentWorkspaceId(
   return false;
 }
 
-function setCurrentWorkspaceFromStore(
+export function setCurrentWorkspaceFromStore(
   page: Page,
   workspaceId: string
 ): Promise<boolean> {
@@ -799,7 +804,7 @@ async function createBoardForSyncSeed(
   }
 }
 
-interface JoinShareResult {
+export interface JoinShareResult {
   message?: string;
   ok: boolean;
   status: number;
@@ -807,7 +812,7 @@ interface JoinShareResult {
   workspaceName?: string;
 }
 
-function joinWorkspaceFromShareToken(
+export function joinWorkspaceFromShareToken(
   page: Page,
   shareToken: string
 ): Promise<JoinShareResult> {

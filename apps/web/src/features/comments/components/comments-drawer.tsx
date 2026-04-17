@@ -34,6 +34,7 @@ import { DiscussionTab } from "./discussion-tab";
 
 const COMMENT_MENTION_SPLIT_REGEX = /(@[a-zA-Z0-9_]+)/g;
 const COMMENT_MENTION_PART_REGEX = /^@[a-zA-Z0-9_]+$/;
+const EDIT_COMMENT_TEXTAREA_HEIGHT_PX = 32;
 
 function renderCommentContentWithMentions(content: string, keyPrefix: string) {
   const nodes: Array<string | ReactNode> = [];
@@ -294,18 +295,22 @@ const CommentBubble = memo(
             )}
 
             {canManageComment && isEditing && (
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-[12px]"
+              <div className="mt-2 flex items-start gap-2">
+                <textarea
+                  className="h-8 flex-1 rounded-md border border-border bg-background px-2 py-1 text-[12px]"
                   data-testid="comment-edit-input"
                   onChange={(event) => setEditValue(event.target.value)}
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       event.stopPropagation();
                       handleSaveEdit();
                     }
+                  }}
+                  style={{
+                    minHeight: `${EDIT_COMMENT_TEXTAREA_HEIGHT_PX}px`,
+                    maxHeight: `${EDIT_COMMENT_TEXTAREA_HEIGHT_PX * 5}px`,
                   }}
                   value={editValue}
                 />
@@ -542,6 +547,7 @@ const CommentsDrawerContent = memo(
           "h-[70vh] max-h-175 min-h-100",
           "flex flex-col"
         )}
+        data-testid="comments-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
@@ -619,6 +625,7 @@ const CommentsDrawerContent = memo(
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
+                data-testid="comments-tab-button"
                 onClick={() => setActiveTab("comments")}
                 type="button"
               >
@@ -654,6 +661,7 @@ const CommentsDrawerContent = memo(
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
+                data-testid="discussion-tab-button"
                 onClick={() => setActiveTab("discussion")}
                 type="button"
               >
@@ -896,6 +904,7 @@ export const CommentsDrawer = memo(
     );
 
     const comments = useKanbanStore((state) => state.comments);
+    const chatMessages = useKanbanStore((state) => state.chatMessages);
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
     );
@@ -908,6 +917,14 @@ export const CommentsDrawer = memo(
             (c): c is Comment => !!c && c.workspaceId === currentWorkspaceId
           ),
       [comments, currentWorkspaceId]
+    );
+
+    const discussionCount = useMemo(
+      () =>
+        chatMessages.allIds.filter(
+          (id) => chatMessages.byId[id]?.workspaceId === currentWorkspaceId
+        ).length,
+      [chatMessages, currentWorkspaceId]
     );
 
     useEffect(() => {
@@ -988,7 +1005,7 @@ export const CommentsDrawer = memo(
         />
 
         <FloatingIndicator
-          badgeCount={0}
+          badgeCount={discussionCount}
           icon={<Users className="h-5 w-5" />}
           isOpen={isOpen}
           label="Chat"

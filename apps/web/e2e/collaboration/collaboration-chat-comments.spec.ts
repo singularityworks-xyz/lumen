@@ -1,8 +1,10 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+  joinWorkspaceFromShareToken,
   openChatDrawer,
   openCommentsDrawer,
+  setCurrentWorkspaceFromStore,
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
@@ -16,65 +18,14 @@ test.describe("E2E-15: Chat and Comments Sync", () => {
   let sharedWorkspaceId: string;
   let sharedWorkspaceToken: string;
 
-  interface JoinWorkspaceResult {
-    ok: boolean;
-    status: number;
-    workspaceId?: string;
-  }
-
-  function joinWorkspaceFromShareToken(
-    page: Page,
-    shareToken: string
-  ): Promise<JoinWorkspaceResult> {
-    return page.evaluate(async (token) => {
-      try {
-        const response = await fetch(`/api/share/${token}/join`, {
-          method: "POST",
-          credentials: "include",
-        });
-
-        const payload = (await response.json().catch(() => ({}))) as {
-          workspaceId?: string;
-        };
-
-        return {
-          ok: response.ok,
-          status: response.status,
-          workspaceId: payload.workspaceId,
-        };
-      } catch {
-        return {
-          ok: false,
-          status: 0,
-        };
-      }
-    }, shareToken);
-  }
-
   async function setCurrentWorkspaceById(
     page: Page,
     workspaceId: string
   ): Promise<void> {
-    const didSetWorkspace = await page.evaluate((id) => {
-      const store = (
-        window as Window & {
-          __KANBAN_STORE__?: {
-            getState?: () => {
-              currentWorkspaceId?: string | null;
-              setCurrentWorkspace?: (workspaceId: string | null) => void;
-            };
-          };
-        }
-      ).__KANBAN_STORE__;
-
-      const state = store?.getState?.();
-      if (!state || typeof state.setCurrentWorkspace !== "function") {
-        return false;
-      }
-
-      state.setCurrentWorkspace(id);
-      return true;
-    }, workspaceId);
+    const didSetWorkspace = await setCurrentWorkspaceFromStore(
+      page,
+      workspaceId
+    );
 
     if (!didSetWorkspace) {
       throw new Error("Unable to set current workspace from store");

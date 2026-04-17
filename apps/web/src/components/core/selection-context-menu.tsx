@@ -38,6 +38,9 @@ export const SelectionContextMenu = memo(
     const [mounted, setMounted] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
+    const createAreaButtonRef = useRef<HTMLButtonElement>(null);
+    const areaNameInputRef = useRef<HTMLInputElement>(null);
+    const createDialogTitleId = "selection-create-area-dialog-title";
     const [menuPosition, setMenuPosition] = useState({
       x: screenX,
       y: screenY,
@@ -107,6 +110,11 @@ export const SelectionContextMenu = memo(
       );
     }, [mounted, showCreateDialog, screenX, screenY, clampToViewport]);
 
+    const closeCreateDialog = useCallback(() => {
+      setShowCreateDialog(false);
+      createAreaButtonRef.current?.focus();
+    }, []);
+
     useEffect(() => {
       if (!mounted) {
         return;
@@ -118,7 +126,7 @@ export const SelectionContextMenu = memo(
         }
 
         if (showCreateDialog) {
-          setShowCreateDialog(false);
+          closeCreateDialog();
           return;
         }
 
@@ -127,13 +135,73 @@ export const SelectionContextMenu = memo(
 
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);
-    }, [mounted, onClose, showCreateDialog]);
+    }, [mounted, onClose, showCreateDialog, closeCreateDialog]);
+
+    useEffect(() => {
+      if (!showCreateDialog) {
+        return;
+      }
+
+      areaNameInputRef.current?.focus();
+      areaNameInputRef.current?.select();
+    }, [showCreateDialog]);
+
+    useEffect(() => {
+      if (!showCreateDialog) {
+        return;
+      }
+
+      const handleDialogTabTrap = (event: KeyboardEvent) => {
+        if (event.key !== "Tab") {
+          return;
+        }
+
+        const dialogElement = dialogRef.current;
+        if (!dialogElement) {
+          return;
+        }
+
+        const focusableElements = Array.from(
+          dialogElement.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"
+          )
+        );
+
+        if (focusableElements.length === 0) {
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        if (!firstElement) {
+          return;
+        }
+        const lastElement = focusableElements.at(-1);
+        if (!lastElement) {
+          return;
+        }
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey && activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+          return;
+        }
+
+        if (!event.shiftKey && activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
+      };
+
+      document.addEventListener("keydown", handleDialogTabTrap);
+      return () => document.removeEventListener("keydown", handleDialogTabTrap);
+    }, [showCreateDialog]);
 
     const handleCreateArea = useCallback(() => {
       addArea(areaName.trim() || "New Area", { x, y }, { width, height });
-      setShowCreateDialog(false);
+      closeCreateDialog();
       onClose();
-    }, [addArea, areaName, x, y, width, height, onClose]);
+    }, [addArea, areaName, closeCreateDialog, x, y, width, height, onClose]);
 
     if (!mounted || typeof document === "undefined") {
       return null;
@@ -145,17 +213,26 @@ export const SelectionContextMenu = memo(
           <>
             <button
               aria-label="Close create area dialog"
-              className="fixed inset-0 z-9998 bg-black/50"
-              onClick={() => setShowCreateDialog(false)}
+              className="fixed inset-0 z-[9998] bg-black/50"
+              onClick={closeCreateDialog}
+              tabIndex={-1}
               type="button"
             />
             <div
-              className="fixed z-9999 w-80 overflow-hidden rounded-lg border-2 border-border/50 bg-card"
+              aria-labelledby={createDialogTitleId}
+              aria-modal="true"
+              className="fixed z-[9999] w-80 overflow-hidden rounded-lg border-2 border-border/50 bg-card"
               ref={dialogRef}
+              role="dialog"
               style={{ top: dialogPosition.y, left: dialogPosition.x }}
             >
               <div className="border-border/30 border-b px-3 py-2">
-                <span className="font-semibold text-xs">Create Area</span>
+                <span
+                  className="font-semibold text-xs"
+                  id={createDialogTitleId}
+                >
+                  Create Area
+                </span>
               </div>
               <form
                 className="space-y-3 p-3"
@@ -174,16 +251,17 @@ export const SelectionContextMenu = memo(
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
-                      setShowCreateDialog(false);
+                      closeCreateDialog();
                     }
                   }}
                   placeholder="Area name"
+                  ref={areaNameInputRef}
                   value={areaName}
                 />
                 <div className="flex justify-end gap-2">
                   <button
                     className="rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted"
-                    onClick={() => setShowCreateDialog(false)}
+                    onClick={closeCreateDialog}
                     type="button"
                   >
                     Cancel
@@ -225,6 +303,7 @@ export const SelectionContextMenu = memo(
               setAreaName("New Area");
               setShowCreateDialog(true);
             }}
+            ref={createAreaButtonRef}
             type="button"
           >
             <Grid3X3 className="h-3.5 w-3.5" />

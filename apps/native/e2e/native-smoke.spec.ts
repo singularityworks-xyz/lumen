@@ -19,18 +19,17 @@ interface TauriConfig {
     icon?: string[];
     targets?: string;
   };
+  identifier?: string;
   plugins?: {
-    [plugin: string]: {
-      desktop?: {
-        schemes?: string[];
-      };
-    };
     "deep-link"?: {
       desktop?: {
         schemes?: string[];
       };
     };
+    store?: Record<string, unknown>;
   };
+  productName?: string;
+  version?: string;
 }
 
 interface NativeCapabilities {
@@ -63,7 +62,13 @@ test.describe("Native App Smoke Tests", () => {
 
   test("native app configuration is valid", async () => {
     const config = await loadTauriConfig();
-    expect(config).toBeDefined();
+
+    expect(typeof config.productName).toBe("string");
+    expect(config.productName?.length).toBeGreaterThan(0);
+    expect(typeof config.identifier).toBe("string");
+    expect(config.identifier?.length).toBeGreaterThan(0);
+    expect(typeof config.version).toBe("string");
+    expect(config.version?.length).toBeGreaterThan(0);
   });
 
   test("websocket connection path is configured", async ({ page }) => {
@@ -107,7 +112,7 @@ test.describe("Native App Smoke Tests", () => {
     expect(capabilities.permissions).toContain("websocket:default");
   });
 
-  test("store plugin is configured for persistence", async () => {
+  test("window configuration exists for persistence-sensitive flows", async () => {
     const config = await loadTauriConfig();
 
     expect(config.app?.windows?.[0]).toBeDefined();

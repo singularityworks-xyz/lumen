@@ -67,6 +67,11 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     await page.evaluate(
       ({ socketUrl }) => {
         const socket = new WebSocket(socketUrl);
+        (
+          window as unknown as {
+            __presenceReconnectSocket?: WebSocket;
+          }
+        ).__presenceReconnectSocket = socket;
         socket.onmessage = (event) => {
           (
             window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -224,22 +229,53 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
 
     await page.waitForTimeout(1000);
 
-    expect(messages).toContain(WEBSOCKET_OPEN);
+    const initialOpenCount = messages.filter(
+      (m) => m === WEBSOCKET_OPEN
+    ).length;
+    expect(initialOpenCount).toBeGreaterThanOrEqual(1);
 
     await page.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
+      const socket = (
+        window as unknown as { __presenceReconnectSocket?: WebSocket }
+      ).__presenceReconnectSocket;
+      socket?.close();
     });
 
     await page.waitForTimeout(1500);
 
-    await page.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
+    await page.evaluate(
+      ({ socketUrl }) => {
+        const socket = new WebSocket(socketUrl);
+        (
+          window as unknown as {
+            __presenceReconnectSocket?: WebSocket;
+          }
+        ).__presenceReconnectSocket = socket;
+        socket.onmessage = (event) => {
+          (
+            window as unknown as { onPresenceMessage: (msg: string) => void }
+          ).onPresenceMessage(event.data);
+        };
+        socket.onopen = () => {
+          (
+            window as unknown as { onPresenceMessage: (msg: string) => void }
+          ).onPresenceMessage("open");
+        };
+        socket.onclose = () => {
+          (
+            window as unknown as { onPresenceMessage: (msg: string) => void }
+          ).onPresenceMessage("closed");
+        };
+      },
+      { socketUrl: primarySocketUrl }
+    );
 
     await page.waitForTimeout(2000);
 
-    const openCount = messages.filter((m) => m === WEBSOCKET_OPEN).length;
-    expect(openCount).toBeGreaterThanOrEqual(1);
+    const openCountAfterReconnect = messages.filter(
+      (m) => m === WEBSOCKET_OPEN
+    ).length;
+    expect(openCountAfterReconnect).toBeGreaterThan(initialOpenCount);
   });
 
   test("presence instance handles invalid token gracefully", async ({
@@ -375,6 +411,11 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       await page.evaluate(
         ({ socketUrl }) => {
           const socket = new WebSocket(socketUrl);
+          (
+            window as unknown as {
+              __presenceStateReconnectSocket?: WebSocket;
+            }
+          ).__presenceStateReconnectSocket = socket;
           socket.onopen = () => {
             (
               window as unknown as { onPresenceMessage: (msg: string) => void }
@@ -385,22 +426,41 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
       );
 
       await page.waitForTimeout(1000);
-      expect(messages).toContain(WEBSOCKET_OPEN);
+      const initialOpenCount = messages.filter(
+        (m) => m === WEBSOCKET_OPEN
+      ).length;
+      expect(initialOpenCount).toBeGreaterThanOrEqual(1);
 
       await page.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
+        const socket = (
+          window as unknown as { __presenceStateReconnectSocket?: WebSocket }
+        ).__presenceStateReconnectSocket;
+        socket?.close();
       });
 
       await page.waitForTimeout(1500);
 
-      await page.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await page.evaluate(
+        ({ socketUrl }) => {
+          const socket = new WebSocket(socketUrl);
+          (
+            window as unknown as {
+              __presenceStateReconnectSocket?: WebSocket;
+            }
+          ).__presenceStateReconnectSocket = socket;
+          socket.onopen = () => {
+            (
+              window as unknown as { onPresenceMessage: (msg: string) => void }
+            ).onPresenceMessage("open");
+          };
+        },
+        { socketUrl: primarySocketUrl }
+      );
 
       await page.waitForTimeout(2000);
 
       const openMessages = messages.filter((m) => m === WEBSOCKET_OPEN);
-      expect(openMessages.length).toBeGreaterThanOrEqual(1);
+      expect(openMessages.length).toBeGreaterThan(initialOpenCount);
     });
 
     test("fanout occurs between clients on different instance ports", async ({
