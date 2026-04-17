@@ -64,8 +64,21 @@ test.describe("Health Endpoint - Browser", () => {
 });
 
 test.describe("Visual Regression", () => {
-  // Follow-up tracked in docs/presence-health-screenshot-follow-up.md (GitHub issue creation currently blocked by local gh auth).
-  test.fixme("health endpoint screenshot", async ({ page }) => {
+  test("health endpoint screenshot", async ({ page }) => {
+    await page.route("**/health", async (route) => {
+      await route.fulfill({
+        body: JSON.stringify({
+          service: "presence",
+          status: "healthy",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        }),
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+        },
+        status: 200,
+      });
+    });
+
     await page.goto("/health");
     await expect(page).toHaveScreenshot("health-endpoint.png", {
       maxDiffPixels: 100,
