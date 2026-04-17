@@ -4,6 +4,8 @@ import { expect } from "@playwright/test";
 const CONNECTED_REGEX = /connected|synced|online/i;
 const DISCONNECTED_REGEX = /disconnected|offline/i;
 
+const CONNECTED_STATES = new Set(["syncing", "synced"]);
+
 export async function waitForDrawerOpen(
   page: Page,
   drawerTestId: string,
@@ -75,6 +77,35 @@ export async function waitForConnectionState(
 ): Promise<void> {
   const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
   await indicator.waitFor({ state: "visible", timeout });
+
+  if (syncIndicatorTestId === "sync-status-indicator") {
+    if (expectedState === "connected") {
+      await page.waitForFunction(
+        ({ testId, states }) => {
+          const el = document.querySelector(
+            `[data-testid="${testId}"]`
+          ) as HTMLElement | null;
+          if (!el) {
+            return false;
+          }
+          const syncState = el.getAttribute("data-sync-state");
+          return syncState ? states.includes(syncState) : false;
+        },
+        {
+          testId: syncIndicatorTestId,
+          states: Array.from(CONNECTED_STATES),
+        },
+        { timeout }
+      );
+      return;
+    }
+
+    await expect(indicator).toHaveAttribute("data-sync-state", "disconnected", {
+      timeout,
+    });
+    return;
+  }
+
   const regex =
     expectedState === "connected" ? CONNECTED_REGEX : DISCONNECTED_REGEX;
   await expect(indicator).toContainText(regex, { timeout });
@@ -136,6 +167,16 @@ export async function waitForReconnected(
   syncIndicatorTestId = "sync-status-indicator",
   timeout = 10_000
 ): Promise<void> {
+  if (syncIndicatorTestId === "sync-status-indicator") {
+    await waitForConnectionState(
+      page,
+      syncIndicatorTestId,
+      "connected",
+      timeout
+    );
+    return;
+  }
+
   const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
   await indicator.waitFor({ state: "visible", timeout });
   await expect(indicator).toContainText(CONNECTED_REGEX, { timeout });
@@ -146,6 +187,16 @@ export async function waitForDisconnected(
   syncIndicatorTestId = "sync-status-indicator",
   timeout = 5000
 ): Promise<void> {
+  if (syncIndicatorTestId === "sync-status-indicator") {
+    await waitForConnectionState(
+      page,
+      syncIndicatorTestId,
+      "disconnected",
+      timeout
+    );
+    return;
+  }
+
   const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
   await indicator.waitFor({ state: "visible", timeout });
   await expect(indicator).toContainText(DISCONNECTED_REGEX, { timeout });

@@ -46,6 +46,8 @@ import { useKanbanStore } from "@/src/features/kanban";
 
 const logger = createLogger({ name: "collab:yjs-sync" });
 const POSITION_THROTTLE_MS = 14;
+// Wait briefly for server-backed Yjs sync before deciding whether to bootstrap from local state.
+const YJS_BOOTSTRAP_DELAY_MS = 1200;
 
 export interface YjsSyncActions {
   // Delete an area from Yjs
@@ -181,20 +183,31 @@ export function useYjsSync(
 
     const state = useKanbanStore.getState();
     const boardsMap = doc.getMap("boards");
+    let bootstrapTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Server is source of truth - only push local state if server is empty
     // IMPORTANT: Only push data for the CURRENT workspace, not all workspaces
     if (boardsMap.size === 0 && currentWorkspaceId) {
-      const workspaceBoards = state.boards.allIds.filter(
-        (id) => state.boards.byId[id]?.workspace_id === currentWorkspaceId
-      );
-      if (workspaceBoards.length > 0) {
-        logger.info("Server empty, pushing current workspace state to Yjs", {
-          workspaceId: currentWorkspaceId,
-          boardCount: workspaceBoards.length,
-        });
-        initializeYjsForWorkspace(doc, state, currentWorkspaceId);
-      }
+      bootstrapTimeout = setTimeout(() => {
+        const latestBoardsMap = doc.getMap("boards");
+        if (latestBoardsMap.size > 0) {
+          return;
+        }
+
+        const latestState = useKanbanStore.getState();
+        const workspaceBoards = latestState.boards.allIds.filter(
+          (id) =>
+            latestState.boards.byId[id]?.workspace_id === currentWorkspaceId
+        );
+
+        if (workspaceBoards.length > 0) {
+          logger.info("Server empty, pushing current workspace state to Yjs", {
+            workspaceId: currentWorkspaceId,
+            boardCount: workspaceBoards.length,
+          });
+          initializeYjsForWorkspace(doc, latestState, currentWorkspaceId);
+        }
+      }, YJS_BOOTSTRAP_DELAY_MS);
     } else if (boardsMap.size > 0) {
       logger.info("Server has data, pulling from Yjs", {
         serverBoards: boardsMap.size,
@@ -204,7 +217,13 @@ export function useYjsSync(
 
     prevStateRef.current = state;
     const unobserve = observeYjsChanges(doc, applyYjsChanges);
-    return unobserve;
+
+    return () => {
+      if (bootstrapTimeout) {
+        clearTimeout(bootstrapTimeout);
+      }
+      unobserve();
+    };
   }, [doc, isConnected, applyYjsChanges, currentWorkspaceId]);
 
   useEffect(() => {

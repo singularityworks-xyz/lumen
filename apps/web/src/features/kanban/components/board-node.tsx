@@ -194,7 +194,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         }
 
         if (needsPan) {
-          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 400 });
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 0 });
         }
       },
       [getViewport, setViewport]
@@ -204,14 +204,24 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
-          setCenter(result.position.x + 200, result.position.y + 175, {
-            duration: 500,
-            zoom: 1,
-          });
+          // Existing modal — bring to front, shake, and keep it in viewport.
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
+
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);
         } else {
+          // New modal (including reopen with remembered position):
+          // always call ensureDialogVisible so viewport stays consistent.
           setTimeout(
             () =>
               ensureDialogVisible(
@@ -227,7 +237,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       [
         openTaskDetailModal,
         boardId,
-        setCenter,
         triggerTaskDetailModalShake,
         ensureDialogVisible,
       ]
@@ -586,6 +595,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
           }
         `}
+          data-selected={isSelected || selected ? "true" : "false"}
           data-testid="board-node"
           onClick={handleClick}
           onKeyDown={(e) => {
@@ -610,19 +620,44 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
           <div
-            className="group flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
+            className="group board-drag-handle flex w-full cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
             data-testid="board-header"
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (!board) {
+                return;
+              }
               const headerRect = headerRef.current?.getBoundingClientRect();
               const screenX = headerRect ? headerRect.right + 20 : e.clientX;
               const screenY = headerRect ? headerRect.top : e.clientY;
               const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
               openBoardQuickActions(boardId, flowPos);
+
               setTimeout(
                 () => ensureDialogVisible(flowPos.x, flowPos.y, 220, 280),
                 50
+              );
+
+              // Also open rename dialog alongside quick-actions so that
+              // workspace switch-and-back restores the dialog context.
+              const QUICK_ACTIONS_WIDTH = 220;
+              const renamePos = {
+                x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
+                y: flowPos.y,
+              };
+              openBoardDialog({
+                type: "rename",
+                boardId,
+                boardName: board.name,
+                boardDescription: board.description,
+                inputValue: board.name,
+                descriptionValue: board.description,
+                position: renamePos,
+              });
+              setTimeout(
+                () => ensureDialogVisible(renamePos.x, renamePos.y, 320, 280),
+                100
               );
             }}
             ref={headerRef}
@@ -811,7 +846,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         </div>
 
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="top"
           position={Position.Top}
           style={{ top: -6 }}
@@ -825,7 +861,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="right"
           position={Position.Right}
           style={{ right: -6 }}
@@ -839,7 +876,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="bottom"
           position={Position.Bottom}
           style={{ bottom: -6 }}
@@ -853,7 +891,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           type="target"
         />
         <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
+          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
+          data-testid="board-connection-handle"
           id="left"
           position={Position.Left}
           style={{ left: -6 }}

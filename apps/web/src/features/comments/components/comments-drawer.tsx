@@ -1,8 +1,22 @@
 "use client";
 
-import { ChevronLeft, LayoutGrid, MessageCircle, Users } from "lucide-react";
+import {
+  ChevronLeft,
+  LayoutGrid,
+  MessageCircle,
+  Send,
+  Users,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -17,6 +31,50 @@ import type { Comment } from "@/src/features/kanban/types";
 import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
 import { DiscussionTab } from "./discussion-tab";
+
+const COMMENT_MENTION_SPLIT_REGEX = /(@[a-zA-Z0-9_]+)/g;
+const COMMENT_MENTION_PART_REGEX = /^@[a-zA-Z0-9_]+$/;
+const EDIT_COMMENT_TEXTAREA_HEIGHT_PX = 32;
+
+function renderCommentContentWithMentions(content: string, keyPrefix: string) {
+  const nodes: Array<string | ReactNode> = [];
+  let lastEnd = 0;
+
+  for (const match of content.matchAll(COMMENT_MENTION_SPLIT_REGEX)) {
+    const mentionText = match[0];
+    const mentionStart = match.index;
+
+    if (mentionStart === undefined) {
+      continue;
+    }
+
+    if (mentionStart > lastEnd) {
+      nodes.push(content.slice(lastEnd, mentionStart));
+    }
+
+    if (COMMENT_MENTION_PART_REGEX.test(mentionText)) {
+      nodes.push(
+        <span
+          className="font-medium text-primary"
+          data-testid="comment-mention"
+          key={`${keyPrefix}-mention-${mentionStart}-${mentionText}`}
+        >
+          {mentionText}
+        </span>
+      );
+    } else {
+      nodes.push(mentionText);
+    }
+
+    lastEnd = mentionStart + mentionText.length;
+  }
+
+  if (lastEnd < content.length) {
+    nodes.push(content.slice(lastEnd));
+  }
+
+  return nodes;
+}
 
 interface CommentBubbleProps {
   authorColor?: string;
@@ -42,10 +100,45 @@ const CommentBubble = memo(
     isReply = false,
     onClick,
   }: CommentBubbleProps) => {
+    const { localUser } = useCollaboration();
+    const updateComment = useKanbanStore((state) => state.updateComment);
+    const removeComment = useKanbanStore((state) => state.removeComment);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(comment.content);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const fallback = authorName.slice(0, 2).toUpperCase();
+    const canManageComment = !isReply;
+
+    useEffect(() => {
+      if (!isEditing) {
+        setEditValue(comment.content);
+      }
+    }, [comment.content, isEditing]);
+
+    const handleSaveEdit = useCallback(() => {
+      const nextContent = editValue.trim();
+      if (nextContent.length === 0) {
+        return;
+      }
+
+      updateComment(comment.id, {
+        content: nextContent,
+        lastEditedById: localUser?.id,
+        lastEditorName: localUser?.name,
+        lastEditorImage: localUser?.image ?? undefined,
+      });
+
+      setIsEditing(false);
+      setShowDeleteConfirm(false);
+    }, [comment.id, editValue, localUser, updateComment]);
+
+    const handleConfirmDelete = useCallback(() => {
+      removeComment(comment.id);
+      setShowDeleteConfirm(false);
+    }, [comment.id, removeComment]);
 
     return (
-      <motion.button
+      <motion.div
         animate={{ opacity: 1, x: 0, scale: 1 }}
         className={cn(
           "flex max-w-[85%] gap-2.5 text-left",
@@ -54,16 +147,28 @@ const CommentBubble = memo(
           onClick &&
             "cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
         )}
+        data-testid="comment"
         exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         onClick={onClick}
+        onKeyDown={(event) => {
+          if (!onClick) {
+            return;
+          }
+
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onClick();
+          }
+        }}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
         transition={{
           type: "spring",
           stiffness: 400,
           damping: 25,
           delay: index * 0.03,
         }}
-        type="button"
       >
         <Avatar
           className={cn(
@@ -157,11 +262,91 @@ const CommentBubble = memo(
             }
           >
             <p className="wrap-break-word whitespace-pre-wrap">
-              {comment.content}
+              {renderCommentContentWithMentions(comment.content, comment.id)}
             </p>
+
+            {canManageComment && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  className="rounded-md bg-muted/60 px-2 py-1 font-medium text-[10px] text-muted-foreground transition-colors hover:bg-muted"
+                  data-testid="comment-edit-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setShowDeleteConfirm(false);
+                    setIsEditing(true);
+                  }}
+                  type="button"
+                >
+                  Edit
+                </button>
+                <button
+                  className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-[10px] text-destructive transition-colors hover:bg-destructive/20"
+                  data-testid="comment-delete-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsEditing(false);
+                    setShowDeleteConfirm((prev) => !prev);
+                  }}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+
+            {canManageComment && isEditing && (
+              <div className="mt-2 flex items-start gap-2">
+                <textarea
+                  className="h-8 flex-1 rounded-md border border-border bg-background px-2 py-1 text-[12px]"
+                  data-testid="comment-edit-input"
+                  onChange={(event) => setEditValue(event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleSaveEdit();
+                    }
+                  }}
+                  style={{
+                    minHeight: `${EDIT_COMMENT_TEXTAREA_HEIGHT_PX}px`,
+                    maxHeight: `${EDIT_COMMENT_TEXTAREA_HEIGHT_PX * 5}px`,
+                  }}
+                  value={editValue}
+                />
+                <button
+                  className="rounded-md bg-primary px-2 py-1 font-medium text-[10px] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="comment-save-edit"
+                  disabled={editValue.trim().length === 0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleSaveEdit();
+                  }}
+                  type="button"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+
+            {canManageComment && showDeleteConfirm && (
+              <div className="mt-2">
+                <button
+                  className="rounded-md bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground"
+                  data-testid="comment-confirm-delete"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleConfirmDelete();
+                  }}
+                  type="button"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </motion.button>
+      </motion.div>
     );
   }
 );
@@ -169,20 +354,32 @@ const CommentBubble = memo(
 CommentBubble.displayName = "CommentBubble";
 
 interface FloatingIndicatorProps {
-  commentCount: number;
+  badgeCount: number;
+  icon: ReactNode;
   isOpen: boolean;
+  label: string;
   onClick: () => void;
+  testId: string;
+  verticalOffset: number;
 }
 
 const FloatingIndicator = memo(
-  ({ onClick, commentCount, isOpen }: FloatingIndicatorProps) => (
+  ({
+    onClick,
+    badgeCount,
+    isOpen,
+    icon,
+    label,
+    testId,
+    verticalOffset,
+  }: FloatingIndicatorProps) => (
     <motion.button
       animate={{
         x: isOpen ? 100 : 0,
         opacity: isOpen ? 0 : 1,
         scale: isOpen ? 0.8 : 1,
       }}
-      aria-label="Open comments"
+      aria-label={`Open ${label.toLowerCase()}`}
       className={cn(
         "fixed top-1/2 right-0 z-40",
         "flex flex-col items-center justify-center gap-1",
@@ -195,15 +392,18 @@ const FloatingIndicator = memo(
         "dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.7),-6px_0_16px_rgba(0,0,0,0.35),inset_0_3px_14px_rgba(255,255,255,0.15),inset_0_-3px_12px_rgba(0,0,0,0.55),inset_1px_0_7px_rgba(0,0,0,0.35)]",
         "group cursor-pointer transition-shadow duration-300"
       )}
+      data-testid={testId}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "-100px" }}
+      style={{ marginTop: `${verticalOffset}px` }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
       <div className="relative">
-        <MessageCircle className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
-        {commentCount > 0 && (
+        <span className="text-muted-foreground transition-colors group-hover:text-primary">
+          {icon}
+        </span>
+        {badgeCount > 0 && (
           <motion.span
             animate={{ scale: 1 }}
             className={cn(
@@ -216,12 +416,12 @@ const FloatingIndicator = memo(
             )}
             initial={{ scale: 0 }}
           >
-            {commentCount > 99 ? "99+" : commentCount}
+            {badgeCount > 99 ? "99+" : badgeCount}
           </motion.span>
         )}
       </div>
       <span className="writing-mode-vertical font-medium text-[9px] text-muted-foreground transition-colors group-hover:text-foreground">
-        Comments
+        {label}
       </span>
     </motion.button>
   )
@@ -231,10 +431,13 @@ type DrawerTab = "comments" | "discussion";
 
 interface CommentsDrawerContentProps {
   boardCount?: number;
+  commentInputValue: string;
   comments: Comment[];
   localUserId?: string;
+  onAddComment: (content: string) => void;
   onClose: () => void;
   onCommentClick?: (comment: Comment) => void;
+  onCommentInputChange: (value: string) => void;
   onSwitchToAi?: () => void;
   onSwitchToBoards?: () => void;
   workspaceId: string;
@@ -245,6 +448,9 @@ const CommentsDrawerContent = memo(
     comments,
     onClose,
     localUserId,
+    commentInputValue,
+    onCommentInputChange,
+    onAddComment,
     workspaceId,
     onSwitchToBoards,
     onSwitchToAi,
@@ -341,6 +547,7 @@ const CommentsDrawerContent = memo(
           "h-[70vh] max-h-175 min-h-100",
           "flex flex-col"
         )}
+        data-testid="comments-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
@@ -418,6 +625,7 @@ const CommentsDrawerContent = memo(
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
+                data-testid="comments-tab-button"
                 onClick={() => setActiveTab("comments")}
                 type="button"
               >
@@ -453,6 +661,7 @@ const CommentsDrawerContent = memo(
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
+                data-testid="discussion-tab-button"
                 onClick={() => setActiveTab("discussion")}
                 type="button"
               >
@@ -484,6 +693,35 @@ const CommentsDrawerContent = memo(
 
           {activeTab === "comments" ? (
             <>
+              <div className="border-border/50 border-b px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="h-10 flex-1 rounded-xl border border-border/40 bg-background/90 px-3 text-foreground text-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/40"
+                    data-testid="new-comment-input"
+                    onChange={(event) =>
+                      onCommentInputChange(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        onAddComment(commentInputValue);
+                      }
+                    }}
+                    placeholder="Write a workspace comment..."
+                    value={commentInputValue}
+                  />
+                  <button
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                    data-testid="submit-comment"
+                    disabled={commentInputValue.trim().length === 0}
+                    onClick={() => onAddComment(commentInputValue)}
+                    type="button"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
               <div
                 className={cn(
                   "flex-1 overflow-y-auto overflow-x-hidden",
@@ -657,9 +895,16 @@ export const CommentsDrawer = memo(
     onCommentClick,
   }: CommentsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
+    const [commentInputValue, setCommentInputValue] = useState("");
     const { localUser } = useCollaboration();
+    const addComment = useKanbanStore((state) => state.addComment);
+    const boardPositions = useKanbanStore((state) => state.boardPositions);
+    const setLastActiveDrawerTab = useKanbanStore(
+      (state) => state.setLastActiveDrawerTab
+    );
 
     const comments = useKanbanStore((state) => state.comments);
+    const chatMessages = useKanbanStore((state) => state.chatMessages);
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
     );
@@ -672,6 +917,14 @@ export const CommentsDrawer = memo(
             (c): c is Comment => !!c && c.workspaceId === currentWorkspaceId
           ),
       [comments, currentWorkspaceId]
+    );
+
+    const discussionCount = useMemo(
+      () =>
+        chatMessages.allIds.filter(
+          (id) => chatMessages.byId[id]?.workspaceId === currentWorkspaceId
+        ).length,
+      [chatMessages, currentWorkspaceId]
     );
 
     useEffect(() => {
@@ -692,6 +945,49 @@ export const CommentsDrawer = memo(
       return () => document.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, onOpenChange]);
 
+    useEffect(() => {
+      if (!isOpen) {
+        setCommentInputValue("");
+      }
+    }, [isOpen]);
+
+    const handleCommentInputChange = useCallback((value: string) => {
+      setCommentInputValue(value);
+    }, []);
+
+    const handleAddComment = useCallback(
+      (value: string) => {
+        const nextContent = value.trim();
+        if (nextContent.length === 0 || !localUser) {
+          return;
+        }
+
+        const firstBoardId = boardPositions.allIds[0];
+        const firstBoardPosition = firstBoardId
+          ? boardPositions.byId[firstBoardId]
+          : null;
+
+        const fallbackPosition =
+          firstBoardPosition &&
+          typeof firstBoardPosition.x === "number" &&
+          typeof firstBoardPosition.y === "number"
+            ? {
+                x: firstBoardPosition.x + 60,
+                y: firstBoardPosition.y + 80,
+              }
+            : { x: 120, y: 120 };
+
+        addComment(fallbackPosition, nextContent, {
+          id: localUser.id,
+          name: localUser.name,
+          image: localUser.image ?? undefined,
+        });
+
+        setCommentInputValue("");
+      },
+      [addComment, boardPositions, localUser]
+    );
+
     if (!mounted || typeof document === "undefined") {
       return null;
     }
@@ -699,9 +995,26 @@ export const CommentsDrawer = memo(
     return createPortal(
       <>
         <FloatingIndicator
-          commentCount={workspaceComments.filter((c) => !c.parentId).length}
+          badgeCount={workspaceComments.filter((c) => !c.parentId).length}
+          icon={<MessageCircle className="h-5 w-5" />}
           isOpen={isOpen}
+          label="Comments"
           onClick={handleOpen}
+          testId="comments-drawer-trigger"
+          verticalOffset={-100}
+        />
+
+        <FloatingIndicator
+          badgeCount={discussionCount}
+          icon={<Users className="h-5 w-5" />}
+          isOpen={isOpen}
+          label="Chat"
+          onClick={() => {
+            onOpenChange(true);
+            setLastActiveDrawerTab("discussion");
+          }}
+          testId="chat-drawer-trigger"
+          verticalOffset={-16}
         />
 
         <AnimatePresence>
@@ -718,10 +1031,13 @@ export const CommentsDrawer = memo(
 
               <CommentsDrawerContent
                 boardCount={boardCount}
+                commentInputValue={commentInputValue}
                 comments={workspaceComments}
                 localUserId={localUser?.id}
+                onAddComment={handleAddComment}
                 onClose={handleClose}
                 onCommentClick={onCommentClick}
+                onCommentInputChange={handleCommentInputChange}
                 onSwitchToAi={onSwitchToAi}
                 onSwitchToBoards={onSwitchToBoards}
                 workspaceId={currentWorkspaceId ?? ""}

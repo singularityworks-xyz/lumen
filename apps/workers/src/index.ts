@@ -1,5 +1,4 @@
 import { cors } from "@elysiajs/cors";
-import { opentelemetry } from "@elysiajs/opentelemetry";
 import { createLogger } from "@lumen/logger";
 import { initOtel, shutdownOtel } from "@lumen/logger/server";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
@@ -14,6 +13,7 @@ import { WORKERS_VERSION } from "./version";
 
 initOtel("lumen-workers", [new PrismaInstrumentation()], {
   serviceVersion: WORKERS_VERSION,
+  samplingRatio: 0.2,
 });
 const logger = createLogger({ name: "workers:main" });
 
@@ -23,7 +23,6 @@ const origins =
     : ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 const app = new Elysia()
-  .use(opentelemetry())
   .use(otelMetrics)
   .use(
     cors({
@@ -45,7 +44,6 @@ const app = new Elysia()
   .use(collabRoutes)
   .use(aiRoutes)
   .get("/", () => {
-    logger.debug("Root endpoint accessed");
     return {
       message: "Lumen Workers",
       version: WORKERS_VERSION,
@@ -53,7 +51,6 @@ const app = new Elysia()
     };
   })
   .get("/health", () => {
-    logger.debug("Health check endpoint accessed");
     return {
       status: "healthy",
       timestamp: new Date().toISOString(),

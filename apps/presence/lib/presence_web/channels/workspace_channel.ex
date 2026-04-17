@@ -77,7 +77,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     socket =
       if Tracker.should_mark_idle?(last_activity) && socket.assigns.status == "online" do
-        Logger.info("User marked idle due to inactivity",
+        Logger.debug("User marked idle due to inactivity",
           user_id: socket.assigns.user_id,
           workspace_id: socket.assigns.workspace_id,
           idle_duration_ms: System.monotonic_time(:millisecond) - last_activity
@@ -136,7 +136,7 @@ defmodule PresenceWeb.WorkspaceChannel do
 
     socket =
       if socket.assigns.status == "idle" do
-        Logger.info("User returned from idle",
+        Logger.debug("User returned from idle",
           user_id: socket.assigns.user_id,
           workspace_id: socket.assigns.workspace_id
         )

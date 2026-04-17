@@ -410,6 +410,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
 
                 <button
                   className="mt-3 w-full rounded-md bg-primary/90 px-3 py-1.5 font-medium text-primary-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-colors hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                  data-testid="connection-style-save"
                   onClick={handleCreateConnection}
                   type="button"
                 >
@@ -587,6 +588,14 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
                               sourceHandle={conn.sourceHandle}
                               targetHandle={conn.targetHandle}
                             />
+                            <button
+                              className="mt-2 w-full rounded-md bg-primary/90 px-3 py-1.5 font-medium text-primary-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-colors hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                              data-testid="connection-style-save"
+                              onClick={() => setEditingConnectionId(null)}
+                              type="button"
+                            >
+                              Save
+                            </button>
                           </div>
                         )}
                       </div>

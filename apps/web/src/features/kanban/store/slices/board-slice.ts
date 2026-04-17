@@ -256,6 +256,25 @@ export const createBoardSlice: SliceCreator = (set, get) => ({
     set((state) => {
       const boardPos = state.boardPositions.byId[boardId];
       if (boardPos) {
+        // Skip if dimensions are already identical — avoids spurious immer
+        // mutations that create duplicate zundo temporal snapshots.
+        if (
+          boardPos.width === dimensions.width &&
+          boardPos.height === dimensions.height
+        ) {
+          if (
+            isUserResize &&
+            (!boardPos.userResized ||
+              boardPos.lastUserWidth !== dimensions.width ||
+              boardPos.lastUserHeight !== dimensions.height)
+          ) {
+            boardPos.userResized = true;
+            boardPos.lastUserWidth = dimensions.width;
+            boardPos.lastUserHeight = dimensions.height;
+          }
+          return;
+        }
+
         boardPos.width = dimensions.width;
         boardPos.height = dimensions.height;
 

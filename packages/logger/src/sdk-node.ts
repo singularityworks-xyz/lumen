@@ -25,6 +25,8 @@ import {
 import {
   BatchSpanProcessor,
   NodeTracerProvider,
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
 } from "@opentelemetry/sdk-trace-node";
 import { getOtelConfig } from "./config";
 
@@ -34,6 +36,7 @@ let loggerProvider: LoggerProvider | null = null;
 let initialized = false;
 
 interface InitOtelOptions {
+  samplingRatio?: number;
   serviceVersion?: string;
 }
 
@@ -47,7 +50,9 @@ export function initOtel(
   }
 
   const config = getOtelConfig(serviceName);
-  const { serviceVersion = "0.0.0" } = options;
+  const { serviceVersion = "0.0.0", samplingRatio } = options;
+  const effectiveRatio =
+    samplingRatio ?? (config.environment === "production" ? 0.2 : 1.0);
 
   if (!config.enabled) {
     diag.info(
@@ -75,6 +80,9 @@ export function initOtel(
   });
   tracerProvider = new NodeTracerProvider({
     resource,
+    sampler: new ParentBasedSampler({
+      root: new TraceIdRatioBasedSampler(effectiveRatio),
+    }),
     spanProcessors: [
       new BatchSpanProcessor(traceExporter, {
         maxQueueSize: 1000,

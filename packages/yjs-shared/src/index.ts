@@ -4,6 +4,57 @@ export const MESSAGE_SYNC = 0;
 export const MESSAGE_AWARENESS = 1;
 export const MESSAGE_WORKSPACE_DELETED = 3;
 
+const MIN_YJS_CLIENT_ID = 1;
+export const MAX_YJS_CLIENT_ID = 2_147_483_647;
+const YJS_CLIENT_ID_SPAN = MAX_YJS_CLIENT_ID + 1;
+
+interface RandomValuesProvider {
+  getRandomValues: (array: Uint32Array) => Uint32Array;
+}
+
+const hasRandomValuesProvider = (
+  value: unknown
+): value is RandomValuesProvider => {
+  if (!(typeof value === "object" && value !== null)) {
+    return false;
+  }
+
+  return (
+    "getRandomValues" in value &&
+    typeof (value as { getRandomValues?: unknown }).getRandomValues ===
+      "function"
+  );
+};
+
+const getRandomUint32 = (): number => {
+  const cryptoObject = globalThis.crypto;
+
+  if (hasRandomValuesProvider(cryptoObject)) {
+    const randomBuffer = new Uint32Array(1);
+    cryptoObject.getRandomValues(randomBuffer);
+    return randomBuffer[0] ?? 0;
+  }
+
+  return Math.floor(Math.random() * (MAX_YJS_CLIENT_ID + 1));
+};
+
+// Bun 1.3 + Yjs can mis-handle client IDs with the sign bit set.
+// Keep IDs in 31-bit signed-positive range until upstream runtime issue is resolved.
+export const generateSafeYjsClientId = (): number => {
+  const nextClientId = getRandomUint32() % YJS_CLIENT_ID_SPAN;
+  return nextClientId === 0 ? MIN_YJS_CLIENT_ID : nextClientId;
+};
+
+interface YDocWithClientId {
+  clientID: number;
+}
+
+export const assignSafeYjsClientId = (doc: YDocWithClientId): number => {
+  const clientId = generateSafeYjsClientId();
+  doc.clientID = clientId;
+  return clientId;
+};
+
 export const YJS_MAP_NAMES = {
   WORKSPACE: "workspace",
   BOARDS: "boards",

@@ -8,6 +8,7 @@ import {
   withSpanAsync,
 } from "@lumen/logger/server";
 import {
+  assignSafeYjsClientId,
   MESSAGE_AWARENESS,
   MESSAGE_SYNC,
   MESSAGE_WORKSPACE_DELETED,
@@ -91,6 +92,7 @@ export class RoomManager {
         logger.info("Creating new room", { workspaceId });
 
         const doc = new Y.Doc();
+        assignSafeYjsClientId(doc);
         const awareness = new awarenessProtocol.Awareness(doc);
 
         doc.getMap(YJS_MAP_NAMES.BOARDS);
@@ -103,7 +105,7 @@ export class RoomManager {
         doc.getMap(YJS_MAP_NAMES.WORKSPACE);
         doc.getMap(YJS_MAP_NAMES.COMMENTS);
 
-        room = {
+        const newRoom: Room = {
           workspaceId,
           doc,
           awareness,
@@ -122,16 +124,17 @@ export class RoomManager {
           }
         });
 
-        // Schedule persistence on doc updates
-        doc.on("update", () => {
-          const currentRoom = this.rooms.get(workspaceId);
-          if (currentRoom) {
-            currentRoom.lastModified = Date.now();
-          }
+        // Schedule persistence and fan out canonical updates on doc changes
+        doc.on("update", (update: Uint8Array, origin: unknown) => {
+          const activeRoom = this.rooms.get(workspaceId) ?? newRoom;
+          activeRoom.lastModified = Date.now();
+
+          this.broadcastDocUpdate(activeRoom, update, origin);
           this.schedulePersistence(workspaceId);
         });
 
-        this.rooms.set(workspaceId, room);
+        this.rooms.set(workspaceId, newRoom);
+        room = newRoom;
       }
 
       setSpanAttributes({ "room.isNew": isNew });
@@ -146,8 +149,8 @@ export class RoomManager {
     user: CollaboratorInfo;
     workspaceId: string;
     initialStateVector?: Uint8Array;
-  }): WsConnection {
-    return withSpan("room.join", () => {
+  }): Promise<WsConnection> {
+    return withSpanAsync("room.join", async () => {
       const joinStartTime = performance.now();
       const { connectionId, ws, user, workspaceId, initialStateVector } =
         options;
@@ -164,7 +167,7 @@ export class RoomManager {
         const existingRoom = this.rooms.get(existingRoomId);
         const existingConn = existingRoom?.connections.get(connectionId);
         if (existingConn) {
-          logger.info("Reusing existing connection", {
+          logger.debug("Reusing existing connection", {
             connectionId,
             workspaceId,
           });
@@ -175,7 +178,7 @@ export class RoomManager {
       }
 
       // Role check: viewers can connect and receive, but writes blocked elsewhere
-      logger.info("Client joining room", {
+      logger.debug("Client joining room", {
         connectionId,
         workspaceId,
         userId: user.id,
@@ -186,6 +189,13 @@ export class RoomManager {
       });
 
       const room = this.getOrCreateRoom(workspaceId);
+
+      // Capture whether we should hydrate persisted state before this client joined.
+      // We register the connection first so very early client messages are not dropped
+      // while persisted state is loading.
+      const shouldLoadPersistedState =
+        room.connections.size === 0 &&
+        room.doc.getMap(YJS_MAP_NAMES.BOARDS).size === 0;
 
       // Generate unique awareness client ID
       const awarenessClientId = Math.floor(
@@ -209,6 +219,14 @@ export class RoomManager {
       room.connections.set(connectionId, connection);
       this.connectionToRoom.set(connectionId, workspaceId);
 
+      // Load persisted state from database if room is fresh (no prior connections and empty doc).
+      // This ensures new device logins restore workspace content even when no peers are online.
+      // pendingLoads map deduplicates concurrent calls so multiple simultaneous joins only
+      // trigger one DB fetch.
+      if (shouldLoadPersistedState) {
+        await this.loadRoomState(workspaceId);
+      }
+
       // NOTE: We don't set awareness state on the server-side anymore.
       // The server acts as a relay - clients send their own awareness states.
       // Setting awareness here would use the server's clientID which is wrong.
@@ -230,7 +248,7 @@ export class RoomManager {
         connectionId,
       });
 
-      logger.info("Client joined room", {
+      logger.debug("Client joined room", {
         connectionId,
         workspaceId,
         userId: user.id,
@@ -272,7 +290,7 @@ export class RoomManager {
       this.connectionToRoom.delete(connectionId);
 
       setSpanAttributes({ "room.remainingConnections": room.connections.size });
-      logger.info("Client left room", {
+      logger.debug("Client left room", {
         connectionId,
         workspaceId,
         remainingConnections: room.connections.size,
@@ -314,7 +332,7 @@ export class RoomManager {
 
         switch (messageType) {
           case MESSAGE_SYNC:
-            return this.handleSyncMessage(connection, room, decoder, message);
+            return this.handleSyncMessage(connection, room, decoder);
           case MESSAGE_AWARENESS:
             return this.handleAwarenessMessage(connection, room, decoder);
           default:
@@ -342,8 +360,7 @@ export class RoomManager {
   private handleSyncMessage(
     connection: WsConnection,
     room: Room,
-    decoder: decoding.Decoder,
-    originalMessage: Uint8Array
+    decoder: decoding.Decoder
   ): boolean {
     return withSpan("room.sync", () => {
       // Peek at the sync message type WITHOUT consuming it
@@ -372,27 +389,72 @@ export class RoomManager {
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
+      let syncReadErrorMessage: string | null = null;
+
       // readSyncMessage will read the message type and handle the sync protocol
       const syncMessageType = syncProtocol.readSyncMessage(
         decoder,
         encoder,
         room.doc,
-        connection
+        connection,
+        (error) => {
+          syncReadErrorMessage = error.message;
+        }
       );
+
+      if (syncReadErrorMessage !== null) {
+        logger.error("Failed to apply sync update", {
+          connectionId: connection.id,
+          workspaceId: room.workspaceId,
+          userId: connection.user.id,
+          syncMsgType,
+          error: syncReadErrorMessage,
+        });
+        return false;
+      }
 
       if (encoding.length(encoder) > 1) {
         connection.ws.send(encoding.toUint8Array(encoder));
       }
 
-      // Broadcast updates to other clients
-      if (
-        syncMessageType === syncProtocol.messageYjsSyncStep2 ||
-        syncMessageType === syncProtocol.messageYjsUpdate
-      ) {
-        this.broadcastUpdate(room, connection.id, originalMessage);
-      }
+      setSpanAttributes({ syncMessageType });
 
       return true;
+    });
+  }
+
+  private broadcastDocUpdate(
+    room: Room,
+    update: Uint8Array,
+    origin: unknown
+  ): void {
+    let excludeConnectionId: string | null = null;
+
+    if (
+      typeof origin === "object" &&
+      origin !== null &&
+      "id" in origin &&
+      typeof (origin as { id: unknown }).id === "string"
+    ) {
+      excludeConnectionId = (origin as { id: string }).id;
+    }
+
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_SYNC);
+    syncProtocol.writeUpdate(encoder, update);
+    const message = encoding.toUint8Array(encoder);
+
+    room.connections.forEach((conn, connId) => {
+      if (excludeConnectionId === null || connId !== excludeConnectionId) {
+        try {
+          conn.ws.send(message);
+        } catch (error) {
+          logger.error("Failed to broadcast to connection", {
+            connectionId: connId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
     });
   }
 
@@ -476,26 +538,6 @@ export class RoomManager {
     );
     const awarenessMessage = encoding.toUint8Array(awarenessEncoder);
     connection.ws.send(awarenessMessage);
-  }
-
-  // Broadcast document update to all clients except sender
-  private broadcastUpdate(
-    room: Room,
-    excludeConnectionId: string,
-    message: Uint8Array
-  ): void {
-    room.connections.forEach((conn, connId) => {
-      if (connId !== excludeConnectionId) {
-        try {
-          conn.ws.send(message);
-        } catch (error) {
-          logger.error("Failed to broadcast to connection", {
-            connectionId: connId,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
-        }
-      }
-    });
   }
 
   // Broadcast awareness update to all clients
@@ -589,7 +631,7 @@ export class RoomManager {
           "room.entityCounts.tasks": entityCounts.tasks,
         });
 
-        logger.info("Persisting room state", {
+        logger.debug("Persisting room state", {
           workspaceId,
           operation: "room.persist",
           stateSize: state.length,
@@ -757,7 +799,7 @@ export class RoomManager {
         room.doc.destroy();
         this.rooms.delete(workspaceId);
 
-        logger.info("Room cleaned up", { workspaceId });
+        logger.debug("Room cleaned up", { workspaceId });
       }
     }, 30_000);
   }

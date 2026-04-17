@@ -141,7 +141,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       mockPrisma.workspaceCollaborator.count.mockResolvedValueOnce(0);
 
       const { ws } = createMockWs();
-      roomManager.join({
+      await roomManager.join({
         connectionId: `conn-nonexistent-${uid()}`,
         ws,
         user: makeUser(),
@@ -162,7 +162,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       mockPrisma.workspaceState.upsert.mockResolvedValueOnce({});
 
       const { ws } = createMockWs();
-      roomManager.join({
+      await roomManager.join({
         connectionId: `conn-auto-${uid()}`,
         ws,
         user: makeUser(),
@@ -182,7 +182,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       mockPrisma.workspaceCollaborator.count.mockResolvedValueOnce(1);
 
       const { ws } = createMockWs();
-      const conn = roomManager.join({
+      const conn = await roomManager.join({
         connectionId: `conn-notcollab-${uid()}`,
         ws,
         user: makeUser(),
@@ -196,7 +196,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(mockPrisma.workspaceState.upsert).not.toHaveBeenCalled();
     });
 
-    it("allows existing collaborator", () => {
+    it("allows existing collaborator", async () => {
       const wsId = `ws-collab-${uid()}`;
       mockPrisma.workspaceCollaborator.findUnique.mockResolvedValueOnce({
         id: "collab-1",
@@ -207,7 +207,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       });
 
       const { ws } = createMockWs();
-      const conn = roomManager.join({
+      const conn = await roomManager.join({
         connectionId: `conn-collab-${uid()}`,
         ws,
         user: makeUser({ role: "EDITOR" }),
@@ -219,11 +219,11 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
   });
 
   describe("binary sync and awareness messages are handled by room manager", () => {
-    it("handles awareness message type MESSAGE_AWARENESS correctly", () => {
+    it("handles awareness message type MESSAGE_AWARENESS correctly", async () => {
       const wsId = `ws-aware-${uid()}`;
       const connId = `conn-aware-${uid()}`;
       const { ws } = createMockWs();
-      roomManager.join({
+      await roomManager.join({
         connectionId: connId,
         ws,
         user: makeUser(),
@@ -243,21 +243,21 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(result).toBe(true);
     });
 
-    it("broadcasts awareness update to other connections", () => {
+    it("broadcasts awareness update to other connections", async () => {
       const wsId = `ws-broadcast-${uid()}`;
       const connId1 = `conn-broadcast1-${uid()}`;
       const connId2 = `conn-broadcast2-${uid()}`;
       const { ws: ws1, sent: sent1 } = createMockWs();
       const { ws: ws2, sent: sent2 } = createMockWs();
 
-      roomManager.join({
+      await roomManager.join({
         connectionId: connId1,
         ws: ws1,
         user: makeUser({ id: "user-1" }),
         workspaceId: wsId,
       });
 
-      roomManager.join({
+      await roomManager.join({
         connectionId: connId2,
         ws: ws2,
         user: makeUser({ id: "user-2" }),
@@ -282,11 +282,11 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
   });
 
   describe("connection close cleans up properly", () => {
-    it("removes connection from room and decreases active connections", () => {
+    it("removes connection from room and decreases active connections", async () => {
       const wsId = `ws-leave-${uid()}`;
       const connId = `conn-leave-${uid()}`;
       const { ws } = createMockWs();
-      roomManager.join({
+      await roomManager.join({
         connectionId: connId,
         ws,
         user: makeUser(),
@@ -301,11 +301,11 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(room?.connections.size).toBe(0);
     });
 
-    it("schedules cleanup when last connection leaves", () => {
+    it("schedules cleanup when last connection leaves", async () => {
       const wsId = `ws-cleanup-${uid()}`;
       const connId = `conn-cleanup-${uid()}`;
       const { ws } = createMockWs();
-      roomManager.join({
+      await roomManager.join({
         connectionId: connId,
         ws,
         user: makeUser(),
@@ -327,19 +327,19 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(MESSAGE_WORKSPACE_DELETED).toBe(3);
     });
 
-    it("deleteRoom closes all connections in the room", () => {
+    it("deleteRoom closes all connections in the room", async () => {
       const wsId = `ws-delete-${uid()}`;
       const { ws: ws1 } = createMockWs();
       const { ws: ws2 } = createMockWs();
 
-      roomManager.join({
+      await roomManager.join({
         connectionId: `conn-del1-${uid()}`,
         ws: ws1,
         user: makeUser(),
         workspaceId: wsId,
       });
 
-      roomManager.join({
+      await roomManager.join({
         connectionId: `conn-del2-${uid()}`,
         ws: ws2,
         user: makeUser(),

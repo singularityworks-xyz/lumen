@@ -7,7 +7,6 @@ import { KanbanCanvas } from "@/src/components/core/canvas";
 import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
-import { RightControls } from "@/src/components/right-controls";
 import { RightDrawers } from "@/src/components/right-drawers";
 import {
   type JoinSuccessData,
@@ -15,7 +14,6 @@ import {
   useCollaboration,
 } from "@/src/features/collab";
 import { useWorkspaceSync } from "@/src/features/collab/hooks/use-workspace-sync";
-import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type {
   Board,
@@ -24,8 +22,11 @@ import type {
   Task,
 } from "@/src/features/kanban/types";
 import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
+import { RightControls } from "../components/right-controls";
 import { env } from "../env";
+import { BulkActionsBar } from "../features/kanban";
 
 function KanbanPageContent() {
   const [isReady, setIsReady] = useState(false);
@@ -39,7 +40,7 @@ function KanbanPageContent() {
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
-  const apiUrl = env.NEXT_PUBLIC_API_URL;
+  const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
 
   const handleJoinComplete = useCallback(
     async (data: JoinSuccessData | null) => {
@@ -135,7 +136,7 @@ function KanbanPageContent() {
         }
       }
     },
-    [shareToken, router, workspaces.byId, setCurrentWorkspace]
+    [apiUrl, shareToken, router, workspaces.byId, setCurrentWorkspace]
   );
 
   useEffect(() => {
@@ -159,13 +160,12 @@ function KanbanPageContent() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
       <WorkspaceDeletedBanner />
-      <JoinWorkspaceHandler
-        onComplete={handleJoinComplete}
-        shareToken={shareToken}
-      />
-
       {isReady ? (
         <>
+          <JoinWorkspaceHandler
+            onComplete={handleJoinComplete}
+            shareToken={shareToken}
+          />
           <ReactFlowProvider>
             <KanbanCanvas />
             <MobileNavbar position="bottom" />

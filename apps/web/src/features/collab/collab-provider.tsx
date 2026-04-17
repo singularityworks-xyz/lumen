@@ -3,6 +3,7 @@
 
 import { createLogger } from "@lumen/logger";
 import { recordError, withSpanAsync } from "@lumen/logger/tracer";
+import { assignSafeYjsClientId } from "@lumen/yjs-shared";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import {
@@ -20,11 +21,15 @@ import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
 import { env } from "@/src/env";
 import { StorageKeys } from "@/src/lib/storage-manager";
+import { normalizeApiOriginForCurrentHost } from "@/src/lib/url";
 
 const logger = createLogger({ name: "collab:provider" });
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_WORKSPACE_DELETED = 3;
+function toWebSocketProtocol(protocol: string): "ws:" | "wss:" {
+  return protocol === "https:" ? "wss:" : "ws:";
+}
 
 // Encode Uint8Array to base64 string in a browser-compatible way
 // Uses btoa for browsers, falls back to Buffer for Node environments
@@ -290,16 +295,18 @@ export function CollaborationProvider({
       const { getCurrentUser, getJwtToken } = await import(
         "@/src/lib/auth-client"
       );
-      const token = await getJwtToken();
+
+      const [token, sessionUser] = await Promise.all([
+        getJwtToken(),
+        getCurrentUser(),
+      ]);
+
       if (!token) {
-        const err = new Error("Failed to get JWT token for WebSocket");
-        recordError(err, { "workspace.id": workspaceId });
-        logger.error("Failed to get JWT token for WebSocket");
-        setConnectionState("error");
-        return;
+        logger.warn("JWT token unavailable, using session auth for WebSocket", {
+          workspaceId,
+        });
       }
 
-      const sessionUser = await getCurrentUser();
       if (sessionUser) {
         const userColor = getColorForUser(sessionUser.id);
         localUserInfoRef.current = {
@@ -312,6 +319,7 @@ export function CollaborationProvider({
       }
 
       const doc = new Y.Doc();
+      assignSafeYjsClientId(doc);
       docRef.current = doc;
 
       const awareness = new awarenessProtocol.Awareness(doc);
@@ -329,20 +337,30 @@ export function CollaborationProvider({
         logger.info("Synced with IndexedDB", { workspaceId });
       });
 
-      // biome-ignore lint/performance/useTopLevelRegex: nah
-      const wsUrl = apiUrl.replace(/^http/, "ws");
       const stateVector = Y.encodeStateVector(doc);
       const stateVectorBase64 = uint8ArrayToBase64(stateVector);
 
-      const ws = new WebSocket(
-        `${wsUrl}/ws/collab/${workspaceId}?stateVector=${encodeURIComponent(stateVectorBase64)}`
-      );
+      const wsEndpoint = normalizeApiOriginForCurrentHost(apiUrl);
+      wsEndpoint.protocol = toWebSocketProtocol(wsEndpoint.protocol);
+      wsEndpoint.pathname = `/ws/collab/${workspaceId}`;
+      wsEndpoint.searchParams.set("stateVector", stateVectorBase64);
+      if (token) {
+        wsEndpoint.searchParams.set("token", token);
+      }
+
+      const logUrl = new URL(wsEndpoint.toString());
+      if (logUrl.searchParams.has("token")) {
+        logUrl.searchParams.set("token", "[redacted]");
+      }
+
+      const ws = new WebSocket(wsEndpoint.toString());
       wsRef.current = ws;
 
       ws.binaryType = "arraybuffer";
 
       logger.info("Attempting WebSocket connection", {
-        url: `${wsUrl}/ws/collab/${workspaceId}`,
+        url: logUrl.toString(),
+        hasToken: !!token,
       });
 
       ws.onopen = () => {

@@ -119,6 +119,7 @@ const ChatBubble = memo(
           "group flex max-w-[85%] gap-2.5",
           isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
         )}
+        data-testid="chat-message"
         exit={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
         id={`message-${message.id}`}
         initial={{ opacity: 0, x: isOwn ? 20 : -20, scale: 0.95 }}
@@ -570,6 +571,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
           "space-y-3 px-4 py-4",
           "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
         )}
+        data-testid="chat-message-list"
         ref={scrollRef}
       >
         {messages.length === 0 ? (
@@ -670,6 +672,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
             <motion.div
               animate={{ opacity: 1, y: 0 }}
               className="absolute bottom-full left-4 mb-2 flex items-center gap-2"
+              data-testid="typing-indicator"
               exit={{ opacity: 0, y: 10 }}
               initial={{ opacity: 0, y: 10 }}
             >
@@ -744,6 +747,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
               "focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20",
               "transition-shadow"
             )}
+            data-testid="chat-input"
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
@@ -760,6 +764,7 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted/50 text-muted-foreground/30"
             )}
+            data-testid="send-chat-message"
             disabled={!messageContent.trim()}
             onClick={handleSend}
             type="button"

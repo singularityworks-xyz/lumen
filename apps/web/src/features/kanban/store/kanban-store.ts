@@ -4,6 +4,7 @@ import type { StateCreator } from "zustand";
 import { create, useStore } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { shallow } from "zustand/shallow";
 import { createAreaSlice } from "./slices/area-slice";
 import { createBoardSlice } from "./slices/board-slice";
 import { createChatSlice } from "./slices/chat-slice";
@@ -71,6 +72,7 @@ export const useKanbanStore = create<KanbanStore>()(
         }
         return tracked;
       },
+      equality: shallow,
     }),
     {
       name: STORAGE_KEY,
@@ -132,6 +134,19 @@ export const useKanbanStore = create<KanbanStore>()(
     }
   )
 );
+
+if (
+  typeof window !== "undefined" &&
+  (process.env.NODE_ENV !== "production" ||
+    (window as Window & { __E2E__?: boolean }).__E2E__ === true)
+) {
+  type KanbanWindow = Window & {
+    __E2E__?: boolean;
+    __KANBAN_STORE__?: typeof useKanbanStore;
+  };
+
+  (window as KanbanWindow).__KANBAN_STORE__ = useKanbanStore;
+}
 
 export const useTemporalStore = <T>(
   selector: (state: TemporalState<Partial<KanbanState>>) => T

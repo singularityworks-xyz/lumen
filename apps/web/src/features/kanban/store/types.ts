@@ -351,6 +351,7 @@ export interface KanbanActions {
     id: string;
     position: { x: number; y: number };
     isExisting: boolean;
+    usedLastPosition: boolean;
   };
 
   // Task quick actions

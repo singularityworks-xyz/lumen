@@ -32,7 +32,7 @@ defmodule Presence.Telemetry do
   def handle_event([:presence, :track], measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements[:duration], :native, :millisecond)
 
-    Logger.info("User tracked in presence",
+    Logger.debug("User tracked in presence",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       status: metadata[:status],
@@ -50,7 +50,7 @@ defmodule Presence.Telemetry do
         0
       end
 
-    Logger.info("User status updated",
+    Logger.debug("User status updated",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       status: metadata[:status],
@@ -112,7 +112,7 @@ defmodule Presence.Telemetry do
   end
 
   def handle_event([:presence, :idle, :transition], _measurements, metadata, _config) do
-    Logger.info("User transitioned to idle",
+    Logger.debug("User transitioned to idle",
       user_id: metadata[:user_id],
       workspace_id: metadata[:workspace_id],
       previous_status: metadata[:previous_status]

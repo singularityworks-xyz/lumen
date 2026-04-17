@@ -215,6 +215,7 @@ export const ResetWorkspaceDialog = memo(
             >
               <Checkbox
                 checked={clearBoardsAndColumns}
+                data-testid="workspace-reset-confirm-checkbox"
                 id="reset-workspace-checkbox"
                 onCheckedChange={(checked) =>
                   setClearBoardsAndColumns(checked === true)
@@ -244,6 +245,7 @@ export const ResetWorkspaceDialog = memo(
             </Button>
             <Button
               className="h-8 rounded-md bg-amber-500/90 text-white text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+              data-testid="workspace-reset-submit"
               disabled={taskCount === 0 && !clearBoardsAndColumns}
               onClick={() => {
                 onConfirm({ clearBoardsAndColumns });

@@ -1,9 +1,13 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
+
+const getBulkActionsBar = (page: Page) =>
+  page.locator('[data-testid="bulk-actions-bar"]').first();
 
 test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   test.beforeEach(async ({ page }) => {
@@ -153,7 +157,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
 
     await page.waitForTimeout(300);
 
-    const bulkActionsBar = page.locator('[data-testid="bulk-actions-bar"]');
+    const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
     const selectedCount = await page
@@ -177,7 +181,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     );
     await firstTask.click({ modifiers: [isMacPlatform ? "Meta" : "Control"] });
 
-    const bulkActionsBar = page.locator('[data-testid="bulk-actions-bar"]');
+    const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
     const priorityButton = bulkActionsBar.locator(
@@ -218,7 +222,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     );
     await taskToDelete.click();
 
-    const bulkActionsBar = page.locator('[data-testid="bulk-actions-bar"]');
+    const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
     const deleteButton = bulkActionsBar.locator('button:has-text("Delete")');
@@ -252,7 +256,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     );
     await selectedTask.click();
 
-    const bulkActionsBar = page.locator('[data-testid="bulk-actions-bar"]');
+    const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
     const priorityButton = bulkActionsBar.locator(

@@ -12,6 +12,10 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { Role } from "@lumen/db";
 
+const withSpanAsyncMock = mock(
+  (_name: string, fn: (span: unknown) => Promise<unknown>) => fn(null)
+);
+
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const prismaMock = {
@@ -62,8 +66,7 @@ mock.module("@lumen/logger", () => ({
 mock.module("@lumen/logger/server", () => ({
   recordSpanError: mock(),
   setSpanAttributes: mock(),
-  withSpanAsync: (_name: string, fn: (span: unknown) => Promise<unknown>) =>
-    fn(null),
+  withSpanAsync: withSpanAsyncMock,
   withSpan: (_name: string, fn: (span: unknown) => unknown) => fn(null),
   getMeter: () => ({
     createHistogram: () => ({ record: mock() }),
@@ -111,7 +114,25 @@ mock.module("./metrics", () => metricsMock);
 
 const roomManagerMock = {
   isWorkspaceDeleted: mock(() => false),
-  join: mock(() => ({}) as any),
+  join: mock(() =>
+    Promise.resolve({
+      id: "conn-1",
+      awarenessClientId: 1,
+      user: {
+        id: "user-1",
+        name: "Test User",
+        email: "test@test.com",
+        color: "#ef4444",
+        role: "OWNER" as Role,
+        image: null,
+      },
+      workspaceId: "ws-1",
+      ws: {
+        send: (_data: Uint8Array) => undefined,
+        close: () => undefined,
+      },
+    })
+  ),
   leave: mock(),
   handleMessage: mock(() => true),
   deleteRoom: mock(),
@@ -192,6 +213,8 @@ function makeSession(
 }
 
 function resetMocks() {
+  withSpanAsyncMock.mockClear();
+
   prismaMock.workspace.findUnique.mockImplementation(() =>
     Promise.resolve(null as any)
   );
@@ -272,7 +295,25 @@ function resetMocks() {
   );
 
   roomManagerMock.isWorkspaceDeleted.mockImplementation(() => false);
-  roomManagerMock.join.mockImplementation(() => ({}) as any);
+  roomManagerMock.join.mockImplementation(() =>
+    Promise.resolve({
+      id: "conn-1",
+      awarenessClientId: 1,
+      user: {
+        id: "user-1",
+        name: "Test User",
+        email: "test@test.com",
+        color: "#ef4444",
+        role: "OWNER" as Role,
+        image: null,
+      },
+      workspaceId: "ws-1",
+      ws: {
+        send: (_data: Uint8Array) => undefined,
+        close: () => undefined,
+      },
+    })
+  );
   roomManagerMock.leave.mockImplementation(() => undefined);
   roomManagerMock.handleMessage.mockImplementation(() => true);
   roomManagerMock.deleteRoom.mockImplementation(() => undefined);
@@ -1321,6 +1362,122 @@ describe("collabRoutes", () => {
 
       // Returns { collaborators: [...], onlineCount: number }
       expect(true).toBe(true);
+    });
+  });
+
+  // ─── 13. Async open handler awaits join ──────────────────────────────────────
+
+  describe("WebSocket open handler async behavior", () => {
+    it("open handler uses withSpanAsync and awaits roomManager.join", async () => {
+      const { collabRoutes } = await import("./routes");
+
+      const route = (
+        collabRoutes as unknown as {
+          router: {
+            history: Array<{
+              method?: string;
+              path?: string;
+              hooks?: {
+                open?: (ws: {
+                  data: {
+                    params: { workspaceId: string };
+                    __pendingAuth: {
+                      user: {
+                        id: string;
+                        email: string;
+                        name?: string;
+                        image?: string | null;
+                      };
+                      collaborator: { role: Role };
+                      connectionId: string;
+                      connectionStartTime: number;
+                    };
+                  };
+                  raw: { send: (data: Uint8Array) => void };
+                  close: () => void;
+                }) => Promise<void> | void;
+              };
+            }>;
+          };
+        }
+      ).router.history.find(
+        (entry) =>
+          entry.method === "WS" && entry.path === "/ws/collab/:workspaceId"
+      );
+
+      expect(route).toBeDefined();
+
+      const openHandler = route?.hooks?.open;
+      expect(openHandler).toBeDefined();
+
+      let resolveJoin: () => void = () => undefined;
+      const joinGate = new Promise<void>((resolve) => {
+        resolveJoin = resolve;
+      });
+
+      roomManagerMock.join.mockImplementationOnce(async () => {
+        await joinGate;
+        return {
+          id: "conn-open-test",
+          awarenessClientId: 1,
+          workspaceId: "ws-1",
+          user: {
+            id: "user-1",
+            name: "Test User",
+            email: "test@test.com",
+            color: "#ef4444",
+            role: "OWNER" as Role,
+            image: null,
+          },
+          ws: {
+            send: (_data: Uint8Array) => undefined,
+            close: () => undefined,
+          },
+        };
+      });
+
+      const ws = {
+        data: {
+          params: { workspaceId: "ws-1" },
+          __pendingAuth: {
+            user: {
+              id: "user-1",
+              email: "test@test.com",
+              name: "Test User",
+              image: null,
+            },
+            collaborator: { role: "OWNER" as Role },
+            connectionId: "conn-open-test",
+            connectionStartTime: 1,
+          },
+        },
+        raw: {
+          send: (_data: Uint8Array) => undefined,
+        },
+        close: mock(() => undefined),
+      };
+
+      const openPromise = openHandler?.(ws);
+
+      expect(roomManagerMock.join).toHaveBeenCalledTimes(1);
+
+      const pendingResult = await Promise.race([
+        Promise.resolve(openPromise).then(() => "resolved" as const),
+        new Promise<"pending">((resolve) => {
+          setTimeout(() => resolve("pending"), 0);
+        }),
+      ]);
+      expect(pendingResult).toBe("pending");
+
+      const openSpanCall = withSpanAsyncMock.mock.calls.find(
+        (call) => call[0] === "ws.open"
+      );
+      expect(openSpanCall).toBeDefined();
+
+      resolveJoin();
+      await openPromise;
+
+      expect(metricsMock.incrementActiveConnections).toHaveBeenCalled();
     });
   });
 });

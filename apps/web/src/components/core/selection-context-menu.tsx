@@ -1,7 +1,15 @@
 "use client";
 
 import { Grid3X3 } from "lucide-react";
-import { memo, useCallback } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useKanbanStore } from "@/src/features/kanban";
 
 interface SelectionContextMenuProps {
@@ -25,29 +33,263 @@ export const SelectionContextMenu = memo(
     onClose,
   }: SelectionContextMenuProps) => {
     const addArea = useKanbanStore((state) => state.addArea);
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [areaName, setAreaName] = useState("New Area");
+    const [mounted, setMounted] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const createAreaButtonRef = useRef<HTMLButtonElement>(null);
+    const areaNameInputRef = useRef<HTMLInputElement>(null);
+    const createDialogTitleId = "selection-create-area-dialog-title";
+    const [menuPosition, setMenuPosition] = useState({
+      x: screenX,
+      y: screenY,
+    });
+    const [dialogPosition, setDialogPosition] = useState({
+      x: screenX,
+      y: screenY,
+    });
+
+    const clampToViewport = useCallback(
+      (xPos: number, yPos: number, widthPx: number, heightPx: number) => {
+        const viewportMargin = 8;
+        const maxX = window.innerWidth - widthPx - viewportMargin;
+        const maxY = window.innerHeight - heightPx - viewportMargin;
+
+        return {
+          x: Math.min(
+            Math.max(xPos, viewportMargin),
+            Math.max(maxX, viewportMargin)
+          ),
+          y: Math.min(
+            Math.max(yPos, viewportMargin),
+            Math.max(maxY, viewportMargin)
+          ),
+        };
+      },
+      []
+    );
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    useLayoutEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      const menuElement = menuRef.current;
+      if (!menuElement) {
+        return;
+      }
+
+      const rect = menuElement.getBoundingClientRect();
+      setMenuPosition(
+        clampToViewport(screenX, screenY, rect.width, rect.height)
+      );
+    }, [mounted, screenX, screenY, clampToViewport]);
+
+    useLayoutEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      if (!showCreateDialog) {
+        return;
+      }
+
+      const dialogElement = dialogRef.current;
+      if (!dialogElement) {
+        return;
+      }
+
+      const rect = dialogElement.getBoundingClientRect();
+      setDialogPosition(
+        clampToViewport(screenX, screenY, rect.width, rect.height)
+      );
+    }, [mounted, showCreateDialog, screenX, screenY, clampToViewport]);
+
+    const closeCreateDialog = useCallback(() => {
+      setShowCreateDialog(false);
+      createAreaButtonRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+      if (!mounted) {
+        return;
+      }
+
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") {
+          return;
+        }
+
+        if (showCreateDialog) {
+          closeCreateDialog();
+          return;
+        }
+
+        onClose();
+      };
+
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [mounted, onClose, showCreateDialog, closeCreateDialog]);
+
+    useEffect(() => {
+      if (!showCreateDialog) {
+        return;
+      }
+
+      areaNameInputRef.current?.focus();
+      areaNameInputRef.current?.select();
+    }, [showCreateDialog]);
+
+    useEffect(() => {
+      if (!showCreateDialog) {
+        return;
+      }
+
+      const handleDialogTabTrap = (event: KeyboardEvent) => {
+        if (event.key !== "Tab") {
+          return;
+        }
+
+        const dialogElement = dialogRef.current;
+        if (!dialogElement) {
+          return;
+        }
+
+        const focusableElements = Array.from(
+          dialogElement.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"
+          )
+        );
+
+        if (focusableElements.length === 0) {
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        if (!firstElement) {
+          return;
+        }
+        const lastElement = focusableElements.at(-1);
+        if (!lastElement) {
+          return;
+        }
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey && activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+          return;
+        }
+
+        if (!event.shiftKey && activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
+      };
+
+      document.addEventListener("keydown", handleDialogTabTrap);
+      return () => document.removeEventListener("keydown", handleDialogTabTrap);
+    }, [showCreateDialog]);
 
     const handleCreateArea = useCallback(() => {
-      addArea("New Area", { x, y }, { width, height });
+      addArea(areaName.trim() || "New Area", { x, y }, { width, height });
+      closeCreateDialog();
       onClose();
-    }, [addArea, x, y, width, height, onClose]);
+    }, [addArea, areaName, closeCreateDialog, x, y, width, height, onClose]);
 
-    return (
+    if (!mounted || typeof document === "undefined") {
+      return null;
+    }
+
+    return createPortal(
       <>
+        {showCreateDialog && (
+          <>
+            <button
+              aria-label="Close create area dialog"
+              className="fixed inset-0 z-[9998] bg-black/50"
+              onClick={closeCreateDialog}
+              tabIndex={-1}
+              type="button"
+            />
+            <div
+              aria-labelledby={createDialogTitleId}
+              aria-modal="true"
+              className="fixed z-[9999] w-80 overflow-hidden rounded-lg border-2 border-border/50 bg-card"
+              ref={dialogRef}
+              role="dialog"
+              style={{ top: dialogPosition.y, left: dialogPosition.x }}
+            >
+              <div className="border-border/30 border-b px-3 py-2">
+                <span
+                  className="font-semibold text-xs"
+                  id={createDialogTitleId}
+                >
+                  Create Area
+                </span>
+              </div>
+              <form
+                className="space-y-3 p-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCreateArea();
+                }}
+              >
+                <input
+                  autoFocus
+                  className="h-8 w-full rounded border border-border/40 bg-muted/50 px-2 text-sm"
+                  data-testid="area-name-input"
+                  onChange={(e) => setAreaName(e.target.value)}
+                  onFocus={(event) => {
+                    event.currentTarget.select();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      closeCreateDialog();
+                    }
+                  }}
+                  placeholder="Area name"
+                  ref={areaNameInputRef}
+                  value={areaName}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted"
+                    onClick={closeCreateDialog}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="rounded bg-primary px-2 py-1 text-primary-foreground text-xs"
+                    data-testid="area-create-submit"
+                    type="submit"
+                  >
+                    Create
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        )}
+
         <button
           aria-label="Close selection menu"
-          className="absolute inset-0 z-40"
+          className="fixed inset-0 z-40"
           onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              onClose();
-            }
-          }}
           type="button"
         />
 
         <div
-          className="absolute z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
-          style={{ top: screenY, left: screenX }}
+          className="fixed z-50 w-48 overflow-hidden rounded-lg border-2 border-border/50 bg-card/95 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          ref={menuRef}
+          style={{ top: menuPosition.y, left: menuPosition.x }}
         >
           <div className="border-border/30 border-b px-3 py-1.5">
             <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -56,14 +298,20 @@ export const SelectionContextMenu = memo(
           </div>
           <button
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-            onClick={handleCreateArea}
+            data-testid="create-area-button"
+            onClick={() => {
+              setAreaName("New Area");
+              setShowCreateDialog(true);
+            }}
+            ref={createAreaButtonRef}
             type="button"
           >
             <Grid3X3 className="h-3.5 w-3.5" />
             Create Area
           </button>
         </div>
-      </>
+      </>,
+      document.body
     );
   }
 );

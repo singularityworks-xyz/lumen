@@ -150,7 +150,8 @@ export const CommentClusterNode = memo(
       const fallback = author.name.slice(0, 2).toUpperCase();
 
       return (
-        <div className="group relative">
+        <div className="group relative" data-testid="comment-node">
+          <span className="sr-only">{comment.content}</span>
           <button
             aria-expanded={isOpen}
             aria-label={`View comment by ${author.name}`}
@@ -257,7 +258,13 @@ export const CommentClusterNode = memo(
     ];
 
     return (
-      <div className="group relative">
+      <div className="group relative" data-testid="comment-node">
+        <div className="sr-only">
+          {comments
+            .map((comment) => comment.content)
+            .filter((content) => content.length > 0)
+            .join(" ")}
+        </div>
         <div
           className="absolute rounded-full bg-primary/10 shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)] dark:bg-primary/15 dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)]"
           style={{

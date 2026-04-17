@@ -1,6 +1,6 @@
 {
   "name": "@lumen/web",
-  "version": "1.0.57",
+  "version": "1.0.76",
   "private": true,
   "type": "module",
   "scripts": {

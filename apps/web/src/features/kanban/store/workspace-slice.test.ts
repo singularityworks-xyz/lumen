@@ -198,11 +198,13 @@ describe("updateWorkspace", () => {
 });
 
 describe("deleteWorkspace", () => {
-  it("refuses to remove default workspace", async () => {
+  it("recreates a default workspace when deleting the only remaining workspace", async () => {
     const defaultWsId = state.workspaces.allIds[0]!;
     const result = await actions.deleteWorkspace(defaultWsId);
-    expect(result).toBe(false);
-    expect(state.workspaces.byId[defaultWsId]).toBeDefined();
+    expect(result).toBe(true);
+    expect(state.workspaces.byId[defaultWsId]).toBeUndefined();
+    expect(state.workspaces.allIds).toHaveLength(1);
+    expect(state.currentWorkspaceId).toBe(state.workspaces.allIds[0]!);
   });
 
   it("delete local workspace cascades local board data cleanup", async () => {

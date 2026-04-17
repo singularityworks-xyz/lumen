@@ -31,6 +31,13 @@ defmodule PresenceWeb.HealthControllerTest do
       assert {:ok, _datetime, _offset} = DateTime.from_iso8601(timestamp)
     end
 
+    test "includes instance id with presence prefix", %{conn: conn} do
+      conn = get(conn, "/health")
+      %{"instance_id" => instance_id} = json_response(conn, 200)
+
+      assert String.starts_with?(instance_id, "presence-")
+    end
+
     test "handles multiple concurrent requests", %{conn: _conn} do
       tasks =
         for _ <- 1..10 do

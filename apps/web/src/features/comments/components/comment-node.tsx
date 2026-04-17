@@ -64,7 +64,8 @@ export const CommentNode = memo(
     }, [isOpen]);
 
     return (
-      <div className="group relative">
+      <div className="group relative" data-testid="comment-node">
+        <span className="sr-only">{comment.content}</span>
         <button
           aria-expanded={isOpen}
           aria-label={`View comment by ${authorName}`}

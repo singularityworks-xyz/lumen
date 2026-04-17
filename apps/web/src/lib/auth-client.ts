@@ -3,6 +3,7 @@
 import { jwtClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { env } from "../env";
+import { normalizeApiUrlForCurrentHost } from "./url";
 
 interface AuthUser {
   email: string;
@@ -12,7 +13,7 @@ interface AuthUser {
 }
 
 const authClient = createAuthClient({
-  baseURL: env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1"),
+  baseURL: normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL),
   credentials: "include",
   plugins: [jwtClient()],
 });

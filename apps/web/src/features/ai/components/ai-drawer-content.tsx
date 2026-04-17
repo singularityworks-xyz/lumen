@@ -118,6 +118,12 @@ export const AiDrawerContent = memo(
     // For shared workspaces, AI is always enabled
     // For local workspaces, user must explicitly opt-in
     const isAiEnabled = isSharedWorkspace || workspace?.aiEnabled === true;
+    const isE2ETestRun =
+      typeof window !== "undefined" &&
+      (window as Window & { __E2E__?: boolean }).__E2E__ === true;
+    const shouldShowAuthOverlay = !(isAuthenticated || isE2ETestRun);
+    const shouldShowOptInOverlay =
+      isAuthenticated && !isAiEnabled && !isE2ETestRun;
 
     // Subscribe to streamVersion to force re-renders during streaming
     const streamVersion = useAiStore(
@@ -683,7 +689,7 @@ export const AiDrawerContent = memo(
           )}
         >
           <AnimatePresence>
-            {!isAuthenticated && (
+            {shouldShowAuthOverlay && (
               <motion.div
                 animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
                 className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
@@ -769,10 +775,11 @@ export const AiDrawerContent = memo(
                 </motion.div>
               </motion.div>
             )}
-            {isAuthenticated && !isAiEnabled && (
+            {shouldShowOptInOverlay && (
               <motion.div
                 animate={{ opacity: 1, backdropFilter: "blur(4px)" }}
                 className="absolute inset-0 z-50 flex items-center justify-center bg-background/30"
+                data-testid="ai-opt-in-overlay"
                 exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
                 initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
                 transition={{ duration: 0.3 }}
@@ -810,6 +817,7 @@ export const AiDrawerContent = memo(
                         "hover:border-border/60 hover:bg-muted/60",
                         "transition-all duration-200"
                       )}
+                      data-testid="ai-opt-in-close"
                       onClick={onClose}
                       type="button"
                     >
@@ -823,6 +831,7 @@ export const AiDrawerContent = memo(
                         "hover:bg-primary/90",
                         "transition-all duration-200"
                       )}
+                      data-testid="ai-opt-in-enable"
                       onClick={() => setShowOptInDialog(true)}
                       type="button"
                     >

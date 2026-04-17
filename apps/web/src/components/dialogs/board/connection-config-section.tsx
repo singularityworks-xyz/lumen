@@ -107,7 +107,16 @@ export const ConnectionConfigSection = memo(
 
           <div className="flex flex-col gap-1">
             <span className={labelClass}>Style</span>
-            <div className="flex gap-0.5">
+            <select
+              className="h-7 min-w-22 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              data-testid="connection-style-select"
+              onChange={(e) => onLineStyleChange(e.target.value as LineStyle)}
+              value={lineStyle}
+            >
+              <option value="solid">solid</option>
+              <option value="dotted">dotted</option>
+            </select>
+            <div className="hidden gap-0.5">
               <button
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-l border border-border transition-colors",
@@ -169,6 +178,7 @@ export const ConnectionConfigSection = memo(
           <span className={labelClass}>Label (optional)</span>
           <input
             className="h-7 w-full rounded border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            data-testid="connection-label-input"
             onChange={(e) => onLabelChange(e.target.value)}
             placeholder="Enter connection label..."
             type="text"

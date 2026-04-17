@@ -135,6 +135,7 @@ describe("modal-slice", () => {
       });
 
       expect(result.isExisting).toBe(false);
+      expect(result.usedLastPosition).toBe(false);
       expect(result.position).toEqual({ x: 50, y: 60 });
       expect(state.taskDetailModals[result.id]).toBeDefined();
       expect(state.taskDetailModals[result.id]!.taskId).toBe("task-1");
@@ -153,6 +154,7 @@ describe("modal-slice", () => {
       });
 
       expect(second.isExisting).toBe(true);
+      expect(second.usedLastPosition).toBe(true);
       expect(second.id).toBe(first.id);
       expect(Object.keys(state.taskDetailModals)).toHaveLength(1);
     });
@@ -172,7 +174,7 @@ describe("modal-slice", () => {
 
       actions.closeTaskDetailModal(first.id);
 
-      actions.openTaskDetailModal({
+      const reopened = actions.openTaskDetailModal({
         taskId: "task-1",
         boardId,
       });
@@ -181,6 +183,7 @@ describe("modal-slice", () => {
         x: 700,
         y: 800,
       });
+      expect(reopened.usedLastPosition).toBe(true);
     });
 
     it("auto-placement uses board geometry when no last position", () => {
@@ -194,6 +197,7 @@ describe("modal-slice", () => {
       const modal = state.taskDetailModals[result.id]!;
       expect(modal.position.x).toBeGreaterThan(200);
       expect(modal.position.y).toBe(150);
+      expect(result.usedLastPosition).toBe(false);
     });
   });
 

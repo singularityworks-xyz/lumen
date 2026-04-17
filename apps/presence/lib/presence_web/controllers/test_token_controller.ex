@@ -11,12 +11,14 @@ defmodule PresenceWeb.TestTokenController do
       name = "Test User"
       image = "https://example.com/avatar.png"
 
+      better_auth_url = Application.fetch_env!(:presence, :better_auth_url)
+
       claims = %{
         "sub" => user_id,
         "name" => name,
         "image" => image,
-        "iss" => "https://auth.example.com",
-        "aud" => "https://auth.example.com",
+        "iss" => better_auth_url,
+        "aud" => better_auth_url,
         "exp" => System.system_time(:second) + 3600,
         "iat" => System.system_time(:second),
         "nbf" => System.system_time(:second) - 1

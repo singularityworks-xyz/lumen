@@ -17,6 +17,7 @@ config :presence, PresenceWeb.Endpoint,
 
 config :presence, dev_routes: true
 config :presence, env: :dev
+config :presence, :allow_e2e_anon_socket, true
 
 # Development logging
 config :logger,

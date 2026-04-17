@@ -2,6 +2,7 @@ process.env.DATABASE_URL = "postgres://dummy";
 
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
+import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as encoding from "lib0/encoding";
 
 const prismaMock = {
@@ -154,35 +155,14 @@ function buildAwarenessMessage(): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-const testWorkspaces = [
-  "ws-test",
-  "ws-del",
-  "ws-del-expire",
-  "ws-persist",
-  "ws-persist2",
-  "ws-load",
-  "ws-cleanup",
-  "ws-delete",
-  "ws-viewer",
-  "ws-aware",
-  "ws-conn-reuse",
-];
-
 afterEach(() => {
-  for (const wsId of testWorkspaces) {
-    try {
-      roomManager.deleteRoom(wsId);
-    } catch {
-      /* ignore */
-    }
-  }
-  roomManager.clearDeletedWorkspaces();
+  roomManager.reset();
 });
 
 describe("RoomManager - deleted workspaces", () => {
-  it("cannot recreate room during delete window", () => {
+  it("cannot recreate room during delete window", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-1",
       ws,
       user: makeUser(),
@@ -198,9 +178,9 @@ describe("RoomManager - deleted workspaces", () => {
     );
   });
 
-  it("blocks recreation even after attempting immediate re-delete", () => {
+  it("blocks recreation even after attempting immediate re-delete", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-2",
       ws,
       user: makeUser(),
@@ -225,9 +205,9 @@ describe("RoomManager - getRoom", () => {
     expect(roomManager.getRoom("nonexistent")).toBeUndefined();
   });
 
-  it("returns room after join", () => {
+  it("returns room after join", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-gr-1",
       ws,
       user: makeUser(),
@@ -241,18 +221,18 @@ describe("RoomManager - getRoom", () => {
 });
 
 describe("RoomManager - connection reuse", () => {
-  it("reconnecting with same connection ID reuses connection state", () => {
+  it("reconnecting with same connection ID reuses connection state", async () => {
     const { ws: ws1 } = createMockWs();
     const { ws: ws2 } = createMockWs();
 
-    const conn1 = roomManager.join({
+    const conn1 = await roomManager.join({
       connectionId: "conn-reuse",
       ws: ws1,
       user: makeUser(),
       workspaceId: "ws-conn-reuse",
     });
 
-    const conn2 = roomManager.join({
+    const conn2 = await roomManager.join({
       connectionId: "conn-reuse",
       ws: ws2,
       user: makeUser(),
@@ -305,26 +285,26 @@ describe("RoomManager - viewer write restrictions", () => {
 });
 
 describe("RoomManager - awareness broadcast", () => {
-  it("awareness updates broadcast to peers only", () => {
+  it("awareness updates broadcast to peers only", async () => {
     const { ws: ws1 } = createMockWs();
     const { ws: ws2, sent: sent2 } = createMockWs();
     const { ws: ws3, sent: sent3 } = createMockWs();
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-a1",
       ws: ws1,
       user: makeUser({ id: "user-a1" }),
       workspaceId: "ws-aware",
     });
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-a2",
       ws: ws2,
       user: makeUser({ id: "user-a2" }),
       workspaceId: "ws-aware",
     });
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-a3",
       ws: ws3,
       user: makeUser({ id: "user-a3" }),
@@ -347,7 +327,7 @@ describe("RoomManager - persistence", () => {
     prismaMock.workspace.findUnique.mockResolvedValueOnce(null as any);
 
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-persist",
       ws,
       user: makeUser(),
@@ -366,7 +346,7 @@ describe("RoomManager - persistence", () => {
     prismaMock.workspaceState.upsert.mockResolvedValueOnce({} as any);
 
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-persist2",
       ws,
       user: makeUser(),
@@ -390,18 +370,22 @@ describe("RoomManager - load deduplication", () => {
     prismaMock.workspaceState.findUnique.mockResolvedValue(null as any);
 
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-load",
       ws,
       user: makeUser(),
       workspaceId: "ws-load",
     });
 
+    // join() already called loadRoomState, so clear the mock count
+    prismaMock.workspaceState.findUnique.mockClear();
+
     const [r1, r2] = await Promise.all([
       roomManager.loadRoomState("ws-load"),
       roomManager.loadRoomState("ws-load"),
     ]);
 
+    // Deduplication: only one findUnique call for concurrent loadRoomState requests
     expect(prismaMock.workspaceState.findUnique).toHaveBeenCalledTimes(1);
     expect(r1).toBe(false);
     expect(r2).toBe(false);
@@ -414,13 +398,13 @@ describe("RoomManager - load deduplication", () => {
 });
 
 describe("RoomManager - cleanup", () => {
-  it("schedules cleanup for empty rooms", () => {
+  it("schedules cleanup for empty rooms", async () => {
     prismaMock.workspace.findUnique.mockResolvedValueOnce({
       id: "ws-cleanup",
     } as any);
 
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-cleanup",
       ws,
       user: makeUser(),
@@ -439,18 +423,18 @@ describe("RoomManager - cleanup", () => {
 });
 
 describe("RoomManager - delete", () => {
-  it("broadcasts workspace-deleted message and closes sockets", () => {
+  it("broadcasts workspace-deleted message and closes sockets", async () => {
     const { ws: ws1, sent: sent1 } = createMockWs();
     const { ws: ws2, sent: sent2 } = createMockWs();
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-d1",
       ws: ws1,
       user: makeUser(),
       workspaceId: "ws-delete",
     });
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-d2",
       ws: ws2,
       user: makeUser(),
@@ -470,10 +454,10 @@ describe("RoomManager - delete", () => {
     expect(roomManager.getRoom("ws-delete")).toBeUndefined();
   });
 
-  it("sends workspace-deleted message type", () => {
+  it("sends workspace-deleted message type", async () => {
     const { ws, sent } = createMockWs();
 
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-dtype",
       ws,
       user: makeUser(),
@@ -500,9 +484,9 @@ describe("RoomManager - getCollaborators", () => {
     expect(collaborators).toEqual([]);
   });
 
-  it("returns collaborators for existing room", () => {
+  it("returns collaborators for existing room", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-gc-1",
       ws,
       user: makeUser({ id: "user-gc-1" }),
@@ -521,9 +505,9 @@ describe("RoomManager - getRoomStats", () => {
     expect(stats).toBeNull();
   });
 
-  it("returns stats for existing room", () => {
+  it("returns stats for existing room", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-stats-1",
       ws,
       user: makeUser(),
@@ -536,16 +520,16 @@ describe("RoomManager - getRoomStats", () => {
     expect(typeof stats!.lastModified).toBe("number");
   });
 
-  it("returns correct connection count with multiple connections", () => {
+  it("returns correct connection count with multiple connections", async () => {
     const { ws: ws1 } = createMockWs();
     const { ws: ws2 } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-stats-2",
       ws: ws1,
       user: makeUser(),
       workspaceId: "ws-test",
     });
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-stats-3",
       ws: ws2,
       user: makeUser(),
@@ -558,9 +542,9 @@ describe("RoomManager - getRoomStats", () => {
 });
 
 describe("RoomManager - event callbacks", () => {
-  it("broadcasts awareness when non-client awareness change occurs", () => {
+  it("broadcasts awareness when non-client awareness change occurs", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-evt-1",
       ws,
       user: makeUser(),
@@ -587,9 +571,9 @@ describe("RoomManager - event callbacks", () => {
     expect(mockEncodeAwarenessUpdate).toHaveBeenCalled();
   });
 
-  it("does not broadcast awareness when change origin is client-update", () => {
+  it("does not broadcast awareness when change origin is client-update", async () => {
     const { ws } = createMockWs();
-    roomManager.join({
+    await roomManager.join({
       connectionId: "conn-evt-2",
       ws,
       user: makeUser(),
@@ -614,5 +598,135 @@ describe("RoomManager - event callbacks", () => {
 
     // encodeAwarenessUpdate should NOT be called for client-origin changes
     expect(mockEncodeAwarenessUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("RoomManager - join loads persisted state", () => {
+  it("loads persisted state when room is freshly created with empty doc", async () => {
+    const mockYjsState = new Uint8Array([1, 2, 3]);
+    prismaMock.workspaceState.findUnique.mockResolvedValueOnce({
+      workspaceId: "ws-load-join",
+      yjsState: mockYjsState,
+    });
+
+    const { ws } = createMockWs();
+    await roomManager.join({
+      connectionId: "conn-load-join-1",
+      ws,
+      user: makeUser(),
+      workspaceId: "ws-load-join",
+    });
+
+    expect(prismaMock.workspaceState.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: "ws-load-join" },
+      })
+    );
+  });
+
+  it("does NOT reload state when room already has connections", async () => {
+    const { ws: ws1 } = createMockWs();
+    const { ws: ws2 } = createMockWs();
+
+    // First join creates room, may load state
+    await roomManager.join({
+      connectionId: "conn-no-load-1",
+      ws: ws1,
+      user: makeUser(),
+      workspaceId: "ws-no-load",
+    });
+
+    prismaMock.workspaceState.findUnique.mockClear();
+
+    // Second join should NOT load state because room already has a connection
+    await roomManager.join({
+      connectionId: "conn-no-load-2",
+      ws: ws2,
+      user: makeUser(),
+      workspaceId: "ws-no-load",
+    });
+
+    expect(prismaMock.workspaceState.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("concurrent joins to fresh room only trigger one loadRoomState call", async () => {
+    const mockYjsState = new Uint8Array([1, 2, 3]);
+    prismaMock.workspaceState.findUnique.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                workspaceId: "ws-concurrent",
+                yjsState: mockYjsState,
+              }),
+            50
+          )
+        )
+    );
+
+    const { ws: ws1 } = createMockWs();
+    const { ws: ws2 } = createMockWs();
+
+    const [conn1, conn2] = await Promise.all([
+      roomManager.join({
+        connectionId: "conn-concurrent-1",
+        ws: ws1,
+        user: makeUser(),
+        workspaceId: "ws-concurrent",
+      }),
+      roomManager.join({
+        connectionId: "conn-concurrent-2",
+        ws: ws2,
+        user: makeUser(),
+        workspaceId: "ws-concurrent",
+      }),
+    ]);
+
+    expect(conn1).toBeDefined();
+    expect(conn2).toBeDefined();
+    // loadRoomState should be called only once due to pendingLoads deduplication
+    expect(prismaMock.workspaceState.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT attempt load when room already has board data", async () => {
+    // Pre-create a room with board data
+    const { ws: ws1 } = createMockWs();
+    const preloadedWs = "ws-preloaded-boards";
+    await roomManager.join({
+      connectionId: "conn-preload-1",
+      ws: ws1,
+      user: makeUser(),
+      workspaceId: preloadedWs,
+    });
+
+    // Simulate board data being added to the room's doc
+    const room = roomManager.getRoom(preloadedWs);
+    expect(room).toBeDefined();
+    room!.doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", { id: "board-1" });
+
+    prismaMock.workspaceState.findUnique.mockClear();
+
+    // Remove connection so room has 0 connections but has board data
+    roomManager.leave("conn-preload-1");
+
+    // Keep this deterministic: cancellation avoids cleanup timeout racing this join.
+    const idleRoom = roomManager.getRoom(preloadedWs);
+    expect(idleRoom).toBeDefined();
+    if (idleRoom?.cleanupTimeout) {
+      clearTimeout(idleRoom.cleanupTimeout);
+      idleRoom.cleanupTimeout = null;
+    }
+
+    // New join should NOT load because boardsMap.size > 0
+    const { ws: ws2 } = createMockWs();
+    await roomManager.join({
+      connectionId: "conn-preload-2",
+      ws: ws2,
+      user: makeUser(),
+      workspaceId: preloadedWs,
+    });
+
+    expect(prismaMock.workspaceState.findUnique).not.toHaveBeenCalled();
   });
 });

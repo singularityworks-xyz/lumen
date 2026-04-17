@@ -23,12 +23,17 @@ export const RightDrawers = memo(() => {
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
   const boards = useKanbanStore((state) => state.boards);
+  const shareUrl = useKanbanStore((state) =>
+    currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
+  );
 
   const currentWorkspace = currentWorkspaceId
     ? workspaces.byId[currentWorkspaceId]
     : null;
   const isSharedWorkspace =
-    currentWorkspace?.isShared === true || !!currentWorkspace?.shareToken;
+    currentWorkspace?.isShared === true ||
+    !!currentWorkspace?.shareToken ||
+    !!shareUrl;
 
   const commentCount = useMemo(
     () =>

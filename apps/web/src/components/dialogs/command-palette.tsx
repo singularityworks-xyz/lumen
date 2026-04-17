@@ -6,8 +6,6 @@ import { Input } from "@/src/components/ui/input";
 import {
   redo,
   undo,
-  useCanRedo,
-  useCanUndo,
   useKanbanStore,
 } from "@/src/features/kanban/store/kanban-store";
 import {
@@ -73,8 +71,6 @@ export const CommandPalette = memo(() => {
   const tasks = useKanbanStore((state) => state.tasks);
   const addBoard = useKanbanStore((state) => state.addBoard);
   const currentWorkspace = useCurrentWorkspace();
-  const canUndoAction = useCanUndo();
-  const canRedoAction = useCanRedo();
   const showWelcomeScreen = useShowWelcomeScreen();
   const [query, setQuery] = useState("");
 
@@ -92,17 +88,11 @@ export const CommandPalette = memo(() => {
   }, [currentWorkspace, addBoard, setShowCommandPalette]);
 
   const handleUndo = () => {
-    if (canUndoAction) {
-      undo();
-      setShowCommandPalette(false);
-    }
+    undo();
   };
 
   const handleRedo = () => {
-    if (canRedoAction) {
-      redo();
-      setShowCommandPalette(false);
-    }
+    redo();
   };
 
   const commands: Command[] = [
@@ -119,7 +109,6 @@ export const CommandPalette = memo(() => {
       icon: Undo2,
       action: handleUndo,
       shortcut: "⌘Z",
-      disabled: !canUndoAction,
     },
     {
       id: "redo",
@@ -127,7 +116,6 @@ export const CommandPalette = memo(() => {
       icon: Redo2,
       action: handleRedo,
       shortcut: "⌘⇧Z",
-      disabled: !canRedoAction,
     },
     {
       id: "search",
@@ -146,6 +134,12 @@ export const CommandPalette = memo(() => {
       },
     },
   ];
+
+  useEffect(() => {
+    if (showCommandPalette) {
+      setQuery("");
+    }
+  }, [showCommandPalette]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -143,7 +143,7 @@ class CustomLogger implements Logger {
     this.name = options.name || "lumen";
     this.level =
       options.level || (env.NODE_ENV === "production" ? "info" : "debug");
-    this.levelNum = env.NODE_ENV === "production" ? 100 : levels[this.level];
+    this.levelNum = levels[this.level];
     this.base = { ...options.base, env: env.NODE_ENV };
     this.pretty = options.pretty ?? env.NODE_ENV !== "production";
     this.isBrowser = isBrowser();
@@ -190,7 +190,10 @@ class CustomLogger implements Logger {
       formatBrowserLog(logObj, level, this.name);
     } else {
       formatServerLog(logObj, level, this.name, this.pretty);
-      this.emitOtelLog(level, msg, obj);
+      // Only emit info+ to OTel to avoid flooding with debug/trace
+      if (levels[level] >= levels.info) {
+        this.emitOtelLog(level, msg, obj);
+      }
     }
   }
 

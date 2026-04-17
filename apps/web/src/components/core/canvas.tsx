@@ -63,6 +63,8 @@ import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 import { TaskConnectionLayer } from "./task-connection-layer";
 
+const DRAG_ATTACH_PADDING = 20;
+
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore((s) => s.currentWorkspaceId);
   const boards = useKanbanStore((s) => s.boards);
@@ -75,7 +77,6 @@ export function KanbanCanvas() {
   const canvas = useKanbanStore((s) => s.canvas);
   const setViewport = useKanbanStore((s) => s.setViewport);
   const updateBoardPosition = useKanbanStore((s) => s.updateBoardPosition);
-  const updateBoardDimensions = useKanbanStore((s) => s.updateBoardDimensions);
   const areas = useKanbanStore((s) => s.areas);
   const areaPositions = useKanbanStore((s) => s.areaPositions);
   const updateAreaPosition = useKanbanStore((s) => s.updateAreaPosition);
@@ -441,17 +442,27 @@ export function KanbanCanvas() {
                   bcy = cy + bh / 2;
 
                 let foundAreaId: string | null = null;
+                let closestDistance = Number.POSITIVE_INFINITY;
                 for (const areaId of areaPositions.allIds) {
                   const ap = areaPositions.byId[areaId];
                   if (
                     ap &&
-                    bcx >= ap.x &&
-                    bcx <= ap.x + ap.width &&
-                    bcy >= ap.y &&
-                    bcy <= ap.y + ap.height
+                    bcx >= ap.x - DRAG_ATTACH_PADDING &&
+                    bcx <= ap.x + ap.width + DRAG_ATTACH_PADDING &&
+                    bcy >= ap.y - DRAG_ATTACH_PADDING &&
+                    bcy <= ap.y + ap.height + DRAG_ATTACH_PADDING
                   ) {
-                    foundAreaId = areaId;
-                    break;
+                    const areaCenterX = ap.x + ap.width / 2;
+                    const areaCenterY = ap.y + ap.height / 2;
+                    const distanceToAreaCenter = Math.hypot(
+                      bcx - areaCenterX,
+                      bcy - areaCenterY
+                    );
+
+                    if (distanceToAreaCenter < closestDistance) {
+                      closestDistance = distanceToAreaCenter;
+                      foundAreaId = areaId;
+                    }
                   }
                 }
                 if (foundAreaId) {
@@ -469,11 +480,24 @@ export function KanbanCanvas() {
         }
 
         if (change.type === "dimensions" && change.dimensions) {
+          // Handle mid-resize (resizing: true): skip entirely — React Flow's
+          // internal state already reflects these via onNodesChange above.
+          const isMidResize = "resizing" in change && change.resizing === true;
+          if (isMidResize) {
+            continue;
+          }
+
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
-          } else {
-            updateBoardDimensions(change.id, change.dimensions, true);
+          } else if ("resizing" in change && change.resizing === false) {
+            // User resize ended — persist final dimensions to store.
+            useKanbanStore
+              .getState()
+              .updateBoardDimensions(change.id, change.dimensions, true);
           }
+          // For initial measurements (no `resizing` property): skip to avoid
+          // polluting the zundo undo history. Board-node auto-resize effect
+          // keeps store in sync for content-driven dimension changes.
         }
       }
     },
@@ -556,8 +580,8 @@ export function KanbanCanvas() {
       y: selectionBox.y,
       width: selectionBox.width,
       height: selectionBox.height,
-      screenX: br.x - cr.left + 10,
-      screenY: tl.y - cr.top,
+      screenX: br.x + 10,
+      screenY: tl.y,
       ghostLeft: tl.x - cr.left,
       ghostTop: tl.y - cr.top,
       ghostWidth: br.x - tl.x,
@@ -593,11 +617,11 @@ export function KanbanCanvas() {
             fitView={nodes.length === 0}
             maxZoom={3}
             minZoom={0.1}
+            noDragClassName="nodrag"
+            nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable={
-              !showWelcomeScreen && interactionMode === "select"
-            }
+            nodesConnectable={!showWelcomeScreen}
             nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
             nodeTypes={{ ...nodeTypes, commentCluster: CommentClusterNode }}
             onConnect={handleConnect}

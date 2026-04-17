@@ -226,6 +226,113 @@ describe("state-sync", () => {
       expect(result.boards!.byId["board-deleted"]).toBeUndefined();
     });
 
+    it("removes workspace comments missing from Yjs even without metadata", () => {
+      const currentWorkspaceId = "ws-current";
+      const doc = new Y.Doc();
+
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-current", {
+        id: "ws-current",
+        name: "Current Workspace",
+        created_at: "2024-01-01",
+        board_ids: [],
+      });
+
+      const currentState: KanbanState = {
+        ...createMinimalState(),
+        comments: {
+          byId: {
+            "comment-1": {
+              id: "comment-1",
+              x: 120,
+              y: 80,
+              content: "Local comment",
+              authorId: "user-1",
+              workspaceId: "ws-current",
+              createdAt: "2024-01-01T00:00:00.000Z",
+              updatedAt: "2024-01-01T00:00:00.000Z",
+            },
+          },
+          allIds: ["comment-1"],
+        },
+      };
+
+      const result = applyYjsToState(doc, currentState, currentWorkspaceId);
+
+      expect(result.comments!.byId["comment-1"]).toBeUndefined();
+      expect(result.comments!.allIds).not.toContain("comment-1");
+    });
+
+    it("preserves comments from other workspaces when syncing current workspace", () => {
+      const currentWorkspaceId = "ws-current";
+      const doc = new Y.Doc();
+
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-current", {
+        id: "ws-current",
+        name: "Current Workspace",
+        created_at: "2024-01-01",
+        board_ids: [],
+      });
+
+      const currentState: KanbanState = {
+        ...createMinimalState(),
+        comments: {
+          byId: {
+            "comment-other": {
+              id: "comment-other",
+              x: 20,
+              y: 40,
+              content: "Other workspace comment",
+              authorId: "user-1",
+              workspaceId: "ws-other",
+              createdAt: "2024-01-01T00:00:00.000Z",
+              updatedAt: "2024-01-01T00:00:00.000Z",
+            },
+          },
+          allIds: ["comment-other"],
+        },
+      };
+
+      const result = applyYjsToState(doc, currentState, currentWorkspaceId);
+
+      expect(result.comments!.byId["comment-other"]).toBeDefined();
+      expect(result.comments!.allIds).toContain("comment-other");
+    });
+
+    it("removes workspace chat messages missing from Yjs even without metadata", () => {
+      const currentWorkspaceId = "ws-current";
+      const doc = new Y.Doc();
+
+      doc.getMap(YJS_MAP_NAMES.WORKSPACE).set("ws-current", {
+        id: "ws-current",
+        name: "Current Workspace",
+        created_at: "2024-01-01",
+        board_ids: [],
+      });
+
+      const currentState: KanbanState = {
+        ...createMinimalState(),
+        chatMessages: {
+          byId: {
+            "message-1": {
+              id: "message-1",
+              content: "Local message",
+              authorId: "user-1",
+              authorName: "User One",
+              workspaceId: "ws-current",
+              createdAt: "2024-01-01T00:00:00.000Z",
+              updatedAt: "2024-01-01T00:00:00.000Z",
+            },
+          },
+          allIds: ["message-1"],
+        },
+      };
+
+      const result = applyYjsToState(doc, currentState, currentWorkspaceId);
+
+      expect(result.chatMessages!.byId["message-1"]).toBeUndefined();
+      expect(result.chatMessages!.allIds).not.toContain("message-1");
+    });
+
     it("preserves board when task-detail modal references it", () => {
       const currentWorkspaceId = "ws-current";
       const doc = new Y.Doc();

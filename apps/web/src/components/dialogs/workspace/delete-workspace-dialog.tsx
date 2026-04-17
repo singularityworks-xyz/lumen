@@ -11,6 +11,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/button";
 import { ConnectorEdge } from "@/src/components/ui/connector-edge";
+import { Input } from "@/src/components/ui/input";
 import { cn } from "@/src/lib/utils";
 
 interface DeleteWorkspaceDialogProps {
@@ -37,6 +38,7 @@ export const DeleteWorkspaceDialog = memo(
   }: DeleteWorkspaceDialogProps) => {
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [confirmText, setConfirmText] = useState("");
     const [internalPosition, setInternalPosition] = useState({ x: 0, y: 0 });
     const isMountedRef = useRef(false);
     const dragRef = useRef<{
@@ -192,6 +194,23 @@ export const DeleteWorkspaceDialog = memo(
               Are you sure you want to delete{" "}
               <span className="font-semibold">"{workspaceName}"</span>?
             </p>
+
+            <div className="mt-4 space-y-2">
+              <label
+                className="font-medium text-muted-foreground text-xs"
+                htmlFor="workspace-delete-confirm"
+              >
+                Type DELETE to confirm
+              </label>
+              <Input
+                className="h-8"
+                data-testid="workspace-delete-confirm-input"
+                id="workspace-delete-confirm"
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="DELETE"
+                value={confirmText}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
@@ -206,7 +225,8 @@ export const DeleteWorkspaceDialog = memo(
             </Button>
             <Button
               className="h-8 rounded-md bg-red-500 text-white text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-red-600 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-              disabled={isLoading}
+              data-testid="workspace-delete-submit"
+              disabled={isLoading || confirmText !== "DELETE"}
               onClick={async () => {
                 setIsLoading(true);
                 try {

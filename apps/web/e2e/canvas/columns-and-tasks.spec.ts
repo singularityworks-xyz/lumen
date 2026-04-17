@@ -106,19 +106,34 @@ test.describe("E2E-03: Column and Task CRUD", () => {
       '[data-testid="kanban-column"]:has-text("Movable Column")'
     );
     await movableColumn.scrollIntoViewIfNeeded();
-    await movableColumn
+    const movableColumnHeader = movableColumn
       .locator('[data-testid="column-header"]')
-      .click({ button: "right" });
+      .first();
+    await expect(movableColumnHeader).toBeAttached();
+    await movableColumnHeader.dispatchEvent("contextmenu", { button: 2 });
     await page.waitForSelector('[data-testid="column-move-option"]', {
       timeout: 5000,
     });
     await page.click('[data-testid="column-move-option"]');
 
-    await page.waitForSelector('[data-testid="board-select-dropdown"]');
-    await page.click(
-      '[data-testid="board-select-option"]:has-text("Target Board")'
-    );
-    await page.click('[data-testid="column-move-confirm"]');
+    const boardSelectDropdown = page
+      .locator('[data-testid="board-select-dropdown"]')
+      .first();
+    await expect(boardSelectDropdown).toBeVisible();
+    await boardSelectDropdown.click();
+
+    const targetBoardOption = page
+      .locator('[data-testid="board-select-option"]')
+      .filter({ hasText: "Target Board" })
+      .first();
+    await expect(targetBoardOption).toBeVisible();
+    await targetBoardOption.click();
+
+    const moveConfirmButton = page
+      .locator('[data-testid="column-move-confirm"]')
+      .first();
+    await expect(moveConfirmButton).toBeEnabled();
+    await moveConfirmButton.click();
 
     await page.waitForTimeout(500);
 
@@ -228,17 +243,28 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const taskCard = page.locator(
       '[data-testid="task-card"]:has-text("Movable Task")'
     );
-    const taskBox = await taskCard.boundingBox();
+    const draggableTaskCard = taskCard.locator('[draggable="true"]').first();
+    await expect(draggableTaskCard).toBeVisible();
+
+    const taskBox = await draggableTaskCard.boundingBox();
     expect(taskBox).not.toBeNull();
 
     const targetColumn = page.locator(
       '[data-testid="kanban-column"]:has-text("Target Column")'
     );
-    const targetBox = await targetColumn.boundingBox();
+    const targetDropZone = targetColumn
+      .locator('[aria-label="Task drop zone"]')
+      .first();
+    const targetBox = await targetDropZone.boundingBox();
     expect(targetBox).not.toBeNull();
 
     if (taskBox && targetBox) {
-      await taskCard.dragTo(targetColumn);
+      const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+
+      await draggableTaskCard.dispatchEvent("dragstart", { dataTransfer });
+      await targetDropZone.dispatchEvent("dragover", { dataTransfer });
+      await targetDropZone.dispatchEvent("drop", { dataTransfer });
+      await draggableTaskCard.dispatchEvent("dragend", { dataTransfer });
     }
 
     await page.waitForTimeout(500);

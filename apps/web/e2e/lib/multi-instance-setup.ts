@@ -15,9 +15,37 @@ export interface InstanceProcess {
   url: string;
 }
 
+function resolvePrimaryPresencePort(): number {
+  const fallbackPort = 4010;
+  const configuredPresenceUrl = process.env.PRESENCE_URL;
+
+  if (!configuredPresenceUrl) {
+    return fallbackPort;
+  }
+
+  try {
+    const parsedUrl = new URL(configuredPresenceUrl);
+    const parsedPort = Number.parseInt(
+      parsedUrl.port || (parsedUrl.protocol === "https:" ? "443" : "80"),
+      10
+    );
+    return Number.isFinite(parsedPort) && parsedPort > 0
+      ? parsedPort
+      : fallbackPort;
+  } catch {
+    return fallbackPort;
+  }
+}
+
 const DEFAULT_PORTS = {
   workers: { primary: 3002, secondary: 3003 },
-  presence: { primary: 4001, secondary: 4002 },
+  presence: (() => {
+    const primary = resolvePrimaryPresencePort();
+    return {
+      primary,
+      secondary: primary + 2,
+    };
+  })(),
 } as const;
 
 export class MultiInstanceTopology {
@@ -68,6 +96,10 @@ export class MultiInstanceTopology {
       cwd: "apps/presence",
       env: {
         ...process.env,
+        ALLOW_E2E_ANON_SOCKET: process.env.ALLOW_E2E_ANON_SOCKET ?? "true",
+        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "http://localhost:3002",
+        MIX_ENV: process.env.PRESENCE_MIX_ENV ?? "test",
+        PHX_SERVER: "true",
         PORT: String(config.port),
         NODE_ENV: "test",
       },

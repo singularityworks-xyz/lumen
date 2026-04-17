@@ -158,6 +158,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
         id: existingModalForTask.id,
         position: existingModalForTask.position,
         isExisting: true,
+        usedLastPosition: true,
       };
     }
 
@@ -166,6 +167,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
     let modalX: number;
     let modalY: number;
     const lastPosition = get().lastTaskModalPositions[taskId];
+    let usedLastPosition = false;
 
     if (position) {
       modalX = position.x;
@@ -173,6 +175,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
     } else if (lastPosition) {
       modalX = lastPosition.x;
       modalY = lastPosition.y;
+      usedLastPosition = true;
     } else {
       const MODAL_WIDTH = 450;
       const STACK_GAP = 20;
@@ -212,6 +215,7 @@ export const createModalSlice: SliceCreator = (set, get) => ({
       id: modalId,
       position: modalState.position,
       isExisting: false,
+      usedLastPosition,
     };
   },
 

@@ -150,6 +150,7 @@ export const CreateWorkspaceDialog = memo(
                 <Input
                   autoFocus
                   className="rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                  data-testid="workspace-name-input"
                   id="workspace-name"
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -167,6 +168,7 @@ export const CreateWorkspaceDialog = memo(
                 </Label>
                 <Textarea
                   className="min-h-20 resize-none rounded-lg border border-border/30 bg-muted/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                  data-testid="workspace-description-input"
                   id="workspace-description"
                   onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -188,6 +190,7 @@ export const CreateWorkspaceDialog = memo(
               </Button>
               <Button
                 className="h-8 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                data-testid="workspace-create-submit"
                 disabled={!name.trim()}
                 type="submit"
               >

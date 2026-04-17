@@ -205,6 +205,11 @@ export function applyYjsToState(
   // NOTE: We pass the raw Yjs map to check for existence even if validation failed
   interface MergeOptions<T> {
     belongsToWorkspaceFn?: (item: T) => boolean;
+    // When true, delete local entities whenever they are missing from Yjs.
+    // This is useful for entities that should strictly mirror collaborative state
+    // (for example comments/chat in a shared workspace) even if metadata tracking
+    // has not yet observed them.
+    deleteWhenMissingInYjs?: boolean;
     filterFn?: (item: T) => boolean;
     // Set to track newly synced IDs for this sync
     newSyncedIds?: Set<string>;
@@ -263,7 +268,11 @@ export function applyYjsToState(
 
         // If it was synced and is now absent from Yjs, delete it
         const isInYjsNow = options.rawYjsMap?.has(id) ?? false;
-        if (wasEverSynced && !isInYjsNow) {
+        const shouldDelete = options.deleteWhenMissingInYjs
+          ? !isInYjsNow
+          : wasEverSynced && !isInYjsNow;
+
+        if (shouldDelete) {
           idsToRemove.push(id);
         }
       }
@@ -490,6 +499,7 @@ export function applyYjsToState(
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
     belongsToWorkspaceFn: (comment) =>
       !currentWorkspaceId || comment.workspaceId === currentWorkspaceId,
+    deleteWhenMissingInYjs: true,
     rawYjsMap: doc.getMap(YJS_MAP_NAMES.COMMENTS),
     previouslySyncedIds: previouslySyncedIds.comments,
     newSyncedIds: newSyncedIds.comments,
@@ -503,6 +513,7 @@ export function applyYjsToState(
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
       belongsToWorkspaceFn: (msg) =>
         !currentWorkspaceId || msg.workspaceId === currentWorkspaceId,
+      deleteWhenMissingInYjs: true,
       rawYjsMap: doc.getMap(YJS_MAP_NAMES.CHAT_MESSAGES),
       previouslySyncedIds: previouslySyncedIds.chatMessages,
       newSyncedIds: newSyncedIds.chatMessages,
@@ -935,6 +946,7 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
   areaSync.initializeYjs(doc, state.areas);
   areaPositionSync.initializeYjs(doc, state.areaPositions);
   commentSync.initializeYjs(doc, state.comments);
+  chatMessageSync.initializeYjs(doc, state.chatMessages);
 
   logger.info("Initialized Yjs from Zustand state");
 }
