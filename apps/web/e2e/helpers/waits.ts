@@ -167,6 +167,16 @@ export async function waitForReconnected(
   syncIndicatorTestId = "sync-status-indicator",
   timeout = 10_000
 ): Promise<void> {
+  if (syncIndicatorTestId === "sync-status-indicator") {
+    await waitForConnectionState(
+      page,
+      syncIndicatorTestId,
+      "connected",
+      timeout
+    );
+    return;
+  }
+
   const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
   await indicator.waitFor({ state: "visible", timeout });
   await expect(indicator).toContainText(CONNECTED_REGEX, { timeout });
@@ -177,6 +187,16 @@ export async function waitForDisconnected(
   syncIndicatorTestId = "sync-status-indicator",
   timeout = 5000
 ): Promise<void> {
+  if (syncIndicatorTestId === "sync-status-indicator") {
+    await waitForConnectionState(
+      page,
+      syncIndicatorTestId,
+      "disconnected",
+      timeout
+    );
+    return;
+  }
+
   const indicator = page.locator(`[data-testid="${syncIndicatorTestId}"]`);
   await indicator.waitFor({ state: "visible", timeout });
   await expect(indicator).toContainText(DISCONNECTED_REGEX, { timeout });

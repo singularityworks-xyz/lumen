@@ -89,14 +89,10 @@ export const CommandPalette = memo(() => {
 
   const handleUndo = () => {
     undo();
-    setQuery("");
-    setShowCommandPalette(false);
   };
 
   const handleRedo = () => {
     redo();
-    setQuery("");
-    setShowCommandPalette(false);
   };
 
   const commands: Command[] = [

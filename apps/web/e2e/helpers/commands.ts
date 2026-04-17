@@ -883,7 +883,7 @@ async function recoverEditorWorkspaceFromShare(
     return true;
   }
 
-  for (const _attempt of [0, 1, 2]) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const switched = await selectSharedWorkspaceFromMenu(
       page,
       targetWorkspaceName

@@ -946,6 +946,7 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
   areaSync.initializeYjs(doc, state.areas);
   areaPositionSync.initializeYjs(doc, state.areaPositions);
   commentSync.initializeYjs(doc, state.comments);
+  chatMessageSync.initializeYjs(doc, state.chatMessages);
 
   logger.info("Initialized Yjs from Zustand state");
 }

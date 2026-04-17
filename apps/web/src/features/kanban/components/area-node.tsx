@@ -23,6 +23,18 @@ const MIN_HEIGHT = 150;
 const MAX_WIDTH = 3000;
 const MAX_HEIGHT = 3000;
 
+function resetHeaderDragState(
+  element: HTMLDivElement,
+  pointerId: number,
+  isDraggingHeader: React.MutableRefObject<boolean>
+) {
+  isDraggingHeader.current = false;
+
+  if (element.hasPointerCapture(pointerId)) {
+    element.releasePointerCapture(pointerId);
+  }
+}
+
 export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
   const areaId = data.areaId;
   const area = useKanbanStore((state) => state.areas.byId[areaId]);
@@ -125,11 +137,30 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
         <div
           className="area-drag-handle absolute top-0 left-0 flex cursor-move items-center gap-2 rounded-br-lg px-3 py-2"
           data-testid="area-header"
-          onPointerDown={() => {
-            isDraggingHeader.current = true;
+          onLostPointerCapture={(e) => {
+            resetHeaderDragState(
+              e.currentTarget,
+              e.pointerId,
+              isDraggingHeader
+            );
           }}
-          onPointerUp={() => {
-            isDraggingHeader.current = false;
+          onPointerCancel={(e) => {
+            resetHeaderDragState(
+              e.currentTarget,
+              e.pointerId,
+              isDraggingHeader
+            );
+          }}
+          onPointerDown={(e) => {
+            isDraggingHeader.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerUp={(e) => {
+            resetHeaderDragState(
+              e.currentTarget,
+              e.pointerId,
+              isDraggingHeader
+            );
           }}
           style={{
             backgroundColor: `${area.color}25`,

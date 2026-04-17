@@ -49,7 +49,7 @@ export async function seedE2EAuth(): Promise<SeedResult> {
   });
 
   console.log(
-    `Seeded E2E auth into DB (via pg): userId=${userId}, sessionId=${sessionId}`
+    `Seeded E2E auth into DB (via Prisma): userId=${userId}, sessionId=${sessionId}`
   );
 
   const cookieName = "better-auth.session_token";

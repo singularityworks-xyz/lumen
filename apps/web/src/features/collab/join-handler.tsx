@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { env } from "@/src/env";
 import { useAuth } from "@/src/hooks/use-auth";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 import { useKanbanStore } from "../kanban/store";
 
 const logger = createLogger({ name: "collab:join-handler" });
@@ -61,7 +62,7 @@ export function useJoinWorkspace({
     };
   } | null>(null);
 
-  const apiUrl = env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1");
+  const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
 
   const validateToken = useCallback(() => {
     if (!shareToken) {

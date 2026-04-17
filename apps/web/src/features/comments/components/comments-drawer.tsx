@@ -36,28 +36,43 @@ const COMMENT_MENTION_SPLIT_REGEX = /(@[a-zA-Z0-9_]+)/g;
 const COMMENT_MENTION_PART_REGEX = /^@[a-zA-Z0-9_]+$/;
 
 function renderCommentContentWithMentions(content: string, keyPrefix: string) {
-  let searchIndex = 0;
+  const nodes: Array<string | ReactNode> = [];
+  let lastEnd = 0;
 
-  return content.split(COMMENT_MENTION_SPLIT_REGEX).map((part) => {
-    const partStart = content.indexOf(part, searchIndex);
-    if (partStart !== -1) {
-      searchIndex = partStart + part.length;
+  for (const match of content.matchAll(COMMENT_MENTION_SPLIT_REGEX)) {
+    const mentionText = match[0];
+    const mentionStart = match.index;
+
+    if (mentionStart === undefined) {
+      continue;
     }
 
-    if (!COMMENT_MENTION_PART_REGEX.test(part)) {
-      return part;
+    if (mentionStart > lastEnd) {
+      nodes.push(content.slice(lastEnd, mentionStart));
     }
 
-    return (
-      <span
-        className="font-medium text-primary"
-        data-testid="comment-mention"
-        key={`${keyPrefix}-mention-${partStart}-${part}`}
-      >
-        {part}
-      </span>
-    );
-  });
+    if (COMMENT_MENTION_PART_REGEX.test(mentionText)) {
+      nodes.push(
+        <span
+          className="font-medium text-primary"
+          data-testid="comment-mention"
+          key={`${keyPrefix}-mention-${mentionStart}-${mentionText}`}
+        >
+          {mentionText}
+        </span>
+      );
+    } else {
+      nodes.push(mentionText);
+    }
+
+    lastEnd = mentionStart + mentionText.length;
+  }
+
+  if (lastEnd < content.length) {
+    nodes.push(content.slice(lastEnd));
+  }
+
+  return nodes;
 }
 
 interface CommentBubbleProps {
@@ -902,10 +917,10 @@ export const CommentsDrawer = memo(
     }, [isOpen, onOpenChange]);
 
     useEffect(() => {
-      if (!isOpen && commentInputValue !== "") {
+      if (!isOpen) {
         setCommentInputValue("");
       }
-    }, [isOpen, commentInputValue]);
+    }, [isOpen]);
 
     const handleCommentInputChange = useCallback((value: string) => {
       setCommentInputValue(value);

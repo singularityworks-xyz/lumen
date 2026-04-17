@@ -13,8 +13,25 @@ import {
 } from "../lib/normalized-state";
 
 async function cleanupPages(pages: Page[]) {
+  const closedContexts = new Set<ReturnType<Page["context"]>>();
+
   for (const page of pages) {
-    await page.close();
+    if (page.isClosed()) {
+      continue;
+    }
+
+    const context = page.context();
+    if (closedContexts.has(context)) {
+      continue;
+    }
+
+    closedContexts.add(context);
+
+    try {
+      await context.close();
+    } catch {
+      // Context may already be closed in teardown race paths.
+    }
   }
 }
 
@@ -229,10 +246,11 @@ test.describe("E2E-NEW-DEVICE: Workspace Sync Restoration on New Device", () => 
     // Wait for persistence
     await ownerPage.waitForTimeout(7000);
 
-    // Editor goes offline
+    // Close last in-memory peers so new device must restore from DB
     await editorPage.close();
+    await ownerPage.close();
 
-    // New device joins - should get state from DB (editor was last peer)
+    // New device joins - should restore from persisted DB state
     const ownerSeed = await seedE2EAuth();
     for (const c of ownerSeed.storageState.cookies) {
       c.domain = "127.0.0.1";

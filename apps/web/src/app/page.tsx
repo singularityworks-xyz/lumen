@@ -22,6 +22,7 @@ import type {
   Task,
 } from "@/src/features/kanban/types";
 import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 import { CanvasContextMenu } from "../components/core/canvas-context-menu";
 import { RightControls } from "../components/right-controls";
 import { env } from "../env";
@@ -39,7 +40,7 @@ function KanbanPageContent() {
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
-  const apiUrl = env.NEXT_PUBLIC_API_URL.replace("localhost", "127.0.0.1");
+  const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
 
   const handleJoinComplete = useCallback(
     async (data: JoinSuccessData | null) => {

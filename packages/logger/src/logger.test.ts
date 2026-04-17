@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 interface EmitData {
   attributes: Record<string, unknown>;
   body: string;
+  severityNumber?: number;
   timestamp?: Date;
 }
 
@@ -373,6 +374,9 @@ describe("Logger", () => {
         expect(emitMock).toHaveBeenCalled();
         const data = emitMock.mock.calls[0]![0];
         expect(data.attributes["logger.name"]).toBe("sev-test");
+        expect(data.severityNumber).toBe(
+          levelToSeverity[level as LogLevel] as number
+        );
       }
     });
 

@@ -21,31 +21,12 @@ import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
 import { env } from "@/src/env";
 import { StorageKeys } from "@/src/lib/storage-manager";
+import { normalizeApiOriginForCurrentHost } from "@/src/lib/url";
 
 const logger = createLogger({ name: "collab:provider" });
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_WORKSPACE_DELETED = 3;
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
-
-function normalizeApiOriginForCurrentHost(rawApiUrl: string): URL {
-  const apiOrigin = new URL(rawApiUrl);
-
-  if (typeof window === "undefined") {
-    return apiOrigin;
-  }
-
-  const currentHost = window.location.hostname;
-  const isApiLoopback = LOOPBACK_HOSTS.has(apiOrigin.hostname);
-  const isCurrentLoopback = LOOPBACK_HOSTS.has(currentHost);
-
-  if (isApiLoopback && isCurrentLoopback) {
-    apiOrigin.hostname = currentHost;
-  }
-
-  return apiOrigin;
-}
-
 function toWebSocketProtocol(protocol: string): "ws:" | "wss:" {
   return protocol === "https:" ? "wss:" : "ws:";
 }
@@ -356,8 +337,6 @@ export function CollaborationProvider({
         logger.info("Synced with IndexedDB", { workspaceId });
       });
 
-      // biome-ignore lint/performance/useTopLevelRegex: nah
-      const wsUrl = apiUrl.replace(/^http/, "ws");
       const stateVector = Y.encodeStateVector(doc);
       const stateVectorBase64 = uint8ArrayToBase64(stateVector);
 
@@ -375,7 +354,7 @@ export function CollaborationProvider({
       ws.binaryType = "arraybuffer";
 
       logger.info("Attempting WebSocket connection", {
-        url: `${wsUrl}/ws/collab/${workspaceId}`,
+        url: wsEndpoint.toString(),
         hasToken: !!token,
       });
 

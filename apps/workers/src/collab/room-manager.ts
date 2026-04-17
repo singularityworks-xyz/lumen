@@ -190,16 +190,12 @@ export class RoomManager {
 
       const room = this.getOrCreateRoom(workspaceId);
 
-      // Load persisted state from database if room is fresh (no prior connections and empty doc).
-      // This ensures new device logins restore workspace content even when no peers are online.
-      // pendingLoads map deduplicates concurrent calls so multiple simultaneous joins only
-      // trigger one DB fetch.
-      if (room.connections.size === 0) {
-        const boardsMap = room.doc.getMap(YJS_MAP_NAMES.BOARDS);
-        if (boardsMap.size === 0) {
-          await this.loadRoomState(workspaceId);
-        }
-      }
+      // Capture whether we should hydrate persisted state before this client joined.
+      // We register the connection first so very early client messages are not dropped
+      // while persisted state is loading.
+      const shouldLoadPersistedState =
+        room.connections.size === 0 &&
+        room.doc.getMap(YJS_MAP_NAMES.BOARDS).size === 0;
 
       // Generate unique awareness client ID
       const awarenessClientId = Math.floor(
@@ -222,6 +218,14 @@ export class RoomManager {
 
       room.connections.set(connectionId, connection);
       this.connectionToRoom.set(connectionId, workspaceId);
+
+      // Load persisted state from database if room is fresh (no prior connections and empty doc).
+      // This ensures new device logins restore workspace content even when no peers are online.
+      // pendingLoads map deduplicates concurrent calls so multiple simultaneous joins only
+      // trigger one DB fetch.
+      if (shouldLoadPersistedState) {
+        await this.loadRoomState(workspaceId);
+      }
 
       // NOTE: We don't set awareness state on the server-side anymore.
       // The server acts as a relay - clients send their own awareness states.

@@ -158,6 +158,8 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     await expect(canvas).toBeVisible();
 
     const initialViewport = await getReactFlowViewport(page);
+    const reactFlowViewport = page.locator(".react-flow__viewport").first();
+    const initialTransform = await reactFlowViewport.getAttribute("transform");
 
     // Click the zoom in button (plus icon) in the controls
     const zoomInButton = page.locator('button[title="Zoom In"]').first();
@@ -167,11 +169,18 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
 
     const zoomedViewport = await getReactFlowViewport(page);
 
-    // Zoom should have changed, but allow for small floating point differences
-    // If zoom hasn't changed from initial state (zoom=1), check that button exists and is clickable
+    // Zoom should change. If the first click is ignored, retry once and require a measurable viewport change.
     if (zoomedViewport.zoom === initialViewport.zoom) {
-      // Zoom controls might not work in test environment, verify button exists
-      await expect(zoomInButton).toBeVisible();
+      await zoomInButton.click();
+      await page.waitForTimeout(300);
+
+      const retriedViewport = await getReactFlowViewport(page);
+      const retriedTransform =
+        await reactFlowViewport.getAttribute("transform");
+
+      const zoomChanged = retriedViewport.zoom !== initialViewport.zoom;
+      const transformChanged = retriedTransform !== initialTransform;
+      expect(zoomChanged || transformChanged).toBe(true);
     } else {
       expect(zoomedViewport.zoom).not.toBe(initialViewport.zoom);
     }

@@ -125,7 +125,6 @@ export const AiDrawerContent = memo(
     const shouldShowAuthOverlay = !(isAuthenticated || isE2ETestRun);
     const shouldShowOptInOverlay =
       isAuthenticated && !isAiEnabled && !isE2ETestRun;
-    const shouldShowClearConfirm = showClearConfirm;
 
     // Subscribe to streamVersion to force re-renders during streaming
     const streamVersion = useAiStore(
@@ -1073,7 +1072,7 @@ export const AiDrawerContent = memo(
             )}
 
             <AnimatePresence>
-              {shouldShowClearConfirm && (
+              {showClearConfirm && (
                 <motion.div
                   animate={{ opacity: 1 }}
                   className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"

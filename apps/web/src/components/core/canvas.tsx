@@ -63,6 +63,8 @@ import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 import { TaskConnectionLayer } from "./task-connection-layer";
 
+const DRAG_ATTACH_PADDING = 20;
+
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore((s) => s.currentWorkspaceId);
   const boards = useKanbanStore((s) => s.boards);
@@ -438,8 +440,6 @@ export function KanbanCanvas() {
                   cy = absPos.y;
                 const bcx = cx + bw / 2,
                   bcy = cy + bh / 2;
-
-                const DRAG_ATTACH_PADDING = 20;
 
                 let foundAreaId: string | null = null;
                 for (const areaId of areaPositions.allIds) {

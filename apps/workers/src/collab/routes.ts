@@ -40,8 +40,10 @@ interface WsData {
   connectionId?: string;
   connectionStartTime?: number;
   initialStateVector?: Uint8Array;
+  joinPromise?: Promise<void>;
   params: { workspaceId: string };
   query: { stateVector?: string };
+  queuedMessages?: Uint8Array[];
   user?: {
     id: string;
     name?: string | null;
@@ -312,7 +314,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
 
     open(ws) {
-      withSpanAsync("ws.open", async () => {
+      return withSpanAsync("ws.open", async () => {
         logger.debug("WebSocket open handler called");
         const { workspaceId } = ws.data.params;
         const wsData = ws.data as unknown as WsData;
@@ -355,54 +357,88 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           color,
         };
 
-        await roomManager.join({
-          connectionId,
-          ws: {
-            // Use ws.raw.send() for direct Bun WebSocket access - ws.send() may have issues with async sends
-            // Elysia WebSocket typings do not currently expose raw, so we cast to any
-            // It really was pain to figure this out...
-            send: (msgData: Uint8Array) => {
-              try {
-                ws.raw.send(msgData);
-              } catch (error) {
-                logger.error("Failed to send via raw WebSocket", {
-                  connectionId,
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
-                });
-              }
-            },
-            close: () => ws.close(),
-          },
-          user: collabInfo,
-          workspaceId,
-          initialStateVector,
-        });
-
-        // Record connection metrics
-        if (connectionStartTime) {
-          const latencySeconds =
-            (performance.now() - connectionStartTime) / 1000;
-          recordWsConnectionLatency(latencySeconds, {
-            workspaceId,
-            userId: user.id,
-          });
-        }
-
         wsData.connectionId = connectionId;
-        incrementActiveConnections();
         wsData.user = user;
         wsData.collaborator = collaborator;
+        wsData.queuedMessages = [];
 
-        logger.info("WebSocket opened", {
-          connectionId,
-          workspaceId,
-          userId: user.id,
-          role: collaborator.role,
-          operation: "websocket.open",
-          userName: user.name,
-          userEmail: user.email,
-        });
+        const joinPromise = (async () => {
+          await roomManager.join({
+            connectionId,
+            ws: {
+              // Use ws.raw.send() for direct Bun WebSocket access - ws.send() may have issues with async sends
+              // Elysia WebSocket typings do not currently expose raw, so we cast to any
+              // It really was pain to figure this out...
+              send: (msgData: Uint8Array) => {
+                try {
+                  ws.raw.send(msgData);
+                } catch (error) {
+                  logger.error("Failed to send via raw WebSocket", {
+                    connectionId,
+                    error:
+                      error instanceof Error ? error.message : "Unknown error",
+                  });
+                }
+              },
+              close: () => ws.close(),
+            },
+            user: collabInfo,
+            workspaceId,
+            initialStateVector,
+          });
+
+          // Drain any messages that arrived before join completed.
+          const queued = wsData.queuedMessages ?? [];
+          wsData.queuedMessages = [];
+          for (const queuedMessage of queued) {
+            const handled = roomManager.handleMessage(
+              connectionId,
+              queuedMessage
+            );
+            if (handled) {
+              recordWsMessage({
+                messageSize: queuedMessage.byteLength.toString(),
+              });
+            } else {
+              recordWsConnectionError({
+                connectionId,
+                workspaceId,
+                error: "queued_message_handle_failed",
+              });
+            }
+          }
+
+          // Record connection metrics
+          if (connectionStartTime) {
+            const latencySeconds =
+              (performance.now() - connectionStartTime) / 1000;
+            recordWsConnectionLatency(latencySeconds, {
+              workspaceId,
+              userId: user.id,
+            });
+          }
+
+          incrementActiveConnections();
+
+          logger.info("WebSocket opened", {
+            connectionId,
+            workspaceId,
+            userId: user.id,
+            role: collaborator.role,
+            operation: "websocket.open",
+            userName: user.name,
+            userEmail: user.email,
+          });
+        })();
+
+        wsData.joinPromise = joinPromise;
+
+        try {
+          await joinPromise;
+        } finally {
+          wsData.joinPromise = undefined;
+          wsData.queuedMessages = undefined;
+        }
       });
     },
 
@@ -424,6 +460,20 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
         const msgData =
           message instanceof ArrayBuffer ? new Uint8Array(message) : message;
+
+        if (data.joinPromise) {
+          if (!data.queuedMessages) {
+            data.queuedMessages = [];
+          }
+
+          // Keep queue bounded to avoid unbounded memory usage.
+          if (data.queuedMessages.length >= 32) {
+            data.queuedMessages.shift();
+          }
+          data.queuedMessages.push(msgData);
+          return;
+        }
+
         const handled = roomManager.handleMessage(connectionId, msgData);
         if (handled) {
           recordWsMessage({ messageSize: messageSize.toString() });

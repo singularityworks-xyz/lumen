@@ -204,7 +204,18 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (taskId: string, _screenX: number, _screenY: number) => {
         const result = openTaskDetailModal({ taskId, boardId });
         if (result.isExisting) {
-          // Existing modal — bring to front, shake, but don't move viewport.
+          // Existing modal — bring to front, shake, and keep it in viewport.
+          setTimeout(
+            () =>
+              ensureDialogVisible(
+                result.position.x,
+                result.position.y,
+                450,
+                500
+              ),
+            50
+          );
+
           setTimeout(() => {
             triggerTaskDetailModalShake(result.id);
           }, 300);

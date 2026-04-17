@@ -46,6 +46,8 @@ import { useKanbanStore } from "@/src/features/kanban";
 
 const logger = createLogger({ name: "collab:yjs-sync" });
 const POSITION_THROTTLE_MS = 14;
+// Wait briefly for server-backed Yjs sync before deciding whether to bootstrap from local state.
+const YJS_BOOTSTRAP_DELAY_MS = 1200;
 
 export interface YjsSyncActions {
   // Delete an area from Yjs
@@ -205,7 +207,7 @@ export function useYjsSync(
           });
           initializeYjsForWorkspace(doc, latestState, currentWorkspaceId);
         }
-      }, 1200);
+      }, YJS_BOOTSTRAP_DELAY_MS);
     } else if (boardsMap.size > 0) {
       logger.info("Server has data, pulling from Yjs", {
         serverBoards: boardsMap.size,

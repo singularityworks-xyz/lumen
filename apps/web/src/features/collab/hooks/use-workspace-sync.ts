@@ -9,6 +9,7 @@ import type {
   Task,
 } from "@/src/features/kanban/types";
 import { useAuth } from "@/src/hooks/use-auth";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 
 const logger = createLogger({ name: "use-workspace-sync" });
 const MAX_CONCURRENT_PREFETCH = 3;
@@ -22,11 +23,16 @@ export function useWorkspaceSync() {
       return;
     }
 
+    const abortController = new AbortController();
+    let isActive = true;
+    const shouldContinue = () => isActive && !abortController.signal.aborted;
+
     const syncWorkspaces = async () => {
       try {
-        const apiUrl = env.NEXT_PUBLIC_API_URL;
+        const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
         const response = await fetch(`${apiUrl}/api/workspaces`, {
           credentials: "include",
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -43,12 +49,20 @@ export function useWorkspaceSync() {
           isShared: boolean;
         }> = await response.json();
 
+        if (!shouldContinue()) {
+          return;
+        }
+
         logger.info(
           { count: backendWorkspaces.length },
           "Synced workspaces from backend"
         );
 
         for (const ws of backendWorkspaces) {
+          if (!shouldContinue()) {
+            return;
+          }
+
           syncWorkspace({
             id: ws.id,
             name: ws.name,
@@ -65,9 +79,18 @@ export function useWorkspaceSync() {
         // before the user selects them (fixes empty workspace list on new device)
         const sharedWorkspaces = backendWorkspaces.filter((ws) => ws.isShared);
         if (sharedWorkspaces.length > 0) {
-          await prefetchSharedWorkspaceStates(sharedWorkspaces, apiUrl);
+          await prefetchSharedWorkspaceStates(
+            sharedWorkspaces,
+            apiUrl,
+            abortController.signal,
+            shouldContinue
+          );
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
         logger.error("Failed to sync workspaces", {
           error: error instanceof Error ? error.message : "Unknown error",
         });
@@ -75,27 +98,46 @@ export function useWorkspaceSync() {
     };
 
     syncWorkspaces();
+
+    return () => {
+      isActive = false;
+      abortController.abort();
+    };
   }, [user, syncWorkspace]);
 }
 
 async function prefetchSharedWorkspaceStates(
   workspaces: Array<{ id: string }>,
-  apiUrl: string
+  apiUrl: string,
+  signal: AbortSignal,
+  shouldContinue: () => boolean
 ) {
   // Process in batches to avoid overwhelming the server
   for (let i = 0; i < workspaces.length; i += MAX_CONCURRENT_PREFETCH) {
+    if (!shouldContinue()) {
+      return;
+    }
+
     const batch = workspaces.slice(i, i + MAX_CONCURRENT_PREFETCH);
     await Promise.allSettled(
-      batch.map((ws) => fetchAndMergeWorkspaceState(ws.id, apiUrl))
+      batch.map((ws) =>
+        fetchAndMergeWorkspaceState(ws.id, apiUrl, signal, shouldContinue)
+      )
     );
   }
 }
 
 async function fetchAndMergeWorkspaceState(
   workspaceId: string,
-  apiUrl: string
+  apiUrl: string,
+  signal: AbortSignal,
+  shouldContinue: () => boolean
 ) {
   try {
+    if (!shouldContinue()) {
+      return;
+    }
+
     // Skip if workspace already has boards loaded (e.g., from IndexedDB)
     const existing = useKanbanStore.getState().workspaces.byId[workspaceId];
     if (existing?.board_ids && existing.board_ids.length > 0) {
@@ -108,8 +150,12 @@ async function fetchAndMergeWorkspaceState(
 
     const response = await fetch(
       `${apiUrl}/api/workspaces/${workspaceId}/state`,
-      { credentials: "include" }
+      { credentials: "include", signal }
     );
+
+    if (!shouldContinue()) {
+      return;
+    }
 
     if (!response.ok) {
       logger.warn(
@@ -120,6 +166,10 @@ async function fetchAndMergeWorkspaceState(
     }
 
     const stateData = await response.json();
+
+    if (!shouldContinue()) {
+      return;
+    }
 
     const boards = stateData.boards as Record<string, Board>;
     const columns = stateData.columns as Record<string, Column>;
@@ -140,6 +190,10 @@ async function fetchAndMergeWorkspaceState(
     }
 
     useKanbanStore.setState((state) => {
+      if (!shouldContinue()) {
+        return;
+      }
+
       for (const [id, board] of Object.entries(boards)) {
         state.boards.byId[id] = board;
         if (!state.boards.allIds.includes(id)) {
@@ -182,6 +236,10 @@ async function fetchAndMergeWorkspaceState(
       "Pre-fetched workspace state"
     );
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return;
+    }
+
     logger.error("Failed to pre-fetch workspace state", {
       workspaceId,
       error: error instanceof Error ? error.message : "Unknown error",

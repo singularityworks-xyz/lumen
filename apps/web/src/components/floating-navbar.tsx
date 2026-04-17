@@ -98,7 +98,29 @@ export const FloatingNavbar = memo(() => {
       return;
     }
 
-    addArea(trimmedAreaName, { x: 500, y: 500 }, { width: 720, height: 420 });
+    const store = useKanbanStore.getState();
+    const focusedBoardId = store.canvas.focusedBoardId;
+    const focusedBoardPosition = focusedBoardId
+      ? store.boardPositions.byId[focusedBoardId]
+      : undefined;
+
+    const defaultWidth = 720;
+    const defaultHeight = 420;
+
+    const areaPosition = focusedBoardPosition
+      ? {
+          x: focusedBoardPosition.x,
+          y: focusedBoardPosition.y + (focusedBoardPosition.height ?? 500) + 60,
+        }
+      : {
+          x: store.canvas.viewport.x + window.innerWidth * 0.25,
+          y: store.canvas.viewport.y + window.innerHeight * 0.2,
+        };
+
+    addArea(trimmedAreaName, areaPosition, {
+      width: defaultWidth,
+      height: defaultHeight,
+    });
     setShowAreaCreateDialog(false);
     setAreaName("");
   };

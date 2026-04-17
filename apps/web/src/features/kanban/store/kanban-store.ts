@@ -135,8 +135,13 @@ export const useKanbanStore = create<KanbanStore>()(
   )
 );
 
-if (typeof window !== "undefined") {
+if (
+  typeof window !== "undefined" &&
+  (process.env.NODE_ENV !== "production" ||
+    (window as Window & { __E2E__?: boolean }).__E2E__ === true)
+) {
   type KanbanWindow = Window & {
+    __E2E__?: boolean;
     __KANBAN_STORE__?: typeof useKanbanStore;
   };
 
