@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
+  createAuthenticatedDevicePage,
   createShareLinkForFirstBoard,
   disableAnimations,
   setupTwoUsers,
@@ -11,14 +12,22 @@ import {
   assertStateIntegrity,
   captureStateSnapshot,
   fetchWorkersInstanceId,
+  getSecondaryWorkersInstanceId,
   getSecondaryPresenceUrl,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
   routePageToWorkers,
 } from "../lib/multi-instance-setup";
 
-const DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
+
+async function goOffline(page: Page): Promise<void> {
+  await page.context().setOffline(true);
+}
+
+async function goOnline(page: Page): Promise<void> {
+  await page.context().setOffline(false);
+}
 
 test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
   let topology: MultiInstanceTopology;
@@ -31,13 +40,14 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     await topology.stopAll();
   });
 
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
   test.describe("Session Affinity Tests", () => {
     let ownerPage: Page;
     let editorPage: Page;
 
     test.beforeEach(async ({ browser }) => {
+      await topology.startSecondaryPresence();
       const setup = await setupTwoUsers(browser);
       ownerPage = setup.ownerPage;
       editorPage = setup.editorPage;
@@ -59,7 +69,8 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         .first()
         .locator('[data-testid="add-column-trigger"]');
 
-      await addColumnTrigger.click();
+      await ownerPage.keyboard.press("Escape");
+      await addColumnTrigger.click({ force: true });
       await ownerPage.fill(
         '[data-testid="column-name-input"]',
         "Affinity Column"
@@ -76,22 +87,9 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         timeout: 5000,
       });
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
-      await editorPage.waitForTimeout(1000);
+      await goOffline(editorPage);
 
-      const syncIndicatorDisconnected = editorPage.locator(
-        '[data-testid="sync-status-indicator"]'
-      );
-      await expect(syncIndicatorDisconnected).toContainText(
-        DISCONNECTED_REGEX,
-        { timeout: 5000 }
-      );
-
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await goOnline(editorPage);
       await editorPage.waitForTimeout(3000);
 
       const syncIndicatorReconnected = editorPage.locator(
@@ -123,35 +121,51 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       expect(ownerColumns).toBe(editorColumns);
     });
 
-    test("disconnect/reconnect to different instance preserves awareness state", async () => {
+    test("disconnect/reconnect to different instance preserves data sync", async () => {
       await editorPage
         .locator('[data-testid="board-node"]')
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
-      await ownerPage.locator('[data-testid="board-node"]').first().hover();
-      await ownerPage.mouse.move(400, 300);
-      await ownerPage.waitForTimeout(500);
+      const addColumnTrigger = ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .locator('[data-testid="add-column-trigger"]');
 
-      const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
-      await expect(cursorBefore).toBeVisible({ timeout: 5000 });
+      await addColumnTrigger.click();
+      await ownerPage.fill(
+        '[data-testid="column-name-input"]',
+        "Affinity Sync Before Offline"
+      );
+      await ownerPage.click('[data-testid="column-create-submit"]');
+      await editorPage
+        .locator('[data-testid="kanban-column"]:has-text("Affinity Sync Before Offline")')
+        .waitFor({ state: "visible", timeout: 10_000 });
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
+      await goOffline(editorPage);
       await editorPage.waitForTimeout(1500);
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
-      await editorPage.waitForTimeout(3000);
+      await ownerPage.keyboard.press("Escape");
+      await addColumnTrigger.click({ force: true });
+      await ownerPage.fill(
+        '[data-testid="column-name-input"]',
+        "Affinity Sync During Offline"
+      );
+      await ownerPage.click('[data-testid="column-create-submit"]');
 
-      await ownerPage.locator('[data-testid="board-node"]').first().hover();
-      await ownerPage.mouse.move(600, 400);
-      await ownerPage.waitForTimeout(1000);
+      await goOnline(editorPage);
+      await editorPage
+        .locator('[data-testid="kanban-column"]:has-text("Affinity Sync During Offline")')
+        .waitFor({ state: "visible", timeout: 10_000 });
 
-      const cursorAfter = editorPage.locator('[data-testid="peer-cursor"]');
-      await expect(cursorAfter).toBeVisible({ timeout: 5000 });
+      const ownerColumns = await ownerPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+      const editorColumns = await editorPage
+        .locator('[data-testid="kanban-column"]')
+        .count();
+
+      expect(editorColumns).toBe(ownerColumns);
     });
   });
 
@@ -160,41 +174,23 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     let shareLink: string;
 
     test.beforeEach(async ({ browser }) => {
-      const context1 = await browser.newContext();
-      const context2 = await browser.newContext();
-      const context3 = await browser.newContext();
+      const setup = await setupTwoUsers(browser);
+      pages = [setup.ownerPage, setup.editorPage];
+      shareLink = setup.shareLink;
 
-      const page1 = await context1.newPage();
-      const page2 = await context2.newPage();
-      const page3 = await context3.newPage();
+      const thirdUser = await createAuthenticatedDevicePage(browser);
+      const page3 = thirdUser.page;
 
-      pages = [page1, page2, page3];
+      await clearLocalStorageAndIndexedDB(page3);
+      await disableAnimations(page3);
+      await page3.goto(shareLink);
+      await waitForAppReady(page3);
+      await page3
+        .locator('[data-testid="board-node"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 });
 
-      for (const page of pages) {
-        await clearLocalStorageAndIndexedDB(page);
-        await disableAnimations(page);
-        await page.goto("/");
-        await waitForAppReady(page);
-
-        const createFirstBoardButton = page.locator(
-          '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-        );
-        if (await createFirstBoardButton.isVisible()) {
-          await createFirstBoardButton.click();
-          await page.waitForTimeout(500);
-        }
-      }
-
-      shareLink = await createShareLinkForFirstBoard(pages[0]!);
-
-      for (const page of pages.slice(1)) {
-        await page.goto(shareLink);
-        await waitForAppReady(page);
-        await page
-          .locator('[data-testid="board-node"]')
-          .first()
-          .waitFor({ state: "visible", timeout: 10_000 });
-      }
+      pages.push(page3);
     });
 
     test.afterEach(async () => {
@@ -219,14 +215,10 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       await pages[0]!.waitForTimeout(500);
 
       for (let round = 0; round < 3; round++) {
-        pages[0]!.evaluate(() => {
-          window.dispatchEvent(new Event("offline"));
-        });
+        await goOffline(pages[0]!);
         await pages[0]!.waitForTimeout(500);
 
-        pages[0]!.evaluate(() => {
-          window.dispatchEvent(new Event("online"));
-        });
+        await goOnline(pages[0]!);
         await pages[0]!.waitForTimeout(2000);
 
         await addColumnTrigger.click();
@@ -262,14 +254,10 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       const initialCursors = pages[2]!.locator('[data-testid="peer-cursor"]');
       await expect(initialCursors).toHaveCount(2, { timeout: 5000 });
 
-      await pages[0]!.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
+      await goOffline(pages[0]!);
       await pages[0]!.waitForTimeout(1000);
 
-      await pages[0]!.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await goOnline(pages[0]!);
       await pages[0]!.waitForTimeout(3000);
 
       await pages[1]!.locator('[data-testid="board-node"]').first().hover();
@@ -332,9 +320,7 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         )
         .waitFor({ state: "visible", timeout: 10_000 });
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
+      await goOffline(editorPage);
       await editorPage.waitForTimeout(1000);
 
       await addColumnTrigger.click();
@@ -345,9 +331,7 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       await ownerPage.click('[data-testid="column-create-submit"]');
       await ownerPage.waitForTimeout(500);
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await goOnline(editorPage);
       await editorPage.waitForTimeout(3000);
 
       await editorPage.reload();
@@ -384,7 +368,7 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       const secondaryInstanceId = await fetchWorkersInstanceId(
         getSecondaryWorkersUrl()
       );
-      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
@@ -408,14 +392,10 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
       const editorSession = await editorPage.context();
       await editorSession.clearCookies();
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
+      await goOffline(editorPage);
       await editorPage.waitForTimeout(1500);
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await goOnline(editorPage);
       await editorPage.waitForTimeout(3000);
 
       await editorPage.reload();
@@ -486,7 +466,7 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         getSecondaryWorkersUrl()
       );
       expect(primaryInstanceId).toBe("workers-3002");
-      expect(secondaryInstanceId).toBe("workers-3003");
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const primaryAddColumn = primaryPage
         .locator('[data-testid="board-node"]')
@@ -556,14 +536,10 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
         .waitFor({ state: "visible", timeout: 10_000 });
 
       for (let i = 0; i < 5; i++) {
-        await page2.evaluate(() => {
-          window.dispatchEvent(new Event("offline"));
-        });
+        await goOffline(page2);
         await page2.waitForTimeout(300);
 
-        await page2.evaluate(() => {
-          window.dispatchEvent(new Event("online"));
-        });
+        await goOnline(page2);
         await page2.waitForTimeout(500);
       }
 

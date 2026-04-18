@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
@@ -33,16 +34,19 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: (() => {
     const rawWorkers = process.env.PLAYWRIGHT_WORKERS;
-    if (!rawWorkers) {
-      return 1;
+    if (rawWorkers) {
+      const parsedWorkers = Number.parseInt(rawWorkers, 10);
+      if (Number.isFinite(parsedWorkers) && parsedWorkers >= 1) {
+        return parsedWorkers;
+      }
     }
 
-    const parsedWorkers = Number.parseInt(rawWorkers, 10);
-    if (!Number.isFinite(parsedWorkers) || parsedWorkers < 1) {
-      return 1;
+    if (process.env.CI) {
+      return 2;
     }
 
-    return parsedWorkers;
+    const halfCores = Math.floor(availableParallelism() / 2);
+    return Math.max(2, Math.min(6, halfCores));
   })(),
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {

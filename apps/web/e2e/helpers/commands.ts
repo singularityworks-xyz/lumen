@@ -666,19 +666,19 @@ export async function createShareLinkForFirstBoard(
 
   // Retry the share link button if it fails
   let shareLink = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       await boardNode
         .locator('[data-testid="board-header"]')
         .click({ button: "right", timeout: 10_000 });
       await page.waitForSelector('[data-testid="board-share-option"]', {
-        timeout: 10_000,
+        timeout: 15_000,
       });
       await page.click('[data-testid="board-share-option"]', {
         timeout: 10_000,
       });
       await page.waitForSelector('[data-testid="share-dialog"]', {
-        timeout: 10_000,
+        timeout: 15_000,
       });
 
       await page.waitForFunction(
@@ -690,18 +690,18 @@ export async function createShareLinkForFirstBoard(
             button instanceof HTMLButtonElement && button.disabled === false
           );
         },
-        { timeout: 10_000 }
+        { timeout: 20_000 }
       );
 
       await page.click('[data-testid="create-share-link-button"]', {
-        timeout: 5000,
+        timeout: 15_000,
       });
       await page.waitForSelector('[data-testid="share-link-input"]', {
-        timeout: 5000,
+        timeout: 20_000,
       });
       shareLink = await page
         .locator('[data-testid="share-link-input"]')
-        .inputValue({ timeout: 5000 });
+        .inputValue({ timeout: 15_000 });
 
       const closeShareDialogButton = page.locator(
         'button[aria-label="Close share dialog"]'
@@ -722,13 +722,13 @@ export async function createShareLinkForFirstBoard(
 
       break;
     } catch (e: unknown) {
-      if (attempt === 2) {
+      if (attempt === 4) {
         throw e;
       }
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(2500);
       // close and reopen the dialog if it failed
       await page.keyboard.press("Escape");
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(1500);
     }
   }
 

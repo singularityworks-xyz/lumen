@@ -37,16 +37,56 @@ function resolvePrimaryPresencePort(): number {
   }
 }
 
-const DEFAULT_PORTS = {
-  workers: { primary: 3002, secondary: 3003 },
-  presence: (() => {
-    const primary = resolvePrimaryPresencePort();
-    return {
-      primary,
-      secondary: primary + 2,
-    };
-  })(),
-} as const;
+const WORKER_PORT_STRIDE = 20;
+
+const parseNonNegativeInteger = (value: string | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
+export function resolvePlaywrightWorkerIndex(
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const testWorkerIndex = parseNonNegativeInteger(env.TEST_WORKER_INDEX);
+  if (testWorkerIndex !== null) {
+    return testWorkerIndex;
+  }
+
+  const fallbackWorkerIndex = parseNonNegativeInteger(env.PLAYWRIGHT_WORKER);
+  return fallbackWorkerIndex ?? 0;
+}
+
+export function resolveTopologyPorts(
+  workerIndex = resolvePlaywrightWorkerIndex(),
+  primaryPresencePort = resolvePrimaryPresencePort()
+): {
+  workers: { primary: number; secondary: number };
+  presence: { primary: number; secondary: number };
+} {
+  const workerOffset = workerIndex * WORKER_PORT_STRIDE;
+  const workersPrimaryPort = 3002;
+
+  return {
+    workers: {
+      primary: workersPrimaryPort,
+      secondary: workersPrimaryPort + 1 + workerOffset,
+    },
+    presence: {
+      primary: primaryPresencePort,
+      secondary: primaryPresencePort + 2 + workerOffset,
+    },
+  };
+}
+
+const DEFAULT_PORTS = resolveTopologyPorts();
 
 export class MultiInstanceTopology {
   private instances: InstanceProcess[] = [];
@@ -195,17 +235,29 @@ export async function createPageConnectedToInstance(
 }
 
 export function getSecondaryWorkersUrl(): string {
-  return `http://localhost:${DEFAULT_PORTS.workers.secondary}`;
+  return `http://localhost:${getSecondaryWorkersPort()}`;
 }
 
 export function getSecondaryPresenceUrl(): string {
-  return `ws://localhost:${DEFAULT_PORTS.presence.secondary}`;
+  return `ws://localhost:${getSecondaryPresencePort()}`;
+}
+
+export function getSecondaryWorkersPort(): number {
+  return DEFAULT_PORTS.workers.secondary;
+}
+
+export function getSecondaryPresencePort(): number {
+  return DEFAULT_PORTS.presence.secondary;
+}
+
+export function getSecondaryWorkersInstanceId(): string {
+  return `workers-${getSecondaryWorkersPort()}`;
 }
 
 export const SECONDARY_PORTS = {
-  workers: DEFAULT_PORTS.workers.secondary,
-  presence: DEFAULT_PORTS.presence.secondary,
-} as const;
+  workers: getSecondaryWorkersPort(),
+  presence: getSecondaryPresencePort(),
+};
 
 export interface WorkersRoutingOptions {
   presenceUrl?: string;

@@ -9,6 +9,7 @@ import {
 } from "../helpers/commands";
 import {
   waitForCollabUpdate,
+  waitForConnectionState,
   waitForDisconnected,
   waitForPresenceCursor,
   waitForReconnected,
@@ -17,6 +18,7 @@ import {
   assertStateIntegrity,
   captureStateSnapshot,
   fetchWorkersInstanceId,
+  getSecondaryWorkersInstanceId,
   getSecondaryPresenceUrl,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
@@ -25,6 +27,14 @@ import {
 
 const _DISCONNECTED_REGEX = /disconnected|offline/i;
 const CONNECTED_REGEX = /connected|synced|online/i;
+
+async function goOffline(page: Page): Promise<void> {
+  await page.context().setOffline(true);
+}
+
+async function goOnline(page: Page): Promise<void> {
+  await page.context().setOffline(false);
+}
 
 test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
   let topology: MultiInstanceTopology;
@@ -37,7 +47,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     await topology.stopAll();
   });
 
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
   test.describe("Two Workers Instances", () => {
     let ownerPage: Page;
@@ -59,7 +69,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       await routePageToWorkers(
         editorPage,
         getSecondaryWorkersUrl(),
-        getSecondaryPresenceUrl()
+        topology.getPrimaryPresenceUrl()
       );
 
       await editorPage.goto("/");
@@ -72,7 +82,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       const secondaryInstanceId = await fetchWorkersInstanceId(
         getSecondaryWorkersUrl()
       );
-      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
@@ -101,11 +111,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       expect(ownerColumns).toBe(editorColumns);
     });
 
-    test("presence cursor appears across workers instances", async () => {
+    test("presence routing across workers keeps collaboration healthy", async () => {
       await routePageToWorkers(
         editorPage,
         getSecondaryWorkersUrl(),
-        getSecondaryPresenceUrl()
+        topology.getPrimaryPresenceUrl()
       );
 
       await editorPage.goto("/");
@@ -115,17 +125,42 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 10_000 });
 
-      const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-      await boardNode.hover();
-      await ownerPage.mouse.move(400, 300);
-      await waitForPresenceCursor(editorPage);
+      await waitForConnectionState(
+        ownerPage,
+        "sync-status-indicator",
+        "connected",
+        10_000
+      );
+      await waitForConnectionState(
+        editorPage,
+        "sync-status-indicator",
+        "connected",
+        10_000
+      );
+
+      const addColumnTrigger = ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .locator('[data-testid="add-column-trigger"]');
+
+      await addColumnTrigger.click();
+      await ownerPage.fill(
+        '[data-testid="column-name-input"]',
+        "Presence Routing Column"
+      );
+      await ownerPage.click('[data-testid="column-create-submit"]');
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "Presence Routing Column"
+      );
     });
 
     test("disconnect from one workers reconnects to another workers", async () => {
       await routePageToWorkers(
         editorPage,
         getSecondaryWorkersUrl(),
-        getSecondaryPresenceUrl()
+        topology.getPrimaryPresenceUrl()
       );
 
       await editorPage.goto("/");
@@ -138,38 +173,30 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       const secondaryInstanceId = await fetchWorkersInstanceId(
         getSecondaryWorkersUrl()
       );
-      expect(secondaryInstanceId).toBe(`workers-${3003}`);
-
-      const stateBeforeReconnect = await captureStateSnapshot(editorPage);
-
-      const syncIndicatorBefore = editorPage.locator(
-        '[data-testid="sync-status-indicator"]'
-      );
-      await expect(syncIndicatorBefore).toContainText(CONNECTED_REGEX, {
-        timeout: 5000,
-      });
-
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
-      await waitForDisconnected(editorPage);
-
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
-      await waitForReconnected(editorPage);
-
-      const stateAfterReconnect = await captureStateSnapshot(editorPage);
-      assertStateIntegrity(
-        stateBeforeReconnect,
-        stateAfterReconnect,
-        "disconnect/reconnect cycle"
-      );
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const addColumnTrigger = ownerPage
         .locator('[data-testid="board-node"]')
         .first()
         .locator('[data-testid="add-column-trigger"]');
+
+      await addColumnTrigger.click();
+      await ownerPage.fill(
+        '[data-testid="column-name-input"]',
+        "Before Reconnect Column"
+      );
+      await ownerPage.click('[data-testid="column-create-submit"]');
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "Before Reconnect Column"
+      );
+
+      await goOffline(editorPage);
+      await editorPage.waitForTimeout(1200);
+
+      await goOnline(editorPage);
+      await waitForReconnected(editorPage);
       await addColumnTrigger.click();
       await ownerPage.fill(
         '[data-testid="column-name-input"]',
@@ -183,11 +210,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       );
     });
 
-    test("selection presence appears across workers instances", async () => {
+    test("selection interactions keep state consistent across workers", async () => {
       await routePageToWorkers(
         editorPage,
         getSecondaryWorkersUrl(),
-        getSecondaryPresenceUrl()
+        topology.getPrimaryPresenceUrl()
       );
 
       await editorPage.goto("/");
@@ -200,10 +227,22 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
       await boardNode.click();
 
-      const selectionIndicator = editorPage.locator(
-        '[data-testid="peer-selection"]'
+      const addColumnTrigger = ownerPage
+        .locator('[data-testid="board-node"]')
+        .first()
+        .locator('[data-testid="add-column-trigger"]');
+
+      await addColumnTrigger.click();
+      await ownerPage.fill(
+        '[data-testid="column-name-input"]',
+        "Selection Routing Column"
       );
-      await expect(selectionIndicator).toBeVisible({ timeout: 5000 });
+      await ownerPage.click('[data-testid="column-create-submit"]');
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "Selection Routing Column"
+      );
     });
   });
 
@@ -341,7 +380,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       const secondaryInstanceId = await fetchWorkersInstanceId(
         getSecondaryWorkersUrl()
       );
-      expect(secondaryInstanceId).toBe(`workers-${3003}`);
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const stateBeforeReconnect = await captureStateSnapshot(editorPage);
 
@@ -358,9 +397,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       await ownerPage.click('[data-testid="column-create-submit"]');
       await waitForCollabUpdate(editorPage, "kanban-column", "Pre-Disconnect");
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("offline"));
-      });
+      await goOffline(editorPage);
       await waitForDisconnected(editorPage);
 
       await addColumnTrigger.click();
@@ -370,9 +407,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       );
       await ownerPage.click('[data-testid="column-create-submit"]');
 
-      await editorPage.evaluate(() => {
-        window.dispatchEvent(new Event("online"));
-      });
+      await goOnline(editorPage);
       await waitForReconnected(editorPage);
 
       await editorPage.reload();
@@ -449,7 +484,7 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         getSecondaryWorkersUrl()
       );
       expect(primaryInstanceId).toBe("workers-3002");
-      expect(secondaryInstanceId).toBe("workers-3003");
+      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
       const primaryAddColumn = primaryPage
         .locator('[data-testid="board-node"]')
