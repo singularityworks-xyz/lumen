@@ -43,6 +43,17 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
 
     await setCurrentWorkspaceFromStore(ownerPage, ownerWorkspaceId);
     await setCurrentWorkspaceFromStore(editorPage, ownerWorkspaceId);
+
+    await expect
+      .poll(async () => {
+        const ownerCurrent = await getCurrentWorkspaceIdViaStore(ownerPage);
+        const editorCurrent = await getCurrentWorkspaceIdViaStore(editorPage);
+        return (
+          ownerCurrent === ownerWorkspaceId &&
+          editorCurrent === ownerWorkspaceId
+        );
+      })
+      .toBe(true);
   }
 
   async function createCommentFromOwnerViaUi(content: string): Promise<string> {

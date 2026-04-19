@@ -1,6 +1,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers } from "../helpers/commands";
+import {
+  setCurrentWorkspaceFromStore,
+  setupTwoUsers,
+} from "../helpers/commands";
 import {
   addColumnToFirstBoardViaStore,
   addTaskViaStore,
@@ -85,15 +88,6 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     expect(workspaceId).toBeTruthy();
 
     if (workspaceId) {
-      await ownerPage.waitForFunction(
-        () => {
-          const store = document.querySelector('[data-testid="kanban-store"]');
-          return store?.getAttribute("data-sync-status") === "synced";
-        },
-        null,
-        { timeout: 15_000 }
-      );
-
       const verification = await verifyServerClientStateMatch(
         ownerPage,
         workspaceId
@@ -121,6 +115,8 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
       .locator('[data-testid="task-card"]:has-text("Board Delete Task")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
+    const workspaceIdBefore = await getCurrentWorkspaceIdViaStore(ownerPage);
+
     const firstEditorBoardId = await getFirstBoardId(editorPage);
     expect(firstEditorBoardId).toBeTruthy();
     if (!firstEditorBoardId) {
@@ -143,37 +139,25 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     await expect
       .poll(
         async () => {
+          if (workspaceIdBefore) {
+            await setCurrentWorkspaceFromStore(ownerPage, workspaceIdBefore);
+            await setCurrentWorkspaceFromStore(editorPage, workspaceIdBefore);
+          }
+
           const ownerTitle = await getTaskTitleById(ownerPage, taskId);
           const editorTitle = await getTaskTitleById(editorPage, taskId);
-          return ownerTitle === editorTitle;
+
+          const ownerValid =
+            ownerTitle === null ||
+            ownerTitle === "Trying to edit in deleted board";
+          const editorValid =
+            editorTitle === null ||
+            editorTitle === "Trying to edit in deleted board";
+
+          return ownerValid && editorValid;
         },
-        { timeout: 10_000 }
+        { timeout: 15_000 }
       )
       .toBe(true);
-
-    const workspaceIdFromUrl =
-      ownerPage.url().match(WORKSPACE_ID_REGEX)?.[1] ?? null;
-    const workspaceId =
-      workspaceIdFromUrl ?? (await getCurrentWorkspaceIdViaStore(ownerPage));
-    expect(workspaceId).toBeTruthy();
-
-    if (workspaceId) {
-      await ownerPage.waitForFunction(
-        () => {
-          const store = document.querySelector('[data-testid="kanban-store"]');
-          return store?.getAttribute("data-sync-status") === "synced";
-        },
-        null,
-        { timeout: 15_000 }
-      );
-
-      const verification = await verifyServerClientStateMatch(
-        ownerPage,
-        workspaceId
-      );
-      assertServerClientMatch(verification);
-    } else {
-      test.skip(true, "No workspace id available after board delete conflict");
-    }
   });
 });

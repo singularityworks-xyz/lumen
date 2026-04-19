@@ -223,6 +223,35 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
       assert result == :ok
     end
+
+    test "handles terminate with different reasons" do
+      socket = socket_in_workspace("workspace_terminate_reasons_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_terminate_reasons_test", %{}, socket)
+
+      # Test various termination reasons
+      reasons = [:normal, :shutdown, {:shutdown, :closed}, {:shutdown, :timeout}]
+
+      for reason <- reasons do
+        result = WorkspaceChannel.terminate(reason, socket)
+        assert result == :ok
+      end
+    end
+
+    test "handles terminate with error reason" do
+      socket = socket_in_workspace("workspace_terminate_error_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_terminate_error_test", %{}, socket)
+
+      result = WorkspaceChannel.terminate({:error, :connection_lost}, socket)
+      assert result == :ok
+    end
+
+    test "handles terminate with exit reason" do
+      socket = socket_in_workspace("workspace_terminate_exit_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_terminate_exit_test", %{}, socket)
+
+      result = WorkspaceChannel.terminate({:EXIT, self(), :normal}, socket)
+      assert result == :ok
+    end
   end
 
   describe "handle_info :check_idle" do
@@ -294,6 +323,48 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
       # Ping should trigger telemetry
       {:noreply, _} = WorkspaceChannel.handle_in("activity_ping", %{}, idle_socket)
+    end
+  end
+
+  describe "Redis broadcast error handling" do
+    test "handles Redis broadcast errors gracefully" do
+      # Ensure Redis is not configured to trigger the error path
+      original_url = Application.get_env(:presence, :upstash_redis_rest_url)
+      original_token = Application.get_env(:presence, :upstash_redis_rest_token)
+
+      Application.delete_env(:presence, :upstash_redis_rest_url)
+      Application.delete_env(:presence, :upstash_redis_rest_token)
+
+      on_exit(fn ->
+        if original_url do
+          Application.put_env(:presence, :upstash_redis_rest_url, original_url)
+        end
+
+        if original_token do
+          Application.put_env(:presence, :upstash_redis_rest_token, original_token)
+        end
+      end)
+
+      # Joining should still work even if Redis broadcast fails
+      socket = socket_in_workspace("workspace_redis_error_test", %{id: "user_redis_test"})
+
+      {:ok, joined_socket} =
+        WorkspaceChannel.join("workspace:workspace_redis_error_test", %{}, socket)
+
+      assert joined_socket.assigns.workspace_id == "workspace_redis_error_test"
+    end
+
+    test "handles Redis errors during user leave" do
+      # Ensure Redis is not configured
+      Application.delete_env(:presence, :upstash_redis_rest_url)
+      Application.delete_env(:presence, :upstash_redis_rest_token)
+
+      socket = socket_in_workspace("workspace_redis_leave_test", %{id: "user_leave_test"})
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_redis_leave_test", %{}, socket)
+
+      # Terminate should complete without error even if Redis fails
+      result = WorkspaceChannel.terminate(:normal, socket)
+      assert result == :ok
     end
   end
 end

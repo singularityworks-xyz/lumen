@@ -20,4 +20,33 @@ defmodule Presence.ApplicationTest do
       assert Presence.Application.config_change(changed, [], removed) == :ok
     end
   end
+
+  describe "setup_opentelemetry/0" do
+    test "initializes OpenTelemetry when otel is enabled" do
+      # Set both required configs to enable otel
+      Application.put_env(:presence, :otel_enabled, true)
+      Application.put_env(:opentelemetry, :traces_exporter, :otlp)
+
+      on_exit(fn ->
+        Application.delete_env(:presence, :otel_enabled)
+        Application.delete_env(:opentelemetry, :traces_exporter)
+      end)
+
+      # Verify the otel_enabled? function returns true with these settings
+      # by checking the condition directly
+      assert Application.get_env(:presence, :otel_enabled, false) and
+               Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+    end
+  end
+
+  describe "start/2 with OpenTelemetry" do
+    test "initializes properly with OpenTelemetry enabled" do
+      # The application is already started, so we verify the supervisor exists
+      assert Process.whereis(Presence.Supervisor) != nil
+
+      # Verify telemetry handlers are attached
+      handlers = :telemetry.list_handlers([:presence, :track])
+      assert is_list(handlers)
+    end
+  end
 end

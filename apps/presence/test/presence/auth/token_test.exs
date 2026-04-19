@@ -511,4 +511,137 @@ defmodule Presence.TokenTest do
       assert {:error, :jwks_fetch_failed} = Token.fetch_jwks()
     end
   end
+
+  describe "verify_expiration/1 with invalid exp type" do
+    test "rejects token when exp is a string instead of number" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_invalid_exp",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "exp" => "not_a_number",
+        "iat" => System.system_time(:second)
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :invalid_expiration} = Token.verify(token)
+    end
+  end
+
+  describe "verify_not_before/1 with invalid nbf type" do
+    test "rejects token when nbf is a string instead of number" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_invalid_nbf",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second),
+        "nbf" => "not_a_number"
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :invalid_not_before} = Token.verify(token)
+    end
+  end
+
+  describe "verify_token_with_key/2 rescue clause" do
+    test "handles unexpected JOSE error" do
+      # To trigger the rescue clause, we need to cause JOSE to raise an exception
+      # We'll create a JWK that causes an error when JOSE.JWT.verify is called
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_test",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second)
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      # Create a JWKS with a key that has invalid RSA parameters
+      # This will cause an error when JOSE tries to verify
+      corrupted_key =
+        public_map
+        |> Map.put("kid", kid)
+        |> Map.put("e", "!!!")
+        |> Map.put("n", "!!!")
+
+      jwks = %{"keys" => [corrupted_key]}
+      Token.set_jwks_for_test(jwks)
+
+      # The verification should catch the error and return verification_failed
+      result = Token.verify(token)
+
+      assert result == {:error, :verification_failed} or
+               result == {:error, :invalid_signature}
+    end
+
+    test "handles JOSE argument error" do
+      # Try with a completely malformed token that JOSE can't handle
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      # A token with invalid base64 encoding that JOSE will try to decode
+      invalid_token = "invalid_base64.invalid_base64.invalid_base64"
+
+      result = Token.verify(invalid_token)
+      assert match?({:error, _}, result)
+    end
+
+    test "handles JOSE key decode error" do
+      # Create a valid token with a key that will cause decode issues
+      {private_map, _public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_test",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second)
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      # Create a JWKS with malformed key parameters
+      # Missing required RSA parameters
+      malformed_key = %{
+        "kid" => kid,
+        "kty" => "RSA",
+        "e" => nil,
+        "n" => nil
+      }
+
+      jwks = %{"keys" => [malformed_key]}
+      Token.set_jwks_for_test(jwks)
+
+      # Should trigger rescue clause
+      result = Token.verify(token)
+      assert match?({:error, _}, result)
+    end
+  end
 end

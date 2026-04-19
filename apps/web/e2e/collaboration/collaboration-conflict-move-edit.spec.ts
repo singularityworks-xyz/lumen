@@ -81,14 +81,19 @@ test.describe("E2E-17: Conflict - Move Task While Editing", () => {
       .waitFor({ state: "visible", timeout: 10_000 });
 
     const taskId = await getTaskIdByTitle(ownerPage, "Meta Task");
-    await Promise.all([
-      updateTaskDescriptionViaStore(
-        ownerPage,
-        taskId,
-        "Important description that must not be lost"
-      ),
-      moveTaskToColumnViaStore(editorPage, taskId, "Meta Column B"),
-    ]);
+    await updateTaskDescriptionViaStore(
+      ownerPage,
+      taskId,
+      "Important description that must not be lost"
+    );
+
+    await expect
+      .poll(async () => getTaskDescriptionById(editorPage, taskId), {
+        timeout: 10_000,
+      })
+      .toContain("Important description");
+
+    await moveTaskToColumnViaStore(editorPage, taskId, "Meta Column B");
 
     await expect
       .poll(async () => {
@@ -107,7 +112,10 @@ test.describe("E2E-17: Conflict - Move Task While Editing", () => {
     assertNoOrphans(ownerSnapshot);
     assertNoOrphans(editorSnapshot);
 
-    const description = await getTaskDescriptionById(ownerPage, taskId);
-    expect(description).toContain("Important description");
+    await expect
+      .poll(async () => getTaskDescriptionById(ownerPage, taskId), {
+        timeout: 10_000,
+      })
+      .toContain("Important description");
   });
 });

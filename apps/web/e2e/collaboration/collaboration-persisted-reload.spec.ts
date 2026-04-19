@@ -1,11 +1,16 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers, waitForAppReady } from "../helpers/commands";
+import {
+  setCurrentWorkspaceFromStore,
+  setupTwoUsers,
+  waitForAppReady,
+} from "../helpers/commands";
 import {
   addColumnToFirstBoardViaStore,
-  addCommentViaStore,
   addTaskViaStore,
   getCommentContentById,
+  getCommentIdByContent,
+  getCurrentWorkspaceIdViaStore,
   getTaskIdByTitle,
   getTaskTitleById,
   updateCommentContentViaStore,
@@ -32,6 +37,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -44,6 +51,56 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
   test.afterEach(async () => {
     await cleanupPages([ownerPage, editorPage]);
   });
+
+  async function ensureAlignedWorkspace(): Promise<void> {
+    const ownerWorkspaceId = await getCurrentWorkspaceIdViaStore(ownerPage);
+    if (!ownerWorkspaceId) {
+      return;
+    }
+
+    await setCurrentWorkspaceFromStore(ownerPage, ownerWorkspaceId);
+    await setCurrentWorkspaceFromStore(editorPage, ownerWorkspaceId);
+
+    await expect
+      .poll(async () => {
+        const ownerCurrent = await getCurrentWorkspaceIdViaStore(ownerPage);
+        const editorCurrent = await getCurrentWorkspaceIdViaStore(editorPage);
+        return (
+          ownerCurrent === ownerWorkspaceId &&
+          editorCurrent === ownerWorkspaceId
+        );
+      })
+      .toBe(true);
+  }
+
+  async function createCommentFromOwnerViaUi(content: string): Promise<string> {
+    await ensureAlignedWorkspace();
+
+    await ownerPage.locator('[data-testid="comments-drawer-trigger"]').click();
+    await ownerPage
+      .locator('[data-testid="new-comment-input"]')
+      .waitFor({ state: "visible", timeout: 10_000 });
+    await ownerPage.locator('[data-testid="new-comment-input"]').fill(content);
+    await ownerPage.click('[data-testid="submit-comment"]');
+
+    await expect
+      .poll(async () => getCommentIdByContent(ownerPage, content), {
+        timeout: 10_000,
+      })
+      .not.toBeNull();
+    await expect
+      .poll(async () => getCommentIdByContent(editorPage, content), {
+        timeout: 10_000,
+      })
+      .not.toBeNull();
+
+    const commentId = await getCommentIdByContent(ownerPage, content);
+    if (!commentId) {
+      throw new Error(`Unable to resolve comment id for content: ${content}`);
+    }
+
+    return commentId;
+  }
 
   test("task title conflict persists correctly after reload", async () => {
     await addColumnToFirstBoardViaStore(ownerPage, "Conflict Column");
@@ -96,8 +153,7 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
   });
 
   test("comment edits conflict persists after reload", async () => {
-    const commentId = await addCommentViaStore(
-      ownerPage,
+    const commentId = await createCommentFromOwnerViaUi(
       "Comment for persistence test"
     );
 
@@ -215,8 +271,7 @@ test.describe("E2E-22: Persisted Reload After Conflict-Heavy Session", () => {
     const taskId = await getTaskIdByTitle(ownerPage, "Mixed Task");
     await updateTaskTitleViaStore(ownerPage, taskId, "Owner Task Edit");
 
-    const commentId = await addCommentViaStore(
-      ownerPage,
+    const commentId = await createCommentFromOwnerViaUi(
       "Mixed conflict comment"
     );
     await expect

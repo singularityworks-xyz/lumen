@@ -272,6 +272,32 @@ defmodule PresenceWeb.UserSocketTest do
 
       assert :error = result
     end
+
+    test "returns error when token has invalid signature" do
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      # Token with different signature
+      result = UserSocket.connect(%{"token" => "eyJhbGciOiJIUzI1NiJ9.invalid.invalid"}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "returns error when token cannot be parsed" do
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => "invalid"}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "returns error when token verification raises unexpected error" do
+      # Test with malformed token that triggers error path
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => <<0, 1, 2, 3>>}, socket, %{})
+
+      assert :error = result
+    end
   end
 
   describe "id/1" do

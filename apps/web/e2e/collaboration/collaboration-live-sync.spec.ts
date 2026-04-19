@@ -242,9 +242,10 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     await ownerPage.waitForSelector('[data-testid="board-rename-option"]');
     await ownerPage.click('[data-testid="board-rename-option"]');
 
-    const editorRenameDialog = editorPage.locator(
-      '[data-testid="board-rename-dialog"]'
-    );
+    const editorRenameDialog = editorPage
+      .locator('[data-testid="board-rename-dialog"]')
+      .filter({ visible: true })
+      .last();
     await expect(editorRenameDialog).toBeVisible({ timeout: 5000 });
   });
 });

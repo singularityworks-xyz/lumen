@@ -410,6 +410,27 @@ defmodule Presence.MetricsTest do
       assert is_integer(count)
       assert count >= 0
     end
+
+    test "returns 0 when Tracker.list raises an error" do
+      # Mock the Tracker.list function to throw an error
+      # We do this by passing an invalid topic pattern that causes an error
+      # The rescue clause should catch it and return 0
+      original_tracker = Process.whereis(Presence.Tracker)
+
+      # Stop the tracker to simulate an error condition
+      if original_tracker do
+        Process.exit(original_tracker, :kill)
+        # Wait for process to terminate
+        Process.sleep(50)
+      end
+
+      count = Metrics.get_active_user_count("workspace:*")
+      assert is_integer(count)
+      assert count == 0
+
+      # Restart tracker for other tests
+      Application.ensure_all_started(:presence)
+    end
   end
 
   describe "concurrent metric operations" do
