@@ -273,6 +273,71 @@ defmodule Presence.Test.Fixtures do
   end
 
   @doc """
+  Generate a JWT token without the sub claim.
+  Returns {token, jwks}.
+  """
+  def token_without_sub_claim(opts \\ []) do
+    issuer = Keyword.get(opts, :issuer, "https://auth.example.com")
+    audience = Keyword.get(opts, :audience, "https://auth.example.com")
+    kid = "test-key-#{System.unique_integer([:positive])}"
+
+    # No "sub" claim
+    claims = %{
+      "name" => "User Without Sub",
+      "iss" => issuer,
+      "aud" => audience,
+      "exp" => System.system_time(:second) + 3600,
+      "iat" => System.system_time(:second),
+      "nbf" => System.system_time(:second) - 1
+    }
+
+    {private_map, public_map} = generate_key_pair()
+    jwk = JOSE.JWK.from_map(private_map)
+    token = sign_and_compact(jwk, claims, kid)
+
+    jwks = %{
+      "keys" => [
+        Map.put(public_map, "kid", kid)
+      ]
+    }
+
+    {token, jwks}
+  end
+
+  @doc """
+  Generate a JWT token with empty sub claim.
+  Returns {token, jwks}.
+  """
+  def token_with_empty_sub_claim(opts \\ []) do
+    issuer = Keyword.get(opts, :issuer, "https://auth.example.com")
+    audience = Keyword.get(opts, :audience, "https://auth.example.com")
+    kid = "test-key-#{System.unique_integer([:positive])}"
+
+    # Empty "sub" claim
+    claims = %{
+      "sub" => "",
+      "name" => "User With Empty Sub",
+      "iss" => issuer,
+      "aud" => audience,
+      "exp" => System.system_time(:second) + 3600,
+      "iat" => System.system_time(:second),
+      "nbf" => System.system_time(:second) - 1
+    }
+
+    {private_map, public_map} = generate_key_pair()
+    jwk = JOSE.JWK.from_map(private_map)
+    token = sign_and_compact(jwk, claims, kid)
+
+    jwks = %{
+      "keys" => [
+        Map.put(public_map, "kid", kid)
+      ]
+    }
+
+    {token, jwks}
+  end
+
+  @doc """
   Generate a key pair for JWT signing/verification.
   Returns {private_key_map, public_key_map}.
   """

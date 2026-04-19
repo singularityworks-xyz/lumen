@@ -80,4 +80,41 @@ defmodule Presence.TelemetryTest do
                )
     end
   end
+
+  describe "handle_event/4 track event with zero duration" do
+    test "handles track event when duration is 0" do
+      measurements = %{duration: 0}
+      metadata = %{user_id: "user_123", workspace_id: "ws_456", status: "online"}
+
+      assert :ok = Telemetry.handle_event([:presence, :track], measurements, metadata, %{})
+    end
+  end
+
+  describe "handle_event/4 user_joined with nil duration" do
+    test "handles user_joined when duration is nil" do
+      measurements = %{duration: nil}
+      metadata = %{user_id: "user_789", workspace_id: "ws_101"}
+
+      result = Telemetry.handle_event([:presence, :user_joined], measurements, metadata, %{})
+      assert result == :ok or result == nil
+    end
+  end
+
+  describe "handle_event/4 user_left edge cases" do
+    test "handles user_left without session_duration_ms" do
+      measurements = %{duration: 0}
+      metadata = %{user_id: "user_no_session", workspace_id: "ws_test"}
+
+      result = Telemetry.handle_event([:presence, :user_left], measurements, metadata, %{})
+      assert result == :ok or result == nil
+    end
+
+    test "handles user_left with nil session_duration_ms" do
+      measurements = %{duration: 0}
+      metadata = %{user_id: "user_nil_session", workspace_id: "ws_test", session_duration_ms: nil}
+
+      result = Telemetry.handle_event([:presence, :user_left], measurements, metadata, %{})
+      assert result == :ok or result == nil
+    end
+  end
 end

@@ -330,4 +330,185 @@ defmodule Presence.TokenTest do
       assert Token.clear_jwks_cache() == :ok
     end
   end
+
+  describe "verify/1 missing expiration and nbf" do
+    test "rejects token with missing exp claim" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_no_exp",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "iat" => System.system_time(:second)
+        # No exp claim
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :missing_expiration} = Token.verify(token)
+    end
+
+    test "rejects token with invalid expiration format" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_invalid_exp",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "iat" => System.system_time(:second),
+        "exp" => "not_a_number"
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :invalid_expiration} = Token.verify(token)
+    end
+
+    test "rejects token with invalid nbf format" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_invalid_nbf",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "iat" => System.system_time(:second),
+        "exp" => System.system_time(:second) + 3600,
+        "nbf" => "not_a_number"
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :invalid_not_before} = Token.verify(token)
+    end
+
+    test "rejects token with missing issuer" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_no_iss",
+        "aud" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second)
+        # No iss claim
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :missing_issuer} = Token.verify(token)
+    end
+
+    test "rejects token with missing audience" do
+      {private_map, public_map} = generate_key_pair()
+      kid = "test-key-#{System.unique_integer([:positive])}"
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_no_aud",
+        "iss" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second)
+        # No aud claim
+      }
+
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256", "kid" => kid}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [Map.put(public_map, "kid", kid)]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :missing_audience} = Token.verify(token)
+    end
+  end
+
+  describe "verify/1 header edge cases" do
+    test "rejects token with missing kid in header" do
+      {private_map, public_map} = generate_key_pair()
+      jwk = JOSE.JWK.from_map(private_map)
+
+      claims = %{
+        "sub" => "user_no_kid",
+        "iss" => "https://auth.example.com",
+        "aud" => "https://auth.example.com",
+        "exp" => System.system_time(:second) + 3600,
+        "iat" => System.system_time(:second)
+      }
+
+      # Sign without kid in header
+      {_alg, token_map} = JOSE.JWT.sign(jwk, %{"alg" => "RS256"}, claims)
+      {_protected, token} = JOSE.JWS.compact(token_map)
+
+      jwks = %{"keys" => [public_map]}
+      Token.set_jwks_for_test(jwks)
+
+      assert {:error, :missing_kid} = Token.verify(token)
+    end
+
+    test "rejects token with header that is not a map" do
+      # Create a token where header is not a map after decoding
+      # This tests the extract_kid/1 non-map header clause
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      # "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" is {"alg":"HS256","typ":"JWT"} - valid JSON
+      # "ew" is base64 for "{" - invalid JSON
+      result = Token.verify("ew.payload.signature")
+      assert match?({:error, _}, result)
+    end
+  end
+
+  describe "fetch_jwks/0 HTTP error handling" do
+    test "handles non-200 status codes" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "GET", "/api/auth/jwks", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(404, "{}")
+      end)
+
+      Application.put_env(:presence, :better_auth_url, "http://localhost:#{bypass.port}")
+      Token.clear_jwks_cache()
+
+      assert {:error, :jwks_fetch_failed} = Token.fetch_jwks()
+    end
+
+    test "handles 500 server error" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "GET", "/api/auth/jwks", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(500, "{\"error\": \"internal error\"}")
+      end)
+
+      Application.put_env(:presence, :better_auth_url, "http://localhost:#{bypass.port}")
+      Token.clear_jwks_cache()
+
+      assert {:error, :jwks_fetch_failed} = Token.fetch_jwks()
+    end
+  end
 end

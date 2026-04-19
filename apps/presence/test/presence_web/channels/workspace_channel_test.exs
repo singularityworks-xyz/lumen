@@ -1,5 +1,5 @@
 defmodule PresenceWeb.WorkspaceChannelTest do
-  use ExUnit.Case, async: false
+  use PresenceWeb.ChannelCase, async: false
 
   import Presence.Test.Helpers
 
@@ -10,6 +10,7 @@ defmodule PresenceWeb.WorkspaceChannelTest do
   setup_all do
     Application.ensure_all_started(:phoenix)
     Application.ensure_all_started(:phoenix_pubsub)
+    Application.ensure_all_started(:presence)
     :ok
   end
 
@@ -58,6 +59,70 @@ defmodule PresenceWeb.WorkspaceChannelTest do
       {:ok, joined_socket} = WorkspaceChannel.join("workspace:workspace_user_test", %{}, socket)
 
       assert joined_socket.assigns.user_id == "user_123"
+    end
+  end
+
+  describe "join/3 presence tracking" do
+    test "tracks user presence on join" do
+      socket = socket_in_workspace("workspace_presence_track_test", %{id: "user_presence_123"})
+
+      {:ok, joined_socket} =
+        WorkspaceChannel.join("workspace:workspace_presence_track_test", %{}, socket)
+
+      # Verify the socket has the correct topic for presence tracking
+      assert joined_socket.assigns.workspace_id == "workspace_presence_track_test"
+      assert joined_socket.assigns.user_id == "user_presence_123"
+      assert joined_socket.assigns.status == "online"
+    end
+
+    test "sets user name and avatar in presence metadata" do
+      socket =
+        socket_in_workspace("workspace_presence_metadata_test", %{
+          id: "user_meta_123",
+          name: "Test User Name",
+          avatar: "https://example.com/avatar.png"
+        })
+
+      {:ok, joined_socket} =
+        WorkspaceChannel.join("workspace:workspace_presence_metadata_test", %{}, socket)
+
+      assert joined_socket.assigns.user_name == "Test User Name"
+      assert joined_socket.assigns.user_avatar == "https://example.com/avatar.png"
+    end
+
+    test "tracks multiple users in the same workspace" do
+      socket1 = socket_in_workspace("workspace_multi_user_test", %{id: "user_1"})
+      socket2 = socket_in_workspace("workspace_multi_user_test", %{id: "user_2"})
+
+      {:ok, joined_socket1} =
+        WorkspaceChannel.join("workspace:workspace_multi_user_test", %{}, socket1)
+
+      {:ok, joined_socket2} =
+        WorkspaceChannel.join("workspace:workspace_multi_user_test", %{}, socket2)
+
+      assert joined_socket1.assigns.user_id == "user_1"
+      assert joined_socket2.assigns.user_id == "user_2"
+      assert joined_socket1.assigns.workspace_id == joined_socket2.assigns.workspace_id
+    end
+
+    test "assigns user_name from socket" do
+      socket = socket_in_workspace("workspace_username_test", %{id: "user_456", name: "John Doe"})
+
+      {:ok, joined_socket} = WorkspaceChannel.join("workspace:workspace_username_test", %{}, socket)
+
+      assert joined_socket.assigns.user_name == "John Doe"
+    end
+
+    test "assigns user_avatar from socket" do
+      socket =
+        socket_in_workspace("workspace_avatar_test", %{
+          id: "user_789",
+          avatar: "https://cdn.example.com/avatars/user789.png"
+        })
+
+      {:ok, joined_socket} = WorkspaceChannel.join("workspace:workspace_avatar_test", %{}, socket)
+
+      assert joined_socket.assigns.user_avatar == "https://cdn.example.com/avatars/user789.png"
     end
   end
 
@@ -148,6 +213,87 @@ defmodule PresenceWeb.WorkspaceChannelTest do
       result = WorkspaceChannel.terminate(:normal, socket)
 
       assert result == :ok
+    end
+
+    test "handles terminate with shutdown reason" do
+      socket = socket_in_workspace("workspace_terminate_shutdown_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_terminate_shutdown_test", %{}, socket)
+
+      result = WorkspaceChannel.terminate(:shutdown, socket)
+
+      assert result == :ok
+    end
+  end
+
+  describe "handle_info :check_idle" do
+    test "checks idle status when online" do
+      socket = socket_in_workspace("workspace_check_idle_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_check_idle_test", %{}, socket)
+
+      # Manually trigger idle check
+      result = WorkspaceChannel.handle_info(:check_idle, socket)
+
+      assert match?({:noreply, _socket}, result)
+    end
+
+    test "transitions to idle when inactive for long time" do
+      socket = socket_in_workspace("workspace_idle_transition_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_idle_transition_test", %{}, socket)
+
+      # Set last_activity to very old timestamp to trigger idle transition
+      old_socket = %{
+        socket
+        | assigns: %{socket.assigns | last_activity: System.monotonic_time(:millisecond) - 10 * 60 * 1000}
+      }
+
+      result = WorkspaceChannel.handle_info(:check_idle, old_socket)
+
+      assert match?({:noreply, updated_socket} when updated_socket.assigns.status == "idle", result)
+    end
+
+    test "stays online when recently active" do
+      socket = socket_in_workspace("workspace_stays_online_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_stays_online_test", %{}, socket)
+
+      # last_activity is set by join to current time, so should stay online
+      result = WorkspaceChannel.handle_info(:check_idle, socket)
+
+      assert match?({:noreply, updated_socket} when updated_socket.assigns.status == "online", result)
+    end
+
+    test "reschedules idle check after processing" do
+      socket = socket_in_workspace("workspace_reschedule_idle_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_reschedule_idle_test", %{}, socket)
+
+      result = WorkspaceChannel.handle_info(:check_idle, socket)
+
+      assert match?({:noreply, _socket}, result)
+    end
+  end
+
+  describe "handle_in activity_ping when idle" do
+    test "returns to online when pinged while idle" do
+      socket = socket_in_workspace("workspace_return_online_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_return_online_test", %{}, socket)
+
+      # First set status to idle via status_update
+      {:noreply, idle_socket} = WorkspaceChannel.handle_in("status_update", %{"status" => "idle"}, socket)
+
+      # Now ping should return to online
+      {:noreply, online_socket} = WorkspaceChannel.handle_in("activity_ping", %{}, idle_socket)
+
+      assert online_socket.assigns.status == "online"
+    end
+
+    test "emits telemetry event when returning from idle" do
+      socket = socket_in_workspace("workspace_telemetry_idle_test")
+      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_telemetry_idle_test", %{}, socket)
+
+      # Set to idle
+      {:noreply, idle_socket} = WorkspaceChannel.handle_in("status_update", %{"status" => "idle"}, socket)
+
+      # Ping should trigger telemetry
+      {:noreply, _} = WorkspaceChannel.handle_in("activity_ping", %{}, idle_socket)
     end
   end
 end

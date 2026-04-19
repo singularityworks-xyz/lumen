@@ -195,7 +195,9 @@ defmodule Presence.MetricsCoverageTest do
     end
 
     test "handles various status codes" do
-      for status <- [200, 201, 204, 400, 401, 403, 404, 500, 502, 503] do
+      statuses = [200, 201, 204, 400, 401, 403, 404, 500, 502, 503]
+
+      for status <- statuses do
         events =
           capture_telemetry([[:presence, :http, :request]], fn ->
             Metrics.record_http_request(50, %{method: "GET", route: "/test", status: status})
@@ -265,6 +267,19 @@ defmodule Presence.MetricsCoverageTest do
       assert length(events) == 1
       {_, _, metadata} = hd(events)
       assert metadata[:status] == "away"
+    end
+
+    test "handles custom status values" do
+      for status <- ["dnd", "invisible", "busy", "focus"] do
+        events =
+          capture_telemetry([[:presence, :status, :changes]], fn ->
+            Metrics.increment_status_change(status, %{user_id: "user_#{status}"})
+          end)
+
+        assert length(events) == 1
+        {_, _, metadata} = hd(events)
+        assert metadata[:status] == status
+      end
     end
   end
 
@@ -371,6 +386,25 @@ defmodule Presence.MetricsCoverageTest do
       assert length(events) == 1
       {_, measurements, _} = hd(events)
       assert measurements[:duration] == large_duration
+    end
+  end
+
+  describe "get_active_user_count/1 rescue path coverage" do
+    test "handles tracker error gracefully" do
+      # Call with a pattern that might cause an error in list/1
+      # The rescue block should return 0
+      count = Metrics.get_active_user_count(nil)
+      assert is_integer(count)
+      assert count >= 0
+    end
+
+    test "handles various error conditions" do
+      # Test various inputs that might trigger the rescue clause
+      for topic <- [nil, :atom_topic, 123, %{}, []] do
+        count = Metrics.get_active_user_count(topic)
+        assert is_integer(count)
+        assert count >= 0
+      end
     end
   end
 end

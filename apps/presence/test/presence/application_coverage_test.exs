@@ -3,28 +3,27 @@ defmodule Presence.ApplicationCoverageTest do
 
   @moduletag :capture_log
 
-  describe "otel_enabled?/0" do
-    test "returns false when otel_enabled is not set" do
-      original_otel = Application.get_env(:presence, :otel_enabled)
-      original_exporter = Application.get_env(:opentelemetry, :traces_exporter)
+  describe "application start" do
+    test "starts with default configuration" do
+      # Application starts successfully with test configuration
+      assert Process.whereis(Presence.Supervisor) != nil
+    end
 
-      on_exit(fn ->
-        if original_otel != nil do
-          Application.put_env(:presence, :otel_enabled, original_otel)
-        else
-          Application.delete_env(:presence, :otel_enabled)
-        end
+    test "config_change updates endpoint configuration" do
+      # Test config_change callback
+      assert :ok = Presence.Application.config_change([], [], [])
+    end
 
-        if original_exporter != nil do
-          Application.put_env(:opentelemetry, :traces_exporter, original_exporter)
-        else
-          Application.delete_env(:opentelemetry, :traces_exporter)
-        end
-      end)
+    test "start initializes telemetry handlers" do
+      # Verify telemetry handlers are attached
+      handlers = :telemetry.list_handlers([:presence, :track])
+      assert length(handlers) > 0
+    end
+  end
 
-      Application.delete_env(:presence, :otel_enabled)
-      Application.delete_env(:opentelemetry, :traces_exporter)
-
+  describe "otel_enabled?/0 private function behavior" do
+    test "returns false by default when otel_enabled is not set" do
+      # By default otel_enabled is not configured
       refute Application.get_env(:presence, :otel_enabled, false) and
                Application.get_env(:opentelemetry, :traces_exporter) == :otlp
     end

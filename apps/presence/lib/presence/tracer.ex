@@ -11,6 +11,8 @@ defmodule Presence.Tracer do
   """
   defmacro trace(operation_name, attrs \\ [], do: block) do
     quote do
+      require OpenTelemetry.Tracer
+
       OpenTelemetry.Tracer.with_span unquote(operation_name) do
         # Set default attributes
         OpenTelemetry.Tracer.set_attributes([

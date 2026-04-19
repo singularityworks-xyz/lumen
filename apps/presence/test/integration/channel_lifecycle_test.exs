@@ -161,7 +161,7 @@ defmodule PresenceWeb.WorkspaceChannelIntegrationTest do
       socket = socket_in_workspace(workspace_id, %{id: user_id})
       {:ok, socket} = WorkspaceChannel.join("workspace:#{workspace_id}", %{}, socket)
 
-      original = socket.assigns.last_activity
+      _original = socket.assigns.last_activity
       stale_activity = System.monotonic_time(:millisecond) - 10_000
       socket = Phoenix.Socket.assign(socket, :last_activity, stale_activity)
 

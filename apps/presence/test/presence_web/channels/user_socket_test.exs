@@ -20,6 +20,50 @@ defmodule PresenceWeb.UserSocketTest do
     :ok
   end
 
+  describe "connect/3 authentication" do
+    test "authenticates with valid token" do
+      {token, claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => token}, socket, %{})
+
+      assert {:ok, connected_socket} = result
+      assert connected_socket.assigns.user_id == claims["sub"]
+      assert connected_socket.assigns.user_name == claims["name"]
+    end
+
+    test "rejects with invalid token" do
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => "invalid.token.here"}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "rejects with token missing sub claim" do
+      {token, jwks} = token_without_sub_claim()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => token}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "rejects with token having empty sub claim" do
+      {token, jwks} = token_with_empty_sub_claim()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => token}, socket, %{})
+
+      assert :error = result
+    end
+  end
+
   describe "connect/3 with valid token" do
     test "connects successfully with valid JWT token" do
       {token, claims, jwks} = valid_jwt_token_with_jwks()
@@ -159,6 +203,72 @@ defmodule PresenceWeb.UserSocketTest do
 
       socket = %Phoenix.Socket{handler: UserSocket}
       result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "rejects anonymous connection when ALLOW_E2E_ANON_SOCKET env is not set" do
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.delete_env("ALLOW_E2E_ANON_SOCKET")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert :error = result
+    end
+
+    test "accepts anonymous connection with uppercase TRUE value" do
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.put_env("ALLOW_E2E_ANON_SOCKET", "TRUE")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert {:ok, _} = result
+    end
+
+    test "accepts anonymous connection with 1 value" do
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.put_env("ALLOW_E2E_ANON_SOCKET", "1")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+
+      assert {:ok, _} = result
+    end
+  end
+
+  describe "connect/3 error logging" do
+    test "logs error when token verification fails" do
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.set_jwks_for_test(jwks)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"token" => "invalid.token.here"}, socket, %{})
 
       assert :error = result
     end

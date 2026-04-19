@@ -86,6 +86,68 @@ defmodule Presence.RedisPubSubTest do
     end
   end
 
+  describe "broadcast/2 with Bypass" do
+    test "successful broadcast with mock HTTP server" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "POST", "/", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(["PUBLISH", 1]))
+      end)
+
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:#{bypass.port}")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:ok, body} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+      assert body == ["PUBLISH", 1]
+    end
+
+    test "handles Redis publish failure (non-200 status)" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "POST", "/", fn conn ->
+        Plug.Conn.resp(conn, 401, "Unauthorized")
+      end)
+
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:#{bypass.port}")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:error, :publish_failed} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+    end
+  end
+
+  describe "command/1 with Bypass" do
+    test "successful command execution with mock HTTP server" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "POST", "/", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(["GET", "value"]))
+      end)
+
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:#{bypass.port}")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:ok, body} = RedisPubSub.command(["GET", "key"])
+      assert body == ["GET", "value"]
+    end
+
+    test "handles command failure (non-200 status)" do
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "POST", "/", fn conn ->
+        Plug.Conn.resp(conn, 500, "Internal Server Error")
+      end)
+
+      Application.put_env(:presence, :upstash_redis_rest_url, "http://localhost:#{bypass.port}")
+      Application.put_env(:presence, :upstash_redis_rest_token, "test-token")
+
+      assert {:error, :command_failed} = RedisPubSub.command(["GET", "key"])
+    end
+  end
+
   describe "edge cases" do
     test "handles empty channel name gracefully when not configured" do
       Application.delete_env(:presence, :upstash_redis_rest_url)

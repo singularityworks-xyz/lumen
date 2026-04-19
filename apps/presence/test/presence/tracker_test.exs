@@ -61,5 +61,223 @@ defmodule Presence.TrackerTest do
       presence = Tracker.get_user(socket, "non_existent_user_#{System.unique_integer()}")
       assert presence == nil or presence == []
     end
+
+    test "returns presence data for tracked user" do
+      socket = socket_in_workspace("workspace_get_tracked")
+      user_id = "tracked_user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, "workspace_get_tracked", %{status: "online"})
+
+      # Then get the user's presence
+      # get_by_key returns %{metas: [%{...}]} or nil
+      presence = Tracker.get_user(socket, user_id)
+      assert is_map(presence)
+      assert Map.has_key?(presence, :metas)
+      assert length(presence.metas) > 0
+
+      # Verify the presence data contains expected fields
+      presence_data = hd(presence.metas)
+      assert presence_data.status == "online"
+      assert presence_data.workspace_id == "workspace_get_tracked"
+      assert Map.has_key?(presence_data, :joined_at)
+      assert Map.has_key?(presence_data, :last_activity)
+      assert Map.has_key?(presence_data, :trace_id)
+    end
+  end
+
+  describe "track_user/4" do
+    test "tracks a user in a workspace" do
+      workspace_id = "workspace_track_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+      metadata = %{name: "Test User", avatar: "avatar.jpg"}
+
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, metadata)
+
+      # Verify user is in workspace list
+      users = Tracker.list_workspace_users(workspace_id)
+      assert Map.has_key?(users, user_id)
+
+      # Verify user data (Phoenix.Presence returns %{metas: [%{...}]})
+      user_data = users[user_id].metas |> hd()
+      assert user_data.status == "online"
+      assert user_data.workspace_id == workspace_id
+      assert user_data.name == "Test User"
+      assert user_data.avatar == "avatar.jpg"
+      assert Map.has_key?(user_data, :joined_at)
+      assert Map.has_key?(user_data, :last_activity)
+      assert Map.has_key?(user_data, :trace_id)
+    end
+
+    test "emits telemetry event on track" do
+      workspace_id = "workspace_telemetry_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      events =
+        Presence.Test.Helpers.capture_telemetry([[:presence, :track]], fn ->
+          {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+          # Small delay to ensure telemetry is processed
+          _ = :sys.get_state(Presence.Tracker)
+        end)
+
+      assert length(events) == 1
+      [{event_name, measurements, metadata} | _] = events
+      assert event_name == [:presence, :track]
+      assert is_integer(measurements.duration)
+      assert metadata.user_id == user_id
+      assert metadata.workspace_id == workspace_id
+      assert metadata.status == "online"
+    end
+  end
+
+  describe "update_status/3" do
+    test "updates user status to idle" do
+      workspace_id = "workspace_idle_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      # Update status to idle
+      {:ok, _} = Tracker.update_status(socket, user_id, "idle")
+
+      # Verify status changed (Phoenix.Presence returns %{metas: [%{...}]})
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert user_data.status == "idle"
+    end
+
+    test "updates user status to away" do
+      workspace_id = "workspace_away_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      # Update status to away
+      {:ok, _} = Tracker.update_status(socket, user_id, "away")
+
+      # Verify status changed
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert user_data.status == "away"
+    end
+
+    test "updates user status back to online" do
+      workspace_id = "workspace_online_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      # Set to idle first
+      {:ok, _} = Tracker.update_status(socket, user_id, "idle")
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert user_data.status == "idle"
+
+      # Then set back to online
+      {:ok, _} = Tracker.update_status(socket, user_id, "online")
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert user_data.status == "online"
+    end
+
+    test "updates last_activity timestamp on status change" do
+      workspace_id = "workspace_activity_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      Process.sleep(10)
+
+      # Update status
+      {:ok, _} = Tracker.update_status(socket, user_id, "idle")
+
+      # Verify activity timestamp was updated
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert Map.has_key?(user_data, :updated_at)
+    end
+
+    test "emits telemetry event on status update" do
+      workspace_id = "workspace_status_telemetry_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{})
+
+      events =
+        Presence.Test.Helpers.capture_telemetry([[:presence, :update_status]], fn ->
+          {:ok, _} = Tracker.update_status(socket, user_id, "idle")
+          # Small delay to ensure telemetry is processed
+          _ = :sys.get_state(Presence.Tracker)
+        end)
+
+      assert length(events) == 1
+      [{event_name, _measurements, metadata} | _] = events
+      assert event_name == [:presence, :update_status]
+      assert metadata.user_id == user_id
+      assert metadata.status == "idle"
+    end
+  end
+
+  describe "update_activity/2" do
+    test "updates last activity timestamp" do
+      workspace_id = "workspace_activity_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      # Get initial activity
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      initial_activity = user_data.last_activity
+
+      Process.sleep(10)
+
+      # Update activity
+      {:ok, _} = Tracker.update_activity(socket, user_id)
+
+      # Verify activity was updated
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      updated_activity = user_data.last_activity
+      assert updated_activity > initial_activity
+    end
+
+    test "updates last_activity without affecting other presence" do
+      workspace_id = "workspace_preserve_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      # First track the user with metadata
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{name: "Test User", status: "online"})
+
+      # Get initial last_activity
+      users = Tracker.list_workspace_users(workspace_id)
+      initial_activity = users[user_id].metas |> hd() |> Map.get(:last_activity)
+
+      Process.sleep(10)
+
+      # Update activity - Phoenix.Presence.update stores the updated fields
+      {:ok, _} = Tracker.update_activity(socket, user_id)
+
+      # Verify the update was applied
+      users = Tracker.list_workspace_users(workspace_id)
+      user_data = users[user_id].metas |> hd()
+      assert Map.has_key?(user_data, :last_activity)
+      assert user_data.last_activity > initial_activity
+    end
   end
 end

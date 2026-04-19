@@ -78,7 +78,7 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.18",
+      "version": "1.0.19",
     },
     "apps/web": {
       "name": "@lumen/web",
