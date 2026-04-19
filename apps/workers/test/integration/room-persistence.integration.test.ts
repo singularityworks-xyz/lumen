@@ -3,8 +3,8 @@ process.env.DATABASE_URL = "postgres://dummy";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
-import { roomManager } from "../../src/collab/room-manager";
 
+// Set up mocks BEFORE importing the module under test
 const findUniqueMock = mock(() => Promise.resolve(null));
 const upsertMock = mock(() => Promise.resolve({}));
 const updateMock = mock(() => Promise.resolve({}));
@@ -69,6 +69,9 @@ mock.module("../../src/collab/metrics", () => ({
 mock.module("@lumen/ai", () => ({
   aiRoutes: new Elysia({ name: "ai-routes" }),
 }));
+
+// Import roomManager AFTER all mocks are set up
+const { roomManager } = await import("../../src/collab/room-manager");
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];

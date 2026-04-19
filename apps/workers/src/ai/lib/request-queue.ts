@@ -360,6 +360,10 @@ class RateLimitedQueue {
 
 export const aiRequestQueue = new RateLimitedQueue();
 
+// Re-export queue methods for direct access in tests
+export const getQueueStatus = (requestId: string) =>
+  aiRequestQueue.getQueueStatus(requestId);
+
 export function getQueueStats() {
   return aiRequestQueue.getStats();
 }

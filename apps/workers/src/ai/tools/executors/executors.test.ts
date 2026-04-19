@@ -18,8 +18,11 @@ function createMockDoc() {
 
 type MockDoc = ReturnType<typeof createMockDoc>;
 
-let mockDoc: MockDoc;
-let mockDocNull = false;
+// Mutable state object that the mock module will read from
+const mockState = {
+  doc: createMockDoc(),
+  returnNull: false,
+};
 
 const mockLogger = {
   info: mock((_msg: string, _meta?: unknown) => undefined),
@@ -30,13 +33,18 @@ const mockLogger = {
 
 mock.module("./yjs-accessor", () => ({
   getWorkspaceYjsDoc: () => {
-    if (mockDocNull) {
+    // Dynamic lookup at call time
+    const currentState = mockState;
+    if (currentState.returnNull) {
       return Promise.resolve(null);
     }
-    return Promise.resolve(mockDoc);
+    return Promise.resolve(currentState.doc);
   },
   logger: mockLogger,
 }));
+
+// Access mock state through getter for dynamic updates
+const mockDoc = () => mockState.doc;
 
 import { executeBulkDeleteTasks } from "./bulk-delete-tasks";
 import { executeBulkUpdateTasks } from "./bulk-update-tasks";
@@ -120,9 +128,10 @@ function seedDoc(doc: MockDoc) {
 }
 
 beforeEach(() => {
-  mockDoc = createMockDoc();
-  mockDocNull = false;
-  seedDoc(mockDoc);
+  // Update the shared state so the mock module sees the new values
+  mockState.doc = createMockDoc();
+  mockState.returnNull = false;
+  seedDoc(mockState.doc);
 });
 
 // ─── create-task ───────────────────────────────────────────────
@@ -196,7 +205,9 @@ describe("executeCreateTask", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeCreateTask(
       { boardId: "board-1", title: "Fail" },
       baseCtx
@@ -215,7 +226,7 @@ describe("executeCreateTask", () => {
   });
 
   it("fails when board has no columns", async () => {
-    const boardsMap = mockDoc.getMap("boards");
+    const boardsMap = mockDoc().getMap("boards");
     boardsMap.set("empty-board", {
       id: "empty-board",
       name: "Empty",
@@ -233,7 +244,7 @@ describe("executeCreateTask", () => {
   });
 
   it("fails when column does not belong to board", async () => {
-    const columnsMap = mockDoc.getMap("columns");
+    const columnsMap = mockDoc().getMap("columns");
     columnsMap.set("orphan-col", {
       id: "orphan-col",
       board_id: "other-board",
@@ -241,7 +252,7 @@ describe("executeCreateTask", () => {
       position: 0,
       task_ids: [],
     });
-    const boardsMap = mockDoc.getMap("boards");
+    const boardsMap = mockDoc().getMap("boards");
     const board = boardsMap.get("board-1") as Record<string, unknown>;
     boardsMap.set("board-1", {
       ...board,
@@ -280,7 +291,9 @@ describe("executeCreateColumn", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeCreateColumn(
       { boardId: "board-1", name: "Fail" },
       baseCtx
@@ -320,7 +333,8 @@ describe("executeCreateBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeCreateBoard({ name: "Fail" }, baseCtx);
     expect(result.success).toBe(false);
     expect(result.error).toBe("Workspace not loaded");
@@ -344,7 +358,7 @@ describe("executeUpdateTask", () => {
       baseCtx
     );
     expect(result.success).toBe(true);
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     const task = tasksMap.get("task-1") as Record<string, unknown>;
     expect(task.title).toBe("Updated Title");
   });
@@ -354,7 +368,7 @@ describe("executeUpdateTask", () => {
       { taskId: "task-1", updates: { priority: "high" } },
       baseCtx
     );
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     const task = tasksMap.get("task-1") as Record<string, unknown>;
     expect(task.priority).toBe("high");
   });
@@ -364,7 +378,7 @@ describe("executeUpdateTask", () => {
       { taskId: "task-1", updates: { priority: "urgent" } },
       baseCtx
     );
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     const task = tasksMap.get("task-1") as Record<string, unknown>;
     expect(task.priority).toBe("high");
   });
@@ -379,7 +393,8 @@ describe("executeUpdateTask", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeUpdateTask(
       { taskId: "task-1", updates: { title: "Fail" } },
       baseCtx
@@ -405,7 +420,7 @@ describe("executeUpdateBoard", () => {
       baseCtx
     );
     expect(result.success).toBe(true);
-    const boardsMap = mockDoc.getMap("boards");
+    const boardsMap = mockDoc().getMap("boards");
     const board = boardsMap.get("board-1") as Record<string, unknown>;
     expect(board.name).toBe("New Name");
   });
@@ -420,7 +435,8 @@ describe("executeUpdateBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeUpdateBoard(
       { boardId: "board-1", updates: { name: "Fail" } },
       baseCtx
@@ -446,7 +462,7 @@ describe("executeMoveTask", () => {
       baseCtx
     );
     expect(result.success).toBe(true);
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     const task = tasksMap.get("task-1") as Record<string, unknown>;
     expect(task.column_id).toBe("col-2");
   });
@@ -470,7 +486,8 @@ describe("executeMoveTask", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeMoveTask(
       { taskId: "task-1", columnId: "col-2" },
       baseCtx
@@ -490,13 +507,13 @@ describe("executeDeleteTask", () => {
   it("deletes task from Yjs doc", async () => {
     const result = await executeDeleteTask({ taskId: "task-1" }, baseCtx);
     expect(result.success).toBe(true);
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     expect(tasksMap.has("task-1")).toBe(false);
   });
 
   it("removes task from column task_ids", async () => {
     await executeDeleteTask({ taskId: "task-1" }, baseCtx);
-    const columnsMap = mockDoc.getMap("columns");
+    const columnsMap = mockDoc().getMap("columns");
     const col = columnsMap.get("col-1") as Record<string, unknown>;
     expect((col.task_ids as string[]).includes("task-1")).toBe(false);
   });
@@ -508,7 +525,8 @@ describe("executeDeleteTask", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeDeleteTask({ taskId: "task-1" }, baseCtx);
     expect(result.success).toBe(false);
   });
@@ -528,15 +546,15 @@ describe("executeDeleteBoard", () => {
   it("deletes board and associated data", async () => {
     const result = await executeDeleteBoard({ boardId: "board-1" }, baseCtx);
     expect(result.success).toBe(true);
-    expect(mockDoc.getMap("boards").has("board-1")).toBe(false);
-    expect(mockDoc.getMap("boardPositions").has("board-1")).toBe(false);
-    expect(mockDoc.getMap("columns").has("col-1")).toBe(false);
-    expect(mockDoc.getMap("tasks").has("task-1")).toBe(false);
+    expect(mockDoc().getMap("boards").has("board-1")).toBe(false);
+    expect(mockDoc().getMap("boardPositions").has("board-1")).toBe(false);
+    expect(mockDoc().getMap("columns").has("col-1")).toBe(false);
+    expect(mockDoc().getMap("tasks").has("task-1")).toBe(false);
   });
 
   it("updates workspace board_ids", async () => {
     await executeDeleteBoard({ boardId: "board-1" }, baseCtx);
-    const workspaceMap = mockDoc.getMap("workspace");
+    const workspaceMap = mockDoc().getMap("workspace");
     const wsData = workspaceMap.get("data") as { board_ids?: string[] };
     expect(wsData.board_ids?.includes("board-1")).toBe(false);
   });
@@ -551,7 +569,8 @@ describe("executeDeleteBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeDeleteBoard({ boardId: "board-1" }, baseCtx);
     expect(result.success).toBe(false);
   });
@@ -569,7 +588,7 @@ describe("executeBulkUpdateTasks", () => {
   });
 
   it("updates multiple tasks", async () => {
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     tasksMap.set("task-2", {
       id: "task-2",
       board_id: "board-1",
@@ -606,13 +625,14 @@ describe("executeBulkUpdateTasks", () => {
       { taskIds: ["task-1"], updates: { priority: "urgent" } },
       baseCtx
     );
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     const task = tasksMap.get("task-1") as Record<string, unknown>;
     expect(task.priority).toBe("high");
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeBulkUpdateTasks(
       { taskIds: ["task-1"], updates: { priority: "high" } },
       baseCtx
@@ -633,7 +653,7 @@ describe("executeBulkDeleteTasks", () => {
   });
 
   it("deletes multiple tasks", async () => {
-    const tasksMap = mockDoc.getMap("tasks");
+    const tasksMap = mockDoc().getMap("tasks");
     tasksMap.set("task-2", {
       id: "task-2",
       board_id: "board-1",
@@ -660,7 +680,7 @@ describe("executeBulkDeleteTasks", () => {
 
   it("removes deleted tasks from column task_ids", async () => {
     await executeBulkDeleteTasks({ taskIds: ["task-1"] }, baseCtx);
-    const columnsMap = mockDoc.getMap("columns");
+    const columnsMap = mockDoc().getMap("columns");
     const col = columnsMap.get("col-1") as Record<string, unknown>;
     expect((col.task_ids as string[]).includes("task-1")).toBe(false);
   });
@@ -675,7 +695,8 @@ describe("executeBulkDeleteTasks", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockDocNull = true;
+    mockState.returnNull = true;
+    mockState.returnNull = true;
     const result = await executeBulkDeleteTasks(
       { taskIds: ["task-1"] },
       baseCtx
