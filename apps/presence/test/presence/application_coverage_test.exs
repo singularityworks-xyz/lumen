@@ -17,7 +17,7 @@ defmodule Presence.ApplicationCoverageTest do
     test "start initializes telemetry handlers" do
       # Verify telemetry handlers are attached
       handlers = :telemetry.list_handlers([:presence, :track])
-      assert length(handlers) > 0
+      assert handlers != []
     end
   end
 

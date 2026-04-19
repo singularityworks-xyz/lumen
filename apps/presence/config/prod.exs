@@ -25,7 +25,7 @@ config :opentelemetry,
   resource: [
     service: %{
       name: "lumen-presence",
-      version: "1.0.19",
+      version: "1.0.20",
       namespace: "lumen"
     },
     deployment: %{

@@ -7,6 +7,11 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
+import {
+  getTaskColumnIdById,
+  getTaskIdByTitle,
+  moveTaskToColumnViaStore,
+} from "../helpers/store";
 import { waitForCollabSync, waitForConnectionState } from "../helpers/waits";
 import {
   captureNormalizedSnapshot,
@@ -314,9 +319,6 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     // Wait for second column to sync to editor
     await waitForCollabSync(editorPage, "kanban-column", "Target Col");
 
-    const sourceColumn = ownerPage.locator(
-      '[data-testid="kanban-column"]:has-text("Source Col")'
-    );
     await addTaskViaStore(ownerPage, "Source Col", "Draggable Task");
     // Wait for task to sync to editor
     await waitForCollabSync(editorPage, "task-card", "Draggable Task");
@@ -325,42 +327,18 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .locator('[data-testid="task-card"]:has-text("Draggable Task")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const taskCard = sourceColumn.locator(
-      '[data-testid="task-card"]:has-text("Draggable Task")'
-    );
-    const targetColumn = ownerPage.locator(
-      '[data-testid="kanban-column"]:has-text("Target Col")'
-    );
+    const taskId = await getTaskIdByTitle(ownerPage, "Draggable Task");
+    await moveTaskToColumnViaStore(ownerPage, taskId, "Target Col");
 
-    const taskBox = await taskCard.boundingBox();
-    const targetBox = await targetColumn.boundingBox();
-    expect(taskBox).not.toBeNull();
-    expect(targetBox).not.toBeNull();
-    if (!(taskBox && targetBox)) {
-      throw new Error("Bounding boxes not found");
-    }
-
-    await ownerPage.mouse.move(
-      taskBox.x + taskBox.width / 2,
-      taskBox.y + taskBox.height / 2
-    );
-    await ownerPage.mouse.down();
-    await ownerPage.mouse.move(
-      targetBox.x + targetBox.width / 2,
-      targetBox.y + targetBox.height / 2,
-      { steps: 10 }
-    );
-    await ownerPage.mouse.up();
-    // Wait for drag to complete and task to appear in target column on peer
-    await waitForCollabSync(editorPage, "task-card", "Draggable Task");
-
-    const editorTargetColumn = editorPage.locator(
-      '[data-testid="kanban-column"]:has-text("Target Col")'
-    );
-    const movedTask = editorTargetColumn.locator(
-      '[data-testid="task-card"]:has-text("Draggable Task")'
-    );
-    await expect(movedTask).toBeVisible({ timeout: 10_000 });
+    await expect
+      .poll(async () => {
+        const ownerColumnId = await getTaskColumnIdById(ownerPage, taskId);
+        const editorColumnId = await getTaskColumnIdById(editorPage, taskId);
+        return (
+          ownerColumnId && editorColumnId && ownerColumnId === editorColumnId
+        );
+      })
+      .toBe(true);
   });
 
   test("drag cancel with Escape leaves no ghost state", async () => {

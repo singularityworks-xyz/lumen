@@ -3,6 +3,7 @@ defmodule Presence.TrackerTest do
 
   import Presence.Test.Helpers
 
+  alias Presence.Test.Helpers
   alias Presence.Tracker
 
   @moduletag :capture_log
@@ -74,7 +75,7 @@ defmodule Presence.TrackerTest do
       presence = Tracker.get_user(socket, user_id)
       assert is_map(presence)
       assert Map.has_key?(presence, :metas)
-      assert length(presence.metas) > 0
+      assert presence.metas != []
 
       # Verify the presence data contains expected fields
       presence_data = hd(presence.metas)
@@ -116,14 +117,13 @@ defmodule Presence.TrackerTest do
       user_id = "user_#{System.unique_integer()}"
 
       events =
-        Presence.Test.Helpers.capture_telemetry([[:presence, :track]], fn ->
+        Helpers.capture_telemetry([[:presence, :track]], fn ->
           {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
           # Small delay to ensure telemetry is processed
           _ = :sys.get_state(Presence.Tracker)
         end)
 
-      assert length(events) == 1
-      [{event_name, measurements, metadata} | _] = events
+      assert [{event_name, measurements, metadata}] = events
       assert event_name == [:presence, :track]
       assert is_integer(measurements.duration)
       assert metadata.user_id == user_id
@@ -216,14 +216,13 @@ defmodule Presence.TrackerTest do
       {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{})
 
       events =
-        Presence.Test.Helpers.capture_telemetry([[:presence, :update_status]], fn ->
+        Helpers.capture_telemetry([[:presence, :update_status]], fn ->
           {:ok, _} = Tracker.update_status(socket, user_id, "idle")
           # Small delay to ensure telemetry is processed
           _ = :sys.get_state(Presence.Tracker)
         end)
 
-      assert length(events) == 1
-      [{event_name, _measurements, metadata} | _] = events
+      assert [{event_name, _measurements, metadata}] = events
       assert event_name == [:presence, :update_status]
       assert metadata.user_id == user_id
       assert metadata.status == "idle"
