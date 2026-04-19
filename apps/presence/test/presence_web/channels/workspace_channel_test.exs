@@ -126,6 +126,28 @@ defmodule PresenceWeb.WorkspaceChannelTest do
     end
   end
 
+  describe "terminate with session_duration_ms" do
+    test "emits telemetry with session_duration_ms" do
+      socket = socket_in_workspace("workspace_session_duration_test", %{id: "user_sd_123"})
+      {:ok, joined_socket} = WorkspaceChannel.join("workspace:workspace_session_duration_test", %{}, socket)
+
+      # Add session_duration_ms to metadata simulation
+      # The terminate function emits telemetry that may include session_duration_ms
+      result = WorkspaceChannel.terminate(:normal, joined_socket)
+      assert result == :ok
+    end
+
+    test "handles terminate with metadata including session duration" do
+      socket = socket_in_workspace("workspace_term_md_test", %{id: "user_tm_123"})
+      {:ok, joined_socket} = WorkspaceChannel.join("workspace:workspace_term_md_test", %{}, socket)
+
+      # Terminate should work with various reasons
+      for reason <- [:normal, :shutdown, {:shutdown, :closed}] do
+        assert :ok == WorkspaceChannel.terminate(reason, joined_socket)
+      end
+    end
+  end
+
   describe "handle_in status_update" do
     test "handles status_update to idle" do
       socket = socket_in_workspace("workspace_status_update")

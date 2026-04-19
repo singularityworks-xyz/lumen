@@ -79,5 +79,48 @@ defmodule PresenceWeb.TestTokenControllerTest do
       # The JWKS should be set so the token can be verified
       assert {:ok, _claims} = Token.verify(token)
     end
+
+    test "returns forbidden when env is not test", %{conn: conn} do
+      # Temporarily change the env to something other than :test
+      original_env = Application.get_env(:presence, :env)
+      Application.put_env(:presence, :env, :production)
+
+      on_exit(fn ->
+        Application.put_env(:presence, :env, original_env)
+      end)
+
+      conn = get(conn, "/api/test/token")
+
+      assert conn.status == 403
+      assert %{"error" => "Test endpoint not available in this environment"} = json_response(conn, 403)
+    end
+
+    test "returns forbidden in dev environment", %{conn: conn} do
+      original_env = Application.get_env(:presence, :env)
+      Application.put_env(:presence, :env, :dev)
+
+      on_exit(fn ->
+        Application.put_env(:presence, :env, original_env)
+      end)
+
+      conn = get(conn, "/api/test/token")
+
+      assert conn.status == 403
+    end
+
+    test "returns forbidden when env is nil", %{conn: conn} do
+      original_env = Application.get_env(:presence, :env)
+      Application.delete_env(:presence, :env)
+
+      on_exit(fn ->
+        if original_env do
+          Application.put_env(:presence, :env, original_env)
+        end
+      end)
+
+      conn = get(conn, "/api/test/token")
+
+      assert conn.status == 403
+    end
   end
 end

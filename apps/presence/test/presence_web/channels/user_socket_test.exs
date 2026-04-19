@@ -260,6 +260,46 @@ defmodule PresenceWeb.UserSocketTest do
 
       assert {:ok, _} = result
     end
+
+    test "rejects anonymous when compile-time config is false (line 96)" do
+      # This test documents that the compile-time @allow_e2e_anon_socket 
+      # module attribute must be true for anonymous connections to work.
+      # The test above already covers this since in test env the compile-time 
+      # config is false by default. We verify by testing with env var set.
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.delete_env("ALLOW_E2E_ANON_SOCKET")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      # With compile-time config false AND env var not set, should reject
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+      assert :error = result
+    end
+
+    test "rejects anonymous when env var has invalid value (line 99)" do
+      # Test the _ -> false clause on line 99
+      previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
+      System.put_env("ALLOW_E2E_ANON_SOCKET", "invalid_value")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ALLOW_E2E_ANON_SOCKET", previous)
+        else
+          System.delete_env("ALLOW_E2E_ANON_SOCKET")
+        end
+      end)
+
+      socket = %Phoenix.Socket{handler: UserSocket}
+      result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
+      assert :error = result
+    end
   end
 
   describe "connect/3 error logging" do

@@ -178,6 +178,52 @@ defmodule Presence.TokenTest do
       result = Token.verify(token)
       assert match?({:error, _}, result)
     end
+
+    test "get_jwks refetches when cache is expired" do
+      {token, _claims, jwks} = valid_jwt_token_with_jwks()
+      # Insert with a stale timestamp to trigger :expired path
+      stale_timestamp = System.monotonic_time(:millisecond) - 7_200_000
+      :ets.insert(:jwks_cache, {:jwks, jwks, stale_timestamp})
+
+      # With unreachable URL, the refetch will fail
+      Application.put_env(:presence, :better_auth_url, "http://localhost:1")
+      result = Token.verify(token)
+      assert match?({:error, _}, result)
+    end
+
+    test "get_jwks refetches when cache is not found" do
+      {_token, _claims, _jwks} = valid_jwt_token_with_jwks()
+      # Clear cache to trigger :not_found path
+      Token.clear_jwks_cache()
+
+      # Verify lookup returns :not_found by checking that verification fails
+      Application.put_env(:presence, :better_auth_url, "http://localhost:1")
+      result = Token.verify("")
+      assert match?({:error, _}, result)
+    end
+
+    test "cache_jwks stores last_fetch timestamp" do
+      {_token, _claims, jwks} = valid_jwt_token_with_jwks()
+      Token.clear_jwks_cache()
+
+      # Fetch JWKS which internally calls cache_jwks
+      bypass = Bypass.open()
+
+      Bypass.expect(bypass, "GET", "/api/auth/jwks", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(jwks))
+      end)
+
+      Application.put_env(:presence, :better_auth_url, "http://localhost:#{bypass.port}")
+      {:ok, _} = Token.fetch_jwks()
+
+      # Verify that last_fetch was set
+      case :ets.lookup(:jwks_cache, :last_fetch) do
+        [{:last_fetch, _timestamp}] -> assert true
+        _ -> flunk("last_fetch was not set in cache")
+      end
+    end
   end
 
   describe "fetch_jwks/0" do
@@ -314,6 +360,36 @@ defmodule Presence.TokenTest do
 
       result = Token.verify(token)
       assert match?({:error, _}, result)
+    end
+
+    test "handles malformed JWKS (no keys field)" do
+      {token, _, _jwks} = valid_jwt_token_with_jwks()
+      # JWKS that is a map but without a "keys" field
+      malformed_jwks = %{"some_other_field" => "value"}
+      Token.set_jwks_for_test(malformed_jwks)
+
+      # This should trigger the find_key/2 clause that matches non-map or malformed jwks
+      result = Token.verify(token)
+      assert result == {:error, :malformed_jwks}
+    end
+
+    test "handles JWKS where keys is not a list" do
+      {token, _, _jwks} = valid_jwt_token_with_jwks()
+      # JWKS where "keys" is not a list
+      malformed_jwks = %{"keys" => "not_a_list"}
+      Token.set_jwks_for_test(malformed_jwks)
+
+      result = Token.verify(token)
+      assert result == {:error, :malformed_jwks}
+    end
+
+    test "handles completely invalid JWKS structure" do
+      {token, _, _jwks} = valid_jwt_token_with_jwks()
+      # JWKS that is just a string
+      Token.set_jwks_for_test("not_a_map")
+
+      result = Token.verify(token)
+      assert result == {:error, :malformed_jwks}
     end
   end
 

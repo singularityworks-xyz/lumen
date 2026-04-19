@@ -79,6 +79,39 @@ defmodule Presence.TelemetryTest do
                  %{}
                )
     end
+
+    test "idle transition event returns correct value" do
+      measurements = %{}
+      metadata = %{user_id: "user_123", workspace_id: "ws_456", previous_status: "online"}
+
+      # The function should return :ok (line 126 is the end of the function)
+      result =
+        Telemetry.handle_event(
+          [:presence, :idle, :transition],
+          measurements,
+          metadata,
+          %{}
+        )
+
+      assert result == :ok
+    end
+
+    test "idle transition event handles different previous_status values" do
+      for prev_status <- ["online", "away", "dnd"] do
+        measurements = %{}
+        metadata = %{user_id: "user_123", workspace_id: "ws_456", previous_status: prev_status}
+
+        result =
+          Telemetry.handle_event(
+            [:presence, :idle, :transition],
+            measurements,
+            metadata,
+            %{}
+          )
+
+        assert result == :ok
+      end
+    end
   end
 
   describe "handle_event/4 track event with zero duration" do
