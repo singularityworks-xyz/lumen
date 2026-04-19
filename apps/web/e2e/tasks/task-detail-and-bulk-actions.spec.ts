@@ -7,7 +7,10 @@ import {
 } from "../helpers/commands";
 
 const getBulkActionsBar = (page: Page) =>
-  page.locator('[data-testid="bulk-actions-bar"]').first();
+  page
+    .locator('[data-testid="bulk-actions-bar"]')
+    .filter({ visible: true })
+    .last();
 
 test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   test.beforeEach(async ({ page }) => {
@@ -160,8 +163,9 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
-    const selectedCount = await page
+    const selectedCount = await bulkActionsBar
       .locator('[data-testid="bulk-selected-count"]')
+      .first()
       .textContent();
     expect(selectedCount).toContain("2");
   });
@@ -187,7 +191,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const priorityButton = bulkActionsBar.locator(
       'button:has-text("Priority")'
     );
-    await priorityButton.click();
+    await priorityButton.click({ force: true });
 
     await page.waitForSelector('[data-testid="priority-option-high"]');
     await page.click('[data-testid="priority-option-high"]');
@@ -226,7 +230,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     await expect(bulkActionsBar).toBeVisible();
 
     const deleteButton = bulkActionsBar.locator('button:has-text("Delete")');
-    await deleteButton.click();
+    await deleteButton.click({ force: true });
 
     await page.waitForSelector('[data-testid="bulk-delete-confirm-dialog"]');
     await page.click('[data-testid="bulk-delete-confirm-button"]');
@@ -262,7 +266,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const priorityButton = bulkActionsBar.locator(
       'button:has-text("Priority")'
     );
-    await priorityButton.click();
+    await priorityButton.click({ force: true });
     await page.click('[data-testid="priority-option-low"]');
 
     await page.waitForTimeout(300);

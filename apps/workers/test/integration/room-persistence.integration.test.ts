@@ -70,6 +70,38 @@ mock.module("@lumen/ai", () => ({
   aiRoutes: new Elysia({ name: "ai-routes" }),
 }));
 
+mock.module("@lumen/yjs-shared", () => ({
+  YJS_MAP_NAMES: {
+    WORKSPACE: "workspace",
+    BOARDS: "boards",
+    COLUMNS: "columns",
+    TASKS: "tasks",
+    BOARD_POSITIONS: "boardPositions",
+    BOARD_CONNECTIONS: "boardConnections",
+    AREAS: "areas",
+    AREA_POSITIONS: "areaPositions",
+    AREA_DIALOGS: "areaDialogs",
+    CANVAS: "canvas",
+    BOARD_QUICK_ACTIONS: "boardQuickActions",
+    BOARD_DIALOGS: "boardDialogs",
+    CONNECTION_DIALOGS: "connectionDialogs",
+    CREATE_TASK_MODALS: "createTaskModals",
+    COLUMN_QUICK_ACTIONS: "columnQuickActions",
+    COLUMN_DIALOGS: "columnDialogs",
+    TASK_QUICK_ACTIONS: "taskQuickActions",
+    TASK_DETAIL_MODALS: "taskDetailModals",
+    COMMENTS: "comments",
+    CHAT_MESSAGES: "chatMessages",
+  },
+  MESSAGE_WORKSPACE_DELETED: 3,
+  MESSAGE_SYNC: 0,
+  MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
+}));
+
 // Import roomManager AFTER all mocks are set up
 const { roomManager } = await import("../../src/collab/room-manager");
 

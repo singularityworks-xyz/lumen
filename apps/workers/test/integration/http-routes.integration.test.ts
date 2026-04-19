@@ -225,6 +225,10 @@ mock.module("@lumen/yjs-shared", () => ({
   MESSAGE_WORKSPACE_DELETED: 3,
   MESSAGE_SYNC: 0,
   MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
 }));
 
 // Mock the auth config module to avoid Better Auth initialization

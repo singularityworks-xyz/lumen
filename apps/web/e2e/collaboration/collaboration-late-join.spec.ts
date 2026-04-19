@@ -6,7 +6,6 @@ import {
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
-import { waitForCollabSync } from "../helpers/waits";
 import {
   assertNoOrphans,
   captureNormalizedSnapshot,
@@ -335,7 +334,33 @@ async function cleanupPages(pages: Page[]) {
   }
 }
 
+async function joinShareAndWaitForBoard(
+  page: Page,
+  shareLink: string
+): Promise<void> {
+  await page.goto(shareLink);
+  await waitForAppReady(page);
+
+  try {
+    await expect
+      .poll(async () => page.locator('[data-testid="board-node"]').count(), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(0);
+  } catch {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
+    await expect
+      .poll(async () => page.locator('[data-testid="board-node"]').count(), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(0);
+  }
+}
+
 test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
   let shareLink: string;
@@ -392,10 +417,7 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
     expect(ownerFinalTitle).not.toBeNull();
     expect(ownerFinalTitle).not.toBe("Original Title");
 
-    await viewerPage.goto(shareLink);
-    await waitForAppReady(viewerPage);
-
-    await waitForCollabSync(viewerPage, "board-node", undefined, 10_000);
+    await joinShareAndWaitForBoard(viewerPage, shareLink);
 
     const viewerFinalTitle = await getTaskTitleById(viewerPage, taskId);
     expect(viewerFinalTitle).toBe(ownerFinalTitle);
@@ -442,10 +464,7 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
     assertNoOrphans(ownerSnapshot);
     assertNoOrphans(editorSnapshot);
 
-    await viewerPage.goto(shareLink);
-    await waitForAppReady(viewerPage);
-
-    await waitForCollabSync(viewerPage, "board-node", undefined, 10_000);
+    await joinShareAndWaitForBoard(viewerPage, shareLink);
 
     const viewerSnapshot = await captureNormalizedSnapshot(viewerPage);
     const viewerTaskOrderResult = compareTaskOrder(

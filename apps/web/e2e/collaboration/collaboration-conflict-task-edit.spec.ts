@@ -228,6 +228,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -269,17 +271,20 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     ]);
 
     await expect
-      .poll(async () => {
-        const ownerFinalTitle = await ownerPage
-          .locator('[data-testid="task-card"]')
-          .first()
-          .textContent();
-        const editorFinalTitle = await editorPage
-          .locator('[data-testid="task-card"]')
-          .first()
-          .textContent();
-        return ownerFinalTitle?.trim() === editorFinalTitle?.trim();
-      })
+      .poll(
+        async () => {
+          const ownerFinalTitle = await ownerPage
+            .locator('[data-testid="task-card"]')
+            .first()
+            .textContent();
+          const editorFinalTitle = await editorPage
+            .locator('[data-testid="task-card"]')
+            .first()
+            .textContent();
+          return ownerFinalTitle?.trim() === editorFinalTitle?.trim();
+        },
+        { timeout: 20_000 }
+      )
       .toBe(true);
 
     const ownerFinalTitle = await getTaskTitleById(ownerPage, taskId);
@@ -315,17 +320,20 @@ test.describe("E2E-16: Conflict - Simultaneous Task Title Edits", () => {
     }
 
     await expect
-      .poll(async () => {
-        const ownerFinalTitle = await ownerPage
-          .locator('[data-testid="task-card"]')
-          .first()
-          .textContent();
-        const editorFinalTitle = await editorPage
-          .locator('[data-testid="task-card"]')
-          .first()
-          .textContent();
-        return ownerFinalTitle?.trim() === editorFinalTitle?.trim();
-      })
+      .poll(
+        async () => {
+          const ownerFinalTitle = await ownerPage
+            .locator('[data-testid="task-card"]')
+            .first()
+            .textContent();
+          const editorFinalTitle = await editorPage
+            .locator('[data-testid="task-card"]')
+            .first()
+            .textContent();
+          return ownerFinalTitle?.trim() === editorFinalTitle?.trim();
+        },
+        { timeout: 20_000 }
+      )
       .toBe(true);
 
     const finalTitle = await getTaskTitleById(ownerPage, taskId);

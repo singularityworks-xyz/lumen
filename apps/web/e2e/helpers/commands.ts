@@ -757,7 +757,67 @@ export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
         __reactFlow?: { getViewport: () => ReactFlowViewport };
       }
     ).__reactFlow;
-    return rf ? rf.getViewport() : { x: 0, y: 0, zoom: 1 };
+
+    if (rf) {
+      return rf.getViewport();
+    }
+
+    const viewportEl = document.querySelector(
+      ".react-flow__viewport"
+    ) as HTMLElement | null;
+    if (!viewportEl) {
+      return { x: 0, y: 0, zoom: 1 };
+    }
+
+    const transform =
+      viewportEl.style.transform ||
+      window.getComputedStyle(viewportEl).transform ||
+      "";
+
+    const matrixMatch = transform.match(/matrix\(([^)]+)\)/);
+    if (matrixMatch?.[1]) {
+      const parts = matrixMatch[1]
+        .split(",")
+        .map((value) => Number.parseFloat(value.trim()));
+
+      const toNumber = (value: number | undefined): number | null =>
+        typeof value === "number" && Number.isFinite(value) ? value : null;
+
+      if (parts.length >= 6 && parts.every((value) => Number.isFinite(value))) {
+        const zoom = toNumber(parts[0]);
+        const x = toNumber(parts[4]);
+        const y = toNumber(parts[5]);
+
+        if (zoom !== null && x !== null && y !== null) {
+          return { x, y, zoom };
+        }
+
+        return {
+          x: 0,
+          y: 0,
+          zoom: 1,
+        };
+      }
+    }
+
+    const translateScaleMatch = transform.match(
+      /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/
+    );
+    if (
+      translateScaleMatch?.[1] &&
+      translateScaleMatch?.[2] &&
+      translateScaleMatch?.[3]
+    ) {
+      const x = Number.parseFloat(translateScaleMatch[1]);
+      const y = Number.parseFloat(translateScaleMatch[2]);
+      const zoom = Number.parseFloat(translateScaleMatch[3]);
+
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(zoom)) {
+        return { x, y, zoom };
+      }
+    }
+
+    return { x: 0, y: 0, zoom: 1 };
   });
 }
 

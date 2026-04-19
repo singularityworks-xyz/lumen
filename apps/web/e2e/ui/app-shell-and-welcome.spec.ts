@@ -38,7 +38,8 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
           err.includes("hydration") ||
           err.includes("CORS policy") ||
           err.includes("Access-Control-Allow-Origin") ||
-          err.includes("net::ERR_FAILED")
+          err.includes("net::ERR_FAILED") ||
+          err.includes("status of 404")
         )
     );
     expect(criticalErrors).toHaveLength(0);

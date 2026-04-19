@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -315,4 +315,8 @@ describe("generateConversationTitle", () => {
 
     expect(result).toBe("Recovered Title");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

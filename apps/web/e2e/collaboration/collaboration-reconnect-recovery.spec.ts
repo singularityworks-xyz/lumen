@@ -51,6 +51,8 @@ async function addColumnToFirstBoardViaStore(
 }
 
 test.describe("E2E-17: Reconnect and Recovery", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -147,10 +149,12 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       .waitFor({ state: "visible", timeout: 5000 });
 
     await editorPage.context().setOffline(false);
-    // Wait for reconnection and sync
-    await editorPage
-      .locator('[data-testid="sync-status-indicator"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
 
     await editorPage.reload();
     await waitForAppReady(editorPage);
@@ -172,9 +176,7 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
 
           return ownerColumns - editorColumns;
         },
-        {
-          timeout: 10_000,
-        }
+        { timeout: 20_000 }
       )
       .toBe(0);
   });

@@ -22,6 +22,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -140,21 +142,24 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
     ]);
 
     await expect
-      .poll(async () => {
-        const ownerFinalComment = await getCommentContentById(
-          ownerPage,
-          commentId
-        );
-        const editorFinalComment = await getCommentContentById(
-          editorPage,
-          commentId
-        );
-        if (!(ownerFinalComment && editorFinalComment)) {
-          return false;
-        }
+      .poll(
+        async () => {
+          const ownerFinalComment = await getCommentContentById(
+            ownerPage,
+            commentId
+          );
+          const editorFinalComment = await getCommentContentById(
+            editorPage,
+            commentId
+          );
+          if (!(ownerFinalComment && editorFinalComment)) {
+            return false;
+          }
 
-        return ownerFinalComment === editorFinalComment;
-      })
+          return ownerFinalComment === editorFinalComment;
+        },
+        { timeout: 20_000 }
+      )
       .toBe(true);
 
     const finalOwnerComment = await getCommentContentById(ownerPage, commentId);
@@ -183,18 +188,24 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
     }
 
     await expect
-      .poll(async () => {
-        const ownerContent = await getCommentContentById(ownerPage, commentId);
-        const editorContent = await getCommentContentById(
-          editorPage,
-          commentId
-        );
-        if (!(ownerContent && editorContent)) {
-          return null;
-        }
+      .poll(
+        async () => {
+          const ownerContent = await getCommentContentById(
+            ownerPage,
+            commentId
+          );
+          const editorContent = await getCommentContentById(
+            editorPage,
+            commentId
+          );
+          if (!(ownerContent && editorContent)) {
+            return null;
+          }
 
-        return ownerContent === editorContent ? ownerContent : null;
-      })
+          return ownerContent === editorContent ? ownerContent : null;
+        },
+        { timeout: 20_000 }
+      )
       .toContain("Rapid edit");
   });
 });

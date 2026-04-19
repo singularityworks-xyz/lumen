@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockEnv = {
   CEREBRAS_API_KEY: "test-api-key",
@@ -74,4 +74,8 @@ describe("isRateLimitError", () => {
     expect(isRateLimitError(null)).toBe(false);
     expect(isRateLimitError(undefined)).toBe(false);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

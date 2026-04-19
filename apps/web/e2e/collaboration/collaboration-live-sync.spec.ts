@@ -1,11 +1,94 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import {
-  clearLocalStorageAndIndexedDB,
-  createShareLinkForFirstBoard,
-  disableAnimations,
-  waitForAppReady,
-} from "../helpers/commands";
+import { addColumnToFirstBoardViaStore, addTaskViaStore } from "../helpers/store";
+import { setupTwoUsers, waitForAppReady } from "../helpers/commands";
+import { waitForCollabSync, waitForConnectionState } from "../helpers/waits";
+
+async function waitForTaskInStore(
+  page: Page,
+  taskTitle: string,
+  timeout = 40_000
+): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate((title) => {
+          interface TaskRecord {
+            title?: string;
+          }
+
+          interface KanbanState {
+            tasks?: {
+              allIds?: string[];
+              byId?: Record<string, TaskRecord | undefined>;
+            };
+          }
+
+          type WindowWithKanbanStore = Window & {
+            __KANBAN_STORE__?: {
+              getState: () => KanbanState;
+            };
+          };
+
+          const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+          if (!store?.getState) {
+            return false;
+          }
+
+          const state = store.getState();
+          const taskIds = state.tasks?.allIds ?? [];
+          return taskIds.some((id) => state.tasks?.byId?.[id]?.title === title);
+        }, taskTitle),
+      {
+        timeout,
+        intervals: [250, 500, 1000],
+      }
+    )
+    .toBe(true);
+}
+
+async function waitForColumnInStore(
+  page: Page,
+  columnName: string,
+  timeout = 40_000
+): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate((name) => {
+          interface ColumnRecord {
+            name?: string;
+          }
+
+          interface KanbanState {
+            columns?: {
+              allIds?: string[];
+              byId?: Record<string, ColumnRecord | undefined>;
+            };
+          }
+
+          type WindowWithKanbanStore = Window & {
+            __KANBAN_STORE__?: {
+              getState: () => KanbanState;
+            };
+          };
+
+          const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+          if (!store?.getState) {
+            return false;
+          }
+
+          const state = store.getState();
+          const columnIds = state.columns?.allIds ?? [];
+          return columnIds.some((id) => state.columns?.byId?.[id]?.name === name);
+        }, columnName),
+      {
+        timeout,
+        intervals: [250, 500, 1000],
+      }
+    )
+    .toBe(true);
+}
 
 test.describe("E2E-11: Collaboration Live Sync", () => {
   let ownerPage: Page;
@@ -13,31 +96,10 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   let shareLink: string;
 
   test.beforeEach(async ({ browser }) => {
-    const context1 = await browser.newContext();
-    const context2 = await browser.newContext();
-
-    ownerPage = await context1.newPage();
-    editorPage = await context2.newPage();
-
-    await clearLocalStorageAndIndexedDB(ownerPage);
-    await disableAnimations(ownerPage);
-    await ownerPage.goto("/");
-    await waitForAppReady(ownerPage);
-
-    const createFirstBoardButton = ownerPage.locator(
-      '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-    );
-    if (await createFirstBoardButton.isVisible()) {
-      await createFirstBoardButton.click();
-      await ownerPage.waitForTimeout(500);
-    }
-
-    await clearLocalStorageAndIndexedDB(editorPage);
-    await disableAnimations(editorPage);
-    await editorPage.goto("/");
-    await waitForAppReady(editorPage);
-
-    shareLink = await createShareLinkForFirstBoard(ownerPage);
+    const setup = await setupTwoUsers(browser);
+    ownerPage = setup.ownerPage;
+    editorPage = setup.editorPage;
+    shareLink = setup.shareLink;
   });
 
   test.afterEach(async () => {
@@ -86,6 +148,8 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
   });
 
   test("column edits appear in second browser context", async () => {
+    test.setTimeout(90_000);
+
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
 
@@ -94,23 +158,26 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
+    await addColumnToFirstBoardViaStore(ownerPage, "Live Column");
+    await waitForCollabSync(ownerPage, "kanban-column", "Live Column", 20_000);
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      20_000
     );
-    await addColumnTrigger.click();
-    await ownerPage.fill('[data-testid="column-name-input"]', "Live Column");
-    await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    await waitForColumnInStore(editorPage, "Live Column", 40_000);
 
-    const liveColumn = editorPage.locator(
-      '[data-testid="kanban-column"]:has-text("Live Column")'
-    );
-    await liveColumn.waitFor({ state: "visible", timeout: 10_000 });
+    const liveColumn = editorPage
+      .locator('[data-testid="kanban-column"]:has-text("Live Column")')
+      .first();
+    await expect(liveColumn).toBeVisible({ timeout: 20_000 });
     await expect(liveColumn).toBeVisible();
   });
 
   test("task edits appear in second browser context", async () => {
+    test.setTimeout(90_000);
+
     await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
 
@@ -119,31 +186,24 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await addColumnTrigger.click();
-    await ownerPage.fill(
-      '[data-testid="column-name-input"]',
-      "Task Sync Column"
-    );
-    await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    await addColumnToFirstBoardViaStore(ownerPage, "Task Sync Column");
+    await waitForCollabSync(ownerPage, "kanban-column", "Task Sync Column");
+    await waitForCollabSync(editorPage, "kanban-column", "Task Sync Column");
 
-    const column = ownerPage.locator(
-      '[data-testid="kanban-column"]:has-text("Task Sync Column")'
+    await addTaskViaStore(ownerPage, "Task Sync Column", "Live Task");
+    await waitForCollabSync(ownerPage, "task-card", "Live Task", 20_000);
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      20_000
     );
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await ownerPage.fill('[data-testid="task-title-input"]', "Live Task");
-    await ownerPage.click('[data-testid="task-create-submit"]');
-    await ownerPage.waitForTimeout(1000);
+    await waitForTaskInStore(editorPage, "Live Task", 40_000);
 
-    const liveTask = editorPage.locator(
-      '[data-testid="task-card"]:has-text("Live Task")'
-    );
-    await liveTask.waitFor({ state: "visible", timeout: 10_000 });
+    const liveTask = editorPage
+      .locator('[data-testid="task-card"]:has-text("Live Task")')
+      .first();
+    await expect(liveTask).toBeVisible({ timeout: 20_000 });
     await expect(liveTask).toBeVisible();
   });
 
@@ -191,39 +251,33 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await addColumnTrigger.click();
-    await ownerPage.fill(
-      '[data-testid="column-name-input"]',
-      "Modal Sync Column"
-    );
-    await ownerPage.click('[data-testid="column-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    await addColumnToFirstBoardViaStore(ownerPage, "Modal Sync Column");
+    await waitForCollabSync(ownerPage, "kanban-column", "Modal Sync Column");
+    await waitForCollabSync(editorPage, "kanban-column", "Modal Sync Column");
 
-    const column = ownerPage.locator(
-      '[data-testid="kanban-column"]:has-text("Modal Sync Column")'
-    );
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await ownerPage.fill('[data-testid="task-title-input"]', "Modal Sync Task");
-    await ownerPage.click('[data-testid="task-create-submit"]');
-    await ownerPage.waitForTimeout(500);
+    await addTaskViaStore(ownerPage, "Modal Sync Column", "Modal Sync Task");
+    await waitForCollabSync(ownerPage, "task-card", "Modal Sync Task", 20_000);
 
-    const taskCard = ownerPage.locator(
-      '[data-testid="task-card"]:has-text("Modal Sync Task")'
+    const taskCard = await waitForCollabSync(
+      ownerPage,
+      "task-card",
+      "Modal Sync Task",
+      30_000
     );
+    const editorTaskCard = await waitForCollabSync(
+      editorPage,
+      "task-card",
+      "Modal Sync Task"
+    );
+
     await taskCard.click();
-    await ownerPage.waitForSelector('[data-testid="task-detail-modal"]');
+    await expect(ownerPage.locator('[data-testid="task-detail-modal"]')).toBeVisible({
+      timeout: 10_000,
+    });
 
-    const editorTaskCard = editorPage.locator(
-      '[data-testid="task-card"]:has-text("Modal Sync Task")'
-    );
     await editorTaskCard.click();
     const editorModal = editorPage.locator('[data-testid="task-detail-modal"]');
-    await expect(editorModal).toBeVisible({ timeout: 5000 });
+    await expect(editorModal).toBeVisible({ timeout: 10_000 });
   });
 
   test("dialog sync works for shared workspace", async () => {

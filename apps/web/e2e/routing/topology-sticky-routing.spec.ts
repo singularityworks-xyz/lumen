@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   createAuthenticatedDevicePage,
-  createShareLinkForFirstBoard,
   disableAnimations,
   setupTwoUsers,
   waitForAppReady,
@@ -33,6 +32,58 @@ async function createColumnOnFirstBoard(
   page: Page,
   columnName: string
 ): Promise<void> {
+  const createdViaStore = await page
+    .evaluate((name) => {
+      interface BoardRecord {
+        column_ids?: string[];
+      }
+
+      interface KanbanState {
+        addColumn: (
+          boardId: string,
+          columnName: string,
+          index: number
+        ) => string;
+        boards?: {
+          allIds?: string[];
+          byId?: Record<string, BoardRecord | undefined>;
+        };
+      }
+
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => KanbanState;
+        };
+      };
+
+      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+      if (!store?.getState) {
+        return false;
+      }
+
+      const state = store.getState();
+      const firstBoardId = state.boards?.allIds?.[0];
+      if (!firstBoardId) {
+        return false;
+      }
+
+      const board = state.boards?.byId?.[firstBoardId];
+      const index = Array.isArray(board?.column_ids)
+        ? board.column_ids.length
+        : 0;
+      state.addColumn(firstBoardId, name, index);
+      return true;
+    }, columnName)
+    .catch(() => false);
+
+  if (createdViaStore) {
+    await page
+      .locator(`[data-testid="kanban-column"]:has-text("${columnName}")`)
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+    return;
+  }
+
   const boardNode = page.locator('[data-testid="board-node"]').first();
   const trigger = page
     .locator('[data-testid="board-node"]')
@@ -408,71 +459,56 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     test("editor page actually connects to secondary workers instance", async ({
       browser,
     }) => {
-      const context1 = await browser.newContext();
-      const context2 = await browser.newContext();
+      const setup = await setupTwoUsers(browser);
+      const primaryPage = setup.ownerPage;
+      const secondaryPage = setup.editorPage;
+      const shareLink = setup.shareLink;
 
-      const primaryPage = await context1.newPage();
-      const secondaryPage = await context2.newPage();
+      try {
+        await routePageToWorkers(
+          secondaryPage,
+          getSecondaryWorkersUrl(),
+          getSecondaryPresenceUrl()
+        );
+        await secondaryPage.goto(shareLink);
+        await waitForAppReady(secondaryPage);
+        await secondaryPage
+          .locator('[data-testid="board-node"]')
+          .first()
+          .waitFor({ state: "visible", timeout: 15_000 });
 
-      await clearLocalStorageAndIndexedDB(primaryPage);
-      await disableAnimations(primaryPage);
-      await primaryPage.goto("/");
-      await waitForAppReady(primaryPage);
+        const primaryInstanceId = await fetchWorkersInstanceId(
+          topology.getPrimaryWorkersUrl()
+        );
+        const secondaryInstanceId = await fetchWorkersInstanceId(
+          getSecondaryWorkersUrl()
+        );
+        expect(primaryInstanceId).toBe(
+          `workers-${new URL(topology.getPrimaryWorkersUrl()).port}`
+        );
+        expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
 
-      const createFirstBoardButton = primaryPage.locator(
-        '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-      );
-      if (await createFirstBoardButton.isVisible()) {
-        await createFirstBoardButton.click();
-        await primaryPage.waitForTimeout(500);
+        await createColumnOnFirstBoard(primaryPage, "Verify Routing Column");
+
+        await secondaryPage
+          .locator(
+            '[data-testid="kanban-column"]:has-text("Verify Routing Column")'
+          )
+          .waitFor({ state: "visible", timeout: 10_000 });
+
+        const primaryColumns = await primaryPage
+          .locator('[data-testid="kanban-column"]')
+          .count();
+        const secondaryColumns = await secondaryPage
+          .locator('[data-testid="kanban-column"]')
+          .count();
+
+        expect(primaryColumns).toBe(secondaryColumns);
+        expect(primaryColumns).toBeGreaterThanOrEqual(1);
+      } finally {
+        await primaryPage.context().close();
+        await secondaryPage.context().close();
       }
-
-      const shareLink = await createShareLinkForFirstBoard(primaryPage);
-
-      await routePageToWorkers(
-        secondaryPage,
-        getSecondaryWorkersUrl(),
-        getSecondaryPresenceUrl()
-      );
-      await secondaryPage.goto(shareLink);
-      await waitForAppReady(secondaryPage);
-      await secondaryPage
-        .locator('[data-testid="board-node"]')
-        .first()
-        .waitFor({ state: "visible", timeout: 10_000 });
-
-      const primaryInstanceId = await fetchWorkersInstanceId(
-        topology.getPrimaryWorkersUrl()
-      );
-      const secondaryInstanceId = await fetchWorkersInstanceId(
-        getSecondaryWorkersUrl()
-      );
-      expect(primaryInstanceId).toBe(
-        `workers-${new URL(topology.getPrimaryWorkersUrl()).port}`
-      );
-      expect(secondaryInstanceId).toBe(getSecondaryWorkersInstanceId());
-
-      await createColumnOnFirstBoard(primaryPage, "Verify Routing Column");
-      await primaryPage.waitForTimeout(1000);
-
-      await secondaryPage
-        .locator(
-          '[data-testid="kanban-column"]:has-text("Verify Routing Column")'
-        )
-        .waitFor({ state: "visible", timeout: 10_000 });
-
-      const primaryColumns = await primaryPage
-        .locator('[data-testid="kanban-column"]')
-        .count();
-      const secondaryColumns = await secondaryPage
-        .locator('[data-testid="kanban-column"]')
-        .count();
-
-      expect(primaryColumns).toBe(secondaryColumns);
-      expect(primaryColumns).toBeGreaterThanOrEqual(1);
-
-      await primaryPage.close();
-      await secondaryPage.close();
     });
   });
 
@@ -480,69 +516,50 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
     test("rapid connect/disconnect maintains routing affinity", async ({
       browser,
     }) => {
-      const contexts = await Promise.all([
-        browser.newContext(),
-        browser.newContext(),
-      ]);
+      const setup = await setupTwoUsers(browser);
+      const page1 = setup.ownerPage;
+      const page2 = setup.editorPage;
 
-      const page1 = await contexts[0].newPage();
-      const page2 = await contexts[1].newPage();
+      try {
+        await page2
+          .locator('[data-testid="board-node"]')
+          .first()
+          .waitFor({ state: "visible", timeout: 15_000 });
 
-      await clearLocalStorageAndIndexedDB(page1);
-      await disableAnimations(page1);
-      await page1.goto("/");
-      await waitForAppReady(page1);
+        for (let i = 0; i < 5; i++) {
+          await goOffline(page2);
+          await page2.waitForTimeout(300);
 
-      const createFirstBoardButton = page1.locator(
-        '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
-      );
-      if (await createFirstBoardButton.isVisible()) {
-        await createFirstBoardButton.click();
-        await page1.waitForTimeout(500);
+          await goOnline(page2);
+          await page2.waitForTimeout(500);
+        }
+
+        const syncIndicator = page2.locator(
+          '[data-testid="sync-status-indicator"]'
+        );
+        await expect(syncIndicator).toContainText(CONNECTED_REGEX, {
+          timeout: 5000,
+        });
+
+        await createColumnOnFirstBoard(page1, "Post-Stress Column");
+        await page2
+          .locator(
+            '[data-testid="kanban-column"]:has-text("Post-Stress Column")'
+          )
+          .waitFor({ state: "visible", timeout: 10_000 });
+
+        const page1Columns = await page1
+          .locator('[data-testid="kanban-column"]')
+          .count();
+        const page2Columns = await page2
+          .locator('[data-testid="kanban-column"]')
+          .count();
+
+        expect(page1Columns).toBe(page2Columns);
+      } finally {
+        await page1.context().close();
+        await page2.context().close();
       }
-
-      const shareLink = await createShareLinkForFirstBoard(page1);
-
-      await page2.goto(shareLink);
-      await waitForAppReady(page2);
-      await page2
-        .locator('[data-testid="board-node"]')
-        .first()
-        .waitFor({ state: "visible", timeout: 10_000 });
-
-      for (let i = 0; i < 5; i++) {
-        await goOffline(page2);
-        await page2.waitForTimeout(300);
-
-        await goOnline(page2);
-        await page2.waitForTimeout(500);
-      }
-
-      const syncIndicator = page2.locator(
-        '[data-testid="sync-status-indicator"]'
-      );
-      await expect(syncIndicator).toContainText(CONNECTED_REGEX, {
-        timeout: 5000,
-      });
-
-      await createColumnOnFirstBoard(page1, "Post-Stress Column");
-      await page2
-        .locator('[data-testid="kanban-column"]:has-text("Post-Stress Column")')
-        .waitFor({ state: "visible", timeout: 10_000 });
-
-      const page1Columns = await page1
-        .locator('[data-testid="kanban-column"]')
-        .count();
-      const page2Columns = await page2
-        .locator('[data-testid="kanban-column"]')
-        .count();
-
-      expect(page1Columns).toBe(page2Columns);
-
-      await page1.close();
-      await page2.close();
-      await contexts[0].close();
-      await contexts[1].close();
     });
   });
 });

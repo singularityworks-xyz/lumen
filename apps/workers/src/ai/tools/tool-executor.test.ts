@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 // Mock all executor imports
 mock.module("@lumen/ai/tools", () => ({
@@ -243,4 +243,9 @@ describe("tool-executor", () => {
       expect(result.success).toBe(false);
     });
   });
+});
+
+afterAll(() => {
+  // Restore all mocks after all tests in this file
+  mock.restore();
 });

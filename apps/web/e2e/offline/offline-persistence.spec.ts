@@ -1,11 +1,28 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
+  getStoreState,
   waitForAppReady,
 } from "../helpers/commands";
 
 test.describe("E2E-07: Offline Persistence", () => {
+  test.describe.configure({ mode: "serial" });
+
+  async function reloadAndWaitForReady(page: Page, wasOffline = false) {
+    if (wasOffline) {
+      await page.context().setOffline(false);
+    }
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
+
+    if (wasOffline) {
+      await page.context().setOffline(true);
+      await page.waitForTimeout(300);
+    }
+  }
+
   test.beforeEach(async ({ page }) => {
     await clearLocalStorageAndIndexedDB(page);
     await disableAnimations(page);
@@ -48,8 +65,7 @@ test.describe("E2E-07: Offline Persistence", () => {
 
     await page.context().setOffline(true);
 
-    await page.reload();
-    await waitForAppReady(page);
+    await reloadAndWaitForReady(page, true);
 
     await page.context().setOffline(false);
 
@@ -84,8 +100,7 @@ test.describe("E2E-07: Offline Persistence", () => {
     await page.waitForTimeout(500);
 
     await page.context().setOffline(true);
-    await page.reload();
-    await waitForAppReady(page);
+    await reloadAndWaitForReady(page, true);
 
     const offlineTask = page.locator(
       '[data-testid="task-card"]:has-text("Offline Task")'
@@ -126,25 +141,25 @@ test.describe("E2E-07: Offline Persistence", () => {
     );
     await expect(boardNode).toBeVisible();
 
-    const storedState = await page.evaluate(
-      () =>
-        new Promise<Record<string, unknown> | null>((resolve) => {
-          const request = indexedDB.open("lumen-kanban-store");
-          request.onsuccess = () => {
-            const db = request.result;
-            const transaction = db.transaction(["kanban"], "readonly");
-            const store = transaction.objectStore("kanban");
-            const getRequest = store.get("state");
-            getRequest.onsuccess = () =>
-              resolve(getRequest.result as Record<string, unknown> | null);
-            getRequest.onerror = () => resolve(null);
-          };
-          request.onerror = () => resolve(null);
-        })
-    );
+    await expect
+      .poll(
+        async () => {
+          const state = await getStoreState(page);
+          const boards = state?.boards;
+          if (typeof boards !== "object" || !boards) {
+            return 0;
+          }
 
-    expect(storedState).not.toBeNull();
-    expect(storedState).toHaveProperty("boards");
+          const allIds = (boards as { allIds?: unknown }).allIds;
+          return Array.isArray(allIds) ? allIds.length : 0;
+        },
+        { timeout: 10_000 }
+      )
+      .toBeGreaterThan(0);
+
+    const finalState = await getStoreState(page);
+    expect(finalState).not.toBeNull();
+    expect(finalState).toHaveProperty("boards");
   });
 
   test("offline indicator appears when offline", async ({ page }) => {
