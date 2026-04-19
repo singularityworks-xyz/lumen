@@ -1,18 +1,18 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeAll, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as Y from "yjs";
-import {
-  MESSAGE_WORKSPACE_DELETED,
-  roomManager,
-} from "../../src/collab/room-manager";
+
+// Room manager imports - loaded dynamically after mock setup
+let MESSAGE_WORKSPACE_DELETED: number;
+let roomManager: typeof import("../../src/collab/room-manager").roomManager;
 
 const _MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
+const LOCAL_MESSAGE_AWARENESS = 1;
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];
@@ -126,6 +126,45 @@ mock.module("@lumen/ai", () => ({
   aiRoutes: new Elysia({ name: "ai-routes" }),
 }));
 
+mock.module("@lumen/yjs-shared", () => ({
+  YJS_MAP_NAMES: {
+    WORKSPACE: "workspace",
+    BOARDS: "boards",
+    COLUMNS: "columns",
+    TASKS: "tasks",
+    BOARD_POSITIONS: "boardPositions",
+    BOARD_CONNECTIONS: "boardConnections",
+    AREAS: "areas",
+    AREA_POSITIONS: "areaPositions",
+    AREA_DIALOGS: "areaDialogs",
+    CANVAS: "canvas",
+    BOARD_QUICK_ACTIONS: "boardQuickActions",
+    BOARD_DIALOGS: "boardDialogs",
+    CONNECTION_DIALOGS: "connectionDialogs",
+    CREATE_TASK_MODALS: "createTaskModals",
+    COLUMN_QUICK_ACTIONS: "columnQuickActions",
+    COLUMN_DIALOGS: "columnDialogs",
+    TASK_QUICK_ACTIONS: "taskQuickActions",
+    TASK_DETAIL_MODALS: "taskDetailModals",
+    COMMENTS: "comments",
+    CHAT_MESSAGES: "chatMessages",
+  },
+  MESSAGE_WORKSPACE_DELETED: 3,
+  MESSAGE_SYNC: 0,
+  MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
+}));
+
+// Load room manager dynamically after mocks are set up
+beforeAll(async () => {
+  const roomManagerModule = await import("../../src/collab/room-manager");
+  MESSAGE_WORKSPACE_DELETED = roomManagerModule.MESSAGE_WORKSPACE_DELETED;
+  roomManager = roomManagerModule.roomManager;
+});
+
 describe("WORKERS-I-04: collab-websocket integration", () => {
   afterEach(() => {
     mockPrisma.workspace.findUnique.mockReset();
@@ -231,7 +270,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       });
 
       const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+      encoding.writeVarUint(encoder, LOCAL_MESSAGE_AWARENESS);
       const testUpdate = awarenessProtocol.encodeAwarenessUpdate(
         new awarenessProtocol.Awareness(new Y.Doc()),
         []
@@ -268,7 +307,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       sent2.length = 0;
 
       const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+      encoding.writeVarUint(encoder, LOCAL_MESSAGE_AWARENESS);
       const testUpdate = awarenessProtocol.encodeAwarenessUpdate(
         new awarenessProtocol.Awareness(new Y.Doc()),
         []
