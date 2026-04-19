@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Mock Y.Doc with a simple Map-based implementation
 function createMockDoc() {
@@ -31,6 +31,7 @@ const mockLogger = {
   debug: mock((_msg: string, _meta?: unknown) => undefined),
 };
 
+// Set up mock BEFORE any imports that depend on it
 mock.module("./yjs-accessor", () => ({
   getWorkspaceYjsDoc: () => {
     // Dynamic lookup at call time
@@ -46,16 +47,42 @@ mock.module("./yjs-accessor", () => ({
 // Access mock state through getter for dynamic updates
 const mockDoc = () => mockState.doc;
 
-import { executeBulkDeleteTasks } from "./bulk-delete-tasks";
-import { executeBulkUpdateTasks } from "./bulk-update-tasks";
-import { executeCreateBoard } from "./create-board";
-import { executeCreateColumn } from "./create-column";
-import { executeCreateTask } from "./create-task";
-import { executeDeleteBoard } from "./delete-board";
-import { executeDeleteTask } from "./delete-task";
-import { executeMoveTask } from "./move-task";
-import { executeUpdateBoard } from "./update-board";
-import { executeUpdateTask } from "./update-task";
+// Executor functions - loaded dynamically AFTER mock setup
+let executeBulkDeleteTasks: typeof import("./bulk-delete-tasks").executeBulkDeleteTasks;
+let executeBulkUpdateTasks: typeof import("./bulk-update-tasks").executeBulkUpdateTasks;
+let executeCreateBoard: typeof import("./create-board").executeCreateBoard;
+let executeCreateColumn: typeof import("./create-column").executeCreateColumn;
+let executeCreateTask: typeof import("./create-task").executeCreateTask;
+let executeDeleteBoard: typeof import("./delete-board").executeDeleteBoard;
+let executeDeleteTask: typeof import("./delete-task").executeDeleteTask;
+let executeMoveTask: typeof import("./move-task").executeMoveTask;
+let executeUpdateBoard: typeof import("./update-board").executeUpdateBoard;
+let executeUpdateTask: typeof import("./update-task").executeUpdateTask;
+
+// Load modules dynamically after mock setup
+beforeAll(async () => {
+  const bulkDeleteTasks = await import("./bulk-delete-tasks");
+  const bulkUpdateTasks = await import("./bulk-update-tasks");
+  const createBoard = await import("./create-board");
+  const createColumn = await import("./create-column");
+  const createTask = await import("./create-task");
+  const deleteBoard = await import("./delete-board");
+  const deleteTask = await import("./delete-task");
+  const moveTask = await import("./move-task");
+  const updateBoard = await import("./update-board");
+  const updateTask = await import("./update-task");
+
+  executeBulkDeleteTasks = bulkDeleteTasks.executeBulkDeleteTasks;
+  executeBulkUpdateTasks = bulkUpdateTasks.executeBulkUpdateTasks;
+  executeCreateBoard = createBoard.executeCreateBoard;
+  executeCreateColumn = createColumn.executeCreateColumn;
+  executeCreateTask = createTask.executeCreateTask;
+  executeDeleteBoard = deleteBoard.executeDeleteBoard;
+  executeDeleteTask = deleteTask.executeDeleteTask;
+  executeMoveTask = moveTask.executeMoveTask;
+  executeUpdateBoard = updateBoard.executeUpdateBoard;
+  executeUpdateTask = updateTask.executeUpdateTask;
+});
 
 const baseCtx = {
   workspaceId: "ws-1",
