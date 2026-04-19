@@ -337,17 +337,13 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .boundingBox();
     expect(editorBoxBefore).not.toBeNull();
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
-    });
+    await editorPage.context().setOffline(true);
     // Wait for offline state to be detected
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
+    await editorPage.context().setOffline(false);
     // Wait for reconnection
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')

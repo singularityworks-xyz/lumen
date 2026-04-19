@@ -231,6 +231,7 @@ const CollaboratorDisplay = memo(
             y,
           }}
           className="pointer-events-none absolute top-0 left-0 z-9999"
+          data-testid="peer-cursor"
           initial={false}
           style={{ willChange: "transform" }}
           transition={{
@@ -260,6 +261,7 @@ const CollaboratorDisplay = memo(
               y: edgePos.edgeY - containerOffset.y,
             }}
             className="pointer-events-auto absolute top-0 left-0 z-9998 flex cursor-pointer items-center gap-1"
+            data-testid="peer-cursor"
             initial={false}
             onClick={handleClick}
             style={{ willChange: "transform" }}

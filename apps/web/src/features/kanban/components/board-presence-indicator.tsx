@@ -10,6 +10,7 @@ export const BoardPresenceIndicator = memo<BoardPresenceIndicatorProps>(
     <>
       <div
         className="pointer-events-none absolute -inset-1.5 z-20 rounded-lg border-[3px]"
+        data-testid="peer-selection"
         style={{
           borderColor: activeCollaborator.color,
           boxShadow: `

@@ -17,7 +17,16 @@ export interface InstanceProcess {
 
 function resolvePrimaryPresencePort(): number {
   const fallbackPort = 4010;
-  const configuredPresenceUrl = process.env.PRESENCE_URL;
+  const configuredPresencePort = process.env.E2E_PRESENCE_PORT;
+  if (configuredPresencePort) {
+    const parsed = Number.parseInt(configuredPresencePort, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const configuredPresenceUrl =
+    process.env.E2E_PRESENCE_URL ?? process.env.PRESENCE_URL;
 
   if (!configuredPresenceUrl) {
     return fallbackPort;
@@ -72,7 +81,16 @@ export function resolveTopologyPorts(
   presence: { primary: number; secondary: number };
 } {
   const workerOffset = workerIndex * WORKER_PORT_STRIDE;
-  const workersPrimaryPort = 3002;
+  const workersPrimaryPort = (() => {
+    const configuredWorkersPort = process.env.E2E_WORKERS_PORT;
+    if (configuredWorkersPort) {
+      const parsed = Number.parseInt(configuredWorkersPort, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return 3002;
+  })();
 
   return {
     workers: {
@@ -109,6 +127,13 @@ export class MultiInstanceTopology {
         ...process.env,
         PORT: String(config.port),
         NODE_ENV: "test",
+        BETTER_AUTH_URL:
+          process.env.E2E_WORKERS_URL ?? process.env.BETTER_AUTH_URL,
+        BETTER_AUTH_TRUSTED_ORIGINS:
+          process.env.E2E_WEB_URL ?? process.env.BETTER_AUTH_TRUSTED_ORIGINS,
+        WEB_URL: process.env.E2E_WEB_URL ?? process.env.WEB_URL,
+        ALLOWED_ORIGINS:
+          process.env.E2E_WEB_URL ?? process.env.ALLOWED_ORIGINS,
       },
       stdio: "pipe",
     });
@@ -116,7 +141,7 @@ export class MultiInstanceTopology {
     const instance: InstanceProcess = {
       config,
       process: proc,
-      url: `http://localhost:${config.port}`,
+      url: `http://127.0.0.1:${config.port}`,
     };
 
     this.instances.push(instance);
@@ -137,7 +162,14 @@ export class MultiInstanceTopology {
       env: {
         ...process.env,
         ALLOW_E2E_ANON_SOCKET: process.env.ALLOW_E2E_ANON_SOCKET ?? "true",
-        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "http://localhost:3002",
+        BETTER_AUTH_URL:
+          process.env.E2E_WORKERS_URL ??
+          process.env.BETTER_AUTH_URL ??
+          "http://127.0.0.1:3002",
+        WORKERS_API_URL:
+          process.env.E2E_WORKERS_URL ??
+          process.env.WORKERS_API_URL ??
+          "http://127.0.0.1:3002",
         MIX_ENV: process.env.PRESENCE_MIX_ENV ?? "test",
         PHX_SERVER: "true",
         PORT: String(config.port),
@@ -149,7 +181,7 @@ export class MultiInstanceTopology {
     const instance: InstanceProcess = {
       config,
       process: proc,
-      url: `http://localhost:${config.port}`,
+      url: `http://127.0.0.1:${config.port}`,
     };
 
     this.instances.push(instance);
@@ -199,11 +231,11 @@ export class MultiInstanceTopology {
   }
 
   getPrimaryWorkersUrl(): string {
-    return `http://localhost:${this.basePorts.workers.primary}`;
+    return `http://127.0.0.1:${this.basePorts.workers.primary}`;
   }
 
   getPrimaryPresenceUrl(): string {
-    return `ws://localhost:${this.basePorts.presence.primary}`;
+    return `ws://127.0.0.1:${this.basePorts.presence.primary}`;
   }
 }
 
@@ -235,11 +267,11 @@ export async function createPageConnectedToInstance(
 }
 
 export function getSecondaryWorkersUrl(): string {
-  return `http://localhost:${getSecondaryWorkersPort()}`;
+  return `http://127.0.0.1:${getSecondaryWorkersPort()}`;
 }
 
 export function getSecondaryPresenceUrl(): string {
-  return `ws://localhost:${getSecondaryPresencePort()}`;
+  return `ws://127.0.0.1:${getSecondaryPresencePort()}`;
 }
 
 export function getSecondaryWorkersPort(): number {
@@ -356,7 +388,7 @@ export async function fetchPresenceInstanceId(
 
 export async function getWorkersInstanceIdFromPage(
   page: Page,
-  url = "http://localhost:3002"
+  url = process.env.E2E_WORKERS_URL ?? "http://127.0.0.1:3002"
 ): Promise<string | null> {
   try {
     const response = await page.evaluate(async (instanceUrl) => {

@@ -8,6 +8,72 @@ import type {
 import { cleanupE2EAuth, type SeedResult, seedE2EAuth } from "./auth";
 import { waitForConnectionState } from "./waits";
 
+const contextBypassUsers = new WeakMap<BrowserContext, string>();
+const contextsWithBypassRoute = new WeakSet<BrowserContext>();
+const contextSeedPromises = new WeakMap<
+  BrowserContext,
+  Promise<SeedResult>
+>();
+
+function cloneStorageCookiesWithLoopbackDomain(
+  storageState: SeedResult["storageState"]
+): SeedResult["storageState"]["cookies"] {
+  return storageState.cookies.map((cookie) => ({
+    ...cookie,
+    domain: "127.0.0.1",
+  }));
+}
+
+async function installE2EBypassRoute(
+  context: BrowserContext,
+  userId?: string
+): Promise<void> {
+  if (userId) {
+    contextBypassUsers.set(context, userId);
+  }
+
+  if (contextsWithBypassRoute.has(context)) {
+    return;
+  }
+
+  await context.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      const bypassUserId = contextBypassUsers.get(context) ?? "e2e-user";
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = bypassUserId;
+    }
+    route.continue({ headers });
+  });
+
+  contextsWithBypassRoute.add(context);
+}
+
+async function ensureContextE2EAuth(context: BrowserContext): Promise<SeedResult> {
+  const existingSeedPromise = contextSeedPromises.get(context);
+  if (existingSeedPromise) {
+    return existingSeedPromise;
+  }
+
+  const seedPromise = (async () => {
+    const seed = await seedE2EAuth();
+    registerSeedCleanup(context, seed);
+    contextBypassUsers.set(context, seed.userId);
+    await installE2EBypassRoute(context);
+    await context.addCookies(cloneStorageCookiesWithLoopbackDomain(seed.storageState));
+    return seed;
+  })();
+
+  contextSeedPromises.set(context, seedPromise);
+
+  try {
+    return await seedPromise;
+  } catch (error) {
+    contextSeedPromises.delete(context);
+    throw error;
+  }
+}
+
 function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
   context.once("close", () => {
     cleanupE2EAuth(seed.userId, seed.sessionId).catch((error) => {
@@ -16,7 +82,16 @@ function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
   });
 }
 
+async function installE2EWindowFlag(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as Window & { __E2E__?: boolean }).__E2E__ = true;
+  });
+}
+
 export async function clearLocalStorageAndIndexedDB(page: Page) {
+  await installE2EWindowFlag(page);
+  await ensureContextE2EAuth(page.context());
+
   try {
     await page.evaluate(async () => {
       localStorage.clear();
@@ -43,6 +118,7 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
 }
 
 export async function disableAnimations(page: Page) {
+  await installE2EWindowFlag(page);
   await page.addInitScript(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -67,10 +143,7 @@ function cloneStorageStateWithLoopbackDomain(
   storageState: SeedResult["storageState"]
 ): SeedResult["storageState"] {
   return {
-    cookies: storageState.cookies.map((cookie) => ({
-      ...cookie,
-      domain: "127.0.0.1",
-    })),
+    cookies: cloneStorageCookiesWithLoopbackDomain(storageState),
     origins: storageState.origins.map((origin) => ({
       ...origin,
       localStorage: origin.localStorage.map((entry) => ({ ...entry })),
@@ -89,18 +162,13 @@ export async function createAuthenticatedDevicePage(
     storageState,
     serviceWorkers: "block",
   });
+  contextSeedPromises.set(context, Promise.resolve(seed));
+  contextBypassUsers.set(context, seed.userId);
   if (!existingSeed) {
     registerSeedCleanup(context, seed);
   }
 
-  await context.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = seed.userId;
-    }
-    route.continue({ headers });
-  });
+  await installE2EBypassRoute(context);
 
   const page = await context.newPage();
   await clearLocalStorageAndIndexedDB(page);
@@ -389,6 +457,20 @@ async function waitForCurrentWorkspaceId(
   return false;
 }
 
+function canReadCurrentWorkspaceIdFromStore(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const store = (
+      window as Window & {
+        __KANBAN_STORE__?: {
+          getState?: () => unknown;
+        };
+      }
+    ).__KANBAN_STORE__;
+
+    return typeof store?.getState === "function";
+  });
+}
+
 export function setCurrentWorkspaceFromStore(
   page: Page,
   workspaceId: string
@@ -414,7 +496,7 @@ export function setCurrentWorkspaceFromStore(
   }, workspaceId);
 }
 
-function isExpectedWorkspaceContext(
+async function isExpectedWorkspaceContext(
   page: Page,
   options: {
     workspaceId?: string;
@@ -425,7 +507,23 @@ function isExpectedWorkspaceContext(
   const { workspaceId, workspaceName, workspaceIdTimeoutMs = 1200 } = options;
 
   if (workspaceId) {
-    return waitForCurrentWorkspaceId(page, workspaceId, workspaceIdTimeoutMs);
+    const canReadWorkspaceId = await canReadCurrentWorkspaceIdFromStore(page);
+    if (canReadWorkspaceId) {
+      const matchesWorkspaceId = await waitForCurrentWorkspaceId(
+        page,
+        workspaceId,
+        workspaceIdTimeoutMs
+      );
+      if (matchesWorkspaceId) {
+        return true;
+      }
+    }
+
+    if (workspaceName) {
+      return isExpectedWorkspaceSelected(page, workspaceName);
+    }
+
+    return !canReadWorkspaceId;
   }
 
   if (workspaceName) {
@@ -718,6 +816,20 @@ export async function createShareLinkForFirstBoard(
           .waitFor({ state: "hidden", timeout: 5000 });
       } catch {
         // Non-fatal: continue even if dialog animation races.
+      }
+
+      for (let closeAttempt = 0; closeAttempt < 2; closeAttempt++) {
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(100);
+      }
+
+      try {
+        await page
+          .locator('[data-testid="board-share-option"]')
+          .first()
+          .waitFor({ state: "hidden", timeout: 3000 });
+      } catch {
+        // Non-fatal: quick actions menu can already be gone.
       }
 
       break;
@@ -1035,27 +1147,15 @@ export async function setupTwoUsers(
     storageState: editorSeed.storageState,
     serviceWorkers: "block",
   });
+  contextSeedPromises.set(ownerContext, Promise.resolve(ownerSeed));
+  contextSeedPromises.set(editorContext, Promise.resolve(editorSeed));
   registerSeedCleanup(ownerContext, ownerSeed);
   registerSeedCleanup(editorContext, editorSeed);
 
-  // Inject E2E bypass headers
-  await ownerContext.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = ownerSeed.userId;
-    }
-    route.continue({ headers });
-  });
-
-  await editorContext.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = editorSeed.userId;
-    }
-    route.continue({ headers });
-  });
+  contextBypassUsers.set(ownerContext, ownerSeed.userId);
+  contextBypassUsers.set(editorContext, editorSeed.userId);
+  await installE2EBypassRoute(ownerContext);
+  await installE2EBypassRoute(editorContext);
 
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
@@ -1338,26 +1438,15 @@ export async function setupTwoUsersCrossBrowser(
       storageState: editorSeed.storageState,
       serviceWorkers: "block",
     });
+    contextSeedPromises.set(ownerContext, Promise.resolve(ownerSeed));
+    contextSeedPromises.set(editorContext, Promise.resolve(editorSeed));
     registerSeedCleanup(ownerContext, ownerSeed);
     registerSeedCleanup(editorContext, editorSeed);
 
-    await ownerContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = ownerSeed.userId;
-      }
-      route.continue({ headers });
-    });
-
-    await editorContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = editorSeed.userId;
-      }
-      route.continue({ headers });
-    });
+    contextBypassUsers.set(ownerContext, ownerSeed.userId);
+    contextBypassUsers.set(editorContext, editorSeed.userId);
+    await installE2EBypassRoute(ownerContext);
+    await installE2EBypassRoute(editorContext);
 
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();

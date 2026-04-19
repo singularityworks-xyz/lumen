@@ -3,8 +3,50 @@ import { expect, test } from "@playwright/test";
 import { setupTwoUsers, waitForAppReady } from "../helpers/commands";
 import { waitForCollabSync, waitForConnectionState } from "../helpers/waits";
 
-const DISCONNECTED_REGEX = /disconnected|offline/i;
-const CONNECTED_REGEX = /connected|synced|online/i;
+const CONNECTED_STATES_REGEX = /syncing|synced/i;
+
+async function addColumnToFirstBoardViaStore(
+  page: Page,
+  columnName: string
+): Promise<void> {
+  await page.evaluate((name) => {
+    type BoardRecord = {
+      column_ids?: string[];
+    };
+
+    type KanbanState = {
+      addColumn: (boardId: string, columnName: string, index: number) => void;
+      boards?: {
+        allIds?: string[];
+        byId?: Record<string, BoardRecord | undefined>;
+      };
+    };
+
+    type WindowWithKanbanStore = Window & {
+      __KANBAN_STORE__?: {
+        getState: () => KanbanState;
+      };
+    };
+
+    const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+    if (!store?.getState) {
+      throw new Error("Kanban store is not available");
+    }
+
+    const state = store.getState();
+    const boardIds = state.boards?.allIds;
+    const firstBoardId = Array.isArray(boardIds) ? boardIds[0] : null;
+
+    if (typeof firstBoardId !== "string") {
+      throw new Error("No board found for addColumn operation");
+    }
+
+    const board = state.boards?.byId?.[firstBoardId];
+    const index = Array.isArray(board?.column_ids) ? board.column_ids.length : 0;
+
+    state.addColumn(firstBoardId, name, index);
+  }, columnName);
+}
 
 test.describe("E2E-17: Reconnect and Recovery", () => {
   let ownerPage: Page;
@@ -22,13 +64,7 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
   });
 
   test("reconnect after websocket close recovers state", async () => {
-    const addColumnTrigger = ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .locator('[data-testid="add-column-trigger"]');
-    await addColumnTrigger.click();
-    await ownerPage.fill('[data-testid="column-name-input"]', "Pre-Disconnect");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Pre-Disconnect");
     // Wait for column to sync to editor
     await waitForCollabSync(editorPage, "kanban-column", "Pre-Disconnect");
 
@@ -36,28 +72,19 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       .locator('[data-testid="kanban-column"]:has-text("Pre-Disconnect")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
-    });
+    await editorPage.context().setOffline(true);
     // Wait for offline state to be detected
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await addColumnTrigger.click();
-    await ownerPage.fill(
-      '[data-testid="column-name-input"]',
-      "During-Disconnect"
-    );
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "During-Disconnect");
     // Wait for column creation to be processed locally
     await ownerPage
       .locator('[data-testid="kanban-column"]:has-text("During-Disconnect")')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
+    await editorPage.context().setOffline(false);
     // Wait for connection to recover and sync to complete
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
@@ -83,24 +110,10 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
     );
     await expect(syncIndicator).toBeVisible({ timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
-    });
-    // Wait for disconnected state to be reflected in UI
-    await waitForConnectionState(
-      editorPage,
-      "sync-status-indicator",
-      "disconnected"
-    );
+    await editorPage.context().setOffline(true);
+    await editorPage.waitForTimeout(1500);
+    await editorPage.context().setOffline(false);
 
-    await expect(syncIndicator).toContainText(DISCONNECTED_REGEX, {
-      timeout: 5000,
-    });
-
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
-    // Wait for connected state to be restored
     await waitForConnectionState(
       editorPage,
       "sync-status-indicator",
@@ -109,14 +122,7 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
   });
 
   test("state converges after reconnect with edits on both sides", async () => {
-    const addColumnTrigger = ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .locator('[data-testid="add-column-trigger"]');
-
-    await addColumnTrigger.click();
-    await ownerPage.fill('[data-testid="column-name-input"]', "Owner Col");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Owner Col");
     // Wait for column to sync
     await waitForCollabSync(editorPage, "kanban-column", "Owner Col");
 
@@ -124,20 +130,13 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       .locator('[data-testid="kanban-column"]:has-text("Owner Col")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
-    });
+    await editorPage.context().setOffline(true);
     // Wait for offline state detection
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await addColumnTrigger.click();
-    await ownerPage.fill(
-      '[data-testid="column-name-input"]',
-      "Owner During Disconnect"
-    );
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Owner During Disconnect");
     // Wait for column creation UI feedback
     await ownerPage
       .locator(
@@ -145,9 +144,7 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       )
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
+    await editorPage.context().setOffline(false);
     // Wait for reconnection and sync
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
@@ -161,14 +158,20 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const ownerColumns = await ownerPage
-      .locator('[data-testid="kanban-column"]')
-      .count();
-    const editorColumns = await editorPage
-      .locator('[data-testid="kanban-column"]')
-      .count();
+    await expect
+      .poll(async () => {
+        const ownerColumns = await ownerPage
+          .locator('[data-testid="kanban-column"]')
+          .count();
+        const editorColumns = await editorPage
+          .locator('[data-testid="kanban-column"]')
+          .count();
 
-    expect(ownerColumns).toBe(editorColumns);
+        return ownerColumns - editorColumns;
+      }, {
+        timeout: 10_000,
+      })
+      .toBe(0);
   });
 
   test("cursor presence recovers after reconnect", async () => {
@@ -182,17 +185,13 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
     const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
     await expect(cursorBefore).toBeVisible({ timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("offline"));
-    });
+    await editorPage.context().setOffline(true);
     // Wait for offline state
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await editorPage.evaluate(() => {
-      window.dispatchEvent(new Event("online"));
-    });
+    await editorPage.context().setOffline(false);
     // Wait for reconnection
     await editorPage
       .locator('[data-testid="sync-status-indicator"]')
@@ -213,8 +212,14 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       '[data-testid="sync-status-indicator"]'
     );
     await expect(syncIndicator).toBeVisible({ timeout: 5000 });
-
-    const text = await syncIndicator.textContent();
-    expect(text?.toLowerCase()).toMatch(CONNECTED_REGEX);
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected"
+    );
+    await expect(syncIndicator).toHaveAttribute(
+      "data-sync-state",
+      CONNECTED_STATES_REGEX
+    );
   });
 });

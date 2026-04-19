@@ -4,6 +4,13 @@ import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
 const isTauriBuild = process.env.IS_TAURI_BUILD === "true";
+const workersApiOriginRaw =
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.E2E_WORKERS_URL ??
+  "http://127.0.0.1:3002";
+const workersApiOrigin = workersApiOriginRaw.endsWith("/")
+  ? workersApiOriginRaw.slice(0, -1)
+  : workersApiOriginRaw;
 
 const revision =
   spawnSync("git", ["rev-parse", "HEAD"], {
@@ -43,7 +50,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:3002/api/:path*",
+        destination: `${workersApiOrigin}/api/:path*`,
       },
     ];
   },

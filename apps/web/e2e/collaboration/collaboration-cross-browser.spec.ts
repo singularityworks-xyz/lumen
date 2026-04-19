@@ -177,11 +177,11 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       );
       // Wait for cursor to appear on Firefox
       await editorPage
-        .locator('[data-testid="remote-cursor"]')
+        .locator('[data-testid="peer-cursor"]')
         .waitFor({ state: "visible", timeout: 5000 });
 
       // Verify Firefox shows a remote cursor
-      const remoteCursor = editorPage.locator('[data-testid="remote-cursor"]');
+      const remoteCursor = editorPage.locator('[data-testid="peer-cursor"]');
       const cursorCount = await remoteCursor.count();
       expect(cursorCount).toBeGreaterThanOrEqual(1);
     } finally {
