@@ -1,5 +1,5 @@
-import http from "k6/http";
 import { check, sleep } from "k6";
+import http from "k6/http";
 import { Counter, Rate, Trend } from "k6/metrics";
 
 const classifySuccess = new Rate("classify_success_rate");
@@ -45,14 +45,10 @@ export default function () {
     },
   });
 
-  const res = http.post(
-    `${BASE_URL}/api/ai/chat`,
-    payload,
-    {
-      headers: { "Content-Type": "application/json" },
-      timeout: 30000,
-    }
-  );
+  const res = http.post(`${BASE_URL}/api/ai/chat`, payload, {
+    headers: { "Content-Type": "application/json" },
+    timeout: 30_000,
+  });
 
   const success = check(res, {
     "status is 2xx": (r) => r.status >= 200 && r.status < 300,

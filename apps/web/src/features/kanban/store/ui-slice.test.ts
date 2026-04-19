@@ -76,9 +76,9 @@ describe("ui-slice", () => {
     it("syncs to workspace when currentWorkspaceId is set", () => {
       const wsId = state.currentWorkspaceId ?? "";
       actions.setShowMiniMap(true);
-      expect(state.workspaces.byId[wsId]!.showMiniMap).toBe(true);
+      expect(state.workspaces.byId[wsId]?.showMiniMap).toBe(true);
       actions.setShowMiniMap(false);
-      expect(state.workspaces.byId[wsId]!.showMiniMap).toBe(false);
+      expect(state.workspaces.byId[wsId]?.showMiniMap).toBe(false);
     });
 
     it("does not throw when currentWorkspaceId is null", () => {
@@ -103,14 +103,14 @@ describe("ui-slice", () => {
     it("updates lastFocusedBoardId on workspace", () => {
       const wsId = state.currentWorkspaceId ?? "";
       actions.setSelectedBoard("board-42");
-      expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe("board-42");
+      expect(state.workspaces.byId[wsId]?.lastFocusedBoardId).toBe("board-42");
     });
 
     it("does not update workspace when boardId is null", () => {
       const wsId = state.currentWorkspaceId ?? "";
       state.workspaces.byId[wsId]!.lastFocusedBoardId = "old-board";
       actions.setSelectedBoard(null);
-      expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe("old-board");
+      expect(state.workspaces.byId[wsId]?.lastFocusedBoardId).toBe("old-board");
     });
   });
 

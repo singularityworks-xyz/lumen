@@ -10,17 +10,17 @@ async function addColumnToFirstBoardViaStore(
   columnName: string
 ): Promise<void> {
   await page.evaluate((name) => {
-    type BoardRecord = {
+    interface BoardRecord {
       column_ids?: string[];
-    };
+    }
 
-    type KanbanState = {
+    interface KanbanState {
       addColumn: (boardId: string, columnName: string, index: number) => void;
       boards?: {
         allIds?: string[];
         byId?: Record<string, BoardRecord | undefined>;
       };
-    };
+    }
 
     type WindowWithKanbanStore = Window & {
       __KANBAN_STORE__?: {
@@ -42,7 +42,9 @@ async function addColumnToFirstBoardViaStore(
     }
 
     const board = state.boards?.byId?.[firstBoardId];
-    const index = Array.isArray(board?.column_ids) ? board.column_ids.length : 0;
+    const index = Array.isArray(board?.column_ids)
+      ? board.column_ids.length
+      : 0;
 
     state.addColumn(firstBoardId, name, index);
   }, columnName);
@@ -159,18 +161,21 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
       .waitFor({ state: "visible", timeout: 10_000 });
 
     await expect
-      .poll(async () => {
-        const ownerColumns = await ownerPage
-          .locator('[data-testid="kanban-column"]')
-          .count();
-        const editorColumns = await editorPage
-          .locator('[data-testid="kanban-column"]')
-          .count();
+      .poll(
+        async () => {
+          const ownerColumns = await ownerPage
+            .locator('[data-testid="kanban-column"]')
+            .count();
+          const editorColumns = await editorPage
+            .locator('[data-testid="kanban-column"]')
+            .count();
 
-        return ownerColumns - editorColumns;
-      }, {
-        timeout: 10_000,
-      })
+          return ownerColumns - editorColumns;
+        },
+        {
+          timeout: 10_000,
+        }
+      )
       .toBe(0);
   });
 

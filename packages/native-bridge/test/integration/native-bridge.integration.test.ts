@@ -88,7 +88,7 @@ describe("native-bridge integration", () => {
       const callbackUrl = getOAuthCallbackUrl();
       expect(callbackUrl).toBe("lumen://auth/callback");
 
-      deepLinkCallback!([`${callbackUrl}?token=abc&refresh=xyz`]);
+      deepLinkCallback?.([`${callbackUrl}?token=abc&refresh=xyz`]);
 
       expect(receivedUrls).toHaveLength(1);
       expect(receivedUrls[0]).toContain("token=abc");
@@ -105,7 +105,7 @@ describe("native-bridge integration", () => {
       await initializeNativeAuth();
 
       const flow = initiateOAuthFlow("https://auth.example.com/authorize");
-      deepLinkCallback!(["lumen://auth/callback?code=auth123&state=xyz"]);
+      deepLinkCallback?.(["lumen://auth/callback?code=auth123&state=xyz"]);
 
       const params = await flow;
       expect(params.get("code")).toBe("auth123");

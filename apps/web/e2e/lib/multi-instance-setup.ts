@@ -132,8 +132,7 @@ export class MultiInstanceTopology {
         BETTER_AUTH_TRUSTED_ORIGINS:
           process.env.E2E_WEB_URL ?? process.env.BETTER_AUTH_TRUSTED_ORIGINS,
         WEB_URL: process.env.E2E_WEB_URL ?? process.env.WEB_URL,
-        ALLOWED_ORIGINS:
-          process.env.E2E_WEB_URL ?? process.env.ALLOWED_ORIGINS,
+        ALLOWED_ORIGINS: process.env.E2E_WEB_URL ?? process.env.ALLOWED_ORIGINS,
       },
       stdio: "pipe",
     });
@@ -211,21 +210,22 @@ export class MultiInstanceTopology {
 
   async stopAll(): Promise<void> {
     await Promise.all(
-      this.instances.map((instance) => {
-        return new Promise<void>((resolve) => {
-          let exited = false;
-          instance.process.once("exit", () => {
-            exited = true;
-            resolve();
-          });
-          instance.process.kill("SIGTERM");
-          setTimeout(() => {
-            if (!exited) {
-              instance.process.kill("SIGKILL");
-            }
-          }, 5000);
-        });
-      })
+      this.instances.map(
+        (instance) =>
+          new Promise<void>((resolve) => {
+            let exited = false;
+            instance.process.once("exit", () => {
+              exited = true;
+              resolve();
+            });
+            instance.process.kill("SIGTERM");
+            setTimeout(() => {
+              if (!exited) {
+                instance.process.kill("SIGKILL");
+              }
+            }, 5000);
+          })
+      )
     );
     this.instances = [];
   }
@@ -298,7 +298,7 @@ export interface WorkersRoutingOptions {
 
 function normalizeUrl(url?: string): string | undefined {
   if (url === undefined) {
-    return undefined;
+    return;
   }
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
@@ -408,12 +408,11 @@ export async function getWorkersInstanceIdFromPage(
 export function getPresenceInstanceIdFromSocket(
   page: Page
 ): Promise<string | null> {
-  return page.evaluate(() => {
-    return (
+  return page.evaluate(
+    () =>
       (window as Window & { __PRESENCE_INSTANCE_ID__?: string })
         .__PRESENCE_INSTANCE_ID__ ?? null
-    );
-  });
+  );
 }
 
 export interface StateSnapshot {

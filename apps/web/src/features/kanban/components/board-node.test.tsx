@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -134,9 +134,7 @@ const mockStore = {
 };
 
 const mockUseKanbanStore = mock(
-  (selector: (state: typeof mockStore) => unknown) => {
-    return selector(mockStore);
-  }
+  (selector: (state: typeof mockStore) => unknown) => selector(mockStore)
 );
 
 Object.assign(mockUseKanbanStore, { getState: () => mockStore });
@@ -680,7 +678,9 @@ describe("BoardNodeComponent", () => {
 
     const deleteBtn = container.querySelector('[data-icon="x"]');
     expect(deleteBtn).not.toBeNull();
-    fireEvent.click(deleteBtn!.parentElement!);
+    if (deleteBtn?.parentElement) {
+      fireEvent.click(deleteBtn.parentElement);
+    }
 
     expect(mockRemoveBoard).not.toHaveBeenCalled();
   });
@@ -702,7 +702,9 @@ describe("BoardNodeComponent", () => {
 
     const deleteBtn = container.querySelector('[data-icon="x"]');
     expect(deleteBtn).not.toBeNull();
-    fireEvent.click(deleteBtn!.parentElement!);
+    if (deleteBtn?.parentElement) {
+      fireEvent.click(deleteBtn.parentElement);
+    }
 
     expect(mockRemoveBoard).toHaveBeenCalledWith("node-1");
   });
@@ -731,7 +733,9 @@ describe("BoardNodeComponent", () => {
 
     const addBtn = container.querySelector('[data-icon="plus"]');
     expect(addBtn).not.toBeNull();
-    fireEvent.click(addBtn!.parentElement!);
+    if (addBtn?.parentElement) {
+      fireEvent.click(addBtn.parentElement);
+    }
 
     expect(mockOpenBoardQuickActions).toHaveBeenCalled();
     expect(mockOpenCreateTaskModal).toHaveBeenCalledWith(
@@ -762,7 +766,9 @@ describe("BoardNodeComponent", () => {
 
     const editBtn = container.querySelector('[data-icon="edit"]');
     expect(editBtn).not.toBeNull();
-    fireEvent.click(editBtn!.parentElement!);
+    if (editBtn?.parentElement) {
+      fireEvent.click(editBtn.parentElement);
+    }
 
     expect(mockOpenBoardQuickActions).toHaveBeenCalled();
     expect(mockOpenBoardDialog).toHaveBeenCalledWith(

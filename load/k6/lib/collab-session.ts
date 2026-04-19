@@ -1,5 +1,5 @@
+import { Counter, Rate, Trend } from "k6/metrics";
 import ws from "k6/ws";
-import { Counter, Trend, Rate } from "k6/metrics";
 
 const wsConnectSuccess = new Rate("ws_connect_success");
 const wsConnectDuration = new Trend("ws_connect_duration");
@@ -32,7 +32,7 @@ declare global {
 }
 
 class BinaryEncoder {
-  private parts: Uint8Array[] = [];
+  private readonly parts: Uint8Array[] = [];
   private length = 0;
 
   writeVarUint(value: number): void {
@@ -40,14 +40,17 @@ class BinaryEncoder {
       throw new Error("Cannot encode non-integer or negative varuint");
     }
     if (value > Number.MAX_SAFE_INTEGER) {
-      throw new Error("Cannot encode value larger than MAX_SAFE_INTEGER as varuint");
+      throw new Error(
+        "Cannot encode value larger than MAX_SAFE_INTEGER as varuint"
+      );
     }
     const bytes: number[] = [];
-    while (value > 0x7f) {
-      bytes.push((value & 0x7f) | 0x80);
-      value >>>= 7;
+    let remaining = value;
+    while (remaining > 0x7f) {
+      bytes.push((remaining & 0x7f) | 0x80);
+      remaining >>>= 7;
     }
-    bytes.push(value & 0x7f);
+    bytes.push(remaining & 0x7f);
     const buf = new Uint8Array(bytes);
     this.parts.push(buf);
     this.length += buf.byteLength;
@@ -75,9 +78,9 @@ class BinaryEncoder {
 }
 
 class BinaryDecoder {
-  private view: DataView;
+  private readonly view: DataView;
   private pos = 0;
-  private bytes: Uint8Array;
+  private readonly bytes: Uint8Array;
 
   constructor(data: Uint8Array) {
     this.bytes = data;
@@ -139,7 +142,7 @@ function encodeSyncStep1(): Uint8Array {
   return encoder.toUint8Array();
 }
 
-function encodeSyncStep2(update: Uint8Array): Uint8Array {
+function _encodeSyncStep2(update: Uint8Array): Uint8Array {
   const encoder = new BinaryEncoder();
   encoder.writeVarUint(MESSAGE_SYNC);
   encoder.writeVarUint(SYNC_STEP2);
@@ -206,30 +209,30 @@ function generateFakeYjsUpdate(seed: number): Uint8Array {
 }
 
 export interface CollabSession {
-  response: ws.Response | null;
-  workspaceId: string;
-  token: string;
   connectStart: number;
+  disconnect: () => void;
   established: boolean;
-  receivedSyncStep2: boolean;
-  receivedAwareness: boolean;
-  receivedUpdates: number;
-  sentMessages: number;
   lastMessageTime: number;
-  sendSyncUpdate: (updateSeed: number) => boolean;
+  receivedAwareness: boolean;
+  receivedSyncStep2: boolean;
+  receivedUpdates: number;
+  response: ws.Response | null;
   sendAwarenessUpdate: (cursor: {
     x: number;
     y: number;
     user: string;
   }) => boolean;
-  disconnect: () => void;
+  sendSyncUpdate: (updateSeed: number) => boolean;
+  sentMessages: number;
+  token: string;
+  workspaceId: string;
 }
 
 export interface CollabMetrics {
+  averageLatency: number;
+  totalAwarenessMessages: number;
   totalConnections: number;
   totalSyncMessages: number;
-  totalAwarenessMessages: number;
-  averageLatency: number;
 }
 
 export function connectCollabSession(
@@ -253,10 +256,12 @@ export function connectCollabSession(
     lastMessageTime: Date.now(),
     sendSyncUpdate: () => false,
     sendAwarenessUpdate: () => false,
-    disconnect: () => {},
+    disconnect: () => {
+      // No-op for unestablished session
+    },
   };
 
-  const resp = ws.connect(fullUrl, {}, function (socket) {
+  const resp = ws.connect(fullUrl, {}, (socket) => {
     const connectEnd = Date.now();
     wsConnectDuration.add(connectEnd - connectStart);
 
@@ -272,15 +277,15 @@ export function connectCollabSession(
     socket.sendBinary(syncStep1.buffer);
     wsSyncMessagesSent.add(1);
 
-    socket.setInterval(function () {
+    socket.setInterval(() => {
       const pingEncoder = new BinaryEncoder();
       pingEncoder.writeVarUint(MESSAGE_SYNC);
       pingEncoder.writeVarUint(0);
       const pingData = pingEncoder.toUint8Array();
       socket.sendBinary(pingData.buffer);
-    }, 30000);
+    }, 30_000);
 
-    socket.on("binaryMessage", function (data: ArrayBuffer) {
+    socket.on("binaryMessage", (data: ArrayBuffer) => {
       const msg = decodeServerMessage(new Uint8Array(data));
       if (!msg) {
         return;
@@ -299,11 +304,11 @@ export function connectCollabSession(
       }
     });
 
-    socket.on("close", function () {
+    socket.on("close", () => {
       wsDisconnectCount.add(1);
     });
 
-    socket.on("error", function () {
+    socket.on("error", () => {
       wsMessageFailures.add(1);
     });
 

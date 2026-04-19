@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -181,7 +181,7 @@ describe("use-column-drag-presence", () => {
     const { result } = renderHook(() => useColumnDragPresence());
 
     expect(result.current.draggingCollaborators).toHaveLength(1);
-    expect(result.current.draggingCollaborators[0]!.id).toBe("user-1");
+    expect(result.current.draggingCollaborators[0]?.id).toBe("user-1");
   });
 
   it("returns dragged columns data", async () => {
@@ -195,8 +195,8 @@ describe("use-column-drag-presence", () => {
     const { result } = renderHook(() => useColumnDragPresence());
 
     expect(result.current.draggedColumns).toHaveLength(1);
-    expect(result.current.draggedColumns[0]!.dragState.columnId).toBe("col-1");
-    expect(result.current.draggedColumns[0]!.collaborator.id).toBe("user-1");
+    expect(result.current.draggedColumns[0]?.dragState.columnId).toBe("col-1");
+    expect(result.current.draggedColumns[0]?.collaborator.id).toBe("user-1");
   });
 
   it("does nothing when not collaborating", async () => {

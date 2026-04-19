@@ -679,14 +679,16 @@ describe("KanbanCanvas", () => {
         metaKey: false,
         preventDefault: preventDefaultSpy,
       } as unknown as WheelEvent;
-      capturedHandler!(wheelEvent);
+  if (capturedHandler) {
+    capturedHandler(wheelEvent);
+  }
 
-      expect(preventDefaultSpy).toHaveBeenCalled();
+  expect(preventDefaultSpy).toHaveBeenCalled();
 
-      document.querySelector = originalQuerySelector;
-    });
+  document.querySelector = originalQuerySelector;
+});
 
-    it("prevents default on meta key", () => {
+it("prevents default on meta key", () => {
       let capturedHandler: ((e: Event) => void) | null = null;
 
       const originalQuerySelector = document.querySelector.bind(document);
@@ -716,14 +718,16 @@ describe("KanbanCanvas", () => {
         metaKey: true,
         preventDefault: preventDefaultSpy,
       } as unknown as WheelEvent;
-      capturedHandler!(wheelEvent);
+  if (capturedHandler) {
+    capturedHandler(wheelEvent);
+  }
 
-      expect(preventDefaultSpy).toHaveBeenCalled();
+  expect(preventDefaultSpy).toHaveBeenCalled();
 
-      document.querySelector = originalQuerySelector;
-    });
+  document.querySelector = originalQuerySelector;
+});
 
-    it("does not prevent default without ctrl or meta key", () => {
+it("does not prevent default without ctrl or meta key", () => {
       let capturedHandler: ((e: Event) => void) | null = null;
 
       const originalQuerySelector = document.querySelector.bind(document);
@@ -743,22 +747,24 @@ describe("KanbanCanvas", () => {
         return originalQuerySelector(selector);
       });
 
-      renderCanvas();
+  renderCanvas();
 
-      expect(capturedHandler).not.toBeNull();
+  expect(capturedHandler).not.toBeNull();
 
-      const preventDefaultSpy = mock();
-      const wheelEvent = {
-        ctrlKey: false,
-        metaKey: false,
-        preventDefault: preventDefaultSpy,
-      } as unknown as WheelEvent;
-      capturedHandler!(wheelEvent);
+  const preventDefaultSpy = mock();
+  const wheelEvent = {
+    ctrlKey: false,
+    metaKey: false,
+    preventDefault: preventDefaultSpy,
+  } as unknown as WheelEvent;
+  if (capturedHandler) {
+    capturedHandler(wheelEvent);
+  }
 
-      expect(preventDefaultSpy).not.toHaveBeenCalled();
+  expect(preventDefaultSpy).not.toHaveBeenCalled();
 
-      document.querySelector = originalQuerySelector;
-    });
+  document.querySelector = originalQuerySelector;
+});
   });
 
   describe("Nodes/edges sync effects", () => {

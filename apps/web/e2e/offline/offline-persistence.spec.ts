@@ -126,21 +126,22 @@ test.describe("E2E-07: Offline Persistence", () => {
     );
     await expect(boardNode).toBeVisible();
 
-    const storedState = await page.evaluate(() => {
-      return new Promise<Record<string, unknown> | null>((resolve) => {
-        const request = indexedDB.open("lumen-kanban-store");
-        request.onsuccess = () => {
-          const db = request.result;
-          const transaction = db.transaction(["kanban"], "readonly");
-          const store = transaction.objectStore("kanban");
-          const getRequest = store.get("state");
-          getRequest.onsuccess = () =>
-            resolve(getRequest.result as Record<string, unknown> | null);
-          getRequest.onerror = () => resolve(null);
-        };
-        request.onerror = () => resolve(null);
-      });
-    });
+    const storedState = await page.evaluate(
+      () =>
+        new Promise<Record<string, unknown> | null>((resolve) => {
+          const request = indexedDB.open("lumen-kanban-store");
+          request.onsuccess = () => {
+            const db = request.result;
+            const transaction = db.transaction(["kanban"], "readonly");
+            const store = transaction.objectStore("kanban");
+            const getRequest = store.get("state");
+            getRequest.onsuccess = () =>
+              resolve(getRequest.result as Record<string, unknown> | null);
+            getRequest.onerror = () => resolve(null);
+          };
+          request.onerror = () => resolve(null);
+        })
+    );
 
     expect(storedState).not.toBeNull();
     expect(storedState).toHaveProperty("boards");

@@ -1,7 +1,6 @@
-import { Glob } from "bun";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { resolve } from "node:path";
+import { Glob } from "bun";
 
 const ROOT = resolve(import.meta.dir, "../..");
 
@@ -16,7 +15,10 @@ function findTestFiles(pattern: string): string[] {
   return files.sort();
 }
 
-function runBunTest(args: string[], options?: { coverage?: boolean; coverageThreshold?: number }): Promise<number> {
+function runBunTest(
+  args: string[],
+  _options?: { coverage?: boolean; coverageThreshold?: number }
+): Promise<number> {
   return new Promise((resolve) => {
     const cmd = spawn("bun", args, {
       cwd: ROOT,
@@ -32,6 +34,7 @@ async function main() {
   const command = process.argv[2];
 
   switch (command) {
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "unit:web": {
       const files = findTestFiles("apps/web/src/**/*.test.{ts,tsx}");
       console.log(`Running ${files.length} web unit tests in isolation...`);
@@ -43,11 +46,13 @@ async function main() {
           "./tests/config/web.setup.ts",
           file,
         ]);
-        if (code !== 0) hasFailure = true;
+        if (code !== 0) {
+          hasFailure = true;
+        }
       }
       process.exit(hasFailure ? 1 : 0);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "unit:workers": {
       const files = findTestFiles("apps/workers/src/**/*.test.ts");
       console.log(`Running ${files.length} workers unit tests in isolation...`);
@@ -59,11 +64,13 @@ async function main() {
           "./packages/db/src/setup/workers.setup.ts",
           file,
         ]);
-        if (code !== 0) hasFailure = true;
+        if (code !== 0) {
+          hasFailure = true;
+        }
       }
       process.exit(hasFailure ? 1 : 0);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "unit:packages": {
       const packages = [
         { path: "packages/ai/src", pattern: "**/*.test.ts" },
@@ -83,11 +90,13 @@ async function main() {
           "./tests/config/bun.setup.ts",
           ...files,
         ]);
-        if (code !== 0) exitCode = code;
+        if (code !== 0) {
+          exitCode = code;
+        }
       }
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "integration:web": {
       const files = findTestFiles("apps/web/test/integration/*.test.ts");
       console.log(`Running ${files.length} web integration tests...`);
@@ -99,7 +108,7 @@ async function main() {
       ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "integration:workers": {
       const files = findTestFiles("apps/workers/test/integration/*.test.ts");
       console.log(`Running ${files.length} workers integration tests...`);
@@ -111,7 +120,7 @@ async function main() {
       ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "coverage:web": {
       const files = findTestFiles("apps/web/src/**/*.test.{ts,tsx}");
       console.log(`Running ${files.length} web unit tests with coverage...`);
@@ -128,10 +137,12 @@ async function main() {
       );
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "coverage:workers": {
       const files = findTestFiles("apps/workers/src/**/*.test.ts");
-      console.log(`Running ${files.length} workers unit tests with coverage...`);
+      console.log(
+        `Running ${files.length} workers unit tests with coverage...`
+      );
       const exitCode = await runBunTest([
         "test",
         "--preload",
@@ -141,14 +152,31 @@ async function main() {
       ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "coverage:packages": {
       const packages = [
         { path: "packages/ai/src", pattern: "**/*.test.ts", threshold: 0.98 },
         { path: "packages/db/src", pattern: "**/*.test.ts", threshold: 0.95 },
-        { path: "packages/logger/src", files: ["config.test.ts", "logger.test.ts", "tracer.test.ts", "metrics.test.ts"], threshold: 0.95 },
-        { path: "packages/native-bridge/src", pattern: "**/*.test.ts", threshold: 0.95 },
-        { path: "packages/yjs-shared/src", pattern: "**/*.test.ts", threshold: 0.95 },
+        {
+          path: "packages/logger/src",
+          files: [
+            "config.test.ts",
+            "logger.test.ts",
+            "tracer.test.ts",
+            "metrics.test.ts",
+          ],
+          threshold: 0.95,
+        },
+        {
+          path: "packages/native-bridge/src",
+          pattern: "**/*.test.ts",
+          threshold: 0.95,
+        },
+        {
+          path: "packages/yjs-shared/src",
+          pattern: "**/*.test.ts",
+          threshold: 0.95,
+        },
       ];
 
       let exitCode = 0;
@@ -159,7 +187,9 @@ async function main() {
         } else {
           files = findTestFiles(`${pkg.path}/${pkg.pattern}`);
         }
-        console.log(`Running coverage for ${pkg.path} (${files.length} files)...`);
+        console.log(
+          `Running coverage for ${pkg.path} (${files.length} files)...`
+        );
         const code = await runBunTest([
           "test",
           "--preload",
@@ -167,29 +197,43 @@ async function main() {
           ...files,
           "--coverage",
         ]);
-        if (code !== 0) exitCode = code;
+        if (code !== 0) {
+          exitCode = code;
+        }
       }
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "coverage": {
       console.log("Running all coverage tests...\n");
       console.log("=== Web Coverage ===");
-      let code = await runBunTest(["run", "scripts/testing/test-scripts.ts", "coverage:web"]);
+      let code = await runBunTest([
+        "run",
+        "scripts/testing/test-scripts.ts",
+        "coverage:web",
+      ]);
       if (code !== 0) {
         console.error("Web coverage failed");
         process.exit(code);
       }
 
       console.log("\n=== Workers Coverage ===");
-      code = await runBunTest(["run", "scripts/testing/test-scripts.ts", "coverage:workers"]);
+      code = await runBunTest([
+        "run",
+        "scripts/testing/test-scripts.ts",
+        "coverage:workers",
+      ]);
       if (code !== 0) {
         console.error("Workers coverage failed");
         process.exit(code);
       }
 
       console.log("\n=== Packages Coverage ===");
-      code = await runBunTest(["run", "scripts/testing/test-scripts.ts", "coverage:packages"]);
+      code = await runBunTest([
+        "run",
+        "scripts/testing/test-scripts.ts",
+        "coverage:packages",
+      ]);
       if (code !== 0) {
         console.error("Packages coverage failed");
         process.exit(code);
@@ -198,7 +242,7 @@ async function main() {
       console.log("\n✅ All coverage tests passed");
       process.exit(0);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "e2e": {
       const exitCode = await runBunTest([
         "x",
@@ -209,7 +253,7 @@ async function main() {
       ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "visual": {
       const exitCode = await runBunTest([
         "x",
@@ -220,29 +264,44 @@ async function main() {
       ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "load:ramp": {
-      const exitCode = await runCommand("k6", ["run", "load/k6/ws-collab-ramp.ts"]);
+      const exitCode = await runCommand("k6", [
+        "run",
+        "load/k6/ws-collab-ramp.ts",
+      ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "load:soak": {
-      const exitCode = await runCommand("k6", ["run", "load/k6/ws-collab-soak.ts"]);
+      const exitCode = await runCommand("k6", [
+        "run",
+        "load/k6/ws-collab-soak.ts",
+      ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "load:spike": {
-      const exitCode = await runCommand("k6", ["run", "load/k6/ws-collab-spike.ts"]);
+      const exitCode = await runCommand("k6", [
+        "run",
+        "load/k6/ws-collab-spike.ts",
+      ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "load:convergence": {
-      const exitCode = await runCommand("k6", ["run", "load/k6/ws-collab-convergence.ts"]);
+      const exitCode = await runCommand("k6", [
+        "run",
+        "load/k6/ws-collab-convergence.ts",
+      ]);
       process.exit(exitCode);
     }
-
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: process.exit terminates execution
     case "load:hybrid": {
-      const exitCode = await runCommand("k6", ["run", "load/k6/hybrid-load.ts"]);
+      const exitCode = await runCommand("k6", [
+        "run",
+        "load/k6/hybrid-load.ts",
+      ]);
       process.exit(exitCode);
     }
 
@@ -264,9 +323,13 @@ async function main() {
       console.error("Available commands:");
       console.error("  unit:web, unit:workers, unit:packages");
       console.error("  integration:web, integration:workers");
-      console.error("  coverage:web, coverage:workers, coverage:packages, coverage");
+      console.error(
+        "  coverage:web, coverage:workers, coverage:packages, coverage"
+      );
       console.error("  e2e, visual");
-      console.error("  load:ramp, load:soak, load:spike, load:convergence, load:hybrid");
+      console.error(
+        "  load:ramp, load:soak, load:spike, load:convergence, load:hybrid"
+      );
       console.error("  find <pattern>");
       process.exit(1);
   }

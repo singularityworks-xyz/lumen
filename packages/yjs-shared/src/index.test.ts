@@ -244,8 +244,8 @@ describe("yjs-shared schemas", () => {
       ws.colorUsage = { "#fff": 3 };
       ws.iconUsage = { star: 1 };
       const parsed = WorkspaceSchema.parse(ws);
-      expect(parsed.lastViewport!.zoom).toBe(1.5);
-      expect(parsed.colorUsage!["#fff"]).toBe(3);
+      expect(parsed.lastViewport?.zoom).toBe(1.5);
+      expect(parsed.colorUsage?.["#fff"]).toBe(3);
     });
 
     it("ViewportStateSchema rejects zoom out of range", () => {

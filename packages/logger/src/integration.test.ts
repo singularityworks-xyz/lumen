@@ -198,7 +198,7 @@ describe("logger integration", () => {
     it("logger creates and logs with correct config-derived environment", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("config test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"env":"test"');
     });
 
@@ -225,9 +225,10 @@ describe("logger integration", () => {
         l.info("traced message", { requestId: "req-123" });
 
         expect(emitMock).toHaveBeenCalled();
-        const data = emitMock.mock.calls[0]![0];
-        expect(data.body).toBe("traced message");
-        expect(data.attributes["logger.name"]).toBe("traced-logger");
+        const data = emitMock.mock.calls[0]?.[0];
+        expect(data).toBeDefined();
+        expect(data!.body).toBe("traced message");
+        expect(data!.attributes["logger.name"]).toBe("traced-logger");
         return null;
       });
     });
@@ -241,7 +242,7 @@ describe("logger integration", () => {
         l.error("Operation failed", { error: error.message });
 
         expect(consoleLogMock).toHaveBeenCalled();
-        const call = consoleLogMock.mock.calls[0]![0]! as string;
+        const call = consoleLogMock.mock.calls[0]?.[0]! as string;
         expect(call).toContain("Operation failed");
         expect(call).toContain("integration failure");
         return null;
@@ -279,7 +280,7 @@ describe("logger integration", () => {
         const child = createChildLogger(parent, { module: "auth" });
 
         child.info("child in span");
-        const call = consoleLogMock.mock.calls[0]![0]! as string;
+        const call = consoleLogMock.mock.calls[0]?.[0]! as string;
         expect(call).toContain('"service":"api"');
         expect(call).toContain('"module":"auth"');
         return null;
@@ -297,7 +298,7 @@ describe("logger integration", () => {
       const handler = createChildLogger(module, { handler: "create" });
 
       handler.info("deeply nested");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"app":"lumen"');
       expect(call).toContain('"service":"api"');
       expect(call).toContain('"module":"users"');
@@ -341,7 +342,7 @@ describe("logger integration", () => {
       // Server mode
       const serverLogger = createLogger({ level: "info", pretty: false });
       serverLogger.info("server msg");
-      const serverCall = consoleLogMock.mock.calls[0]![0]! as string;
+      const serverCall = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(serverCall).toContain("INFO");
 
       // Switch to browser mode
@@ -361,16 +362,18 @@ describe("logger integration", () => {
       const l = createLogger({ level: "info", name: "integration-svc" });
       l.info("test");
       expect(emitMock).toHaveBeenCalled();
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["logger.name"]).toBe("integration-svc");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["logger.name"]).toBe("integration-svc");
     });
 
     it("base env attribute is included in otel emission", () => {
       const l = createLogger({ level: "info" });
       l.info("env check");
       expect(emitMock).toHaveBeenCalled();
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["base.env"]).toBe("test");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["base.env"]).toBe("test");
     });
   });
 

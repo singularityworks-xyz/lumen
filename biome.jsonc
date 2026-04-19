@@ -1,13 +1,13 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/core", "ultracite/react", "ultracite/next"],
-  "files": {
-    "includes": ["!apps/web/src/components/ui", "!scripts/testing", "!load"]
-  },
   "linter": {
     "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": "off"
+      },
+      "performance": {
+        "noNamespaceImport": "off"
       },
       "style": {
         "noNestedTernary": "off"
@@ -33,11 +33,32 @@
             "noNoninteractiveElementInteractions": "off",
             "useKeyWithClickEvents": "off",
             "noStaticElementInteractions": "off"
+          },
+          "suspicious": {
+            "noNonNullAssertedOptionalChain": "off"
           }
         }
       },
       "javascript": {
         "globals": ["Y"]
+      }
+    },
+    {
+      "includes": ["load/k6/**/*"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUndeclaredVariables": "off",
+            "noUnusedImports": "off"
+          },
+          "suspicious": {
+            "useAwait": "off",
+            "noBitwiseOperators": "off"
+          }
+        }
+      },
+      "javascript": {
+        "globals": ["__ENV", "__VU", "__ITER"]
       }
     }
   ]

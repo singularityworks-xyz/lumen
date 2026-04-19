@@ -240,13 +240,13 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
     expect(targetBox).not.toBeNull();
 
     await ownerPage.mouse.move(
-      taskBox!.x + taskBox!.width / 2,
-      taskBox!.y + taskBox!.height / 2
+      taskBox?.x + taskBox?.width / 2,
+      taskBox?.y + taskBox?.height / 2
     );
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(
-      targetBox!.x + targetBox!.width / 2,
-      targetBox!.y + targetBox!.height / 2,
+      targetBox?.x + targetBox?.width / 2,
+      targetBox?.y + targetBox?.height / 2,
       { steps: 10 }
     );
     await ownerPage.mouse.up();

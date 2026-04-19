@@ -179,14 +179,12 @@ mock.module("@opentelemetry/sdk-logs", () => {
   };
 });
 
-mock.module("@opentelemetry/api-logs", () => {
-  return {
-    logs: {
-      setGlobalLoggerProvider: mock(() => undefined),
-      getLogger: mock(() => ({ emit: mock() })),
-    },
-  };
-});
+mock.module("@opentelemetry/api-logs", () => ({
+  logs: {
+    setGlobalLoggerProvider: mock(() => undefined),
+    getLogger: mock(() => ({ emit: mock() })),
+  },
+}));
 
 mock.module("@opentelemetry/sdk-trace-node", () => {
   function BatchSpanProcessor() {

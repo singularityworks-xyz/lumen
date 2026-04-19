@@ -369,9 +369,11 @@ describe("AI Integration Tests", () => {
       };
       const response = createMockEventSource([event]);
       const reader = response.body?.getReader();
+      expect(reader).toBeDefined();
       const decoder = new TextDecoder();
 
-      const { value } = await reader!.read();
+      const readResult = await reader!.read();
+      const { value } = readResult;
       expect(value).toBeDefined();
       const text = decoder.decode(value);
       expect(text).toContain("delete_task");
@@ -572,7 +574,7 @@ describe("AI Integration Tests", () => {
       };
 
       const limiter = upstashAvailable ? null : inMemoryLimiter;
-      const result = await limiter!.limit();
+      const result = await limiter?.limit();
 
       expect(result.success).toBe(true);
       expect(result.remaining).toBe(29);

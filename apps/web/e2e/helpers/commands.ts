@@ -10,10 +10,7 @@ import { waitForConnectionState } from "./waits";
 
 const contextBypassUsers = new WeakMap<BrowserContext, string>();
 const contextsWithBypassRoute = new WeakSet<BrowserContext>();
-const contextSeedPromises = new WeakMap<
-  BrowserContext,
-  Promise<SeedResult>
->();
+const contextSeedPromises = new WeakMap<BrowserContext, Promise<SeedResult>>();
 
 function cloneStorageCookiesWithLoopbackDomain(
   storageState: SeedResult["storageState"]
@@ -49,7 +46,9 @@ async function installE2EBypassRoute(
   contextsWithBypassRoute.add(context);
 }
 
-async function ensureContextE2EAuth(context: BrowserContext): Promise<SeedResult> {
+async function ensureContextE2EAuth(
+  context: BrowserContext
+): Promise<SeedResult> {
   const existingSeedPromise = contextSeedPromises.get(context);
   if (existingSeedPromise) {
     return existingSeedPromise;
@@ -60,7 +59,9 @@ async function ensureContextE2EAuth(context: BrowserContext): Promise<SeedResult
     registerSeedCleanup(context, seed);
     contextBypassUsers.set(context, seed.userId);
     await installE2EBypassRoute(context);
-    await context.addCookies(cloneStorageCookiesWithLoopbackDomain(seed.storageState));
+    await context.addCookies(
+      cloneStorageCookiesWithLoopbackDomain(seed.storageState)
+    );
     return seed;
   })();
 
@@ -184,12 +185,9 @@ export async function createAuthenticatedDevicePage(
 export async function waitForAppReady(page: Page) {
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
-    () => {
-      return (
-        document.querySelector('[data-testid="workspace-selector"]') !== null ||
-        document.querySelector('[data-testid="welcome-screen"]') !== null
-      );
-    },
+    () =>
+      document.querySelector('[data-testid="workspace-selector"]') !== null ||
+      document.querySelector('[data-testid="welcome-screen"]') !== null,
     { timeout: 15_000 }
   );
 }

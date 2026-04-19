@@ -15,20 +15,20 @@ declare module "k6" {
 
 declare module "k6/ws" {
   export interface Socket {
+    close(): void;
+    on(event: string, callback: (...args: unknown[]) => void): void;
     send(data: string): void;
     sendBinary(data: ArrayBuffer | ArrayBufferLike): void;
-    close(): void;
     setInterval(callback: () => void, interval: number): void;
     setTimeout(callback: () => void, delay: number): void;
-    on(event: string, callback: (...args: any[]) => void): void;
   }
 
   export interface Response {
-    status: number;
     body: string;
     error?: string;
     error_code?: number;
     headers: Record<string, string>;
+    status: number;
   }
 
   export interface WsOptions {
@@ -72,13 +72,13 @@ declare module "k6/metrics" {
 
 declare module "k6/http" {
   export interface Response {
-    status: number;
-    status_text: string;
     body: string;
-    headers: Record<string, string>;
-    json<T>(): T;
     error?: string;
     error_code?: number;
+    headers: Record<string, string>;
+    json<T>(): T;
+    status: number;
+    status_text: string;
     timings: {
       duration: number;
       blocked: number;
@@ -91,11 +91,11 @@ declare module "k6/http" {
   }
 
   export interface RequestOptions {
-    headers?: Record<string, string>;
-    timeout?: number;
     cookies?: Record<string, string>;
-    tags?: Record<string, string>;
+    headers?: Record<string, string>;
     redirects?: number;
+    tags?: Record<string, string>;
+    timeout?: number;
   }
 
   export function get(url: string, params?: RequestOptions): Response;
@@ -116,7 +116,9 @@ declare module "k6/http" {
     body?: string | object,
     params?: RequestOptions
   ): Response;
-  export function batch(requests: Array<[string, string] | [string, string, object]>): Response[];
+  export function batch(
+    requests: Array<[string, string] | [string, string, object]>
+  ): Response[];
 }
 
 declare module "k6/execution" {
@@ -132,10 +134,10 @@ declare module "yjs" {
   export class Doc {
     clientID: number;
     constructor();
-    getMap(name?: string): Map<any, any>;
-    getMaps(): Map<any, any>[];
-    getArray(name?: string): Array<any>;
-    getText(name?: string): any;
+    getMap(name?: string): Map<unknown, unknown>;
+    getMaps(): Map<unknown, unknown>[];
+    getArray(name?: string): unknown[];
+    getText(name?: string): unknown;
     encodeStateAsUpdate(doc: Doc): Uint8Array;
     encodeStateVector(doc: Doc): Uint8Array;
     applyUpdate(doc: Doc, update: Uint8Array): void;
@@ -143,5 +145,8 @@ declare module "yjs" {
   export function encodeStateAsUpdate(doc: Doc): Uint8Array;
   export function encodeStateVector(doc: Doc): Uint8Array;
   export function applyUpdate(doc: Doc, update: Uint8Array): void;
-  export function compareStateVectors(sv1: Uint8Array, sv2: Uint8Array): boolean;
+  export function compareStateVectors(
+    sv1: Uint8Array,
+    sv2: Uint8Array
+  ): boolean;
 }

@@ -4,6 +4,10 @@ import { join } from "node:path";
 
 const LOAD_DIR = join(import.meta.dir);
 
+// Top-level regex patterns for performance
+const RAMP_TEST_STAGES_REGEX = /ramp_test:[\s\S]*?stages:\s*\[([\s\S]*?)\]/;
+const MESSAGES_ARRAY_REGEX = /MESSAGES = \[([\s\S]*?)\]/;
+
 function readSource(path: string): string {
   return readFileSync(join(LOAD_DIR, path), "utf-8");
 }
@@ -24,9 +28,9 @@ describe("ai-classifier-load config", () => {
   });
 
   it("has 5 ramp stages in ramp_test", () => {
-    const rampBlockMatch = src.match(/ramp_test:[\s\S]*?stages:\s*\[([\s\S]*?)\]/);
+    const rampBlockMatch = src.match(RAMP_TEST_STAGES_REGEX);
     expect(rampBlockMatch).toBeTruthy();
-    const durationMatches = rampBlockMatch![1].match(/{ duration:/g);
+    const durationMatches = rampBlockMatch?.[1].match(/{ duration:/g);
     expect(durationMatches?.length).toBe(5);
   });
 
@@ -54,9 +58,11 @@ describe("ai-classifier-load config", () => {
   });
 
   it("defines 10 test messages", () => {
-    const msgMatch = src.match(/MESSAGES = \[([\s\S]*?)\]/);
+    const msgMatch = src.match(MESSAGES_ARRAY_REGEX);
     expect(msgMatch).toBeTruthy();
-    const messageMatches = Array.from(msgMatch![1].matchAll(/"((?:\\.|[^"\\])*)"/g));
+    const messageMatches = Array.from(
+      msgMatch?.[1].matchAll(/"((?:\\.|[^"\\])*)"/g)
+    );
     expect(messageMatches.length).toBe(10);
   });
 
@@ -114,7 +120,7 @@ describe("ws-collab-ramp config", () => {
   });
 
   it("requires 99% WS success rate", () => {
-    expect(src).toContain("ws_connect_success: [\"rate>0.99\"]");
+    expect(src).toContain('ws_connect_success: ["rate>0.99"]');
   });
 
   it("imports connectCollabSession", () => {

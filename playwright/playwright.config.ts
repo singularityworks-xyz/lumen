@@ -37,7 +37,7 @@ try {
       process.env[key] = value.join("=").trim();
     }
   }
-} catch (_e) {
+} catch {
   // Ignore if .env file doesn't exist - tests will use default or CI env
 }
 
@@ -136,8 +136,7 @@ export default defineConfig({
           },
         },
         {
-          command:
-            `bun run build && bun run --bun next start --port ${e2eWebPort}`,
+          command: `bun run build && bun run --bun next start --port ${e2eWebPort}`,
           cwd: "../apps/web",
           url: e2eWebUrl,
           reuseExistingServer: false,

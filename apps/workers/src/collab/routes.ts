@@ -7,7 +7,6 @@ import {
   withSpanAsync,
 } from "@lumen/logger/server";
 import { Elysia, t } from "elysia";
-// biome-ignore lint/performance/noNamespaceImport: skippo
 import * as Y from "yjs";
 import { auth } from "../auth/config/auth";
 import { env } from "../env";

@@ -28,11 +28,12 @@ mock.module("../presence-manager", () => ({
 
 let jwtTokenResolver: ((token: string | null) => void) | null = null;
 
-const mockGetJwtToken = mock(() => {
-  return new Promise<string | null>((resolve) => {
-    jwtTokenResolver = resolve;
-  });
-});
+const mockGetJwtToken = mock(
+  () =>
+    new Promise<string | null>((resolve) => {
+      jwtTokenResolver = resolve;
+    })
+);
 
 mock.module("@/src/lib/auth-client", () => ({
   getJwtToken: mockGetJwtToken,
@@ -105,11 +106,12 @@ async function flushMicrotasks() {
 describe("usePresence", () => {
   beforeEach(() => {
     mockGetJwtToken.mockReset();
-    mockGetJwtToken.mockImplementation(() => {
-      return new Promise<string | null>((resolve) => {
-        jwtTokenResolver = resolve;
-      });
-    });
+    mockGetJwtToken.mockImplementation(
+      () =>
+        new Promise<string | null>((resolve) => {
+          jwtTokenResolver = resolve;
+        })
+    );
     MockPresenceManagerCtor.mockClear();
     instances.length = 0;
     disconnectCalls.length = 0;
@@ -180,13 +182,13 @@ describe("usePresence", () => {
       expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
 
       await act(async () => {
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
       expect(MockPresenceManagerCtor).toHaveBeenCalled();
       expect(instances.length).toBe(1);
-      expect(instances[0]!.opts).toMatchObject({
+      expect(instances[0]?.opts).toMatchObject({
         workspaceId: "ws-1",
         userId: "user-1",
         userName: "Test User",
@@ -199,7 +201,7 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!(null);
+        jwtTokenResolver?.(null);
         await flushMicrotasks();
       });
 
@@ -212,11 +214,11 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
-      expect(instances[0]!.opts).toMatchObject({
+      expect(instances[0]?.opts).toMatchObject({
         token: "test-jwt-token",
       });
     });
@@ -228,11 +230,11 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
-      const manager = instances[0]!.opts as {
+      const manager = instances[0]?.opts as {
         onPresenceUpdate?: (...args: unknown[]) => void;
         onConnectionChange?: (...args: unknown[]) => void;
       };
@@ -248,16 +250,16 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
-      const manager = instances[0]!.opts as {
+      const manager = instances[0]?.opts as {
         onPresenceUpdate?: (users: unknown[]) => void;
       };
 
       await act(async () => {
-        manager.onPresenceUpdate!([
+        manager.onPresenceUpdate?.([
           { id: "user-1", name: "Test User", status: "online" },
           { id: "user-2", name: "Other User", status: "away" },
         ]);
@@ -275,23 +277,23 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
-      const manager = instances[0]!.opts as {
+      const manager = instances[0]?.opts as {
         onConnectionChange?: (connected: boolean) => void;
       };
 
       await act(async () => {
-        manager.onConnectionChange!(true);
+        manager.onConnectionChange?.(true);
         await flushMicrotasks();
       });
 
       expect(screen.getByTestId("is-connected").textContent).toBe("true");
 
       await act(async () => {
-        manager.onConnectionChange!(false);
+        manager.onConnectionChange?.(false);
         await flushMicrotasks();
       });
 
@@ -305,16 +307,16 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
-      const manager = instances[0]!.opts as {
+      const manager = instances[0]?.opts as {
         onPresenceUpdate?: (users: unknown[]) => void;
       };
 
       await act(async () => {
-        manager.onPresenceUpdate!([
+        manager.onPresenceUpdate?.([
           { id: "user-1", name: "Updated Name", status: "online" },
         ]);
         await flushMicrotasks();
@@ -328,7 +330,7 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
@@ -342,7 +344,7 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
@@ -361,7 +363,7 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
@@ -369,17 +371,18 @@ describe("usePresence", () => {
       expect(instances.length).toBe(1);
 
       let secondResolver: ((token: string | null) => void) | null = null;
-      mockGetJwtToken.mockImplementation(() => {
-        return new Promise<string | null>((resolve) => {
-          secondResolver = resolve;
-        });
-      });
+      mockGetJwtToken.mockImplementation(
+        () =>
+          new Promise<string | null>((resolve) => {
+            secondResolver = resolve;
+          })
+      );
 
       rerender(createElement(TestComponent, { workspaceId: "ws-2" }));
 
       await act(async () => {
         await flushMicrotasks();
-        secondResolver!("test-jwt-token-2");
+        secondResolver?.("test-jwt-token-2");
         await flushMicrotasks();
       });
 
@@ -394,7 +397,7 @@ describe("usePresence", () => {
 
       await act(async () => {
         await flushMicrotasks();
-        jwtTokenResolver!("test-jwt-token");
+        jwtTokenResolver?.("test-jwt-token");
         await flushMicrotasks();
       });
 
@@ -402,17 +405,18 @@ describe("usePresence", () => {
       expect(instances.length).toBe(1);
 
       let secondResolver: ((token: string | null) => void) | null = null;
-      mockGetJwtToken.mockImplementation(() => {
-        return new Promise<string | null>((resolve) => {
-          secondResolver = resolve;
-        });
-      });
+      mockGetJwtToken.mockImplementation(
+        () =>
+          new Promise<string | null>((resolve) => {
+            secondResolver = resolve;
+          })
+      );
 
       rerender(createElement(TestComponent, { userId: "user-2" }));
 
       await act(async () => {
         await flushMicrotasks();
-        secondResolver!("test-jwt-token-2");
+        secondResolver?.("test-jwt-token-2");
         await flushMicrotasks();
       });
 

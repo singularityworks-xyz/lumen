@@ -1,10 +1,10 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { connectCollabSession, CollabSession } from "./lib/collab-session";
 import * as Y from "yjs";
+import { connectCollabSession } from "./lib/collab-session";
 
 const convergencePass = new Rate("convergence_pass");
-const convergenceLatency = new Trend("convergence_latency");
+const _convergenceLatency = new Trend("convergence_latency");
 const stateVectorMatches = new Counter("state_vector_matches");
 const stateVectorMismatches = new Counter("state_vector_mismatches");
 const documentHashMatches = new Counter("document_hash_matches");
@@ -15,20 +15,20 @@ const messageOrderingValid = new Rate("message_ordering_valid");
 const roomCleanupSuccess = new Rate("room_cleanup_success");
 const awarenessFanoutCount = new Counter("awareness_fanout_count");
 const reconnectSuccess = new Rate("reconnect_success");
-const updatePropagationLatency = new Trend("update_propagation_latency");
+const _updatePropagationLatency = new Trend("update_propagation_latency");
 const stateConvergenceTime = new Trend("state_convergence_time_ms");
 
-const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "20", 10);
-const ROUNDS = parseInt(__ENV.ROUNDS || "10", 10);
-const RECONNECT_DELAY = parseInt(__ENV.RECONNECT_DELAY || "5", 10);
+const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "20", 10);
+const ROUNDS = Number.parseInt(__ENV.ROUNDS || "10", 10);
+const _RECONNECT_DELAY = Number.parseInt(__ENV.RECONNECT_DELAY || "5", 10);
 const COORDINATE_DRIFT_THRESHOLD = 5;
 
 interface YjsClientState {
+  clientId: number;
   doc: Y.Doc;
-  updates: Uint8Array[];
   lastKnownPositions: Map<number, { x: number; y: number; timestamp: number }>;
   messageTimestamps: number[];
-  clientId: number;
+  updates: Uint8Array[];
 }
 
 function createYjsDoc(): Y.Doc {
@@ -49,23 +49,32 @@ function computeStateVector(doc: Y.Doc): Uint8Array {
 }
 
 function stateVectorsEqual(sv1: Uint8Array, sv2: Uint8Array): boolean {
-  if (sv1.length !== sv2.length) return false;
+  if (sv1.length !== sv2.length) {
+    return false;
+  }
   for (let i = 0; i < sv1.length; i++) {
-    if (sv1[i] !== sv2[i]) return false;
+    if (sv1[i] !== sv2[i]) {
+      return false;
+    }
   }
   return true;
 }
 
-function applyYjsUpdate(doc: Y.Doc, update: Uint8Array): void {
+function _applyYjsUpdate(doc: Y.Doc, update: Uint8Array): void {
   Y.applyUpdate(doc, update);
 }
 
-function createRealYjsUpdate(doc: Y.Doc, seed: number, x: number, y: number): Uint8Array {
+function createRealYjsUpdate(
+  doc: Y.Doc,
+  seed: number,
+  x: number,
+  y: number
+): Uint8Array {
   const maps = doc.getMaps();
   const targetMap = maps.length > 0 ? maps[0] : doc.getMap("updates");
-  
-  doc.clientID = seed % 100000;
-  
+
+  doc.clientID = seed % 100_000;
+
   targetMap.set(`update-${seed}`, {
     x,
     y,
@@ -74,13 +83,15 @@ function createRealYjsUpdate(doc: Y.Doc, seed: number, x: number, y: number): Ui
     vu: __VU,
     round: seed,
   });
-  
+
   return Y.encodeStateAsUpdate(doc);
 }
 
-function extractPositionsFromDoc(doc: Y.Doc): Array<{ x: number; y: number; id: string }> {
+function extractPositionsFromDoc(
+  doc: Y.Doc
+): Array<{ x: number; y: number; id: string }> {
   const positions: Array<{ x: number; y: number; id: string }> = [];
-  
+
   for (const map of doc.getMaps()) {
     map.forEach((value, key) => {
       if (key.startsWith("update-") && value && typeof value === "object") {
@@ -91,27 +102,29 @@ function extractPositionsFromDoc(doc: Y.Doc): Array<{ x: number; y: number; id: 
       }
     });
   }
-  
+
   return positions;
 }
 
-function validateCoordinateAgreement(
+function _validateCoordinateAgreement(
   positions: Array<{ x: number; y: number; id: string }>,
   expectedX: number,
   expectedY: number
 ): boolean {
   for (const pos of positions) {
-    if (Math.abs(pos.x - expectedX) > COORDINATE_DRIFT_THRESHOLD ||
-        Math.abs(pos.y - expectedY) > COORDINATE_DRIFT_THRESHOLD) {
+    if (
+      Math.abs(pos.x - expectedX) > COORDINATE_DRIFT_THRESHOLD ||
+      Math.abs(pos.y - expectedY) > COORDINATE_DRIFT_THRESHOLD
+    ) {
       return false;
     }
   }
   return true;
 }
 
-let globalDocRegistry: Map<string, YjsClientState> = new Map();
+const globalDocRegistry: Map<string, YjsClientState> = new Map();
 let sharedYjsDoc: Y.Doc | null = null;
-let sharedDocKey: string = "";
+let sharedDocKey = "";
 
 function getSharedDoc(workspaceId: string): Y.Doc {
   if (!sharedYjsDoc || sharedDocKey !== workspaceId) {
@@ -149,11 +162,15 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-convergence-test";
 
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
-  
+  const session = connectCollabSession(
+    wsUrl ?? "",
+    authToken ?? "",
+    workspaceId
+  );
+
   const myLabel = `vu-${__VU}`;
   const myClientId = __VU * 1000 + (Date.now() % 1000);
-  
+
   const yjsDoc = getSharedDoc(workspaceId);
   const clientState: YjsClientState = {
     doc: yjsDoc,
@@ -162,7 +179,7 @@ export default function () {
     messageTimestamps: [],
     clientId: myClientId,
   };
-  
+
   globalDocRegistry.set(`client-${__VU}-${__ITER}`, clientState);
 
   if (!session.established) {
@@ -181,7 +198,7 @@ export default function () {
   });
 
   const convergenceStart = Date.now();
-  
+
   const initialStateVector = computeStateVector(yjsDoc);
   if (session.receivedSyncStep2) {
     stateVectorMatches.add(1);
@@ -189,7 +206,7 @@ export default function () {
     stateVectorMismatches.add(1);
   }
 
-  const baseUpdate = __VU * 10000;
+  const baseUpdate = __VU * 10_000;
   const expectedPositions: Array<{ x: number; y: number; round: number }> = [];
 
   for (let round = 0; round < ROUNDS; round++) {
@@ -197,12 +214,12 @@ export default function () {
     const x = (__VU * 50 + round * 10) % 1920;
     const y = (__VU * 30 + round * 7) % 1080;
     const sendTime = Date.now();
-    
+
     expectedPositions.push({ x, y, round });
-    
+
     const yjsUpdate = createRealYjsUpdate(yjsDoc, updateSeed, x, y);
     clientState.updates.push(yjsUpdate);
-    
+
     session.sendSyncUpdate(updateSeed);
 
     session.sendAwarenessUpdate({
@@ -213,7 +230,7 @@ export default function () {
 
     clientState.lastKnownPositions.set(round, { x, y, timestamp: sendTime });
     clientState.messageTimestamps.push(sendTime);
-    
+
     sleep(0.5);
   }
 
@@ -223,10 +240,13 @@ export default function () {
   const allReceivedAwareness = session.receivedAwareness;
 
   const finalStateVector = computeStateVector(yjsDoc);
-  const stateVectorEqual = stateVectorsEqual(initialStateVector, finalStateVector);
-  
-  const docHash = computeDocHash(yjsDoc);
-  const otherClientsConverged = Array.from(globalDocRegistry.values()).every(
+  const stateVectorEqual = stateVectorsEqual(
+    initialStateVector,
+    finalStateVector
+  );
+
+  const _docHash = computeDocHash(yjsDoc);
+  const _otherClientsConverged = Array.from(globalDocRegistry.values()).every(
     (state) => state.doc === yjsDoc || state.updates.length > 0
   );
 
@@ -242,11 +262,12 @@ export default function () {
 
   const currentPositions = extractPositionsFromDoc(yjsDoc);
   let coordinatesAgreed = true;
-  
+
   for (const expected of expectedPositions.slice(-5)) {
     const found = currentPositions.find(
-      (p) => Math.abs(p.x - expected.x) <= COORDINATE_DRIFT_THRESHOLD &&
-             Math.abs(p.y - expected.y) <= COORDINATE_DRIFT_THRESHOLD
+      (p) =>
+        Math.abs(p.x - expected.x) <= COORDINATE_DRIFT_THRESHOLD &&
+        Math.abs(p.y - expected.y) <= COORDINATE_DRIFT_THRESHOLD
     );
     if (!found) {
       coordinatesAgreed = false;
@@ -270,14 +291,19 @@ export default function () {
   }
   messageOrderingValid.add(orderingValid);
 
-  const converged = allReceivedUpdates && allReceivedAwareness && coordinatesAgreed;
+  const converged =
+    allReceivedUpdates && allReceivedAwareness && coordinatesAgreed;
   convergencePass.add(converged);
 
   const convergenceEnd = Date.now();
   stateConvergenceTime.add(convergenceEnd - convergenceStart);
 
   check(
-    { converged, updates: session.receivedUpdates, positions: currentPositions.length },
+    {
+      converged,
+      updates: session.receivedUpdates,
+      positions: currentPositions.length,
+    },
     {
       "cohort converged on document state": (r) =>
         (r as { converged: boolean }).converged,
@@ -294,8 +320,8 @@ export default function () {
   sleep(1);
 
   const reconnectSession = connectCollabSession(
-    wsUrl!,
-    authToken!,
+    wsUrl ?? "",
+    authToken ?? "",
     workspaceId
   );
 
@@ -307,18 +333,21 @@ export default function () {
     check(reconnectSession, {
       "reconnect received sync step2": (s) => s.receivedSyncStep2,
     });
-    
+
     const reconnectStateVector = computeStateVector(yjsDoc);
-    const reconnectVectorMatch = stateVectorsEqual(finalStateVector, reconnectStateVector);
-    
+    const reconnectVectorMatch = stateVectorsEqual(
+      finalStateVector,
+      reconnectStateVector
+    );
+
     if (reconnectVectorMatch) {
       stateVectorMatches.add(1);
     } else {
       stateVectorMismatches.add(1);
     }
-    
+
     reconnectSession.disconnect();
-    
+
     roomCleanupSuccess.add(true);
   } else {
     reconnectSuccess.add(false);
@@ -326,7 +355,7 @@ export default function () {
   }
 
   sleep(0.5);
-  
+
   globalDocRegistry.delete(`client-${__VU}-${__ITER}`);
 }
 

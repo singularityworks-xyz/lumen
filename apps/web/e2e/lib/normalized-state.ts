@@ -402,8 +402,8 @@ export function compareCommentOrdering(
   const getCommentsForTask = (
     snapshot: NormalizedClientSnapshot,
     targetTaskId: string
-  ): CommentWithTask[] => {
-    return snapshot.comments
+  ): CommentWithTask[] =>
+    snapshot.comments
       .filter((c) => {
         const task = snapshot.tasks.find((t) => t.title === c.content);
         return task?.id === targetTaskId;
@@ -419,7 +419,6 @@ export function compareCommentOrdering(
         const timeB = new Date(b.createdAt).getTime();
         return timeA - timeB;
       });
-  };
 
   const getAllTaskIds = (snapshot: NormalizedClientSnapshot): string[] => {
     const taskIds = new Set<string>();

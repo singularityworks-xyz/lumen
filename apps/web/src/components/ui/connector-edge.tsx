@@ -80,12 +80,16 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
         emerald: "#10b981",
       }[color];
 
-  const markerId = useCustom ? `arrow-custom-${customColor?.replace("#", "")}` : `arrow-${color}`;
+  const markerId = useCustom
+    ? `arrow-custom-${customColor?.replace("#", "")}`
+    : `arrow-${color}`;
 
   return (
     <svg
+      aria-label="Connector edge"
       className="pointer-events-none fixed top-0 left-0"
       height="100vh"
+      role="img"
       style={{ zIndex }}
       width="100vw"
     >
@@ -93,13 +97,13 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
         <defs>
           <marker
             id={markerId}
-            markerWidth="10"
             markerHeight="7"
+            markerWidth="10"
+            orient="auto"
             refX="9"
             refY="3.5"
-            orient="auto"
           >
-            <polygon points="0 0, 10 3.5, 0 7" fill={strokeColor} />
+            <polygon fill={strokeColor} points="0 0, 10 3.5, 0 7" />
           </marker>
         </defs>
       )}
@@ -107,12 +111,12 @@ export const ConnectorEdge = memo((props: ConnectorEdgeProps) => {
         className={useCustom ? undefined : colorClass?.split(" ")[0]}
         d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
         fill="none"
+        markerEnd={showArrow ? `url(#${markerId})` : undefined}
         stroke={useCustom ? strokeColor : undefined}
         strokeDasharray={lineStyle === "dotted" ? "6 6" : undefined}
         strokeLinecap="round"
         strokeOpacity={lineStyle === "solid" ? "0.8" : "0.6"}
         strokeWidth="2"
-        markerEnd={showArrow ? `url(#${markerId})` : undefined}
       >
         {lineStyle === "dotted" && (
           <animate

@@ -25,9 +25,7 @@ const mockStore = {
   setDeletedSharedWorkspace: mockSetDeletedSharedWorkspace,
 };
 
-const mockUseKanbanStore = mock((selector) => {
-  return selector(mockStore);
-});
+const mockUseKanbanStore = mock((selector) => selector(mockStore));
 
 mock.module("@/src/features/kanban/store/kanban-store", () => ({
   useKanbanStore: mockUseKanbanStore,

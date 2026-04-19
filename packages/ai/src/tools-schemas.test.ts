@@ -326,7 +326,10 @@ describe("bulkUpdateTasksSchema", () => {
 
   it("rejects empty taskIds array", () => {
     expect(() =>
-      bulkUpdateTasksSchema.parse({ taskIds: [], updates: { priority: "low" } })
+      bulkUpdateTasksSchema.parse({
+        taskIds: [],
+        updates: { priority: "low" },
+      })
     ).toThrow();
   });
 

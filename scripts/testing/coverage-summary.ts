@@ -1,6 +1,11 @@
-import { Glob } from "bun";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { Glob } from "bun";
+
+// Rust test pattern regexes (top-level for performance)
+const RUST_TEST_ATTR_REGEX = /#\[\s*test\s*\]/m;
+const RUST_CFG_TEST_REGEX = /#\[\s*cfg\s*\(\s*test\s*\)\s*\]/m;
+const RUST_MOD_TESTS_REGEX = /\bmod\s+tests\b/m;
 
 export interface LcovRecord {
   linesFound: number;
@@ -8,13 +13,7 @@ export interface LcovRecord {
   path: string;
 }
 
-type LayerKind =
-  | "unit"
-  | "integration"
-  | "e2e"
-  | "visual"
-  | "exunit"
-  | "rust";
+type LayerKind = "unit" | "integration" | "e2e" | "visual" | "exunit" | "rust";
 
 interface CoverageSource {
   defaultPath: string;
@@ -80,8 +79,14 @@ const SUBJECTS: SubjectConfig[] = [
     coverageSources: [BUN_LCOV_SOURCE],
     targetCoverage: 0.95,
     layers: [
-      { kind: "unit", patterns: ["apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx"] },
-      { kind: "integration", patterns: ["apps/web/test/integration/*.test.ts"] },
+      {
+        kind: "unit",
+        patterns: ["apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx"],
+      },
+      {
+        kind: "integration",
+        patterns: ["apps/web/test/integration/*.test.ts"],
+      },
       { kind: "e2e", patterns: ["apps/web/e2e/*.spec.ts"] },
       { kind: "visual", patterns: ["apps/web/e2e/visual/*.spec.ts"] },
     ],
@@ -148,7 +153,10 @@ const SUBJECTS: SubjectConfig[] = [
     targetCoverage: 0.95,
     layers: [
       { kind: "unit", patterns: ["packages/db/src/*.test.ts"] },
-      { kind: "integration", patterns: ["packages/db/test/integration/*.test.ts"] },
+      {
+        kind: "integration",
+        patterns: ["packages/db/test/integration/*.test.ts"],
+      },
     ],
   },
   {
@@ -269,9 +277,9 @@ function countRustTestFiles(rootDir: string, patterns: string[]): number {
       const content = readFileSync(absolutePath, "utf8");
 
       if (
-        /#\[\s*test\s*\]/m.test(content) ||
-        /#\[\s*cfg\s*\(\s*test\s*\)\s*\]/m.test(content) ||
-        /\bmod\s+tests\b/m.test(content)
+        RUST_TEST_ATTR_REGEX.test(content) ||
+        RUST_CFG_TEST_REGEX.test(content) ||
+        RUST_MOD_TESTS_REGEX.test(content)
       ) {
         matches.add(relativePath);
       }
@@ -326,7 +334,10 @@ export function summarizeCoverage(
   };
 }
 
-function summarizeSubject(rootDir: string, subject: SubjectConfig): SubjectSummary {
+function summarizeSubject(
+  rootDir: string,
+  subject: SubjectConfig
+): SubjectSummary {
   const records = loadLcovRecords(rootDir, subject.coverageSources);
   const coverage = summarizeCoverage(records, subject.coverageRoots);
   const layers = subject.layers.map((layer) => summarizeLayer(rootDir, layer));
@@ -334,7 +345,11 @@ function summarizeSubject(rootDir: string, subject: SubjectConfig): SubjectSumma
   const totalTests = layers.reduce((sum, layer) => sum + layer.count, 0);
   let status: SubjectSummary["status"];
 
-  if (coverage && subject.targetCoverage && coverage.ratio < subject.targetCoverage) {
+  if (
+    coverage &&
+    subject.targetCoverage &&
+    coverage.ratio < subject.targetCoverage
+  ) {
     notes.push(
       `Measured unit line coverage ${formatPercent(coverage.ratio)} is below the advisory target ${formatPercent(subject.targetCoverage)}.`
     );
@@ -345,7 +360,9 @@ function summarizeSubject(rootDir: string, subject: SubjectConfig): SubjectSumma
     notes.push("No tests found and no coverage artifact is available.");
     status = "warn";
   } else {
-    notes.push("Tests exist, but no coverage artifact is published for this target yet.");
+    notes.push(
+      "Tests exist, but no coverage artifact is published for this target yet."
+    );
     status = "info";
   }
 

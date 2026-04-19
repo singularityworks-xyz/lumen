@@ -84,7 +84,7 @@ class MockAwareness {
     if (!this._listeners.has(event)) {
       this._listeners.set(event, new Set());
     }
-    this._listeners.get(event)!.add(fn);
+    this._listeners.get(event)?.add(fn);
   }
 
   off(_event: string, _fn: (...args: unknown[]) => void) {
@@ -125,7 +125,7 @@ class MockYDoc {
     if (!this._listeners.has(event)) {
       this._listeners.set(event, new Set());
     }
-    this._listeners.get(event)!.add(fn);
+    this._listeners.get(event)?.add(fn);
   }
 
   destroy() {
@@ -548,7 +548,7 @@ describe("CollaborationProvider", () => {
 
       expect(getContext().connectionState).toBe("connecting");
       expect(wsInstances).toHaveLength(1);
-      expect(wsInstances[0]!.url).not.toContain("token=");
+      expect(wsInstances[0]?.url).not.toContain("token=");
       expect(mockRecordError).not.toHaveBeenCalled();
     });
 
@@ -573,8 +573,8 @@ describe("CollaborationProvider", () => {
 
       expect(getContext().connectionState).toBe("connecting");
       expect(wsInstances).toHaveLength(1);
-      expect(wsInstances[0]!.url).toContain("/ws/collab/ws-1");
-      expect(wsInstances[0]!.url).toContain("stateVector=");
+      expect(wsInstances[0]?.url).toContain("/ws/collab/ws-1");
+      expect(wsInstances[0]?.url).toContain("stateVector=");
     });
 
     it("uses the correct WebSocket URL with ws protocol", async () => {
@@ -585,7 +585,7 @@ describe("CollaborationProvider", () => {
         await getContext().connect("ws-2");
       });
 
-      expect(wsInstances[0]!.url).toContain(
+      expect(wsInstances[0]?.url).toContain(
         "ws://api.example.com/ws/collab/ws-2"
       );
     });
@@ -622,7 +622,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -650,7 +650,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       expect(getContext().connectionState).toBe("connected");
@@ -659,7 +659,7 @@ describe("CollaborationProvider", () => {
       unmount();
 
       // After unmount, cleanup should have been called
-      expect(wsInstances[0]!.close).toHaveBeenCalled();
+      expect(wsInstances[0]?.close).toHaveBeenCalled();
       expect(mockPersistenceDestroy).toHaveBeenCalled();
     });
 
@@ -670,7 +670,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       const ws = wsInstances[0]!;
@@ -686,7 +686,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       unmount();
@@ -714,14 +714,14 @@ describe("CollaborationProvider", () => {
         });
 
         act(() => {
-          wsInstances[0]!._simulateOpen();
+          wsInstances[0]?._simulateOpen();
         });
         act(() => {
           /* no-op */
         });
 
         act(() => {
-          wsInstances[0]!._simulateClose(1006, "Connection lost");
+          wsInstances[0]?._simulateClose(1006, "Connection lost");
         });
         act(() => {
           /* no-op */
@@ -730,7 +730,7 @@ describe("CollaborationProvider", () => {
         expect(getContext().connectionState).toBe("disconnected");
         expect(getContext().isCollaborating).toBe(false);
         expect(capturedTimers).toHaveLength(1);
-        expect(capturedTimers[0]!.delay).toBe(1000);
+        expect(capturedTimers[0]?.delay).toBe(1000);
       } finally {
         globalThis.setTimeout = origSetTimeout;
       }
@@ -756,7 +756,7 @@ describe("CollaborationProvider", () => {
         });
 
         act(() => {
-          wsInstances[0]!._simulateOpen();
+          wsInstances[0]?._simulateOpen();
         });
         act(() => {
           /* no-op */
@@ -766,7 +766,7 @@ describe("CollaborationProvider", () => {
 
         const deletedMsg = new Uint8Array([3]);
         act(() => {
-          wsInstances[0]!._simulateMessage(deletedMsg.buffer);
+          wsInstances[0]?._simulateMessage(deletedMsg.buffer);
         });
         act(() => {
           /* no-op */
@@ -792,7 +792,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -802,7 +802,7 @@ describe("CollaborationProvider", () => {
 
       const deletedMsg = new Uint8Array([3]);
       act(() => {
-        wsInstances[0]!._simulateMessage(deletedMsg.buffer);
+        wsInstances[0]?._simulateMessage(deletedMsg.buffer);
       });
       act(() => {
         /* no-op */
@@ -821,7 +821,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -838,7 +838,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -859,14 +859,14 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       // Simulate a sync message - should not throw
       const syncMsg = new Uint8Array([0, 0]);
       expect(() => {
         act(() => {
-          wsInstances[0]!._simulateMessage(syncMsg.buffer);
+          wsInstances[0]?._simulateMessage(syncMsg.buffer);
         });
       }).not.toThrow();
     });
@@ -878,14 +878,14 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       // Simulate an awareness message - should not throw
       const awarenessMsg = new Uint8Array([1, 1, 2, 3]);
       expect(() => {
         act(() => {
-          wsInstances[0]!._simulateMessage(awarenessMsg.buffer);
+          wsInstances[0]?._simulateMessage(awarenessMsg.buffer);
         });
       }).not.toThrow();
     });
@@ -897,14 +897,14 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       // Empty message should not throw
       const emptyMsg = new Uint8Array([]);
       expect(() => {
         act(() => {
-          wsInstances[0]!._simulateMessage(emptyMsg.buffer);
+          wsInstances[0]?._simulateMessage(emptyMsg.buffer);
         });
       }).not.toThrow();
     });
@@ -916,14 +916,14 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       // Unknown message type should not throw
       const unknownMsg = new Uint8Array([99]);
       expect(() => {
         act(() => {
-          wsInstances[0]!._simulateMessage(unknownMsg.buffer);
+          wsInstances[0]?._simulateMessage(unknownMsg.buffer);
         });
       }).not.toThrow();
     });
@@ -937,7 +937,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -949,9 +949,9 @@ describe("CollaborationProvider", () => {
       expect(awareness).not.toBeNull();
 
       // Second call within throttle window should be ignored
-      const statesBefore = awareness!.getStates().size;
+      const statesBefore = awareness?.getStates().size;
       getContext().updateCursor({ x: 101, y: 201 });
-      const statesAfter = awareness!.getStates().size;
+      const statesAfter = awareness?.getStates().size;
 
       expect(statesAfter).toBe(statesBefore);
     });
@@ -965,7 +965,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -985,7 +985,7 @@ describe("CollaborationProvider", () => {
       expect(getContext().connectionState).toBe("connecting");
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -1002,7 +1002,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -1020,7 +1020,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateError(new Error("Network error"));
+        wsInstances[0]?._simulateError(new Error("Network error"));
       });
 
       expect(getContext().connectionState).toBe("error");
@@ -1036,13 +1036,13 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
 
       unmount();
 
       // Cleanup should have been triggered
-      expect(wsInstances[0]!.close).toHaveBeenCalled();
+      expect(wsInstances[0]?.close).toHaveBeenCalled();
     });
   });
 
@@ -1054,7 +1054,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -1064,8 +1064,8 @@ describe("CollaborationProvider", () => {
 
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
-      const states = awareness!.getStates();
-      const localState = states.get(awareness!.clientID);
+      const states = awareness?.getStates();
+      const localState = states.get(awareness?.clientID);
       expect(localState?.selection).toEqual(["task-1", "task-2"]);
     });
 
@@ -1076,7 +1076,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -1088,8 +1088,8 @@ describe("CollaborationProvider", () => {
 
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
-      const states = awareness!.getStates();
-      const localState = states.get(awareness!.clientID);
+      const states = awareness?.getStates();
+      const localState = states.get(awareness?.clientID);
       expect(localState?.openDialogs).toHaveLength(1);
     });
 
@@ -1100,7 +1100,7 @@ describe("CollaborationProvider", () => {
       });
 
       act(() => {
-        wsInstances[0]!._simulateOpen();
+        wsInstances[0]?._simulateOpen();
       });
       act(() => {
         /* no-op */
@@ -1110,8 +1110,8 @@ describe("CollaborationProvider", () => {
 
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
-      const states = awareness!.getStates();
-      const localState = states.get(awareness!.clientID);
+      const states = awareness?.getStates();
+      const localState = states.get(awareness?.clientID);
       expect(localState?.isTyping).toBe(true);
     });
   });

@@ -879,7 +879,7 @@ export const AiDrawerContent = memo(
                         thickness={0.02}
                       />
                     );
-                  } catch (_error) {
+                  } catch {
                     // Fallback: render a simple animated border if shader fails
                     return (
                       <div

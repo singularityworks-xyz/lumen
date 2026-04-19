@@ -50,7 +50,9 @@ describe("collab-session.ts structure", () => {
   it("defines CollabSession interface with required methods", () => {
     expect(src).toContain("interface CollabSession");
     expect(src).toContain("sendSyncUpdate: (data: SyncData) => boolean");
-    expect(src).toContain("sendAwarenessUpdate: (data: AwarenessData) => boolean");
+    expect(src).toContain(
+      "sendAwarenessUpdate: (data: AwarenessData) => boolean"
+    );
     expect(src).toContain("disconnect: () => void");
     expect(src).toContain("established: boolean");
   });

@@ -9,6 +9,8 @@ import {
 } from "../helpers/commands";
 import { waitForConnectionState } from "../helpers/waits";
 
+const SAVE_AS_LOCAL_REGEX = /save as local workspace/i;
+
 test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   let ownerPage: Page;
   let viewerPage: Page;
@@ -150,7 +152,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
     await expect(deletedBanner).toBeVisible();
 
     const saveAsLocalButton = viewerPage.getByRole("button", {
-      name: /save as local workspace/i,
+      name: SAVE_AS_LOCAL_REGEX,
     });
     await expect(saveAsLocalButton).toBeVisible({ timeout: 5000 });
   });

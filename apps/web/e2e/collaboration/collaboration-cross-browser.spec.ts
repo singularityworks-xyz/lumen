@@ -1,6 +1,16 @@
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { setupTwoUsersCrossBrowser } from "../helpers/commands";
 import { waitForCollabSync } from "../helpers/waits";
+
+async function openVisibleRenameDialog(page: Page): Promise<Locator> {
+  const renameDialog = page
+    .locator('[data-testid="board-rename-dialog"]')
+    .filter({ visible: true })
+    .last();
+  await renameDialog.waitFor({ state: "visible", timeout: 5000 });
+  return renameDialog;
+}
 
 test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
   test.skip(
@@ -19,11 +29,15 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
 
     try {
       const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
+      const boardHeader = boardNode.locator('[data-testid="board-header"]');
       const boardBox = await boardNode.boundingBox();
       expect(boardBox).not.toBeNull();
 
-      const startX = boardBox!.x + boardBox!.width / 2;
-      const startY = boardBox!.y + boardBox!.height / 2;
+      const headerBox = await boardHeader.boundingBox();
+      expect(headerBox).not.toBeNull();
+
+      const startX = headerBox?.x + headerBox?.width / 2;
+      const startY = headerBox?.y + headerBox?.height / 2;
       const dragX = 200;
       const dragY = 150;
 
@@ -40,15 +54,30 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       // Verify Chrome position moved
       const ownerBox = await boardNode.boundingBox();
       expect(ownerBox).not.toBeNull();
+      const ownerDelta =
+        Math.abs(ownerBox?.x - boardBox?.x) +
+        Math.abs(ownerBox?.y - boardBox?.y);
+      expect(ownerDelta).toBeGreaterThan(30);
 
       // Verify Firefox sees the same position
       const editorBoard = editorPage
         .locator('[data-testid="board-node"]')
         .first();
-      const editorBox = await editorBoard.boundingBox();
-      expect(editorBox).not.toBeNull();
-      expect(Math.abs(editorBox!.x - ownerBox!.x)).toBeLessThan(15);
-      expect(Math.abs(editorBox!.y - ownerBox!.y)).toBeLessThan(15);
+      await expect
+        .poll(async () => {
+          const ownerCurrent = await boardNode.boundingBox();
+          const editorCurrent = await editorBoard.boundingBox();
+
+          if (!(ownerCurrent && editorCurrent)) {
+            return Number.POSITIVE_INFINITY;
+          }
+
+          return Math.max(
+            Math.abs(editorCurrent.x - ownerCurrent.x),
+            Math.abs(editorCurrent.y - ownerCurrent.y)
+          );
+        })
+        .toBeLessThan(15);
     } finally {
       await editorPage.close();
       await editorPage.context().browser()?.close();
@@ -123,13 +152,13 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       expect(targetBox).not.toBeNull();
 
       await ownerPage.mouse.move(
-        taskBox!.x + taskBox!.width / 2,
-        taskBox!.y + taskBox!.height / 2
+        taskBox?.x + taskBox?.width / 2,
+        taskBox?.y + taskBox?.height / 2
       );
       await ownerPage.mouse.down();
       await ownerPage.mouse.move(
-        targetBox!.x + targetBox!.width / 2,
-        targetBox!.y + targetBox!.height / 2,
+        targetBox?.x + targetBox?.width / 2,
+        targetBox?.y + targetBox?.height / 2,
         { steps: 10 }
       );
       await ownerPage.mouse.up();
@@ -172,8 +201,8 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
 
       // Move Chrome cursor into the board area
       await ownerPage.mouse.move(
-        boardBox!.x + boardBox!.width / 2,
-        boardBox!.y + boardBox!.height / 2
+        boardBox?.x + boardBox?.width / 2,
+        boardBox?.y + boardBox?.height / 2
       );
       // Wait for cursor to appear on Firefox
       await editorPage
@@ -207,8 +236,12 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       const editorBox = await editorBoard.boundingBox();
       expect(editorBox).not.toBeNull();
 
-      const startX = editorBox!.x + editorBox!.width / 2;
-      const startY = editorBox!.y + editorBox!.height / 2;
+      const editorHeader = editorBoard.locator('[data-testid="board-header"]');
+      const editorHeaderBox = await editorHeader.boundingBox();
+      expect(editorHeaderBox).not.toBeNull();
+
+      const startX = editorHeaderBox?.x + editorHeaderBox?.width / 2;
+      const startY = editorHeaderBox?.y + editorHeaderBox?.height / 2;
       const dragX = 150;
       const dragY = 100;
 
@@ -225,15 +258,30 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       // Verify Firefox moved
       const editorBoxAfter = await editorBoard.boundingBox();
       expect(editorBoxAfter).not.toBeNull();
+      const editorDelta =
+        Math.abs(editorBoxAfter?.x - editorBox?.x) +
+        Math.abs(editorBoxAfter?.y - editorBox?.y);
+      expect(editorDelta).toBeGreaterThan(30);
 
       // Verify Chrome sees the same position
       const ownerBoard = ownerPage
         .locator('[data-testid="board-node"]')
         .first();
-      const ownerBox = await ownerBoard.boundingBox();
-      expect(ownerBox).not.toBeNull();
-      expect(Math.abs(ownerBox!.x - editorBoxAfter!.x)).toBeLessThan(15);
-      expect(Math.abs(ownerBox!.y - editorBoxAfter!.y)).toBeLessThan(15);
+      await expect
+        .poll(async () => {
+          const ownerBox = await ownerBoard.boundingBox();
+          const editorCurrent = await editorBoard.boundingBox();
+
+          if (!(ownerBox && editorCurrent)) {
+            return Number.POSITIVE_INFINITY;
+          }
+
+          return Math.max(
+            Math.abs(ownerBox.x - editorCurrent.x),
+            Math.abs(ownerBox.y - editorCurrent.y)
+          );
+        })
+        .toBeLessThan(15);
     } finally {
       await editorPage.close();
       await editorPage.context().browser()?.close();
@@ -258,8 +306,7 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       await ownerBoard
         .locator('[data-testid="board-header"]')
         .click({ button: "right" });
-      await ownerPage.waitForSelector('[data-testid="board-rename-option"]');
-      await ownerPage.click('[data-testid="board-rename-option"]');
+      const ownerRenameDialog = await openVisibleRenameDialog(ownerPage);
 
       const editorBoard = editorPage
         .locator('[data-testid="board-node"]')
@@ -267,25 +314,18 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       await editorBoard
         .locator('[data-testid="board-header"]')
         .click({ button: "right" });
-      await editorPage.waitForSelector('[data-testid="board-rename-option"]');
-      await editorPage.click('[data-testid="board-rename-option"]');
+      const editorRenameDialog = await openVisibleRenameDialog(editorPage);
 
-      const ownerInput = ownerPage.locator(
-        '[data-testid="board-rename-dialog"] input'
-      );
+      const ownerInput = ownerRenameDialog.getByPlaceholder("New board name");
       await ownerInput.fill("Chrome Renamed");
 
-      const editorInput = editorPage.locator(
-        '[data-testid="board-rename-dialog"] input'
-      );
+      const editorInput = editorRenameDialog.getByPlaceholder("New board name");
       await editorInput.fill("Firefox Renamed");
 
-      await ownerPage.keyboard.press("Enter");
-      await editorPage.keyboard.press("Enter");
+      await ownerInput.press("Enter");
+      await editorInput.press("Enter");
       // Wait for both edits to converge
-      await ownerPage
-        .locator('[data-testid="board-rename-dialog"]')
-        .waitFor({ state: "hidden", timeout: 5000 });
+      await ownerRenameDialog.waitFor({ state: "hidden", timeout: 5000 });
 
       // Both should converge to the same name
       const ownerName = await ownerPage

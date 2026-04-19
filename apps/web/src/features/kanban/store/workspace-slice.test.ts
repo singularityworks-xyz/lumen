@@ -41,10 +41,10 @@ describe("setCurrentWorkspace", () => {
     expect(ws1.lastViewport).toEqual({ x: 100, y: 200, zoom: 1.5 });
     expect(ws1.showMiniMap).toBe(true);
     expect(ws1.savedDialogState).toBeDefined();
-    expect(ws1.savedDialogState!.boardQuickActions).toEqual({
+    expect(ws1.savedDialogState?.boardQuickActions).toEqual({
       b1: { boardId: "b1", position: { x: 10, y: 20 } },
     });
-    expect(ws1.savedDialogState!.selectedBoardId).toBe("b1");
+    expect(ws1.savedDialogState?.selectedBoardId).toBe("b1");
   });
 
   it("restores per-workspace dialog state and miniMap when switching back", () => {
@@ -319,7 +319,7 @@ describe("resetWorkspace", () => {
     expect(state.tasks.allIds).not.toContain(taskId);
     expect(state.boards.byId[boardId]).toBeDefined();
     expect(state.columns.byId[columnIds[0]!]).toBeDefined();
-    expect(state.columns.byId[columnIds[0]!]!.task_ids).toEqual([]);
+    expect(state.columns.byId[columnIds[0]!]?.task_ids).toEqual([]);
   });
 
   it("honors clearBoardsAndColumns option", () => {
@@ -344,7 +344,7 @@ describe("resetWorkspace", () => {
     expect(state.boards.allIds).not.toContain(boardId);
     expect(state.boardPositions.byId[boardId]).toBeUndefined();
     expect(state.boardPositions.allIds).not.toContain(boardId);
-    expect(state.workspaces.byId[wsId]!.board_ids).toEqual([]);
+    expect(state.workspaces.byId[wsId]?.board_ids).toEqual([]);
   });
 
   it("does nothing for non-existent workspace", () => {

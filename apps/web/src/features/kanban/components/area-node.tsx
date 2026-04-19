@@ -185,7 +185,6 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
 
           {isEditing ? (
             <input
-              autoFocus
               className="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 text-sm outline-none focus:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
               onBlur={handleNameSubmit}
               onChange={(e) => setEditName(e.target.value)}

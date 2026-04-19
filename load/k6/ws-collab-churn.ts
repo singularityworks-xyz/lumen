@@ -11,9 +11,15 @@ const initialConnectSuccess = new Rate("initial_connect_success");
 const reconnectSuccessRate = new Rate("reconnect_success_rate");
 const presenceFanoutCount = new Counter("presence_fanout_count");
 
-const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "20", 10);
-const JOIN_LEAVE_CHURN_ROUNDS = parseInt(__ENV.JOIN_LEAVE_ROUNDS || "5", 10);
-const RECONNECT_STORM_DELAY = parseInt(__ENV.RECONNECT_STORM_DELAY || "2", 10);
+const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "20", 10);
+const _JOIN_LEAVE_CHURN_ROUNDS = Number.parseInt(
+  __ENV.JOIN_LEAVE_ROUNDS || "5",
+  10
+);
+const _RECONNECT_STORM_DELAY = Number.parseInt(
+  __ENV.RECONNECT_STORM_DELAY || "2",
+  10
+);
 
 export const options = {
   scenarios: {
@@ -40,7 +46,7 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-churn-test";
 
-  if (!wsUrl || !authToken) {
+  if (!(wsUrl && authToken)) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     initialConnectSuccess.add(false);
     return;
@@ -94,7 +100,8 @@ export default function () {
 
   check(session, {
     "session has received updates from peers": (s) => s.receivedUpdates > 0,
-    "session has received awareness updates": (s) => s.receivedAwareness === true,
+    "session has received awareness updates": (s) =>
+      s.receivedAwareness === true,
     "session sync step2 received": (s) => s.receivedSyncStep2 === true,
   });
 
@@ -102,9 +109,9 @@ export default function () {
 
   sleep(1);
 
-  const reconnectStart = Date.now();
+  const _reconnectStart = Date.now();
   const reconnectSession = connectCollabSession(wsUrl, authToken, workspaceId);
-  const reconnectEnd = Date.now();
+  const _reconnectEnd = Date.now();
 
   if (reconnectSession.established) {
     reconnectSuccessRate.add(true);

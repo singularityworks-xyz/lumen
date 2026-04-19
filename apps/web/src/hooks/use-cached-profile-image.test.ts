@@ -12,13 +12,11 @@ interface UseQueryOptions {
   staleTime?: number;
 }
 
-const mockUseQuery = mock((options: UseQueryOptions) => {
-  return {
-    data: options?.queryFn ? null : undefined,
-    isLoading: false,
-    refetch: mock(() => Promise.resolve()),
-  };
-});
+const mockUseQuery = mock((options: UseQueryOptions) => ({
+  data: options?.queryFn ? null : undefined,
+  isLoading: false,
+  refetch: mock(() => Promise.resolve()),
+}));
 
 mock.module("@tanstack/react-query", () => ({
   useQuery: mockUseQuery,
@@ -78,19 +76,19 @@ describe("use-cached-profile-image", () => {
 
   it("query configuration sets enabled to false when URL is null", () => {
     renderHook(() => useCachedProfileImage(null));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.enabled).toBe(false);
   });
 
   it("query configuration sets enabled to true when URL is provided", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.enabled).toBe(true);
   });
 
   it("query configuration uses profile-image query key with the URL", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.queryKey).toEqual([
       "profile-image",
       "https://test.com/img.jpg",
@@ -100,51 +98,51 @@ describe("use-cached-profile-image", () => {
   it("query configuration uses different query keys for different URLs", () => {
     renderHook(() => useCachedProfileImage("https://test.com/1.jpg"));
     renderHook(() => useCachedProfileImage("https://test.com/2.jpg"));
-    const args1 = mockUseQuery.mock.calls[0]![0];
-    const args2 = mockUseQuery.mock.calls[1]![0];
+    const args1 = mockUseQuery.mock.calls[0]?.[0];
+    const args2 = mockUseQuery.mock.calls[1]?.[0];
     expect(args1.queryKey).not.toEqual(args2.queryKey);
   });
 
   it("query configuration sets staleTime to 1 hour", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.staleTime).toBe(3_600_000);
   });
 
   it("query configuration sets gcTime to 24 hours", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.gcTime).toBe(86_400_000);
   });
 
   it("query configuration disables refetchOnWindowFocus", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.refetchOnWindowFocus).toBe(false);
   });
 
   it("query configuration disables refetchOnMount", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.refetchOnMount).toBe(false);
   });
 
   it("query configuration sets retry to 1", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0];
+    const args = mockUseQuery.mock.calls[0]?.[0];
     expect(args.retry).toBe(1);
   });
 
   it("queryFn behavior returns null immediately when no URL", async () => {
     renderHook(() => useCachedProfileImage(null));
-    const args = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
+    const args = mockUseQuery.mock.calls[0]?.[0] as UseQueryOptions;
     const res = await args.queryFn?.();
     expect(res).toBeNull();
   });
 
   it("queryFn is defined as a function", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
+    const args = mockUseQuery.mock.calls[0]?.[0] as UseQueryOptions;
     expect(args.queryFn).toBeDefined();
     expect(typeof args.queryFn).toBe("function");
   });
@@ -160,8 +158,8 @@ describe("use-cached-profile-image", () => {
       }
     );
     rerender({ url: "https://test.com/img.jpg" });
-    const args1 = mockUseQuery.mock.calls[0]![0] as UseQueryOptions;
-    const args2 = mockUseQuery.mock.calls[1]![0] as UseQueryOptions;
+    const args1 = mockUseQuery.mock.calls[0]?.[0] as UseQueryOptions;
+    const args2 = mockUseQuery.mock.calls[1]?.[0] as UseQueryOptions;
     expect(args1.queryKey).toEqual(args2.queryKey);
   });
 
@@ -189,7 +187,7 @@ describe("use-cached-profile-image", () => {
 
   it("queryFn resolves with URL when image loads successfully", async () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
-    const args = mockUseQuery.mock.calls.at(-1)![0] as UseQueryOptions;
+    const args = mockUseQuery.mock.calls.at(-1)?.[0] as UseQueryOptions;
 
     const originalImage = globalThis.Image;
     class MockImage {
@@ -217,7 +215,7 @@ describe("use-cached-profile-image", () => {
 
   it("queryFn resolves with URL when image fails to load", async () => {
     renderHook(() => useCachedProfileImage("https://test.com/bad.jpg"));
-    const args = mockUseQuery.mock.calls.at(-1)![0] as UseQueryOptions;
+    const args = mockUseQuery.mock.calls.at(-1)?.[0] as UseQueryOptions;
 
     const originalImage = globalThis.Image;
     class MockImage {

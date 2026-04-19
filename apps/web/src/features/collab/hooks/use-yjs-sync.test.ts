@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -1460,9 +1460,7 @@ describe("useYjsSync", () => {
       storeState = state;
       mockUseKanbanStore.getState.mockReturnValue(state);
 
-      mockApplyYjsToStateWithRepair.mockImplementation(() => {
-        return state;
-      });
+      mockApplyYjsToStateWithRepair.mockImplementation(() => state);
 
       renderHook(() => useYjsSync(doc, true, "ws-1"));
 

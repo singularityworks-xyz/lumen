@@ -66,7 +66,7 @@
     },
     "apps/native": {
       "name": "@lumen/native",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-opener": "^2.5.3",
@@ -78,11 +78,11 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.17",
+      "version": "1.0.18",
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.0.78",
+      "version": "1.0.79",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -176,7 +176,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.43",
+      "version": "1.0.44",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.11",
@@ -209,7 +209,7 @@
     },
     "packages/ai": {
       "name": "@lumen/ai",
-      "version": "0.0.19",
+      "version": "0.0.20",
       "dependencies": {
         "@ai-sdk/openai-compatible": "^2.0.41",
         "@cerebras/cerebras_cloud_sdk": "^1.64.1",
@@ -230,7 +230,7 @@
     },
     "packages/db": {
       "name": "@lumen/db",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "dependencies": {
         "@prisma/adapter-pg": "^7.7.0",
         "@prisma/client": "^7.7.0",
@@ -251,7 +251,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.25",
+      "version": "0.0.26",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/api-logs": "^0.208.0",
@@ -277,7 +277,7 @@
     },
     "packages/native-bridge": {
       "name": "@lumen/native-bridge",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@lumen/logger": "workspace:^",
         "@tauri-apps/api": "^2.10.1",
@@ -294,7 +294,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "dependencies": {
         "lib0": "^0.2.117",
         "y-protocols": "^1.0.7",

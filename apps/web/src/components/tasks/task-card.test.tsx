@@ -126,9 +126,8 @@ const mockKanbanStore = {
 };
 
 mock.module("@/src/features/kanban", () => ({
-  useKanbanStore: (selector: (state: typeof mockKanbanStore) => unknown) => {
-    return selector(mockKanbanStore);
-  },
+  useKanbanStore: (selector: (state: typeof mockKanbanStore) => unknown) =>
+    selector(mockKanbanStore),
 }));
 
 const mockGetTaskDragCollaborator = mock(() => null);

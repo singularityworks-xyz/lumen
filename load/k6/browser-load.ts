@@ -1,4 +1,4 @@
-import { browser, Page } from "k6/browser";
+import { browser, type Page } from "k6/browser";
 import { Counter, Rate, Trend } from "k6/metrics";
 
 const dragLatency = new Trend("browser_drag_latency_ms");
@@ -10,8 +10,8 @@ const commentDrawerSuccess = new Rate("browser_comment_drawer_success");
 const concurrentUsersGauge = new Counter("browser_concurrent_users");
 const pageLoadTime = new Trend("browser_page_load_ms");
 
-const BROWSER_VUS = parseInt(__ENV.BROWSER_VUS || "3", 10);
-const ITERATIONS_PER_VU = parseInt(__ENV.ITERATIONS || "5", 10);
+const BROWSER_VUS = Number.parseInt(__ENV.BROWSER_VUS || "3", 10);
+const ITERATIONS_PER_VU = Number.parseInt(__ENV.ITERATIONS || "5", 10);
 const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 
 async function simulateDrag(
@@ -33,17 +33,23 @@ async function simulateDrag(
   return Date.now() - startTime;
 }
 
-async function loginAndNavigate(page: Page, workspaceId: string): Promise<boolean> {
+async function loginAndNavigate(
+  page: Page,
+  _workspaceId: string
+): Promise<boolean> {
   try {
     const startTime = Date.now();
 
-    await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle", timeout: 30000 });
+    await page.goto(`${BASE_URL}/login`, {
+      waitUntil: "networkidle",
+      timeout: 30_000,
+    });
 
     await page.fill('input[name="email"]', `load-test-${__VU}@example.com`);
     await page.fill('input[name="password"]', "test-password-123");
     await page.click('button[type="submit"]');
 
-    await page.waitForURL(`**/workspace/**`, { timeout: 15000 });
+    await page.waitForURL("**/workspace/**", { timeout: 15_000 });
 
     pageLoadTime.add(Date.now() - startTime);
     return true;
@@ -59,8 +65,8 @@ async function performDragTest(
   contentionFactor: number
 ): Promise<{ success: boolean; latency: number }> {
   try {
-    const startX = 100 + (contentionFactor * 17) % 400;
-    const startY = 100 + (contentionFactor * 23) % 300;
+    const startX = 100 + ((contentionFactor * 17) % 400);
+    const startY = 100 + ((contentionFactor * 23) % 300);
     const endX = startX + 150 + contentionFactor * 11;
     const endY = startY + 100 + contentionFactor * 7;
 
@@ -105,7 +111,10 @@ async function performTaskCreationTest(
 
     try {
       await page.waitForSelector(titleInput, { timeout: 3000 });
-      await page.fill(titleInput, `Load Test Task ${taskIndex} - ${Date.now()}`);
+      await page.fill(
+        titleInput,
+        `Load Test Task ${taskIndex} - ${Date.now()}`
+      );
     } catch {
       await page.keyboard.type(`Load Test Task ${taskIndex}`);
     }
@@ -156,7 +165,10 @@ async function performCommentDrawerTest(
       const commentInput = `textarea[placeholder*="comment" i], [data-comment-input], input[placeholder*="comment" i]`;
       try {
         await page.waitForSelector(commentInput, { timeout: 2000 });
-        await page.fill(commentInput, `Load test comment ${i + 1} - ${Date.now()}`);
+        await page.fill(
+          commentInput,
+          `Load test comment ${i + 1} - ${Date.now()}`
+        );
         await page.keyboard.press("Enter");
         await page.waitForTimeout(100);
       } catch {
@@ -200,10 +212,18 @@ async function runBrowserLoadScenario(iteration: number): Promise<void> {
       const dragResult = await performDragTest(page, boardId, contentionFactor);
       dragSuccessRate.add(dragResult.success);
 
-      const taskResult = await performTaskCreationTest(page, `column-${contentionFactor}`, round);
+      const taskResult = await performTaskCreationTest(
+        page,
+        `column-${contentionFactor}`,
+        round
+      );
       taskCreationSuccess.add(taskResult.success);
 
-      const commentResult = await performCommentDrawerTest(page, boardId, contentionFactor % 5);
+      const commentResult = await performCommentDrawerTest(
+        page,
+        boardId,
+        contentionFactor % 5
+      );
       commentDrawerSuccess.add(commentResult.success);
 
       await page.waitForTimeout(500);
@@ -221,18 +241,21 @@ async function runContentionTest(): Promise<void> {
   const page = await browser.newPage();
 
   try {
-    await page.goto(`${BASE_URL}/workspace/shared-test`, { waitUntil: "networkidle", timeout: 30000 });
+    await page.goto(`${BASE_URL}/workspace/shared-test`, {
+      waitUntil: "networkidle",
+      timeout: 30_000,
+    });
 
-    const dragPromises: Array<Promise<{ success: boolean; latency: number }>> = [];
+    const dragPromises: Promise<{ success: boolean; latency: number }>[] = [];
 
     for (let i = 0; i < 3; i++) {
       const x = 100 + i * 200;
-      const y = 200 + i * 50;
+      const _y = 200 + i * 50;
 
       dragPromises.push(
         (async () => {
           await page.waitForTimeout(i * 200);
-          return performDragTest(page, `board-contention`, x + i);
+          return performDragTest(page, "board-contention", x + i);
         })()
       );
     }

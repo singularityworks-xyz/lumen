@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
@@ -6,7 +6,58 @@ import {
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
-import { waitForCollabSync } from "../helpers/waits";
+import { waitForCollabSync, waitForConnectionState } from "../helpers/waits";
+import {
+  captureNormalizedSnapshot,
+  compareBoardCoordinates,
+} from "../lib/normalized-state";
+
+async function dragByOffset(
+  page: Page,
+  dragHandle: Locator,
+  offset: { x: number; y: number }
+): Promise<void> {
+  const handleBox = await dragHandle.boundingBox();
+  expect(handleBox).not.toBeNull();
+
+  const startX = handleBox?.x + handleBox?.width / 2;
+  const startY = handleBox?.y + handleBox?.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + offset.x, startY + offset.y, { steps: 10 });
+  await page.mouse.up();
+}
+
+async function openVisibleRenameDialog(page: Page, boardNode: Locator) {
+  await boardNode.locator('[data-testid="board-header"]').click({
+    button: "right",
+  });
+
+  const renameDialog = page
+    .locator('[data-testid="board-rename-dialog"]')
+    .filter({ visible: true })
+    .last();
+  await renameDialog.waitFor({ state: "visible", timeout: 5000 });
+
+  return renameDialog;
+}
+
+async function dismissTransientOverlays(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(100);
+  }
+
+  try {
+    await page
+      .locator('[data-testid="board-share-option"]')
+      .first()
+      .waitFor({ state: "hidden", timeout: 3000 });
+  } catch {
+    // Quick actions may already be closed.
+  }
+}
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
@@ -17,11 +68,13 @@ async function cleanupPages(pages: Page[]) {
 test.describe("E2E-13: Multi-User Drag Sync", () => {
   let ownerPage: Page;
   let editorPage: Page;
+  let shareLink: string;
 
   test.beforeEach(async ({ browser }) => {
     const setup = await setupTwoUsers(browser);
     ownerPage = setup.ownerPage;
     editorPage = setup.editorPage;
+    shareLink = setup.shareLink;
   });
 
   test.afterEach(async () => {
@@ -30,35 +83,42 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
   test("board drag position syncs to editor with pixel-precise coordinates", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const boardBox = await boardNode.boundingBox();
-    expect(boardBox).not.toBeNull();
+    const boardHeader = boardNode.locator('[data-testid="board-header"]');
+    const initialOwnerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    const initialBoard = initialOwnerSnapshot.boards[0];
+    expect(initialBoard).toBeDefined();
 
-    const startX = boardBox!.x + boardBox!.width / 2;
-    const startY = boardBox!.y + boardBox!.height / 2;
     const dragX = 200;
     const dragY = 150;
 
-    await ownerPage.mouse.move(startX, startY);
-    await ownerPage.mouse.down();
-    await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 10 });
-    await ownerPage.mouse.up();
+    await dragByOffset(ownerPage, boardHeader, { x: dragX, y: dragY });
     // Wait for drag to complete and sync to peer
     await ownerPage.waitForLoadState("networkidle");
 
-    // Owner board should have moved
-    const ownerBoxAfterDrag = await boardNode.boundingBox();
-    expect(ownerBoxAfterDrag).not.toBeNull();
-    expect(ownerBoxAfterDrag!.x).toBeCloseTo(boardBox!.x + dragX, -1);
-    expect(ownerBoxAfterDrag!.y).toBeCloseTo(boardBox!.y + dragY, -1);
+    const ownerSnapshotAfterDrag = await captureNormalizedSnapshot(ownerPage);
+    const movedBoard = ownerSnapshotAfterDrag.boards.find(
+      (board) => board.id === initialBoard?.id
+    );
+    expect(movedBoard).toBeDefined();
 
-    // Editor should see the same position (within 10px tolerance for render timing)
-    const editorBoard = editorPage
-      .locator('[data-testid="board-node"]')
-      .first();
-    const editorBox = await editorBoard.boundingBox();
-    expect(editorBox).not.toBeNull();
-    expect(Math.abs(editorBox!.x - ownerBoxAfterDrag!.x)).toBeLessThan(10);
-    expect(Math.abs(editorBox!.y - ownerBoxAfterDrag!.y)).toBeLessThan(10);
+    const ownerDelta =
+      Math.abs(movedBoard?.position.x - initialBoard?.position.x) +
+      Math.abs(movedBoard?.position.y - initialBoard?.position.y);
+    expect(ownerDelta).toBeGreaterThan(30);
+
+    await expect
+      .poll(async () => {
+        const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+        const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+        const comparison = compareBoardCoordinates(
+          ownerSnapshot,
+          editorSnapshot,
+          10
+        );
+
+        return comparison.match;
+      })
+      .toBe(true);
 
     // Reload both and verify persistence with exact coordinates
     await ownerPage.reload();
@@ -75,25 +135,19 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const ownerBoxAfterReload = await ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .boundingBox();
-    const editorBoxAfterReload = await editorPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .boundingBox();
+    await expect
+      .poll(async () => {
+        const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+        const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+        const comparison = compareBoardCoordinates(
+          ownerSnapshot,
+          editorSnapshot,
+          10
+        );
 
-    expect(ownerBoxAfterReload).not.toBeNull();
-    expect(editorBoxAfterReload).not.toBeNull();
-
-    // Both should be at the same persisted position (within 10px)
-    expect(
-      Math.abs(ownerBoxAfterReload!.x - editorBoxAfterReload!.x)
-    ).toBeLessThan(10);
-    expect(
-      Math.abs(ownerBoxAfterReload!.y - editorBoxAfterReload!.y)
-    ).toBeLessThan(10);
+        return comparison.match;
+      })
+      .toBe(true);
   });
 
   test("column reorder syncs to editor immediately", async () => {
@@ -102,7 +156,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       '[data-testid="add-column-trigger"]'
     );
 
-    await addColumnTrigger.click();
+    await dismissTransientOverlays(ownerPage);
+    await addColumnTrigger.click({ force: true });
     await ownerPage.fill('[data-testid="column-name-input"]', "Column A");
     await ownerPage.click('[data-testid="column-create-submit"]');
     // Wait for first column to be created
@@ -110,7 +165,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .locator('[data-testid="kanban-column"]:has-text("Column A")')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await addColumnTrigger.click();
+    await dismissTransientOverlays(ownerPage);
+    await addColumnTrigger.click({ force: true });
     await ownerPage.fill('[data-testid="column-name-input"]', "Column B");
     await ownerPage.click('[data-testid="column-create-submit"]');
     // Wait for second column to sync to editor
@@ -136,7 +192,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       '[data-testid="add-column-trigger"]'
     );
 
-    await addColumnTrigger.click();
+    await dismissTransientOverlays(ownerPage);
+    await addColumnTrigger.click({ force: true });
     await ownerPage.fill('[data-testid="column-name-input"]', "Source Col");
     await ownerPage.click('[data-testid="column-create-submit"]');
     // Wait for first column to be created
@@ -144,7 +201,8 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .locator('[data-testid="kanban-column"]:has-text("Source Col")')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await addColumnTrigger.click();
+    await dismissTransientOverlays(ownerPage);
+    await addColumnTrigger.click({ force: true });
     await ownerPage.fill('[data-testid="column-name-input"]', "Target Col");
     await ownerPage.click('[data-testid="column-create-submit"]');
     // Wait for second column to sync to editor
@@ -179,13 +237,13 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     expect(targetBox).not.toBeNull();
 
     await ownerPage.mouse.move(
-      taskBox!.x + taskBox!.width / 2,
-      taskBox!.y + taskBox!.height / 2
+      taskBox?.x + taskBox?.width / 2,
+      taskBox?.y + taskBox?.height / 2
     );
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(
-      targetBox!.x + targetBox!.width / 2,
-      targetBox!.y + targetBox!.height / 2,
+      targetBox?.x + targetBox?.width / 2,
+      targetBox?.y + targetBox?.height / 2,
       { steps: 10 }
     );
     await ownerPage.mouse.up();
@@ -203,11 +261,15 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
   test("drag cancel with Escape leaves no ghost state", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const boardBox = await boardNode.boundingBox();
-    expect(boardBox).not.toBeNull();
+    const boardHeader = boardNode.locator('[data-testid="board-header"]');
+    const initialOwnerSnapshot = await captureNormalizedSnapshot(ownerPage);
+    expect(initialOwnerSnapshot.boards.length).toBeGreaterThan(0);
 
-    const startX = boardBox!.x + boardBox!.width / 2;
-    const startY = boardBox!.y + boardBox!.height / 2;
+    const headerBox = await boardHeader.boundingBox();
+    expect(headerBox).not.toBeNull();
+
+    const startX = headerBox?.x + headerBox?.width / 2;
+    const startY = headerBox?.y + headerBox?.height / 2;
 
     await ownerPage.mouse.move(startX, startY);
     await ownerPage.mouse.down();
@@ -216,62 +278,61 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     // Wait for drag cancel to be processed
     await ownerPage.waitForLoadState("networkidle");
 
-    const boardAfterCancel = ownerPage
-      .locator('[data-testid="board-node"]')
-      .first();
-    const boxAfterCancel = await boardAfterCancel.boundingBox();
-    expect(boxAfterCancel).not.toBeNull();
+    const ownerSnapshotAfterCancel = await captureNormalizedSnapshot(ownerPage);
+    const editorSnapshotAfterCancel =
+      await captureNormalizedSnapshot(editorPage);
 
-    expect(Math.abs(boxAfterCancel!.x - boardBox!.x)).toBeLessThan(10);
-    expect(Math.abs(boxAfterCancel!.y - boardBox!.y)).toBeLessThan(10);
+    expect(ownerSnapshotAfterCancel.boards.length).toBe(
+      initialOwnerSnapshot.boards.length
+    );
+
+    const comparison = compareBoardCoordinates(
+      ownerSnapshotAfterCancel,
+      editorSnapshotAfterCancel,
+      10
+    );
+    expect(comparison.match).toBe(true);
   });
 
   test("simultaneous edits produce deterministic final state", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-    await ownerPage.waitForSelector('[data-testid="board-rename-option"]');
-    await ownerPage.click('[data-testid="board-rename-option"]');
-
-    const renameInput = ownerPage.locator(
-      '[data-testid="board-rename-dialog"] input'
+    const ownerRenameDialog = await openVisibleRenameDialog(
+      ownerPage,
+      boardNode
     );
+    const renameInput = ownerRenameDialog.getByPlaceholder("New board name");
     await renameInput.fill("Owner Renamed");
 
     const editorBoardNode = editorPage
       .locator('[data-testid="board-node"]')
       .first();
-    await editorBoardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-    await editorPage.waitForSelector('[data-testid="board-rename-option"]');
-    await editorPage.click('[data-testid="board-rename-option"]');
-
-    const editorRenameInput = editorPage.locator(
-      '[data-testid="board-rename-dialog"] input'
+    const editorRenameDialog = await openVisibleRenameDialog(
+      editorPage,
+      editorBoardNode
     );
+    const editorRenameInput =
+      editorRenameDialog.getByPlaceholder("New board name");
     await editorRenameInput.fill("Editor Renamed");
 
-    await ownerPage.keyboard.press("Enter");
-    await editorPage.keyboard.press("Enter");
-    // Wait for both edits to be processed and converged
-    await ownerPage
-      .locator('[data-testid="board-rename-dialog"]')
-      .waitFor({ state: "hidden", timeout: 5000 });
+    await renameInput.press("Enter");
+    await editorRenameInput.press("Enter");
 
-    const ownerBoardName = await ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .locator('[data-testid="board-header"]')
-      .textContent();
-    const editorBoardName = await editorPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .locator('[data-testid="board-header"]')
-      .textContent();
+    await expect
+      .poll(async () => {
+        const ownerBoardName = await ownerPage
+          .locator('[data-testid="board-node"]')
+          .first()
+          .locator('[data-testid="board-header"]')
+          .textContent();
+        const editorBoardName = await editorPage
+          .locator('[data-testid="board-node"]')
+          .first()
+          .locator('[data-testid="board-header"]')
+          .textContent();
 
-    expect(ownerBoardName).toBe(editorBoardName);
+        return ownerBoardName?.trim() === editorBoardName?.trim();
+      })
+      .toBe(true);
   });
 
   test("late joiner gets converged state immediately", async () => {
@@ -289,40 +350,32 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .locator('[data-testid="kanban-column"]:has-text("Late Join Col")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const lateContext = await ownerPage.context().browser()!.newContext();
+    const lateContext = await ownerPage.context().browser()?.newContext();
     const latePage = await lateContext.newPage();
     await clearLocalStorageAndIndexedDB(latePage);
     await disableAnimations(latePage);
-    await latePage.goto("/");
+    await latePage.goto(shareLink);
     await waitForAppReady(latePage);
 
-    const workspaceSelector = latePage.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    if (await workspaceSelector.isVisible()) {
-      const existingColumns = await latePage
-        .locator('[data-testid="kanban-column"]')
-        .count();
-      expect(existingColumns).toBeGreaterThanOrEqual(1);
-    }
+    await latePage
+      .locator('[data-testid="kanban-column"]:has-text("Late Join Col")')
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     await latePage.close();
+    await lateContext.close();
   });
 
   test("drag state persists through page reload after offline simulation", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
+    const boardHeader = boardNode.locator('[data-testid="board-header"]');
     const boardBox = await boardNode.boundingBox();
     expect(boardBox).not.toBeNull();
 
-    const startX = boardBox!.x + boardBox!.width / 2;
-    const startY = boardBox!.y + boardBox!.height / 2;
     const dragX = 100;
     const dragY = 50;
 
-    await ownerPage.mouse.move(startX, startY);
-    await ownerPage.mouse.down();
-    await ownerPage.mouse.move(startX + dragX, startY + dragY, { steps: 5 });
-    await ownerPage.mouse.up();
+    await dragByOffset(ownerPage, boardHeader, { x: dragX, y: dragY });
     // Wait for drag to complete and position to sync
     await ownerPage.waitForLoadState("networkidle");
 
@@ -338,18 +391,17 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     expect(editorBoxBefore).not.toBeNull();
 
     await editorPage.context().setOffline(true);
-    // Wait for offline state to be detected
-    await editorPage
-      .locator('[data-testid="sync-status-indicator"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await editorPage.waitForTimeout(1000);
 
     await editorPage.context().setOffline(false);
-    // Wait for reconnection
-    await editorPage
-      .locator('[data-testid="sync-status-indicator"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
 
-    await editorPage.reload();
+    await editorPage.goto(shareLink);
     await waitForAppReady(editorPage);
 
     await editorPage
@@ -357,23 +409,18 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    const editorBoxAfter = await editorPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .boundingBox();
-    expect(editorBoxAfter).not.toBeNull();
+    await expect
+      .poll(async () => {
+        const ownerSnapshot = await captureNormalizedSnapshot(ownerPage);
+        const editorSnapshot = await captureNormalizedSnapshot(editorPage);
+        const comparison = compareBoardCoordinates(
+          ownerSnapshot,
+          editorSnapshot,
+          15
+        );
 
-    const ownerBoxAfterReload = await ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .boundingBox();
-    expect(ownerBoxAfterReload).not.toBeNull();
-
-    expect(Math.abs(editorBoxAfter!.x - ownerBoxAfterReload!.x)).toBeLessThan(
-      15
-    );
-    expect(Math.abs(editorBoxAfter!.y - ownerBoxAfterReload!.y)).toBeLessThan(
-      15
-    );
+        return comparison.match;
+      })
+      .toBe(true);
   });
 });

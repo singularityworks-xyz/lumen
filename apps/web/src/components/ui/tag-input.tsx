@@ -1,5 +1,3 @@
-"use strict";
-
 import { Check, X } from "lucide-react";
 import * as React from "react";
 import { Badge } from "@/src/components/ui/badge";
@@ -17,13 +15,13 @@ import {
 } from "@/src/components/ui/popover";
 import { cn } from "@/src/lib/utils";
 
-export type TagInputProps = {
-  placeholder?: string;
-  tags: string[];
-  suggestions: string[];
-  onTagsChange: (tags: string[]) => void;
+export interface TagInputProps {
   className?: string;
-};
+  onTagsChange: (tags: string[]) => void;
+  placeholder?: string;
+  suggestions: string[];
+  tags: string[];
+}
 
 export function TagInput({
   placeholder = "Add tags...",
@@ -35,24 +33,25 @@ export function TagInput({
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
   const [triggerWidth, setTriggerWidth] = React.useState(0);
-  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   React.useLayoutEffect(() => {
     if (triggerRef.current) {
       setTriggerWidth(triggerRef.current.offsetWidth);
     }
-  }, [tags]);
+  }, []);
   // Actually, ResizeObserver would be better, but simplified for now:
   React.useEffect(() => {
-     if (!triggerRef.current) return;
-     const observer = new ResizeObserver((entries) => {
-       for (const entry of entries) {
-         setTriggerWidth(entry.contentRect.width);
-       }
-     });
-     observer.observe(triggerRef.current);
-     return () => observer.disconnect();
-
+    if (!triggerRef.current) {
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setTriggerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(triggerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -63,7 +62,9 @@ export function TagInput({
 
   const handleSelect = (tag: string) => {
     // If tag is already selected, don't add it again (though UI should prevent this via filtering)
-    if (tags.includes(tag)) return;
+    if (tags.includes(tag)) {
+      return;
+    }
     onTagsChange([...tags, tag]);
     setInputValue("");
     // Keep open for multiple selections if desired, or close.
@@ -81,41 +82,47 @@ export function TagInput({
     }
     if (e.key === "Backspace" && !inputValue && tags.length > 0) {
       // Remove last tag on backspace if input is empty
-      handleUnselect(tags[tags.length - 1] ?? "");
+      handleUnselect(tags.at(-1) ?? "");
     }
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
-        <div
-          ref={triggerRef}
+        <button
+          aria-expanded={open}
+          aria-haspopup="dialog"
           className={cn(
-            "flex min-h-10 w-full flex-wrap gap-1.5 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-muted/50 dark:hover:bg-secondary/50 cursor-text",
+            "flex min-h-10 w-full cursor-text flex-wrap gap-1.5 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-muted/50 dark:hover:bg-secondary/50",
             className
-)}
+          )}
           onClick={() => setOpen(true)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
-              if (e.key === " ") e.preventDefault();
+              if (e.key === " ") {
+                e.preventDefault();
+              }
               setOpen(true);
             }
           }}
-          tabIndex={0}
-          role="button"
-          aria-haspopup="dialog"
-          aria-expanded={open}
+          ref={triggerRef}
+          type="button"
         >
           {tags.map((tag) => (
             <Badge
+              className="gap-1 rounded-sm px-1.5 font-normal"
               key={tag}
               variant="secondary"
-              className="gap-1 rounded-sm px-1.5 font-normal"
             >
               {tag}
               <button
                 aria-label={`Remove ${tag}`}
-                className="ml-1 rounded-full ring-offset-background hover:bg-destructive/20 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
+                className="ml-1 rounded-full ring-offset-background hover:bg-destructive/20 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUnselect(tag);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleUnselect(tag);
@@ -125,11 +132,6 @@ export function TagInput({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleUnselect(tag);
-                }}
                 type="button"
               >
                 <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
@@ -137,71 +139,71 @@ export function TagInput({
             </Badge>
           ))}
           <input
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-[80px]"
-            value={inputValue}
+            className="min-w-[80px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={tags.length === 0 ? placeholder : ""}
+            readOnly
             ref={inputRef}
-            readOnly // Make readOnly to rely on CommandInput inside Popover for typing?
-            // Actually, better UX: This "trigger" area just shows tags.
-            // But we want to type here too?
-            // Shadcn pattern: The trigger is just a button. The content has the command input.
-            // BUT user wants typical "tag input" where you type inline.
-            // Let's hide this input if we are relying on CommandInput inside.
-            // OR we make this look like an input, and clicking opens the popover which contains the autocomplete list.
-            // Let's try: render a fake cursor or placeholder. When clicked, open popover.
-            // Actually, for "Tag Input", usually you type right there.
-            // If I use Popover, the focus moves to Popover content.
-            // Let's use `Command` directly inline? No, `Command` takes up space.
-            // Let's stick to: Click box -> Popover opens with CommandInput auto-focused.
+            value={inputValue}
           />
-        </div>
+        </button>
       </PopoverTrigger>
-      <PopoverContent className="p-0" style={{ width: triggerWidth }} align="start">
+      <PopoverContent
+        align="start"
+        className="p-0"
+        style={{ width: triggerWidth }}
+      >
         <Command>
           <CommandInput
+            onValueChange={setInputValue}
             placeholder={placeholder}
             value={inputValue}
-            onValueChange={setInputValue}
           />
           <CommandList>
             {/* If input has value but no matches, show "Create tag" option? */}
             {(() => {
               const trimmed = inputValue?.trim();
-              if (!trimmed || suggestions.includes(trimmed) || tags.includes(trimmed))
+              if (
+                !trimmed ||
+                suggestions.includes(trimmed) ||
+                tags.includes(trimmed)
+              ) {
                 return null;
+              }
               return (
                 <CommandItem
-                  onSelect={() => handleSelect(inputValue)}
                   className="flex justify-between"
+                  onSelect={() => handleSelect(inputValue)}
                 >
                   Create "{trimmed}"
-                  <span className="text-xs text-muted-foreground">New</span>
+                  <span className="text-muted-foreground text-xs">New</span>
                 </CommandItem>
               );
             })()}
 
-            <CommandGroup 
-              heading="Suggestions" 
+            <CommandGroup
               className="[&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-wrap [&_[cmdk-group-items]]:gap-1 [&_[cmdk-group-items]]:p-1"
+              heading="Suggestions"
             >
               {suggestions.map((suggestion) => (
                 <CommandItem
+                  className="flex w-auto justify-between rounded-full border bg-secondary/20 px-2.5 py-0.5 text-secondary-foreground text-xs aria-selected:bg-secondary aria-selected:text-secondary-foreground"
                   key={suggestion}
                   onSelect={() => handleSelect(suggestion)}
-                  className="flex justify-between w-auto rounded-full border bg-secondary/20 px-2.5 py-0.5 text-xs text-secondary-foreground aria-selected:bg-secondary aria-selected:text-secondary-foreground"
                 >
                   {suggestion}
-                  {tags.includes(suggestion) && <Check className="ml-1.5 h-3 w-3 opacity-100" />}
+                  {tags.includes(suggestion) && (
+                    <Check className="ml-1.5 h-3 w-3 opacity-100" />
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
-             {suggestions.length === 0 && !inputValue && (
-               <div className="py-6 text-center text-sm text-muted-foreground">
-                 No suggestions found.
-               </div>
-   )}
+            {suggestions.length === 0 && !inputValue && (
+              <div className="py-6 text-center text-muted-foreground text-sm">
+                No suggestions found.
+              </div>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

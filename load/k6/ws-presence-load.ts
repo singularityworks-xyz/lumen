@@ -7,8 +7,8 @@ const cursorMovementCount = new Counter("cursor_movement_count");
 const cursorPositionDrift = new Trend("cursor_position_drift_pixels");
 const collaboratorCountTrend = new Trend("collaborator_count");
 
-const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "20", 10);
-const CURSOR_ROUNDS = parseInt(__ENV.CURSOR_ROUNDS || "20", 10);
+const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "20", 10);
+const CURSOR_ROUNDS = Number.parseInt(__ENV.CURSOR_ROUNDS || "20", 10);
 
 export const options = {
   scenarios: {
@@ -32,7 +32,7 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-presence-test";
 
-  if (!wsUrl || !authToken) {
+  if (!(wsUrl && authToken)) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     return;
   }
@@ -84,7 +84,7 @@ export default function () {
 }
 
 export function handleSummary(data: {
-  metrics: Record<string, { values: Record<string, number> } };
+  metrics: Record<string, { values: Record<string, number> }>;
 }) {
   return {
     "presence-summary": JSON.stringify(data.metrics, null, 2),

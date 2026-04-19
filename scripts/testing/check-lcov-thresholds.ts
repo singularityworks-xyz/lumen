@@ -107,7 +107,9 @@ function checkThresholds(lcovPath: string): void {
       );
     } else {
       const pct = (coverage * 100).toFixed(1);
-      console.log(`✓ ${monitoredPath}: ${pct}% (min: ${(threshold * 100).toFixed(1)}%)`);
+      console.log(
+        `✓ ${monitoredPath}: ${pct}% (min: ${(threshold * 100).toFixed(1)}%)`
+      );
     }
   }
 
@@ -120,7 +122,7 @@ function checkThresholds(lcovPath: string): void {
   }
 
   console.log(
-    `\n✓ All monitored paths meet their per-path line coverage thresholds.`
+    "\n✓ All monitored paths meet their per-path line coverage thresholds."
   );
 }
 

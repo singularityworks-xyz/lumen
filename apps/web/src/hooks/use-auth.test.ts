@@ -178,7 +178,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback!(
+      await registeredCallback?.(
         "lumen://auth/callback?success=true&token=valid-token"
       );
 
@@ -208,7 +208,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback!("lumen://some/other/path");
+      await registeredCallback?.("lumen://some/other/path");
       expect(mockFetch).not.toHaveBeenCalled();
       expect(mockRefetch).not.toHaveBeenCalled();
     });
@@ -233,7 +233,7 @@ describe("useAuth", () => {
         await result.current.signInWithGitHub();
 
         expect(mockOpenExternalBrowser).toHaveBeenCalled();
-        const arg = mockOpenExternalBrowser.mock.calls[0]![0] as string;
+        const arg = mockOpenExternalBrowser.mock.calls[0]?.[0] as string;
         expect(arg).toContain("github");
         expect(arg).toContain("/auth/native-signin");
         expect(mockSignInSocial).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe("useAuth", () => {
       await result.current.signInWithGitHub();
 
       expect(mockSignInSocial).toHaveBeenCalled();
-      const arg = mockSignInSocial.mock.calls[0]![0] as SignInSocialOptions;
+      const arg = mockSignInSocial.mock.calls[0]?.[0] as SignInSocialOptions;
       expect(arg.provider).toBe("github");
       expect(arg.callbackURL).toBeTruthy();
     });
@@ -357,7 +357,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback!(
+      await registeredCallback?.(
         "lumen://auth/callback?error=access_denied&error_description=User+denied"
       );
 
@@ -379,7 +379,7 @@ describe("useAuth", () => {
       renderHook(() => useAuth());
 
       // success=true but token is empty — exchange should not happen
-      await registeredCallback!("lumen://auth/callback?success=true&token=");
+      await registeredCallback?.("lumen://auth/callback?success=true&token=");
 
       // refetch should not be called since there's no valid token
       expect(mockRefetch).not.toHaveBeenCalled();
@@ -448,7 +448,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback!(
+      await registeredCallback?.(
         "lumen://auth/callback?success=true&token=expired-token"
       );
 
@@ -469,7 +469,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback!(
+      await registeredCallback?.(
         "lumen://auth/callback?success=true&token=bad-token"
       );
 
@@ -489,7 +489,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback!("lumen://auth/callback");
+      await registeredCallback?.("lumen://auth/callback");
 
       expect(mockFetch).not.toHaveBeenCalled();
     });

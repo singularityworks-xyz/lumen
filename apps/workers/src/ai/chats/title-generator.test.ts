@@ -170,11 +170,11 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    expect(callArgs.messages[0]!.role).toBe("user");
-    expect(callArgs.messages[0]!.content).toContain("User: Hello world");
-    expect(callArgs.messages[0]!.content).toContain("Larity: Hi there!");
-    expect(callArgs.messages[0]!.content).toContain("User: Help me");
-    expect(callArgs.messages[0]!.content).toContain("Larity: Sure");
+    expect(callArgs.messages[0]?.role).toBe("user");
+    expect(callArgs.messages[0]?.content).toContain("User: Hello world");
+    expect(callArgs.messages[0]?.content).toContain("Larity: Hi there!");
+    expect(callArgs.messages[0]?.content).toContain("User: Help me");
+    expect(callArgs.messages[0]?.content).toContain("Larity: Sure");
   });
 
   it("truncates message content to 500 characters", async () => {
@@ -193,7 +193,7 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    const userContent = callArgs.messages[0]!.content;
+    const userContent = callArgs.messages[0]?.content;
     expect(userContent).toContain("A".repeat(500));
     expect(userContent).not.toContain("A".repeat(501));
   });
@@ -220,7 +220,7 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    const content = callArgs.messages[0]!.content;
+    const content = callArgs.messages[0]?.content;
     expect(content).toContain("Message 6");
     expect(content).not.toContain("Message 7");
   });

@@ -74,9 +74,9 @@ test.describe("Native App Smoke Tests", () => {
   test("websocket connection path is configured", async ({ page }) => {
     await page.goto("http://localhost:3000");
 
-    const hasWebSocketSupport = await page.evaluate(() => {
-      return typeof WebSocket !== "undefined";
-    });
+    const hasWebSocketSupport = await page.evaluate(
+      () => typeof WebSocket !== "undefined"
+    );
     expect(hasWebSocketSupport).toBeTruthy();
   });
 

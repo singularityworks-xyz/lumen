@@ -104,26 +104,26 @@ describe("Logger", () => {
 
     it("uses 'lumen' as default name", () => {
       createLogger({ level: "info" }).info("test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("lumen");
     });
 
     it("uses custom name when provided", () => {
       createLogger({ level: "info", name: "custom-logger-name" }).info("test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("custom-logger-name");
     });
 
     it("uses custom base fields", () => {
       createLogger({ level: "info", base: { myKey: "myVal" } }).info("x");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"myKey":"myVal"');
     });
 
     it("applies default pretty=false in production", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("plain");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).not.toContain("\x1b[");
     });
   });
@@ -145,7 +145,7 @@ describe("Logger", () => {
       });
       const child = createChildLogger(parent, { b: 2 });
       child.info("from child");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"a":1');
       expect(call).toContain('"b":2');
     });
@@ -168,7 +168,7 @@ describe("Logger", () => {
           const l = createLogger({ level: threshold });
           for (const msgLevel of allLevels) {
             consoleLogMock.mockClear();
-            (l as unknown as Record<string, (m: string) => void>)[msgLevel]!(
+            (l as unknown as Record<string, (m: string) => void>)[msgLevel]?.(
               "msg"
             );
             const msgIdx = allLevels.indexOf(msgLevel);
@@ -240,14 +240,14 @@ describe("Logger", () => {
       const l = createLogger({ level: "info", pretty: false });
       const msg = "A very plain message";
       l.info(msg);
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain(msg);
     });
 
     it("logs string msg with extra object", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("hello", { key: "value" });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("hello");
       expect(call).toContain('"key":"value"');
     });
@@ -255,7 +255,7 @@ describe("Logger", () => {
     it("ignores second string arg", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("msg", "ignored" as any);
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("msg");
       expect(call).not.toContain("ignored");
     });
@@ -265,7 +265,7 @@ describe("Logger", () => {
     it("logs object with msg property", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ msg: "from obj", extra: 1 });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("from obj");
       expect(call).toContain('"extra":1');
     });
@@ -273,7 +273,7 @@ describe("Logger", () => {
     it("logs object with second string as message", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ extra: 1 }, "override msg");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("override msg");
       expect(call).toContain('"extra":1');
     });
@@ -281,7 +281,7 @@ describe("Logger", () => {
     it("merges two objects when both args are objects", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ a: 1 }, { b: 2 });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"a":1');
       expect(call).toContain('"b":2');
     });
@@ -289,7 +289,7 @@ describe("Logger", () => {
     it("handles empty msg string when object has no msg property", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ key: "val" });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"key":"val"');
     });
   });
@@ -298,7 +298,7 @@ describe("Logger", () => {
     it("uses pretty ANSI formatting when pretty=true", () => {
       const l = createLogger({ level: "info", pretty: true });
       l.info("pretty msg");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("\x1b["); // ANSI escape
       expect(call).toContain("INFO");
       expect(call).toContain("pretty msg");
@@ -307,7 +307,7 @@ describe("Logger", () => {
     it("uses plain formatting when pretty=false", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("plain msg");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).not.toContain("\x1b[");
       expect(call).toContain("INFO");
       expect(call).toContain("plain msg");
@@ -316,7 +316,7 @@ describe("Logger", () => {
     it("includes ISO timestamp in output", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("ts test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       // ISO date pattern
       expect(call).toMatch(ISO_TIMESTAMP_REGEX);
     });
@@ -324,7 +324,7 @@ describe("Logger", () => {
     it("includes extra fields as JSON in plain mode", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("msg", { foo: "bar", count: 42 });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"foo":"bar"');
       expect(call).toContain('"count":42');
     });
@@ -332,7 +332,7 @@ describe("Logger", () => {
     it("includes base env field in output", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("env test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"env"');
     });
 
@@ -347,11 +347,11 @@ describe("Logger", () => {
       ] as LogLevel[]) {
         consoleLogMock.mockClear();
         const l = createLogger({ level, pretty: true });
-        (l as unknown as Record<string, (m: string) => void>)[level]!(
+        (l as unknown as Record<string, (m: string) => void>)[level]?.(
           "color test"
         );
         expect(consoleLogMock).toHaveBeenCalled();
-        const call = consoleLogMock.mock.calls[0]![0]! as string;
+        const call = consoleLogMock.mock.calls[0]?.[0]! as string;
         expect(call).toContain("\x1b[");
         expect(call).toContain(level.toUpperCase());
       }
@@ -370,11 +370,12 @@ describe("Logger", () => {
       for (const [level] of Object.entries(levelToSeverity)) {
         emitMock.mockClear();
         const l = createLogger({ level: level as LogLevel, name: "sev-test" });
-        (l as unknown as Record<string, (m: string) => void>)[level]!("test");
+        (l as unknown as Record<string, (m: string) => void>)[level]?.("test");
         expect(emitMock).toHaveBeenCalled();
-        const data = emitMock.mock.calls[0]![0];
-        expect(data.attributes["logger.name"]).toBe("sev-test");
-        expect(data.severityNumber).toBe(
+        const data = emitMock.mock.calls[0]?.[0];
+        expect(data).toBeDefined();
+        expect(data!.attributes["logger.name"]).toBe("sev-test");
+        expect(data!.severityNumber).toBe(
           levelToSeverity[level as LogLevel] as number
         );
       }
@@ -384,7 +385,7 @@ describe("Logger", () => {
       for (const level of ["trace", "debug"] as const) {
         emitMock.mockClear();
         const l = createLogger({ level, name: "sev-test" });
-        (l as unknown as Record<string, (m: string) => void>)[level]!("test");
+        (l as unknown as Record<string, (m: string) => void>)[level]?.("test");
         expect(emitMock).not.toHaveBeenCalled();
       }
     });
@@ -392,8 +393,9 @@ describe("Logger", () => {
     it("emits with logger.name attribute", () => {
       const l = createLogger({ level: "info", name: "custom-name" });
       l.info("test");
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["logger.name"]).toBe("custom-name");
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes["logger.name"]).toBe("custom-name");
     });
 
     it("includes string/number/boolean attributes", () => {
@@ -403,18 +405,20 @@ describe("Logger", () => {
         numKey: 42,
         boolKey: true,
       });
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes.strKey).toBe("hello");
-      expect(data.attributes.numKey).toBe(42);
-      expect(data.attributes.boolKey).toBe(true);
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes.strKey).toBe("hello");
+    expect(data!.attributes.numKey).toBe(42);
+    expect(data!.attributes.boolKey).toBe(true);
     });
 
     it("serializes non-primitive attributes as JSON", () => {
       const l = createLogger({ level: "info" });
       l.info("test", { nested: { deep: true }, arr: [1, 2, 3] });
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes.nested).toBe('{"deep":true}');
-      expect(data.attributes.arr).toBe("[1,2,3]");
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes.nested).toBe('{"deep":true}');
+    expect(data!.attributes.arr).toBe("[1,2,3]");
     });
 
     it("skips null and undefined attributes", () => {
@@ -424,10 +428,11 @@ describe("Logger", () => {
         undefinedField: undefined,
         okField: "yes",
       });
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes.nullField).toBeUndefined();
-      expect(data.attributes.undefinedField).toBeUndefined();
-      expect(data.attributes.okField).toBe("yes");
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes.nullField).toBeUndefined();
+    expect(data!.attributes.undefinedField).toBeUndefined();
+    expect(data!.attributes.okField).toBe("yes");
     });
 
     it("prefixes base attributes with base.*", () => {
@@ -436,9 +441,10 @@ describe("Logger", () => {
         base: { svc: "api", ver: 3 },
       });
       l.info("test");
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["base.svc"]).toBe("api");
-      expect(data.attributes["base.ver"]).toBe(3);
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes["base.svc"]).toBe("api");
+    expect(data!.attributes["base.ver"]).toBe(3);
     });
 
     it("skips non-primitive base attributes in otel", () => {
@@ -447,23 +453,26 @@ describe("Logger", () => {
         base: { obj: { nested: true } },
       });
       l.info("test");
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["base.obj"]).toBeUndefined();
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.attributes["base.obj"]).toBeUndefined();
     });
 
     it("emits body as the message string", () => {
       const l = createLogger({ level: "info" });
       const msg = "A very random string to log";
       l.info(msg);
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.body).toBe(msg);
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.body).toBe(msg);
     });
 
     it("includes timestamp as Date", () => {
       const l = createLogger({ level: "info" });
       l.info("ts");
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.timestamp).toBeInstanceOf(Date);
+    const data = emitMock.mock.calls[0]?.[0];
+    expect(data).toBeDefined();
+    expect(data!.timestamp).toBeInstanceOf(Date);
     });
   });
 
@@ -507,7 +516,7 @@ describe("Logger", () => {
     it("includes level label in browser console styling", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("styled msg");
-      const call = consoleGroupCollapsedMock.mock.calls[0]![0]! as string;
+      const call = consoleGroupCollapsedMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("INFO");
     });
 
@@ -518,7 +527,7 @@ describe("Logger", () => {
         pretty: false,
       });
       l.info("named");
-      const call = consoleGroupCollapsedMock.mock.calls[0]![0]! as string;
+      const call = consoleGroupCollapsedMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("mylogger");
     });
 
@@ -533,7 +542,7 @@ describe("Logger", () => {
         consoleLogMock.mockClear();
         consoleGroupCollapsedMock.mockClear();
         const l = createLogger({ level, pretty: false });
-        (l as unknown as Record<string, (m: string) => void>)[level]!("msg");
+        (l as unknown as Record<string, (m: string) => void>)[level]?.("msg");
         // In browser mode, groupCollapsed is always used (env in base makes hasExtra true)
         expect(consoleGroupCollapsedMock).toHaveBeenCalled();
       }
@@ -563,7 +572,7 @@ describe("Logger", () => {
       });
       const child = parent.child({ childKey: true });
       child.info("from child");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("parent");
     });
 
@@ -575,7 +584,7 @@ describe("Logger", () => {
       });
       const child = parent.child({ b: 99, c: 3 });
       child.info("merge");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"a":1');
       expect(call).toContain('"b":99'); // child overrides parent
       expect(call).toContain('"c":3');
@@ -594,7 +603,7 @@ describe("Logger", () => {
       const parent = createLogger({ level: "info", pretty: true });
       const child = parent.child({ c: 1 });
       child.info("pretty child");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("\x1b[");
     });
 
@@ -607,7 +616,7 @@ describe("Logger", () => {
       const child = grandparent.child({ c: "b" });
       const grandchild = child.child({ gc: "c" });
       grandchild.info("deep");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"gp":"a"');
       expect(call).toContain('"c":"b"');
       expect(call).toContain('"gc":"c"');
@@ -621,7 +630,7 @@ describe("Logger", () => {
       });
       const child = createChildLogger(parent, { ch: 2 });
       child.info("via factory");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"p":1');
       expect(call).toContain('"ch":2');
     });
@@ -638,14 +647,14 @@ describe("Logger", () => {
       const l = createLogger({ level: "info", pretty: false });
       const longMsg = "x".repeat(10_000);
       l.info(longMsg);
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain(longMsg);
     });
 
     it("handles unicode messages", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("日本語テスト 🎉");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("日本語テスト 🎉");
     });
 
@@ -678,14 +687,14 @@ describe("Logger", () => {
     it("object without msg field logs empty string as msg", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ data: "no msg" });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"data":"no msg"');
     });
 
     it("second arg string sets msg when first arg is object without msg", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ data: 1 }, "explicit msg");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain("explicit msg");
       expect(call).toContain('"data":1');
     });
@@ -693,7 +702,7 @@ describe("Logger", () => {
     it("second arg object merges into first object", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info({ a: 1 }, { b: 2 });
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"a":1');
       expect(call).toContain('"b":2');
     });

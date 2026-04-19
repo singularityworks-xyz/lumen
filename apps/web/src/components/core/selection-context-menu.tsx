@@ -242,7 +242,6 @@ export const SelectionContextMenu = memo(
                 }}
               >
                 <input
-                  autoFocus
                   className="h-8 w-full rounded border border-border/40 bg-muted/50 px-2 text-sm"
                   data-testid="area-name-input"
                   onChange={(e) => setAreaName(e.target.value)}

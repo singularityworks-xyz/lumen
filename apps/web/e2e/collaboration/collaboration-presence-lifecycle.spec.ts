@@ -20,14 +20,16 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     box: { height: number; width: number; x: number; y: number } | null
   ): Promise<void> {
     await page.evaluate((nextBox) => {
-      type KanbanState = {
-        setSelectionBox: (box: {
-          height: number;
-          width: number;
-          x: number;
-          y: number;
-        } | null) => void;
-      };
+      interface KanbanState {
+        setSelectionBox: (
+          box: {
+            height: number;
+            width: number;
+            x: number;
+            y: number;
+          } | null
+        ) => void;
+      }
 
       type WindowWithKanbanStore = Window & {
         __KANBAN_STORE__?: {
@@ -46,7 +48,7 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     }, box);
   }
 
-  async function ensureSelectMode(page: Page): Promise<void> {
+  async function _ensureSelectMode(page: Page): Promise<void> {
     const modeToggle = page.locator('[data-testid="task-select-mode-toggle"]');
     if (!(await modeToggle.isVisible())) {
       return;
@@ -65,10 +67,10 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
   });
 
   test.afterEach(async () => {
-    if (!(ownerPage.isClosed())) {
+    if (!ownerPage.isClosed()) {
       await ownerPage.close();
     }
-    if (!(editorPage.isClosed())) {
+    if (!editorPage.isClosed()) {
       await editorPage.close();
     }
   });
@@ -98,8 +100,8 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
 
     const cursorBox = await cursorIndicator.boundingBox();
     expect(cursorBox).not.toBeNull();
-    expect(cursorBox!.x).toBeGreaterThan(0);
-    expect(cursorBox!.y).toBeGreaterThan(0);
+    expect(cursorBox?.x).toBeGreaterThan(0);
+    expect(cursorBox?.y).toBeGreaterThan(0);
   });
 
   test("selection box presence syncs to peer", async () => {
@@ -201,7 +203,9 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
 
     await editorPage.waitForTimeout(1500);
 
-    const cursorCount = await editorPage.locator('[data-testid="peer-cursor"]').count();
+    const cursorCount = await editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .count();
     expect(cursorCount).toBeLessThanOrEqual(2);
 
     await duplicatePage.close();

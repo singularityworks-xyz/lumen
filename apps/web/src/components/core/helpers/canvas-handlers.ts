@@ -387,7 +387,7 @@ const normalizeHandlePosition = (
   handle: string | null | undefined
 ): "top" | "right" | "bottom" | "left" | undefined => {
   if (!handle) {
-    return undefined;
+    return;
   }
 
   const normalized = handle
@@ -403,7 +403,7 @@ const normalizeHandlePosition = (
     return normalized;
   }
 
-  return undefined;
+  return;
 };
 
 export function useEdgeHandlers({

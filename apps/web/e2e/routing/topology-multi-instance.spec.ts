@@ -17,15 +17,15 @@ import {
 import {
   captureStateSnapshot,
   fetchWorkersInstanceId,
-  getSecondaryWorkersInstanceId,
   getSecondaryPresenceUrl,
+  getSecondaryWorkersInstanceId,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
   routePageToWorkers,
 } from "../lib/multi-instance-setup";
 
 const _DISCONNECTED_REGEX = /disconnected|offline/i;
-const CONNECTED_REGEX = /connected|synced|online/i;
+const _CONNECTED_REGEX = /connected|synced|online/i;
 
 async function goOffline(page: Page): Promise<void> {
   await page.context().setOffline(true);
@@ -329,14 +329,30 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
     test("multiple peers receive updates across routed instances", async () => {
       await createColumnOnFirstBoard(user1Page, "Load Balance User1 Column");
       await Promise.all([
-        waitForCollabUpdate(user2Page, "kanban-column", "Load Balance User1 Column"),
-        waitForCollabUpdate(user3Page, "kanban-column", "Load Balance User1 Column"),
+        waitForCollabUpdate(
+          user2Page,
+          "kanban-column",
+          "Load Balance User1 Column"
+        ),
+        waitForCollabUpdate(
+          user3Page,
+          "kanban-column",
+          "Load Balance User1 Column"
+        ),
       ]);
 
       await createColumnOnFirstBoard(user2Page, "Load Balance User2 Column");
       await Promise.all([
-        waitForCollabUpdate(user1Page, "kanban-column", "Load Balance User2 Column"),
-        waitForCollabUpdate(user3Page, "kanban-column", "Load Balance User2 Column"),
+        waitForCollabUpdate(
+          user1Page,
+          "kanban-column",
+          "Load Balance User2 Column"
+        ),
+        waitForCollabUpdate(
+          user3Page,
+          "kanban-column",
+          "Load Balance User2 Column"
+        ),
       ]);
 
       const user1Columns = await user1Page
@@ -401,7 +417,11 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
 
       await goOnline(editorPage);
       await waitForReconnected(editorPage);
-      await waitForCollabUpdate(editorPage, "kanban-column", "During-Disconnect");
+      await waitForCollabUpdate(
+        editorPage,
+        "kanban-column",
+        "During-Disconnect"
+      );
 
       await editorPage.reload();
       await waitForAppReady(editorPage);

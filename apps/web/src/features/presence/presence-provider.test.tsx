@@ -33,11 +33,12 @@ mock.module("./presence-manager", () => ({
 
 let jwtTokenResolver: ((token: string | null) => void) | null = null;
 
-const mockGetJwtToken = mock(() => {
-  return new Promise<string | null>((resolve) => {
-    jwtTokenResolver = resolve;
-  });
-});
+const mockGetJwtToken = mock(
+  () =>
+    new Promise<string | null>((resolve) => {
+      jwtTokenResolver = resolve;
+    })
+);
 
 mock.module("@/src/lib/auth-client", () => ({
   getJwtToken: mockGetJwtToken,
@@ -114,11 +115,12 @@ function flushMicrotasks() {
 describe("PresenceProvider", () => {
   beforeEach(() => {
     mockGetJwtToken.mockReset();
-    mockGetJwtToken.mockImplementation(() => {
-      return new Promise<string | null>((resolve) => {
-        jwtTokenResolver = resolve;
-      });
-    });
+    mockGetJwtToken.mockImplementation(
+      () =>
+        new Promise<string | null>((resolve) => {
+          jwtTokenResolver = resolve;
+        })
+    );
     MockPresenceManagerCtor.mockClear();
     instances.length = 0;
     disconnectCalls.length = 0;
@@ -220,7 +222,7 @@ describe("PresenceProvider", () => {
       expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -241,7 +243,7 @@ describe("PresenceProvider", () => {
 
       await act(async () => {
         unmount();
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -254,7 +256,7 @@ describe("PresenceProvider", () => {
       expect(mockGetJwtToken).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        jwtTokenResolver!(null);
+        jwtTokenResolver?.(null);
         await flushMicrotasks();
       });
 
@@ -265,7 +267,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -282,7 +284,7 @@ describe("PresenceProvider", () => {
       const { unmount } = renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -313,7 +315,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -353,7 +355,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -381,7 +383,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -396,7 +398,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -431,7 +433,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -457,7 +459,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -516,7 +518,7 @@ describe("PresenceProvider", () => {
       renderProvider({ children: createElement(UserTrackingConsumer) });
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -546,7 +548,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -572,7 +574,7 @@ describe("PresenceProvider", () => {
       const { rerender } = renderProvider({ workspaceId: "ws-1" });
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-1");
+        jwtTokenResolver?.("jwt-token-1");
         await flushMicrotasks();
       });
 
@@ -581,11 +583,12 @@ describe("PresenceProvider", () => {
       expect(firstOpts.workspaceId).toBe("ws-1");
 
       mockGetJwtToken.mockReset();
-      mockGetJwtToken.mockImplementation(() => {
-        return new Promise<string | null>((resolve) => {
-          jwtTokenResolver = resolve;
-        });
-      });
+      mockGetJwtToken.mockImplementation(
+        () =>
+          new Promise<string | null>((resolve) => {
+            jwtTokenResolver = resolve;
+          })
+      );
 
       act(() => {
         rerender(
@@ -600,7 +603,7 @@ describe("PresenceProvider", () => {
       expect(mockGetJwtToken).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-2");
+        jwtTokenResolver?.("jwt-token-2");
         await flushMicrotasks();
       });
 
@@ -614,7 +617,7 @@ describe("PresenceProvider", () => {
       const { rerender } = renderProvider({ workspaceId: "ws-1" });
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-1");
+        jwtTokenResolver?.("jwt-token-1");
         await flushMicrotasks();
       });
 
@@ -622,11 +625,12 @@ describe("PresenceProvider", () => {
       const firstInstance = instances[0]!;
 
       mockGetJwtToken.mockReset();
-      mockGetJwtToken.mockImplementation(() => {
-        return new Promise<string | null>((resolve) => {
-          jwtTokenResolver = resolve;
-        });
-      });
+      mockGetJwtToken.mockImplementation(
+        () =>
+          new Promise<string | null>((resolve) => {
+            jwtTokenResolver = resolve;
+          })
+      );
 
       await act(async () => {
         rerender(
@@ -653,11 +657,12 @@ describe("PresenceProvider", () => {
       expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
 
       mockGetJwtToken.mockReset();
-      mockGetJwtToken.mockImplementation(() => {
-        return new Promise<string | null>((resolve) => {
-          jwtTokenResolver = resolve;
-        });
-      });
+      mockGetJwtToken.mockImplementation(
+        () =>
+          new Promise<string | null>((resolve) => {
+            jwtTokenResolver = resolve;
+          })
+      );
 
       await act(async () => {
         rerender(
@@ -673,7 +678,7 @@ describe("PresenceProvider", () => {
       expect(mockGetJwtToken).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -684,7 +689,7 @@ describe("PresenceProvider", () => {
       const { rerender } = renderProvider({ enabled: true });
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 
@@ -709,7 +714,7 @@ describe("PresenceProvider", () => {
       renderProvider();
 
       await act(async () => {
-        jwtTokenResolver!("jwt-token-123");
+        jwtTokenResolver?.("jwt-token-123");
         await flushMicrotasks();
       });
 

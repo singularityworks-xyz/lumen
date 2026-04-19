@@ -64,7 +64,7 @@ mock.module("y-protocols/awareness", () => ({
       if (!this.listeners.has(event)) {
         this.listeners.set(event, new Set());
       }
-      this.listeners.get(event)!.add(fn);
+      this.listeners.get(event)?.add(fn);
     }
     off(event: string, fn: (...args: unknown[]) => void) {
       this.listeners.get(event)?.delete(fn);
@@ -216,7 +216,7 @@ describe("RoomManager - getRoom", () => {
 
     const room = roomManager.getRoom("ws-test");
     expect(room).toBeDefined();
-    expect(room!.workspaceId).toBe("ws-test");
+    expect(room?.workspaceId).toBe("ws-test");
   });
 });
 
@@ -469,7 +469,7 @@ describe("RoomManager - delete", () => {
 
     expect(sent.length).toBeGreaterThanOrEqual(1);
     // First byte should be MESSAGE_WORKSPACE_DELETED (3)
-    expect(sent[0]![0]).toBe(MESSAGE_WORKSPACE_DELETED);
+    expect(sent[0]?.[0]).toBe(MESSAGE_WORKSPACE_DELETED);
   });
 
   it("no-ops delete for non-existent room", () => {
@@ -495,7 +495,7 @@ describe("RoomManager - getCollaborators", () => {
 
     const collaborators = roomManager.getCollaborators("ws-test");
     expect(collaborators.length).toBe(1);
-    expect(collaborators[0]!.id).toBe("user-gc-1");
+    expect(collaborators[0]?.id).toBe("user-gc-1");
   });
 });
 
@@ -516,8 +516,8 @@ describe("RoomManager - getRoomStats", () => {
 
     const stats = roomManager.getRoomStats("ws-test");
     expect(stats).toBeDefined();
-    expect(stats!.connections).toBe(1);
-    expect(typeof stats!.lastModified).toBe("number");
+    expect(stats?.connections).toBe(1);
+    expect(typeof stats?.lastModified).toBe("number");
   });
 
   it("returns correct connection count with multiple connections", async () => {
@@ -537,7 +537,7 @@ describe("RoomManager - getRoomStats", () => {
     });
 
     const stats = roomManager.getRoomStats("ws-test");
-    expect(stats!.connections).toBe(2);
+    expect(stats?.connections).toBe(2);
   });
 });
 
@@ -565,7 +565,7 @@ describe("RoomManager - event callbacks", () => {
     expect(room).toBeDefined();
 
     // Trigger a non-client-awareness change (origin is not "client-update")
-    room!.awareness._emit("change", [], "server-update");
+    room?.awareness._emit("change", [], "server-update");
 
     // encodeAwarenessUpdate should be called for non-client-origin changes
     expect(mockEncodeAwarenessUpdate).toHaveBeenCalled();
@@ -594,7 +594,7 @@ describe("RoomManager - event callbacks", () => {
     expect(room).toBeDefined();
 
     // Trigger a client-awareness change (origin is "client-update") - should not broadcast
-    room!.awareness._emit("change", [], "client-update");
+    room?.awareness._emit("change", [], "client-update");
 
     // encodeAwarenessUpdate should NOT be called for client-origin changes
     expect(mockEncodeAwarenessUpdate).not.toHaveBeenCalled();
@@ -703,7 +703,7 @@ describe("RoomManager - join loads persisted state", () => {
     // Simulate board data being added to the room's doc
     const room = roomManager.getRoom(preloadedWs);
     expect(room).toBeDefined();
-    room!.doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", { id: "board-1" });
+    room?.doc.getMap(YJS_MAP_NAMES.BOARDS).set("board-1", { id: "board-1" });
 
     prismaMock.workspaceState.findUnique.mockClear();
 

@@ -12,8 +12,8 @@ import {
   assertStateIntegrity,
   captureStateSnapshot,
   fetchWorkersInstanceId,
-  getSecondaryWorkersInstanceId,
   getSecondaryPresenceUrl,
+  getSecondaryWorkersInstanceId,
   getSecondaryWorkersUrl,
   MultiInstanceTopology,
   routePageToWorkers,
@@ -154,7 +154,9 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
 
       await createColumnOnFirstBoard(ownerPage, "Affinity Sync Before Offline");
       await editorPage
-        .locator('[data-testid="kanban-column"]:has-text("Affinity Sync Before Offline")')
+        .locator(
+          '[data-testid="kanban-column"]:has-text("Affinity Sync Before Offline")'
+        )
         .waitFor({ state: "visible", timeout: 10_000 });
 
       await goOffline(editorPage);
@@ -164,7 +166,9 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
 
       await goOnline(editorPage);
       await editorPage
-        .locator('[data-testid="kanban-column"]:has-text("Affinity Sync During Offline")')
+        .locator(
+          '[data-testid="kanban-column"]:has-text("Affinity Sync During Offline")'
+        )
         .waitFor({ state: "visible", timeout: 10_000 });
 
       const ownerColumns = await ownerPage
@@ -211,17 +215,17 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
 
     test("multiple reconnects maintain state consistency", async () => {
       await createColumnOnFirstBoard(pages[0]!, "Round 1 Column");
-      await pages[0]!.waitForTimeout(500);
+      await pages[0]?.waitForTimeout(500);
 
       for (let round = 0; round < 3; round++) {
         await goOffline(pages[0]!);
-        await pages[0]!.waitForTimeout(500);
+        await pages[0]?.waitForTimeout(500);
 
         await goOnline(pages[0]!);
-        await pages[0]!.waitForTimeout(2000);
+        await pages[0]?.waitForTimeout(2000);
 
         await createColumnOnFirstBoard(pages[0]!, `Round ${round + 2} Column`);
-        await pages[0]!.waitForTimeout(500);
+        await pages[0]?.waitForTimeout(500);
       }
 
       for (const page of pages.slice(1)) {
@@ -230,42 +234,46 @@ test.describe("E2E-TOPOLOGY-2: Sticky Routing & Session Affinity", () => {
           .waitFor({ state: "visible", timeout: 10_000 });
       }
 
-      const page1Columns = await pages[0]!
-        .locator('[data-testid="kanban-column"]')
+      const page1Columns = await pages[0]
+        ?.locator('[data-testid="kanban-column"]')
         .count();
-      const page2Columns = await pages[1]!
-        .locator('[data-testid="kanban-column"]')
+      const page2Columns = await pages[1]
+        ?.locator('[data-testid="kanban-column"]')
         .count();
 
       expect(page1Columns).toBe(page2Columns);
     });
 
     test("presence routing to different worker keeps data updates flowing", async () => {
-      await pages[0]!.locator('[data-testid="board-node"]').first().hover();
-      await pages[0]!.mouse.move(300, 200);
-      await pages[0]!.waitForTimeout(500);
+      await pages[0]?.locator('[data-testid="board-node"]').first().hover();
+      await pages[0]?.mouse.move(300, 200);
+      await pages[0]?.waitForTimeout(500);
 
       await createColumnOnFirstBoard(pages[0]!, "Presence Before Reconnect");
-      await pages[2]!
-        .locator('[data-testid="kanban-column"]:has-text("Presence Before Reconnect")')
+      await pages[2]
+        ?.locator(
+          '[data-testid="kanban-column"]:has-text("Presence Before Reconnect")'
+        )
         .waitFor({ state: "visible", timeout: 10_000 });
 
       await goOffline(pages[0]!);
-      await pages[0]!.waitForTimeout(1000);
+      await pages[0]?.waitForTimeout(1000);
 
       await goOnline(pages[0]!);
-      await pages[0]!.waitForTimeout(3000);
+      await pages[0]?.waitForTimeout(3000);
 
       await createColumnOnFirstBoard(pages[0]!, "Presence After Reconnect");
-      await pages[2]!
-        .locator('[data-testid="kanban-column"]:has-text("Presence After Reconnect")')
+      await pages[2]
+        ?.locator(
+          '[data-testid="kanban-column"]:has-text("Presence After Reconnect")'
+        )
         .waitFor({ state: "visible", timeout: 10_000 });
 
-      const ownerColumns = await pages[0]!
-        .locator('[data-testid="kanban-column"]')
+      const ownerColumns = await pages[0]
+        ?.locator('[data-testid="kanban-column"]')
         .count();
-      const peerColumns = await pages[2]!
-        .locator('[data-testid="kanban-column"]')
+      const peerColumns = await pages[2]
+        ?.locator('[data-testid="kanban-column"]')
         .count();
 
       expect(peerColumns).toBe(ownerColumns);

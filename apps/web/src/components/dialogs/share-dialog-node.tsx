@@ -216,13 +216,14 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     }, [shareLink]);
 
     // Cleanup timeout on unmount
-    useEffect(() => {
-      return () => {
+    useEffect(
+      () => () => {
         if (copyTimeoutRef.current) {
           clearTimeout(copyTimeoutRef.current);
         }
-      };
-    }, []);
+      },
+      []
+    );
 
     if (!(board && shareDialog)) {
       return null;

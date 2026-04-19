@@ -149,7 +149,7 @@ describe("auth", () => {
       const cb = mock(() => undefined);
       const unsub = onAuthDeepLink(cb);
 
-      deepLinkCallback!(["lumen://auth/callback?token=abc"]);
+      deepLinkCallback?.(["lumen://auth/callback?token=abc"]);
       expect(cb).toHaveBeenCalledWith("lumen://auth/callback?token=abc");
       unsub();
     });
@@ -162,7 +162,7 @@ describe("auth", () => {
       const cb = mock(() => undefined);
       const unsub = onAuthDeepLink(cb);
 
-      deepLinkCallback!(["lumen://other/path"]);
+      deepLinkCallback?.(["lumen://other/path"]);
       expect(cb).not.toHaveBeenCalled();
       unsub();
     });
@@ -202,7 +202,7 @@ describe("auth", () => {
       await initializeNativeAuth();
 
       const flow = initiateOAuthFlow("https://auth.example.com");
-      deepLinkCallback!(["lumen://auth/callback?token=abc123&state=xyz"]);
+      deepLinkCallback?.(["lumen://auth/callback?token=abc123&state=xyz"]);
 
       const params = await flow;
       expect(params.get("token")).toBe("abc123");
@@ -217,7 +217,7 @@ describe("auth", () => {
       await initializeNativeAuth();
 
       const flow = initiateOAuthFlow("https://auth.example.com");
-      deepLinkCallback!(["lumen://auth/callback?error=access_denied"]);
+      deepLinkCallback?.(["lumen://auth/callback?error=access_denied"]);
 
       await expect(flow).rejects.toThrow("OAuth error: access_denied");
     });
@@ -346,7 +346,7 @@ describe("auth", () => {
       };
       const unsub = onAuthDeepLink(failingCb);
 
-      deepLinkCallback!(["lumen://auth/callback?token=123"]);
+      deepLinkCallback?.(["lumen://auth/callback?token=123"]);
 
       expect(consoleSpy).toHaveBeenCalledWith(
         "[NativeAuth] Error in deep link callback:",
@@ -374,7 +374,7 @@ describe("auth", () => {
           }
         } as any;
 
-        deepLinkCallback!(["lumen://auth/callback"]);
+        deepLinkCallback?.(["lumen://auth/callback"]);
 
         await expect(flow).rejects.toThrow("mock URL error");
       } finally {

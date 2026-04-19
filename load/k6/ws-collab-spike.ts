@@ -25,7 +25,11 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-spike-shared";
 
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  const session = connectCollabSession(
+    wsUrl ?? "",
+    authToken ?? "",
+    workspaceId
+  );
 
   if (!session.established) {
     return;

@@ -30,7 +30,11 @@ export default function () {
   const authToken = __ENV.AUTH_TOKEN;
   const workspaceId = __ENV.WORKSPACE_ID || "ws-soak-shared";
 
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  const session = connectCollabSession(
+    wsUrl ?? "",
+    authToken ?? "",
+    workspaceId
+  );
 
   if (!session.established) {
     return;
@@ -42,12 +46,14 @@ export default function () {
   const sessionStart = Date.now();
   let updateCounter = 0;
 
-  const iterations = Math.floor((parseInt(soakDurationMinutes, 10) * 60) / 5);
+  const iterations = Math.floor(
+    (Number.parseInt(soakDurationMinutes, 10) * 60) / 5
+  );
 
   for (let i = 0; i < iterations; i++) {
     updateCounter++;
 
-    session.sendSyncUpdate(__VU * 10000 + updateCounter);
+    session.sendSyncUpdate(__VU * 10_000 + updateCounter);
 
     if (updateCounter % 3 === 0) {
       session.sendAwarenessUpdate({

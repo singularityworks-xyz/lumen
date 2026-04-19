@@ -41,9 +41,7 @@ const mockStore = {
 };
 
 const mockUseKanbanStore = mock(
-  (selector: (state: typeof mockStore) => unknown) => {
-    return selector(mockStore);
-  }
+  (selector: (state: typeof mockStore) => unknown) => selector(mockStore)
 );
 
 mock.module("@/src/features/collab", () => ({
