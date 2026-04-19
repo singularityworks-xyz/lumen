@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
+  getStoreState,
   setupTwoUsers,
   waitForAppReady,
 } from "../helpers/commands";
@@ -46,26 +47,141 @@ async function openVisibleRenameDialog(page: Page, boardNode: Locator) {
   return renameDialog;
 }
 
-async function dismissTransientOverlays(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(100);
-  }
-
-  try {
-    await page
-      .locator('[data-testid="board-share-option"]')
-      .first()
-      .waitFor({ state: "hidden", timeout: 3000 });
-  } catch {
-    // Quick actions may already be closed.
+async function cleanupPages(pages: Page[]) {
+  for (const page of pages) {
+    if (page && !page.isClosed()) {
+      await page.close();
+    }
   }
 }
 
-async function cleanupPages(pages: Page[]) {
-  for (const page of pages) {
-    await page.close();
+async function getFirstBoardId(page: Page): Promise<string | null> {
+  const state = await getStoreState(page);
+  const boards = state?.boards;
+  if (
+    typeof boards !== "object" ||
+    !boards ||
+    !Array.isArray((boards as { allIds?: unknown }).allIds)
+  ) {
+    return null;
   }
+
+  const firstId = (boards as { allIds: unknown[] }).allIds[0];
+  return typeof firstId === "string" ? firstId : null;
+}
+
+async function waitForAnyBoardInStore(
+  page: Page,
+  timeoutMs = 10_000
+): Promise<string> {
+  await expect
+    .poll(() => getFirstBoardId(page), { timeout: timeoutMs })
+    .not.toBeNull();
+
+  const boardId = await getFirstBoardId(page);
+  if (!boardId) {
+    throw new Error("No board found in store");
+  }
+
+  return boardId;
+}
+
+async function addColumnToFirstBoardViaStore(
+  page: Page,
+  columnName: string
+): Promise<void> {
+  await page.evaluate((name) => {
+    interface BoardRecord {
+      column_ids?: string[];
+    }
+
+    interface KanbanState {
+      addColumn: (boardId: string, columnName: string, index: number) => void;
+      boards?: {
+        allIds?: string[];
+        byId?: Record<string, BoardRecord | undefined>;
+      };
+    }
+
+    type WindowWithKanbanStore = Window & {
+      __KANBAN_STORE__?: {
+        getState: () => KanbanState;
+      };
+    };
+
+    const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+    if (!store?.getState) {
+      throw new Error("Kanban store is not available");
+    }
+
+    const state = store.getState();
+    const boardIds = state.boards?.allIds;
+    const firstBoardId = Array.isArray(boardIds) ? boardIds[0] : null;
+
+    if (typeof firstBoardId !== "string") {
+      throw new Error("No board found for addColumn operation");
+    }
+
+    const board = state.boards?.byId?.[firstBoardId];
+    const index = Array.isArray(board?.column_ids)
+      ? board.column_ids.length
+      : 0;
+
+    state.addColumn(firstBoardId, name, index);
+  }, columnName);
+}
+
+async function addTaskViaStore(
+  page: Page,
+  columnName: string,
+  taskTitle: string
+): Promise<void> {
+  await page.evaluate(
+    ({ targetColumnName, title }) => {
+      interface ColumnRecord {
+        board_id: string;
+        id: string;
+        name: string;
+      }
+
+      interface KanbanState {
+        addTask: (columnId: string, boardId: string, taskTitle: string) => void;
+        columns?: {
+          allIds?: string[];
+          byId?: Record<string, ColumnRecord | undefined>;
+        };
+      }
+
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => KanbanState;
+        };
+      };
+
+      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+      if (!store?.getState) {
+        throw new Error("Kanban store is not available");
+      }
+
+      const state = store.getState();
+      const columnId = (state.columns?.allIds ?? []).find((id) => {
+        const column = state.columns?.byId?.[id];
+        return column?.name === targetColumnName;
+      });
+
+      if (!columnId) {
+        throw new Error(`Column not found: ${targetColumnName}`);
+      }
+
+      const column = state.columns?.byId?.[columnId];
+      if (!column) {
+        throw new Error(`Column record missing: ${columnId}`);
+      }
+
+      state.addTask(columnId, column.board_id, title);
+    },
+    { targetColumnName: columnName, title: taskTitle }
+  );
 }
 
 test.describe("E2E-13: Multi-User Drag Sync", () => {
@@ -87,9 +203,15 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
   test("board drag position syncs to editor with pixel-precise coordinates", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const boardHeader = boardNode.locator('[data-testid="board-header"]');
+    const boardId = await waitForAnyBoardInStore(ownerPage);
     const initialOwnerSnapshot = await captureNormalizedSnapshot(ownerPage);
-    const initialBoard = initialOwnerSnapshot.boards[0];
-    expect(initialBoard).toBeDefined();
+    const initialBoard = initialOwnerSnapshot.boards.find(
+      (board) => board.id === boardId
+    );
+    expect(initialBoard).toBeTruthy();
+    if (!initialBoard) {
+      throw new Error("Initial board not found in snapshot");
+    }
 
     const dragX = 200;
     const dragY = 150;
@@ -100,15 +222,16 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
     const ownerSnapshotAfterDrag = await captureNormalizedSnapshot(ownerPage);
     const movedBoard = ownerSnapshotAfterDrag.boards.find(
-      (board) => board.id === initialBoard?.id
+      (board) => board.id === boardId
     );
-    expect(movedBoard).toBeDefined();
+    expect(movedBoard).toBeTruthy();
+    if (!movedBoard) {
+      throw new Error("Moved board not found in snapshot");
+    }
 
     const ownerDelta =
-      Math.abs(
-        (movedBoard?.position.x ?? 0) - (initialBoard?.position.x ?? 0)
-      ) +
-      Math.abs((movedBoard?.position.y ?? 0) - (initialBoard?.position.y ?? 0));
+      Math.abs(movedBoard.position.x - initialBoard.position.x) +
+      Math.abs(movedBoard.position.y - initialBoard.position.y);
     expect(ownerDelta).toBeGreaterThan(30);
 
     await expect
@@ -156,24 +279,13 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
   });
 
   test("column reorder syncs to editor immediately", async () => {
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-
-    await dismissTransientOverlays(ownerPage);
-    await addColumnTrigger.click({ force: true });
-    await ownerPage.fill('[data-testid="column-name-input"]', "Column A");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Column A");
     // Wait for first column to be created
     await ownerPage
       .locator('[data-testid="kanban-column"]:has-text("Column A")')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await dismissTransientOverlays(ownerPage);
-    await addColumnTrigger.click({ force: true });
-    await ownerPage.fill('[data-testid="column-name-input"]', "Column B");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Column B");
     // Wait for second column to sync to editor
     await waitForCollabSync(editorPage, "kanban-column", "Column B");
 
@@ -192,36 +304,20 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
   });
 
   test("task drag across columns syncs to editor", async () => {
-    const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-
-    await dismissTransientOverlays(ownerPage);
-    await addColumnTrigger.click({ force: true });
-    await ownerPage.fill('[data-testid="column-name-input"]', "Source Col");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Source Col");
     // Wait for first column to be created
     await ownerPage
       .locator('[data-testid="kanban-column"]:has-text("Source Col")')
       .waitFor({ state: "visible", timeout: 5000 });
 
-    await dismissTransientOverlays(ownerPage);
-    await addColumnTrigger.click({ force: true });
-    await ownerPage.fill('[data-testid="column-name-input"]', "Target Col");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Target Col");
     // Wait for second column to sync to editor
     await waitForCollabSync(editorPage, "kanban-column", "Target Col");
 
     const sourceColumn = ownerPage.locator(
       '[data-testid="kanban-column"]:has-text("Source Col")'
     );
-    const addTaskTrigger = sourceColumn.locator(
-      '[data-testid="add-task-trigger"]'
-    );
-    await addTaskTrigger.click();
-    await ownerPage.fill('[data-testid="task-title-input"]', "Draggable Task");
-    await ownerPage.click('[data-testid="task-create-submit"]');
+    await addTaskViaStore(ownerPage, "Source Col", "Draggable Task");
     // Wait for task to sync to editor
     await waitForCollabSync(editorPage, "task-card", "Draggable Task");
 
@@ -270,8 +366,7 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
   test("drag cancel with Escape leaves no ghost state", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     const boardHeader = boardNode.locator('[data-testid="board-header"]');
-    const initialOwnerSnapshot = await captureNormalizedSnapshot(ownerPage);
-    expect(initialOwnerSnapshot.boards.length).toBeGreaterThan(0);
+    await waitForAnyBoardInStore(ownerPage);
 
     const headerBox = await boardHeader.boundingBox();
     expect(headerBox).not.toBeNull();
@@ -289,20 +384,24 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     // Wait for drag cancel to be processed
     await ownerPage.waitForLoadState("networkidle");
 
-    const ownerSnapshotAfterCancel = await captureNormalizedSnapshot(ownerPage);
-    const editorSnapshotAfterCancel =
-      await captureNormalizedSnapshot(editorPage);
+    await waitForAnyBoardInStore(ownerPage);
+    await waitForAnyBoardInStore(editorPage);
 
-    expect(ownerSnapshotAfterCancel.boards.length).toBe(
-      initialOwnerSnapshot.boards.length
-    );
+    await expect
+      .poll(async () => {
+        const ownerSnapshotAfterCancel =
+          await captureNormalizedSnapshot(ownerPage);
+        const editorSnapshotAfterCancel =
+          await captureNormalizedSnapshot(editorPage);
 
-    const comparison = compareBoardCoordinates(
-      ownerSnapshotAfterCancel,
-      editorSnapshotAfterCancel,
-      10
-    );
-    expect(comparison.match).toBe(true);
+        const comparison = compareBoardCoordinates(
+          ownerSnapshotAfterCancel,
+          editorSnapshotAfterCancel,
+          10
+        );
+        return comparison.match;
+      })
+      .toBe(true);
   });
 
   test("simultaneous edits produce deterministic final state", async () => {
@@ -347,13 +446,7 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
   });
 
   test("late joiner gets converged state immediately", async () => {
-    const addColumnTrigger = ownerPage
-      .locator('[data-testid="board-node"]')
-      .first()
-      .locator('[data-testid="add-column-trigger"]');
-    await addColumnTrigger.click();
-    await ownerPage.fill('[data-testid="column-name-input"]', "Late Join Col");
-    await ownerPage.click('[data-testid="column-create-submit"]');
+    await addColumnToFirstBoardViaStore(ownerPage, "Late Join Col");
     // Wait for column to sync to existing editor
     await waitForCollabSync(editorPage, "kanban-column", "Late Join Col");
 

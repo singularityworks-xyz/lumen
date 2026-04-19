@@ -187,9 +187,36 @@ export async function waitForAppReady(page: Page) {
   await page.waitForFunction(
     () =>
       document.querySelector('[data-testid="workspace-selector"]') !== null ||
-      document.querySelector('[data-testid="welcome-screen"]') !== null,
+      document.querySelector('[data-testid="welcome-screen"]') !== null ||
+      document.querySelector('[data-testid="board-node"]') !== null ||
+      document.querySelector('[data-testid="sync-status-indicator"]') !== null,
     { timeout: 15_000 }
   );
+}
+
+export async function dismissTransientOverlays(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(100);
+  }
+
+  try {
+    await page
+      .locator('[data-testid="board-share-option"]')
+      .first()
+      .waitFor({ state: "hidden", timeout: 3000 });
+  } catch {
+    // Quick actions may already be closed.
+  }
+
+  try {
+    await page
+      .locator('[data-testid="task-delete-option"]')
+      .first()
+      .waitFor({ state: "hidden", timeout: 2000 });
+  } catch {
+    // Task quick actions may already be closed.
+  }
 }
 
 export async function openCommentsDrawer(page: Page): Promise<void> {

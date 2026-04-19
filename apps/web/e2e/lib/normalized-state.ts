@@ -58,6 +58,17 @@ export function getStoreState(
   page: Page
 ): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => {
+    type WindowWithKanbanStore = Window & {
+      __KANBAN_STORE__?: {
+        getState?: () => Record<string, unknown>;
+      };
+    };
+
+    const kanbanStore = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+    if (typeof kanbanStore?.getState === "function") {
+      return kanbanStore.getState();
+    }
+
     const storeElement = document.querySelector('[data-testid="kanban-store"]');
     return storeElement
       ? JSON.parse(storeElement.getAttribute("data-state") || "{}")
