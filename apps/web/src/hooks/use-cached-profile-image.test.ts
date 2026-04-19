@@ -77,19 +77,22 @@ describe("use-cached-profile-image", () => {
   it("query configuration sets enabled to false when URL is null", () => {
     renderHook(() => useCachedProfileImage(null));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.enabled).toBe(false);
+    expect(args).toBeDefined();
+    expect(args!.enabled).toBe(false);
   });
 
   it("query configuration sets enabled to true when URL is provided", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.enabled).toBe(true);
+    expect(args).toBeDefined();
+    expect(args!.enabled).toBe(true);
   });
 
   it("query configuration uses profile-image query key with the URL", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.queryKey).toEqual([
+    expect(args).toBeDefined();
+    expect(args!.queryKey).toEqual([
       "profile-image",
       "https://test.com/img.jpg",
     ]);
@@ -100,37 +103,44 @@ describe("use-cached-profile-image", () => {
     renderHook(() => useCachedProfileImage("https://test.com/2.jpg"));
     const args1 = mockUseQuery.mock.calls[0]?.[0];
     const args2 = mockUseQuery.mock.calls[1]?.[0];
-    expect(args1.queryKey).not.toEqual(args2.queryKey);
+    expect(args1).toBeDefined();
+    expect(args2).toBeDefined();
+    expect(args1!.queryKey).not.toEqual(args2!.queryKey);
   });
 
   it("query configuration sets staleTime to 1 hour", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.staleTime).toBe(3_600_000);
+    expect(args).toBeDefined();
+    expect(args!.staleTime).toBe(3_600_000);
   });
 
   it("query configuration sets gcTime to 24 hours", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.gcTime).toBe(86_400_000);
+    expect(args).toBeDefined();
+    expect(args!.gcTime).toBe(86_400_000);
   });
 
   it("query configuration disables refetchOnWindowFocus", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.refetchOnWindowFocus).toBe(false);
+    expect(args).toBeDefined();
+    expect(args!.refetchOnWindowFocus).toBe(false);
   });
 
   it("query configuration disables refetchOnMount", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.refetchOnMount).toBe(false);
+    expect(args).toBeDefined();
+    expect(args!.refetchOnMount).toBe(false);
   });
 
   it("query configuration sets retry to 1", () => {
     renderHook(() => useCachedProfileImage("https://test.com/img.jpg"));
     const args = mockUseQuery.mock.calls[0]?.[0];
-    expect(args.retry).toBe(1);
+    expect(args).toBeDefined();
+    expect(args!.retry).toBe(1);
   });
 
   it("queryFn behavior returns null immediately when no URL", async () => {

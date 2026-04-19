@@ -679,16 +679,14 @@ describe("KanbanCanvas", () => {
         metaKey: false,
         preventDefault: preventDefaultSpy,
       } as unknown as WheelEvent;
-  if (capturedHandler) {
-    capturedHandler(wheelEvent);
-  }
+      capturedHandler!(wheelEvent);
 
-  expect(preventDefaultSpy).toHaveBeenCalled();
+      expect(preventDefaultSpy).toHaveBeenCalled();
 
-  document.querySelector = originalQuerySelector;
-});
+      document.querySelector = originalQuerySelector;
+    });
 
-it("prevents default on meta key", () => {
+    it("prevents default on meta key", () => {
       let capturedHandler: ((e: Event) => void) | null = null;
 
       const originalQuerySelector = document.querySelector.bind(document);
@@ -718,16 +716,14 @@ it("prevents default on meta key", () => {
         metaKey: true,
         preventDefault: preventDefaultSpy,
       } as unknown as WheelEvent;
-  if (capturedHandler) {
-    capturedHandler(wheelEvent);
-  }
+      capturedHandler!(wheelEvent);
 
-  expect(preventDefaultSpy).toHaveBeenCalled();
+      expect(preventDefaultSpy).toHaveBeenCalled();
 
-  document.querySelector = originalQuerySelector;
-});
+      document.querySelector = originalQuerySelector;
+    });
 
-it("does not prevent default without ctrl or meta key", () => {
+    it("does not prevent default without ctrl or meta key", () => {
       let capturedHandler: ((e: Event) => void) | null = null;
 
       const originalQuerySelector = document.querySelector.bind(document);
@@ -747,24 +743,22 @@ it("does not prevent default without ctrl or meta key", () => {
         return originalQuerySelector(selector);
       });
 
-  renderCanvas();
+      renderCanvas();
 
-  expect(capturedHandler).not.toBeNull();
+      expect(capturedHandler).not.toBeNull();
 
-  const preventDefaultSpy = mock();
-  const wheelEvent = {
-    ctrlKey: false,
-    metaKey: false,
-    preventDefault: preventDefaultSpy,
-  } as unknown as WheelEvent;
-  if (capturedHandler) {
-    capturedHandler(wheelEvent);
-  }
+      const preventDefaultSpy = mock();
+      const wheelEvent = {
+        ctrlKey: false,
+        metaKey: false,
+        preventDefault: preventDefaultSpy,
+      } as unknown as WheelEvent;
+      capturedHandler!(wheelEvent);
 
-  expect(preventDefaultSpy).not.toHaveBeenCalled();
+      expect(preventDefaultSpy).not.toHaveBeenCalled();
 
-  document.querySelector = originalQuerySelector;
-});
+      document.querySelector = originalQuerySelector;
+    });
   });
 
   describe("Nodes/edges sync effects", () => {

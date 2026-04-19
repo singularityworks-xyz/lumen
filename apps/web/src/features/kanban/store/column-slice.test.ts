@@ -122,8 +122,8 @@ describe("moveColumnToBoard", () => {
     expect(state.tasks.byId[task1]?.board_id).toBe(targetId);
     expect(state.tasks.byId[task2]?.board_id).toBe(targetId);
 
-  const remainingSrcCols = state.boards.byId[sourceId]?.column_ids ?? [];
-  for (const [i, id] of remainingSrcCols.entries()) {
+    const remainingSrcCols = state.boards.byId[sourceId]?.column_ids ?? [];
+    for (const [i, id] of remainingSrcCols.entries()) {
       expect(state.columns.byId[id]?.position).toBe(i);
     }
   });

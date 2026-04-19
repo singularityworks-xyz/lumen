@@ -14,11 +14,6 @@
       "@tests/*": ["../../tests/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "next-env.d.ts",
-    "next.config.ts"
-  ],
+  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts", "next.config.ts"],
   "exclude": ["node_modules", "public/sw.js"]
 }

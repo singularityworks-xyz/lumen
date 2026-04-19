@@ -35,9 +35,12 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
 
       const headerBox = await boardHeader.boundingBox();
       expect(headerBox).not.toBeNull();
+      if (!headerBox) {
+        throw new Error("Header bounding box not found");
+      }
 
-      const startX = headerBox?.x + headerBox?.width / 2;
-      const startY = headerBox?.y + headerBox?.height / 2;
+      const startX = headerBox.x + headerBox.width / 2;
+      const startY = headerBox.y + headerBox.height / 2;
       const dragX = 200;
       const dragY = 150;
 
@@ -54,9 +57,11 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       // Verify Chrome position moved
       const ownerBox = await boardNode.boundingBox();
       expect(ownerBox).not.toBeNull();
+      if (!(ownerBox && boardBox)) {
+        throw new Error("Bounding boxes not found");
+      }
       const ownerDelta =
-        Math.abs(ownerBox?.x - boardBox?.x) +
-        Math.abs(ownerBox?.y - boardBox?.y);
+        Math.abs(ownerBox.x - boardBox.x) + Math.abs(ownerBox.y - boardBox.y);
       expect(ownerDelta).toBeGreaterThan(30);
 
       // Verify Firefox sees the same position
@@ -150,15 +155,18 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       const targetBox = await targetColumn.boundingBox();
       expect(taskBox).not.toBeNull();
       expect(targetBox).not.toBeNull();
+      if (!(taskBox && targetBox)) {
+        throw new Error("Bounding boxes not found");
+      }
 
       await ownerPage.mouse.move(
-        taskBox?.x + taskBox?.width / 2,
-        taskBox?.y + taskBox?.height / 2
+        taskBox.x + taskBox.width / 2,
+        taskBox.y + taskBox.height / 2
       );
       await ownerPage.mouse.down();
       await ownerPage.mouse.move(
-        targetBox?.x + targetBox?.width / 2,
-        targetBox?.y + targetBox?.height / 2,
+        targetBox.x + targetBox.width / 2,
+        targetBox.y + targetBox.height / 2,
         { steps: 10 }
       );
       await ownerPage.mouse.up();
@@ -198,11 +206,14 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
 
       const boardBox = await editorBoard.boundingBox();
       expect(boardBox).not.toBeNull();
+      if (!boardBox) {
+        throw new Error("Board bounding box not found");
+      }
 
       // Move Chrome cursor into the board area
       await ownerPage.mouse.move(
-        boardBox?.x + boardBox?.width / 2,
-        boardBox?.y + boardBox?.height / 2
+        boardBox.x + boardBox.width / 2,
+        boardBox.y + boardBox.height / 2
       );
       // Wait for cursor to appear on Firefox
       await editorPage
@@ -239,9 +250,12 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       const editorHeader = editorBoard.locator('[data-testid="board-header"]');
       const editorHeaderBox = await editorHeader.boundingBox();
       expect(editorHeaderBox).not.toBeNull();
+      if (!editorHeaderBox) {
+        throw new Error("Editor header bounding box not found");
+      }
 
-      const startX = editorHeaderBox?.x + editorHeaderBox?.width / 2;
-      const startY = editorHeaderBox?.y + editorHeaderBox?.height / 2;
+      const startX = editorHeaderBox.x + editorHeaderBox.width / 2;
+      const startY = editorHeaderBox.y + editorHeaderBox.height / 2;
       const dragX = 150;
       const dragY = 100;
 
@@ -258,9 +272,12 @@ test.describe("E2E-18: Cross-Browser Sync (Chrome ↔ Firefox)", () => {
       // Verify Firefox moved
       const editorBoxAfter = await editorBoard.boundingBox();
       expect(editorBoxAfter).not.toBeNull();
+      if (!(editorBoxAfter && editorBox)) {
+        throw new Error("Bounding boxes not found");
+      }
       const editorDelta =
-        Math.abs(editorBoxAfter?.x - editorBox?.x) +
-        Math.abs(editorBoxAfter?.y - editorBox?.y);
+        Math.abs(editorBoxAfter.x - editorBox.x) +
+        Math.abs(editorBoxAfter.y - editorBox.y);
       expect(editorDelta).toBeGreaterThan(30);
 
       // Verify Chrome sees the same position

@@ -576,8 +576,9 @@ describe("AI Integration Tests", () => {
       const limiter = upstashAvailable ? null : inMemoryLimiter;
       const result = await limiter?.limit();
 
-      expect(result.success).toBe(true);
-      expect(result.remaining).toBe(29);
+      expect(result).toBeDefined();
+      expect(result!.success).toBe(true);
+      expect(result!.remaining).toBe(29);
     });
 
     it("retries with exponential backoff on rate limit", () => {

@@ -38,9 +38,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "lumen"
-        ]
+        "schemes": ["lumen"]
       }
     }
   }

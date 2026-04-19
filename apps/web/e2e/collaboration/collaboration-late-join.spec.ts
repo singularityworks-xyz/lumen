@@ -238,15 +238,18 @@ test.describe("E2E-21: Late Join After Conflict-Heavy Session", () => {
     const targetBox = await targetColumn.boundingBox();
     expect(taskBox).not.toBeNull();
     expect(targetBox).not.toBeNull();
+    if (!(taskBox && targetBox)) {
+      throw new Error("Bounding boxes not found");
+    }
 
     await ownerPage.mouse.move(
-      taskBox?.x + taskBox?.width / 2,
-      taskBox?.y + taskBox?.height / 2
+      taskBox.x + taskBox.width / 2,
+      taskBox.y + taskBox.height / 2
     );
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(
-      targetBox?.x + targetBox?.width / 2,
-      targetBox?.y + targetBox?.height / 2,
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height / 2,
       { steps: 10 }
     );
     await ownerPage.mouse.up();

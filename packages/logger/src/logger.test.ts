@@ -393,9 +393,9 @@ describe("Logger", () => {
     it("emits with logger.name attribute", () => {
       const l = createLogger({ level: "info", name: "custom-name" });
       l.info("test");
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes["logger.name"]).toBe("custom-name");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["logger.name"]).toBe("custom-name");
     });
 
     it("includes string/number/boolean attributes", () => {
@@ -405,20 +405,20 @@ describe("Logger", () => {
         numKey: 42,
         boolKey: true,
       });
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes.strKey).toBe("hello");
-    expect(data!.attributes.numKey).toBe(42);
-    expect(data!.attributes.boolKey).toBe(true);
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes.strKey).toBe("hello");
+      expect(data!.attributes.numKey).toBe(42);
+      expect(data!.attributes.boolKey).toBe(true);
     });
 
     it("serializes non-primitive attributes as JSON", () => {
       const l = createLogger({ level: "info" });
       l.info("test", { nested: { deep: true }, arr: [1, 2, 3] });
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes.nested).toBe('{"deep":true}');
-    expect(data!.attributes.arr).toBe("[1,2,3]");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes.nested).toBe('{"deep":true}');
+      expect(data!.attributes.arr).toBe("[1,2,3]");
     });
 
     it("skips null and undefined attributes", () => {
@@ -428,11 +428,11 @@ describe("Logger", () => {
         undefinedField: undefined,
         okField: "yes",
       });
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes.nullField).toBeUndefined();
-    expect(data!.attributes.undefinedField).toBeUndefined();
-    expect(data!.attributes.okField).toBe("yes");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes.nullField).toBeUndefined();
+      expect(data!.attributes.undefinedField).toBeUndefined();
+      expect(data!.attributes.okField).toBe("yes");
     });
 
     it("prefixes base attributes with base.*", () => {
@@ -441,10 +441,10 @@ describe("Logger", () => {
         base: { svc: "api", ver: 3 },
       });
       l.info("test");
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes["base.svc"]).toBe("api");
-    expect(data!.attributes["base.ver"]).toBe(3);
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["base.svc"]).toBe("api");
+      expect(data!.attributes["base.ver"]).toBe(3);
     });
 
     it("skips non-primitive base attributes in otel", () => {
@@ -453,26 +453,26 @@ describe("Logger", () => {
         base: { obj: { nested: true } },
       });
       l.info("test");
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.attributes["base.obj"]).toBeUndefined();
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["base.obj"]).toBeUndefined();
     });
 
     it("emits body as the message string", () => {
       const l = createLogger({ level: "info" });
       const msg = "A very random string to log";
       l.info(msg);
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.body).toBe(msg);
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.body).toBe(msg);
     });
 
     it("includes timestamp as Date", () => {
       const l = createLogger({ level: "info" });
       l.info("ts");
-    const data = emitMock.mock.calls[0]?.[0];
-    expect(data).toBeDefined();
-    expect(data!.timestamp).toBeInstanceOf(Date);
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.timestamp).toBeInstanceOf(Date);
     });
   });
 

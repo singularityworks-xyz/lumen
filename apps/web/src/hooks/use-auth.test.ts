@@ -178,7 +178,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback?.(
+      await registeredCallback!(
         "lumen://auth/callback?success=true&token=valid-token"
       );
 
@@ -208,7 +208,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback?.("lumen://some/other/path");
+      await registeredCallback!("lumen://some/other/path");
       expect(mockFetch).not.toHaveBeenCalled();
       expect(mockRefetch).not.toHaveBeenCalled();
     });
@@ -357,7 +357,7 @@ describe("useAuth", () => {
 
       expect(registeredCallback).not.toBeNull();
 
-      await registeredCallback?.(
+      await registeredCallback!(
         "lumen://auth/callback?error=access_denied&error_description=User+denied"
       );
 
@@ -379,7 +379,7 @@ describe("useAuth", () => {
       renderHook(() => useAuth());
 
       // success=true but token is empty — exchange should not happen
-      await registeredCallback?.("lumen://auth/callback?success=true&token=");
+      await registeredCallback!("lumen://auth/callback?success=true&token=");
 
       // refetch should not be called since there's no valid token
       expect(mockRefetch).not.toHaveBeenCalled();
@@ -448,7 +448,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback?.(
+      await registeredCallback!(
         "lumen://auth/callback?success=true&token=expired-token"
       );
 
@@ -469,7 +469,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback?.(
+      await registeredCallback!(
         "lumen://auth/callback?success=true&token=bad-token"
       );
 
@@ -489,7 +489,7 @@ describe("useAuth", () => {
 
       renderHook(() => useAuth());
 
-      await registeredCallback?.("lumen://auth/callback");
+      await registeredCallback!("lumen://auth/callback");
 
       expect(mockFetch).not.toHaveBeenCalled();
     });

@@ -1065,7 +1065,8 @@ describe("CollaborationProvider", () => {
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
       const states = awareness?.getStates();
-      const localState = states.get(awareness?.clientID);
+      expect(states).toBeDefined();
+      const localState = states?.get(awareness?.clientID ?? 0);
       expect(localState?.selection).toEqual(["task-1", "task-2"]);
     });
 
@@ -1089,7 +1090,8 @@ describe("CollaborationProvider", () => {
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
       const states = awareness?.getStates();
-      const localState = states.get(awareness?.clientID);
+      expect(states).toBeDefined();
+      const localState = states?.get(awareness?.clientID ?? 0);
       expect(localState?.openDialogs).toHaveLength(1);
     });
 
@@ -1111,7 +1113,8 @@ describe("CollaborationProvider", () => {
       const awareness = getContext().awareness;
       expect(awareness).not.toBeNull();
       const states = awareness?.getStates();
-      const localState = states.get(awareness?.clientID);
+      expect(states).toBeDefined();
+      const localState = states?.get(awareness?.clientID ?? 0);
       expect(localState?.isTyping).toBe(true);
     });
   });

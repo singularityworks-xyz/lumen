@@ -19,9 +19,12 @@ async function dragByOffset(
 ): Promise<void> {
   const handleBox = await dragHandle.boundingBox();
   expect(handleBox).not.toBeNull();
+  if (!handleBox) {
+    throw new Error("Drag handle bounding box not found");
+  }
 
-  const startX = handleBox?.x + handleBox?.width / 2;
-  const startY = handleBox?.y + handleBox?.height / 2;
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
@@ -102,8 +105,10 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     expect(movedBoard).toBeDefined();
 
     const ownerDelta =
-      Math.abs(movedBoard?.position.x - initialBoard?.position.x) +
-      Math.abs(movedBoard?.position.y - initialBoard?.position.y);
+      Math.abs(
+        (movedBoard?.position.x ?? 0) - (initialBoard?.position.x ?? 0)
+      ) +
+      Math.abs((movedBoard?.position.y ?? 0) - (initialBoard?.position.y ?? 0));
     expect(ownerDelta).toBeGreaterThan(30);
 
     await expect
@@ -235,15 +240,18 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
     const targetBox = await targetColumn.boundingBox();
     expect(taskBox).not.toBeNull();
     expect(targetBox).not.toBeNull();
+    if (!(taskBox && targetBox)) {
+      throw new Error("Bounding boxes not found");
+    }
 
     await ownerPage.mouse.move(
-      taskBox?.x + taskBox?.width / 2,
-      taskBox?.y + taskBox?.height / 2
+      taskBox.x + taskBox.width / 2,
+      taskBox.y + taskBox.height / 2
     );
     await ownerPage.mouse.down();
     await ownerPage.mouse.move(
-      targetBox?.x + targetBox?.width / 2,
-      targetBox?.y + targetBox?.height / 2,
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height / 2,
       { steps: 10 }
     );
     await ownerPage.mouse.up();
@@ -267,9 +275,12 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
 
     const headerBox = await boardHeader.boundingBox();
     expect(headerBox).not.toBeNull();
+    if (!headerBox) {
+      throw new Error("Header bounding box not found");
+    }
 
-    const startX = headerBox?.x + headerBox?.width / 2;
-    const startY = headerBox?.y + headerBox?.height / 2;
+    const startX = headerBox.x + headerBox.width / 2;
+    const startY = headerBox.y + headerBox.height / 2;
 
     await ownerPage.mouse.move(startX, startY);
     await ownerPage.mouse.down();
@@ -351,6 +362,9 @@ test.describe("E2E-13: Multi-User Drag Sync", () => {
       .waitFor({ state: "visible", timeout: 10_000 });
 
     const lateContext = await ownerPage.context().browser()?.newContext();
+    if (!lateContext) {
+      throw new Error("Failed to create new context");
+    }
     const latePage = await lateContext.newPage();
     await clearLocalStorageAndIndexedDB(latePage);
     await disableAnimations(latePage);

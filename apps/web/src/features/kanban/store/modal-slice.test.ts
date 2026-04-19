@@ -105,9 +105,9 @@ describe("modal-slice", () => {
         boardId: b2,
       });
 
-  expect(state.createTaskModals[second.id]?.zIndex).toBeGreaterThan(
-    state.createTaskModals[first.id]?.zIndex ?? 0
-  );
+      expect(state.createTaskModals[second.id]?.zIndex).toBeGreaterThan(
+        state.createTaskModals[first.id]?.zIndex ?? 0
+      );
     });
   });
 
@@ -269,10 +269,12 @@ describe("modal-slice", () => {
 
       actions.bringModalToFront(id1);
 
-    expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(z1Before ?? 0);
-    expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(
-      state.createTaskModals[id2]?.zIndex ?? 0
-    );
+      expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(
+        z1Before ?? 0
+      );
+      expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(
+        state.createTaskModals[id2]?.zIndex ?? 0
+      );
     });
   });
 
@@ -291,10 +293,12 @@ describe("modal-slice", () => {
 
       actions.bringTaskDetailModalToFront(id1);
 
-    expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(z1Before ?? 0);
-    expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(
-      state.taskDetailModals[id2]?.zIndex ?? 0
-    );
+      expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(
+        z1Before ?? 0
+      );
+      expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(
+        state.taskDetailModals[id2]?.zIndex ?? 0
+      );
     });
   });
 
