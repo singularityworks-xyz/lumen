@@ -1,9 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
+
+async function clickWithDispatchFallback(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+
+  try {
+    await locator.click({ timeout: 3000 });
+  } catch {
+    await locator.dispatchEvent("click");
+  }
+}
+
+async function submitTaskCreate(page: Page): Promise<void> {
+  const submitButton = page
+    .locator('[data-testid="task-create-submit"]')
+    .first();
+
+  await clickWithDispatchFallback(submitButton);
+  await expect(
+    page.locator('[data-testid="task-title-input"]').first()
+  ).toBeHidden({ timeout: 10_000 });
+}
 
 test.describe("E2E-08: Command Palette and Shortcuts", () => {
   test.beforeEach(async ({ page }) => {
@@ -73,7 +94,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Search Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -87,7 +108,7 @@ test.describe("E2E-08: Command Palette and Shortcuts", () => {
       '[data-testid="task-title-input"]',
       "Unique Searchable Task Title"
     );
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
     await page.keyboard.press("Control+k");

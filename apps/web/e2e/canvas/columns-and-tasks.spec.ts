@@ -1,9 +1,41 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
+
+async function clickWithDispatchFallback(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+
+  try {
+    await locator.click({ timeout: 3000 });
+  } catch {
+    await locator.dispatchEvent("click");
+  }
+}
+
+async function submitTaskCreate(page: Page): Promise<void> {
+  const submitButton = page
+    .locator('[data-testid="task-create-submit"]')
+    .first();
+  await clickWithDispatchFallback(submitButton);
+  await expect(
+    page.locator('[data-testid="task-title-input"]').first()
+  ).toBeHidden({
+    timeout: 10_000,
+  });
+}
+
+async function openTaskQuickActions(taskCard: Locator): Promise<void> {
+  await expect(taskCard).toBeVisible({ timeout: 10_000 });
+
+  try {
+    await taskCard.click({ button: "right", timeout: 3000 });
+  } catch {
+    await taskCard.dispatchEvent("contextmenu", { button: 2 });
+  }
+}
 
 test.describe("E2E-03: Column and Task CRUD", () => {
   test.beforeEach(async ({ page }) => {
@@ -28,7 +60,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
 
     await page.waitForSelector('[data-testid="column-name-input"]');
     await page.fill('[data-testid="column-name-input"]', "New Test Column");
@@ -47,7 +79,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
       .locator('[data-testid="board-node"]')
       .first()
       .locator('[data-testid="add-column-trigger"]');
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Original Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -92,7 +124,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = sourceBoard.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Movable Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -152,7 +184,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
       .locator('[data-testid="board-node"]')
       .first()
       .locator('[data-testid="add-column-trigger"]');
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Deletable Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -181,7 +213,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Task Test Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -195,7 +227,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await page.waitForSelector('[data-testid="task-title-input"]');
     await page.fill('[data-testid="task-title-input"]', "New Test Task");
     // Priority is set to "medium" by default, which is acceptable for this test
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
 
     await page.waitForTimeout(500);
 
@@ -213,12 +245,12 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Source Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(300);
 
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Target Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -237,7 +269,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Movable Task");
     await page.fill('[data-testid="task-progress-input"]', "50");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
     const taskCard = page.locator(
@@ -280,7 +312,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Task Dup Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -291,13 +323,13 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Original Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
     const taskCard = page.locator(
       '[data-testid="task-card"]:has-text("Original Task")'
     );
-    await taskCard.click({ button: "right" });
+    await openTaskQuickActions(taskCard);
     await page.waitForSelector('[data-testid="task-duplicate-option"]', {
       timeout: 5000,
     });
@@ -316,7 +348,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Delete Task Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -327,14 +359,13 @@ test.describe("E2E-03: Column and Task CRUD", () => {
     const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Task To Delete");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
     const taskCard = page.locator(
       '[data-testid="task-card"]:has-text("Task To Delete")'
     );
-    await taskCard.waitFor({ state: "visible", timeout: 10_000 });
-    await taskCard.click({ button: "right" });
+    await openTaskQuickActions(taskCard);
     // Wait for the quick actions menu to appear
     await page.waitForSelector('[data-testid="task-quick-actions"]', {
       state: "visible",

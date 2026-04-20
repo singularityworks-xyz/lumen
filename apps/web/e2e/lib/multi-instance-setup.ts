@@ -64,6 +64,11 @@ const parseNonNegativeInteger = (value: string | undefined): number | null => {
 export function resolvePlaywrightWorkerIndex(
   env: NodeJS.ProcessEnv = process.env
 ): number {
+  const testParallelIndex = parseNonNegativeInteger(env.TEST_PARALLEL_INDEX);
+  if (testParallelIndex !== null) {
+    return testParallelIndex;
+  }
+
   const testWorkerIndex = parseNonNegativeInteger(env.TEST_WORKER_INDEX);
   if (testWorkerIndex !== null) {
     return testWorkerIndex;

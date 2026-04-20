@@ -111,17 +111,37 @@ mock.module("@opentelemetry/core", () => ({
   },
 }));
 
-mock.module("@opentelemetry/otlp-exporter-base", () => ({}));
+// Properly mock OTLPExporterBase to be extendable
+class MockOTLPExporterBase {
+  export(_items: unknown, _resultCallback: unknown) {
+    /* mock */
+  }
+}
 
+mock.module("@opentelemetry/otlp-exporter-base", () => ({
+  OTLPExporterBase: MockOTLPExporterBase,
+}));
+
+// Track the current state of env mock - use a dynamic getter to allow changes
+// This variable is exported so other test files can control it
+let _otelEnabled = true;
 const envMock = {
   NODE_ENV: "test",
-  OTEL_ENABLED: true,
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
+  get OTEL_ENABLED() {
+    return _otelEnabled;
+  },
+  get OTEL_EXPORTER_OTLP_ENDPOINT() {
+    return _otelEnabled ? "http://localhost:4318" : "";
+  },
   OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
 };
 
 mock.module("./env", () => ({
-  env: envMock,
+  get env() {
+    return envMock;
+  },
+  // Export the control variable for cross-test coordination
+  _otelEnabledControl: _otelEnabled,
 }));
 
 mock.module("./config", () => ({
@@ -135,11 +155,13 @@ mock.module("./config", () => ({
         environment: "browser",
       };
     }
+    const currentEnv = envMock;
     return {
-      enabled: envMock.OTEL_ENABLED && !!envMock.OTEL_EXPORTER_OTLP_ENDPOINT,
-      endpoint: envMock.OTEL_EXPORTER_OTLP_ENDPOINT || "",
+      enabled:
+        currentEnv.OTEL_ENABLED && !!currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+      endpoint: currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "",
       headers: (() => {
-        const headersStr = envMock.OTEL_EXPORTER_OTLP_HEADERS;
+        const headersStr = currentEnv.OTEL_EXPORTER_OTLP_HEADERS;
         if (!headersStr) {
           return {};
         }
@@ -155,7 +177,7 @@ mock.module("./config", () => ({
         return headers;
       })(),
       serviceName,
-      environment: envMock.NODE_ENV,
+      environment: currentEnv.NODE_ENV,
     };
   },
 }));
@@ -203,14 +225,14 @@ describe("logger integration", () => {
     });
 
     it("disabled OTEL config is consistent with logger behavior", () => {
-      envMock.OTEL_ENABLED = false;
+      _otelEnabled = false;
       const config = getOtelConfig("svc");
       expect(config.enabled).toBe(false);
       // Logger still works even when OTEL is disabled
       const l = createLogger({ level: "info", pretty: false });
       l.info("works without otel");
       expect(consoleLogMock).toHaveBeenCalled();
-      envMock.OTEL_ENABLED = true; // restore
+      _otelEnabled = true; // restore
     });
   });
 

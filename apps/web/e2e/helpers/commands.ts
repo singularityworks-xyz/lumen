@@ -12,11 +12,6 @@ const contextBypassUsers = new WeakMap<BrowserContext, string>();
 const contextsWithBypassRoute = new WeakSet<BrowserContext>();
 const contextSeedPromises = new WeakMap<BrowserContext, Promise<SeedResult>>();
 
-// Top-level regex constants for performance
-const MATRIX_REGEX = /matrix\(([^)]+)\)/;
-const TRANSLATE_SCALE_REGEX =
-  /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/;
-
 function cloneStorageCookiesWithLoopbackDomain(
   storageState: SeedResult["storageState"]
 ): SeedResult["storageState"]["cookies"] {
@@ -757,6 +752,10 @@ interface ReactFlowViewport {
 
 export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
   return page.evaluate(() => {
+    const matrixRegex = /matrix\(([^)]+)\)/;
+    const translateScaleRegex =
+      /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/;
+
     const rf = (
       window as Window & {
         __reactFlow?: { getViewport: () => ReactFlowViewport };
@@ -779,7 +778,7 @@ export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
       window.getComputedStyle(viewportEl).transform ||
       "";
 
-    const matrixMatch = transform.match(MATRIX_REGEX);
+    const matrixMatch = transform.match(matrixRegex);
     if (matrixMatch?.[1]) {
       const parts = matrixMatch[1]
         .split(",")
@@ -805,7 +804,7 @@ export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
       }
     }
 
-    const translateScaleMatch = transform.match(TRANSLATE_SCALE_REGEX);
+    const translateScaleMatch = transform.match(translateScaleRegex);
     if (
       translateScaleMatch?.[1] &&
       translateScaleMatch?.[2] &&

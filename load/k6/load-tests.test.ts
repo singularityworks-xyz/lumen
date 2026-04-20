@@ -229,7 +229,7 @@ describe("collab-session source", () => {
 
   it("sets up ping interval at 30 seconds", () => {
     expect(src).toContain("setInterval");
-    expect(src).toContain("30000");
+    expect(src).toContain("30_000");
   });
 
   it("handles close and error events", () => {

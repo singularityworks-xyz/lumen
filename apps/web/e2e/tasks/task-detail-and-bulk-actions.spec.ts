@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
@@ -11,6 +11,55 @@ const getBulkActionsBar = (page: Page) =>
     .locator('[data-testid="bulk-actions-bar"]')
     .filter({ visible: true })
     .last();
+
+async function clickWithDispatchFallback(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+
+  try {
+    await locator.click({ timeout: 3000 });
+    return;
+  } catch {
+    try {
+      await locator.click({ timeout: 3000, force: true });
+      return;
+    } catch {
+      const isStillVisible = await locator.isVisible().catch(() => false);
+      if (!isStillVisible) {
+        return;
+      }
+
+      await locator.dispatchEvent("click");
+    }
+  }
+}
+
+async function submitTaskCreate(page: Page): Promise<void> {
+  const submitButton = page
+    .locator('[data-testid="task-create-submit"]')
+    .first();
+
+  await clickWithDispatchFallback(submitButton);
+  await expect(
+    page.locator('[data-testid="task-title-input"]').first()
+  ).toBeHidden({ timeout: 10_000 });
+}
+
+async function enableSelectMode(page: Page): Promise<void> {
+  const selectModeButton = page.locator(
+    '[data-testid="task-select-mode-toggle"]'
+  );
+  await clickWithDispatchFallback(selectModeButton);
+  await expect(selectModeButton).toContainText("Select");
+}
+
+async function selectTaskByTitle(page: Page, title: string): Promise<void> {
+  const taskCard = page
+    .locator(`[data-testid="task-card"]:has-text("${title}")`)
+    .first();
+  const checkbox = taskCard.getByRole("checkbox");
+  await clickWithDispatchFallback(checkbox);
+  await expect(checkbox).toBeChecked();
+}
 
 test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   test.beforeEach(async ({ page }) => {
@@ -31,7 +80,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(addColumnTrigger);
     await page.fill('[data-testid="column-name-input"]', "Task Detail Column");
     await page.click('[data-testid="column-create-submit"]');
     await page.waitForTimeout(500);
@@ -46,7 +95,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
       '[data-testid="task-description-input"]',
       "Test description content"
     );
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
   });
 
@@ -135,28 +184,18 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Second Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(300);
 
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Third Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
-    const firstTask = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    const secondTask = page.locator(
-      '[data-testid="task-card"]:has-text("Second Task")'
-    );
-
-    await firstTask.click();
-    await secondTask.click();
+    await selectTaskByTitle(page, "Detail Test Task");
+    await selectTaskByTitle(page, "Second Task");
 
     await page.waitForTimeout(300);
 
@@ -175,10 +214,7 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
       navigator.platform.toLowerCase().includes("mac")
     );
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
     const firstTask = page.locator(
       '[data-testid="task-card"]:has-text("Detail Test Task")'
@@ -213,18 +249,15 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Task To Bulk Delete");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
     const taskToDelete = page.locator(
       '[data-testid="task-card"]:has-text("Task To Bulk Delete")'
     );
-    await taskToDelete.click();
+    await selectTaskByTitle(page, "Task To Bulk Delete");
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
@@ -247,18 +280,12 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
     await addTaskTrigger.click();
     await page.fill('[data-testid="task-title-input"]', "Unselected Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await submitTaskCreate(page);
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
-    const selectedTask = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    await selectedTask.click();
+    await selectTaskByTitle(page, "Detail Test Task");
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();

@@ -105,21 +105,15 @@ async function addTaskViaStore(
   );
 }
 
-async function deleteTaskByTitleViaStore(
+async function deleteTaskByIdViaStore(
   page: Page,
-  taskTitle: string
+  taskId: string
 ): Promise<void> {
-  await page.evaluate((title) => {
-    interface TaskRecord {
-      id: string;
-      title: string;
-    }
-
+  await page.evaluate((id) => {
     interface KanbanState {
       deleteTask: (taskId: string) => void;
       tasks?: {
-        allIds?: string[];
-        byId?: Record<string, TaskRecord | undefined>;
+        byId?: Record<string, unknown>;
       };
     }
 
@@ -135,17 +129,12 @@ async function deleteTaskByTitleViaStore(
     }
 
     const state = store.getState();
-    const taskId = (state.tasks?.allIds ?? []).find((id) => {
-      const task = state.tasks?.byId?.[id];
-      return task?.title === title;
-    });
-
-    if (!taskId) {
-      throw new Error(`Task not found: ${title}`);
+    if (!state.tasks?.byId?.[id]) {
+      throw new Error(`Task not found by id: ${id}`);
     }
 
-    state.deleteTask(taskId);
-  }, taskTitle);
+    state.deleteTask(id);
+  }, taskId);
 }
 
 function getTaskTitleById(page: Page, taskId: string): Promise<string | null> {
@@ -176,22 +165,16 @@ function getTaskTitleById(page: Page, taskId: string): Promise<string | null> {
   }, taskId);
 }
 
-async function updateTaskStatusByTitleViaStore(
+async function updateTaskStatusByIdViaStore(
   page: Page,
-  taskTitle: string,
+  taskId: string,
   status: "todo" | "done" | "trash"
 ): Promise<void> {
   await page.evaluate(
-    ({ title, nextStatus }) => {
-      interface TaskRecord {
-        id: string;
-        title: string;
-      }
-
+    ({ id, nextStatus }) => {
       interface KanbanState {
         tasks?: {
-          allIds?: string[];
-          byId?: Record<string, TaskRecord | undefined>;
+          byId?: Record<string, unknown>;
         };
         updateTask: (
           taskId: string,
@@ -211,65 +194,13 @@ async function updateTaskStatusByTitleViaStore(
       }
 
       const state = store.getState();
-      const taskId = (state.tasks?.allIds ?? []).find((id) => {
-        const task = state.tasks?.byId?.[id];
-        return task?.title === title;
-      });
-
-      if (!taskId) {
-        throw new Error(`Task not found: ${title}`);
+      if (!state.tasks?.byId?.[id]) {
+        throw new Error(`Task not found by id: ${id}`);
       }
 
-      state.updateTask(taskId, { status: nextStatus });
+      state.updateTask(id, { status: nextStatus });
     },
-    { title: taskTitle, nextStatus: status }
-  );
-}
-
-async function updateTaskTitleByTitleViaStore(
-  page: Page,
-  taskTitle: string,
-  nextTitle: string
-): Promise<void> {
-  await page.evaluate(
-    ({ title, updatedTitle }) => {
-      interface TaskRecord {
-        id: string;
-        title: string;
-      }
-
-      interface KanbanState {
-        tasks?: {
-          allIds?: string[];
-          byId?: Record<string, TaskRecord | undefined>;
-        };
-        updateTask: (taskId: string, updates: { title: string }) => void;
-      }
-
-      type WindowWithKanbanStore = Window & {
-        __KANBAN_STORE__?: {
-          getState: () => KanbanState;
-        };
-      };
-
-      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
-      if (!store?.getState) {
-        throw new Error("Kanban store is not available");
-      }
-
-      const state = store.getState();
-      const taskId = (state.tasks?.allIds ?? []).find((id) => {
-        const task = state.tasks?.byId?.[id];
-        return task?.title === title;
-      });
-
-      if (!taskId) {
-        throw new Error(`Task not found: ${title}`);
-      }
-
-      state.updateTask(taskId, { title: updatedTitle });
-    },
-    { title: taskTitle, updatedTitle: nextTitle }
+    { id: taskId, nextStatus: status }
   );
 }
 
@@ -389,7 +320,7 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
       "Edited while offline - will be deleted"
     );
 
-    await deleteTaskByTitleViaStore(ownerPage, "Offline Delete Task");
+    await deleteTaskByIdViaStore(ownerPage, taskId);
 
     await editorPage.context().setOffline(false);
 
@@ -461,19 +392,17 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
       .locator('[data-testid="task-card"]:has-text("Checklist Status Task")')
       .waitFor({ state: "visible", timeout: 10_000 });
 
+    const taskId = await getTaskIdByTitle(editorPage, "Checklist Status Task");
+
     await editorPage.context().setOffline(true);
 
-    await updateTaskTitleByTitleViaStore(
+    await updateTaskTitleByIdViaStore(
       editorPage,
-      "Checklist Status Task",
+      taskId,
       "Checklist Status Task Offline Edit"
     );
 
-    await updateTaskStatusByTitleViaStore(
-      ownerPage,
-      "Checklist Status Task",
-      "done"
-    );
+    await updateTaskStatusByIdViaStore(ownerPage, taskId, "done");
 
     await editorPage.context().setOffline(false);
 

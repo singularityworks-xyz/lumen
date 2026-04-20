@@ -61,6 +61,21 @@ mock.module("./env", () => ({
   },
 }));
 
+// Also mock the config to ensure OTEL_ENABLED is respected
+mock.module("./config", () => ({
+  getOtelConfig: (serviceName: string) => {
+    const currentOtelEnabled = otelEnabled;
+    const endpoint = currentOtelEnabled ? "http://localhost:4318" : "";
+    return {
+      enabled: currentOtelEnabled && !!endpoint,
+      endpoint,
+      headers: { Authorization: "Bearer test" },
+      serviceName,
+      environment: "test",
+    };
+  },
+}));
+
 mock.module("@opentelemetry/api", () => {
   function DiagConsoleLogger() {
     /* mock */
@@ -92,14 +107,31 @@ mock.module("@opentelemetry/api", () => {
   };
 });
 
-class OTLPExporterBase {}
+class OTLPExporterBase {
+  export(_items: unknown, _resultCallback: unknown) {
+    /* mock */
+  }
+}
 
-mock.module("@opentelemetry/otlp-exporter-base", () => ({
-  OTLPExporterBase,
-}));
+// This is needed to make OTLPExporterBase extendable
+Object.defineProperty(OTLPExporterBase, "name", { value: "OTLPExporterBase" });
+
+mock.module("@opentelemetry/otlp-exporter-base", () => {
+  // Return a proper extendable class
+  return {
+    OTLPExporterBase: class MockOTLPExporterBase {
+      export(_items: unknown, _resultCallback: unknown) {
+        /* mock */
+      }
+    },
+  };
+});
 
 mock.module("@opentelemetry/otlp-exporter-base/node-http", () => ({
-  OTLPNodeExporterBase: OTLPExporterBase,
+  OTLPExporterNodeBase: OTLPExporterBase,
+  OTLPExporterBase,
+  createOtlpHttpExportDelegate: mock(() => ({})),
+  convertLegacyHttpOptions: mock(() => ({})),
 }));
 
 mock.module("@opentelemetry/core", () => {
@@ -119,7 +151,9 @@ mock.module("@opentelemetry/core", () => {
   };
 });
 
-mock.module("@opentelemetry/otlp-transformer", () => ({}));
+mock.module("@opentelemetry/otlp-transformer", () => ({
+  JsonLogsSerializer: {},
+}));
 
 mock.module("@opentelemetry/sdk-metrics", () => {
   function PeriodicExportingMetricReader() {
@@ -131,12 +165,11 @@ mock.module("@opentelemetry/sdk-metrics", () => {
   };
 });
 
-mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
-  function OTLPLogExporter() {
-    /* mock */
-  }
-  return { OTLPLogExporter };
-});
+class OTLPLogExporterMock {}
+
+mock.module("@opentelemetry/exporter-logs-otlp-http", () => ({
+  OTLPLogExporter: OTLPLogExporterMock,
+}));
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
   function OTLPMetricExporter() {

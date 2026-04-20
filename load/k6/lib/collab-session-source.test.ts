@@ -30,29 +30,20 @@ describe("collab-session.ts structure", () => {
     expect(src).toContain("?token=");
   });
 
-  it("defines SyncData interface with ops array", () => {
-    expect(src).toContain("interface SyncData");
-    expect(src).toContain("ops: Array<{");
-    expect(src).toContain("type: string;");
-    expect(src).toContain("path: string;");
-    expect(src).toContain("value: string;");
-    expect(src).toContain("clock: number;");
-    expect(src).toContain("origin: string;");
+  it("defines MESSAGE_SYNC and MESSAGE_AWARENESS constants", () => {
+    expect(src).toContain("const MESSAGE_SYNC");
+    expect(src).toContain("const MESSAGE_AWARENESS");
   });
 
-  it("defines AwarenessData interface", () => {
-    expect(src).toContain("interface AwarenessData");
-    expect(src).toContain("user: string;");
-    expect(src).toContain("cursor: { line: number; col: number };");
-    expect(src).toContain("lastSeen: number;");
+  it("defines encodeSyncStep1 and encodeSyncUpdate functions", () => {
+    expect(src).toContain("function encodeSyncStep1");
+    expect(src).toContain("function encodeSyncUpdate");
   });
 
   it("defines CollabSession interface with required methods", () => {
     expect(src).toContain("interface CollabSession");
-    expect(src).toContain("sendSyncUpdate: (data: SyncData) => boolean");
-    expect(src).toContain(
-      "sendAwarenessUpdate: (data: AwarenessData) => boolean"
-    );
+    expect(src).toContain("sendSyncUpdate: (updateSeed: number) => boolean");
+    expect(src).toContain("sendAwarenessUpdate: (cursor:");
     expect(src).toContain("disconnect: () => void");
     expect(src).toContain("established: boolean");
   });
@@ -74,14 +65,14 @@ describe("collab-session.ts structure", () => {
   });
 
   it("sends init sync message on successful connection", () => {
-    expect(src).toContain('"sync"');
-    expect(src).toContain('"init"');
+    expect(src).toContain("encodeSyncStep1");
+    expect(src).toContain("socket.sendBinary");
   });
 
   it("sets up periodic ping at 30 second intervals", () => {
-    expect(src).toContain("setInterval");
-    expect(src).toContain("30000");
-    expect(src).toContain('"ping"');
+    expect(src).toContain("socket.setInterval");
+    expect(src).toContain("30_000");
+    expect(src).toContain("MESSAGE_SYNC");
   });
 
   it("tracks disconnect and error events", () => {
@@ -101,12 +92,13 @@ describe("collab-session.ts structure", () => {
     expect(sendSyncBlock).toContain("return false");
   });
 
-  it("sendSyncUpdate includes workspaceId in payload", () => {
+  it("sendSyncUpdate generates update and encodes it", () => {
     const idx = src.indexOf("sendSyncUpdate =");
     expect(idx).not.toBe(-1);
     const sendSyncBlock = src.slice(idx);
-    expect(sendSyncBlock).toContain("workspaceId");
-    expect(sendSyncBlock).toContain("timestamp: Date.now()");
+    expect(sendSyncBlock).toContain("generateFakeYjsUpdate");
+    expect(sendSyncBlock).toContain("encodeSyncUpdate");
+    expect(sendSyncBlock).toContain("socket.sendBinary");
   });
 
   it("sendAwarenessUpdate wraps payload in try-catch", () => {
@@ -117,11 +109,10 @@ describe("collab-session.ts structure", () => {
     expect(sendAwareBlock).toContain("catch {");
   });
 
-  it("disconnect sends disconnect message then closes socket", () => {
+  it("disconnect closes socket", () => {
     const idx = src.indexOf("disconnect =");
     expect(idx).not.toBe(-1);
     const disconnectBlock = src.slice(idx);
-    expect(disconnectBlock).toContain('"disconnect"');
     expect(disconnectBlock).toContain("socket.close()");
   });
 

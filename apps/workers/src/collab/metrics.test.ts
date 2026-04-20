@@ -1,3 +1,7 @@
+// Set environment variables BEFORE any imports that might trigger prisma initialization
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "test";
+
 import { afterAll, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger/server", () => ({

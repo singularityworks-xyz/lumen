@@ -35,13 +35,16 @@ const mockInfo = mock(() => {
   // No-op mock for info logs
 });
 
+// Use a singleton pattern to ensure the same mock functions are used across imports
+const mockLoggerFactory = () => ({
+  info: mockInfo,
+  warn: mockWarn,
+  error: mockError,
+  debug: mockDebug,
+});
+
 mock.module("@lumen/logger", () => ({
-  createLogger: () => ({
-    info: mockInfo,
-    warn: mockWarn,
-    error: mockError,
-    debug: mockDebug,
-  }),
+  createLogger: mockLoggerFactory,
 }));
 
 // Define room interface for type safety
@@ -86,7 +89,9 @@ const mockRoomManager = {
   rooms: new Map(),
 };
 
-// Import the module after setting up mocks
+// Module and function will be imported in beforeAll
+
+// Track if logger was created - we'll need to re-create it with fresh mocks
 let yjsAccessorModule: typeof import("./yjs-accessor");
 let getWorkspaceYjsDoc: typeof import("./yjs-accessor").getWorkspaceYjsDoc;
 

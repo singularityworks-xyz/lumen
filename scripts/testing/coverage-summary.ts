@@ -57,7 +57,7 @@ export interface SubjectSummary {
 }
 
 const BUN_LCOV_SOURCE: CoverageSource = {
-  defaultPath: "coverage/lcov.info",
+  defaultPath: "coverage/bun/lcov.info",
   envVar: "BUN_LCOV_PATH",
 };
 

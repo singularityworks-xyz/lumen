@@ -510,6 +510,19 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
         .first()
         .waitFor({ state: "visible", timeout: 15_000 });
 
+      await waitForConnectionState(
+        ownerPage,
+        "sync-status-indicator",
+        "connected",
+        20_000
+      );
+      await waitForConnectionState(
+        editorPage,
+        "sync-status-indicator",
+        "connected",
+        20_000
+      );
+
       const primaryInstanceId = await fetchWorkersInstanceId(
         topology.getPrimaryWorkersUrl()
       );
@@ -525,7 +538,8 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
       await waitForCollabUpdate(
         editorPage,
         "kanban-column",
-        "Cross-Instance Column"
+        "Cross-Instance Column",
+        20_000
       );
 
       const primaryColumns = await ownerPage
