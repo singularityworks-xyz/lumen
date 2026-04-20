@@ -1,4 +1,7 @@
-// Set environment variables BEFORE any imports that use env.ts
+// Set AI_ENCRYPTION_KEY FIRST before any imports that might cache the encryption module
+process.env.AI_ENCRYPTION_KEY = "dGVzdC1rZXktMzItYnl0ZXMtZm9yLWVuY3J5cHRpb24=";
+
+// Set other environment variables BEFORE any imports that use env.ts
 process.env.DATABASE_URL = "postgres://dummy";
 process.env.NODE_ENV = "development";
 process.env.WEB_URL = "http://localhost:3000";
@@ -8,7 +11,6 @@ process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
 process.env.GITHUB_CLIENT_ID = "test-github-client-id";
 process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
-process.env.AI_ENCRYPTION_KEY = "dGVzdC1rZXktMzItYnl0ZXMtZm9yLWVuY3J5cHRpb24=";
 
 import {
   afterAll,

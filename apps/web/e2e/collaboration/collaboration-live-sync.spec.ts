@@ -372,7 +372,10 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await addColumnToFirstBoardViaStore(ownerPage, "Task Sync Column");
+    const taskSyncColumnId = await addColumnToFirstBoardViaStore(
+      ownerPage,
+      "Task Sync Column"
+    );
     await waitForCollabSync(
       ownerPage,
       "kanban-column",
@@ -386,20 +389,21 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       20_000
     );
     await waitForColumnInStore(editorPage, "Task Sync Column", 40_000);
+    await waitForColumnIdInStore(editorPage, taskSyncColumnId, 40_000);
 
-    const syncedTaskColumn = editorPage
-      .locator('[data-testid="kanban-column"]:has-text("Task Sync Column")')
-      .first();
-    await expect(syncedTaskColumn).toBeVisible({ timeout: 20_000 });
-
-    await addTaskViaStore(ownerPage, "Task Sync Column", "Live Task");
-    await waitForCollabSync(ownerPage, "task-card", "Live Task", 20_000);
+    const liveTaskId = await addTaskViaStore(
+      ownerPage,
+      "Task Sync Column",
+      "Live Task"
+    );
+    await waitForTaskIdInStore(ownerPage, liveTaskId, 40_000);
     await waitForConnectionState(
       editorPage,
       "sync-status-indicator",
       "connected",
       20_000
     );
+    await waitForTaskIdInStore(editorPage, liveTaskId, 40_000);
     await waitForTaskInStore(editorPage, "Live Task", 40_000);
     await waitForTaskInColumnInStore(
       editorPage,

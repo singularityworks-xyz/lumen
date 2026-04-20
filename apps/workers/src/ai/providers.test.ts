@@ -15,17 +15,16 @@ const mockEnv = {
   CEREBRAS_API_KEY: "test-api-key",
 };
 
+// Mock the env module BEFORE importing providers
 mock.module("../env", () => ({
   env: mockEnv,
 }));
 
-import { DEFAULT_PRIMARY_MODEL } from "@lumen/ai";
-import {
-  getModel,
-  getModelChain,
-  isAiEnabled,
-  isRateLimitError,
-} from "./providers";
+// Import these after setting up mocks - they'll use the mocked env
+const { DEFAULT_PRIMARY_MODEL } = await import("@lumen/ai");
+const { getModel, getModelChain, isAiEnabled, isRateLimitError } = await import(
+  "./providers"
+);
 
 describe("isAiEnabled", () => {
   it("returns true when CEREBRAS_API_KEY is set", () => {

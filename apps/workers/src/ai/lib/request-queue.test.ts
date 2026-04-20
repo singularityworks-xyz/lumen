@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
-// Set environment variables BEFORE any imports to ensure Upstash is used
+// Set environment variables BEFORE any imports to ensure in-memory limiter is used
+// (not Upstash - we want in-memory for tests so we can reset state between tests)
 process.env.UPSTASH_REDIS_REST_URL = "http://localhost:6379";
 process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
 
@@ -44,13 +45,22 @@ mock.module("@upstash/ratelimit", () => ({
   },
 }));
 
-import {
+// Import types for the module we're about to import
+type RequestQueueModule = typeof import("./request-queue");
+
+// Use dynamic import with cache-busting to get fresh module
+// This bypasses any mocks set up by other test files (like title-generator.test.ts)
+const requestQueueModule = (await import(
+  `./request-queue?${Date.now()}`
+)) as RequestQueueModule;
+
+const {
   _resetInMemoryLimiter,
   aiRequestQueue,
   getQueueStats,
   getQueueStatus,
   isUpstashEnabled,
-} from "./request-queue";
+} = requestQueueModule;
 
 beforeEach(() => {
   mockLoggerInfo.mockClear();
