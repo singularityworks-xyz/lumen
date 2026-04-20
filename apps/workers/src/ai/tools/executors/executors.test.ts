@@ -18,30 +18,49 @@ function createMockDoc() {
 
 type MockDoc = ReturnType<typeof createMockDoc>;
 
-// Mutable state object that the mock module will read from
-const mockState = {
+// Use a global store that persists across mock evaluations
+// This ensures mock.module can always access the latest state
+const globalMockStore = (
+  globalThis as unknown as {
+    __mockStore__: { doc: MockDoc; returnNull: boolean } | undefined;
+  }
+).__mockStore__;
+
+const mockState = globalMockStore ?? {
   doc: createMockDoc(),
   returnNull: false,
 };
 
-const mockLogger = {
-  info: mock((_msg: string, _meta?: unknown) => undefined),
-  error: mock((_msg: string, _meta?: unknown) => undefined),
-  warn: mock((_msg: string, _meta?: unknown) => undefined),
-  debug: mock((_msg: string, _meta?: unknown) => undefined),
-};
+// Store reference globally so it survives module reloads
+(globalThis as unknown as { __mockStore__: typeof mockState }).__mockStore__ =
+  mockState;
 
 // Set up mock BEFORE any imports that depend on it
+// The factory function is evaluated once, but it closes over mockState
+// which is a reference to the mutable state object
 mock.module("./yjs-accessor", () => ({
-  getWorkspaceYjsDoc: () => {
-    // Dynamic lookup at call time
-    const currentState = mockState;
-    if (currentState.returnNull) {
+  getWorkspaceYjsDoc: (_workspaceId: string) => {
+    // Always read from the current state at call time
+    if (mockState.returnNull) {
       return Promise.resolve(null);
     }
-    return Promise.resolve(currentState.doc);
+    return Promise.resolve(mockState.doc);
   },
-  logger: mockLogger,
+  // Export logger to satisfy imports from executor files
+  logger: {
+    info: mock(() => {
+      // No-op mock for info logs
+    }),
+    error: mock(() => {
+      // No-op mock for error logs
+    }),
+    warn: mock(() => {
+      // No-op mock for warn logs
+    }),
+    debug: mock(() => {
+      // No-op mock for debug logs
+    }),
+  },
 }));
 
 // Access mock state through getter for dynamic updates
@@ -233,8 +252,6 @@ describe("executeCreateTask", () => {
 
   it("fails when workspace not loaded", async () => {
     mockState.returnNull = true;
-    mockState.returnNull = true;
-    mockState.returnNull = true;
     const result = await executeCreateTask(
       { boardId: "board-1", title: "Fail" },
       baseCtx
@@ -319,8 +336,6 @@ describe("executeCreateColumn", () => {
 
   it("fails when workspace not loaded", async () => {
     mockState.returnNull = true;
-    mockState.returnNull = true;
-    mockState.returnNull = true;
     const result = await executeCreateColumn(
       { boardId: "board-1", name: "Fail" },
       baseCtx
@@ -360,7 +375,6 @@ describe("executeCreateBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeCreateBoard({ name: "Fail" }, baseCtx);
     expect(result.success).toBe(false);
@@ -421,7 +435,6 @@ describe("executeUpdateTask", () => {
 
   it("fails when workspace not loaded", async () => {
     mockState.returnNull = true;
-    mockState.returnNull = true;
     const result = await executeUpdateTask(
       { taskId: "task-1", updates: { title: "Fail" } },
       baseCtx
@@ -462,7 +475,6 @@ describe("executeUpdateBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeUpdateBoard(
       { boardId: "board-1", updates: { name: "Fail" } },
@@ -514,7 +526,6 @@ describe("executeMoveTask", () => {
 
   it("fails when workspace not loaded", async () => {
     mockState.returnNull = true;
-    mockState.returnNull = true;
     const result = await executeMoveTask(
       { taskId: "task-1", columnId: "col-2" },
       baseCtx
@@ -552,7 +563,6 @@ describe("executeDeleteTask", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeDeleteTask({ taskId: "task-1" }, baseCtx);
     expect(result.success).toBe(false);
@@ -596,7 +606,6 @@ describe("executeDeleteBoard", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeDeleteBoard({ boardId: "board-1" }, baseCtx);
     expect(result.success).toBe(false);
@@ -658,7 +667,6 @@ describe("executeBulkUpdateTasks", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeBulkUpdateTasks(
       { taskIds: ["task-1"], updates: { priority: "high" } },
@@ -722,7 +730,6 @@ describe("executeBulkDeleteTasks", () => {
   });
 
   it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
     mockState.returnNull = true;
     const result = await executeBulkDeleteTasks(
       { taskIds: ["task-1"] },

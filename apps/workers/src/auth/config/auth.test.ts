@@ -18,15 +18,26 @@ process.env.DATABASE_URL = "postgres://localhost:5432/test";
 const betterAuthCalls: unknown[] = [];
 
 // Original getSession mock - this will be wrapped by E2E bypass
-const originalGetSessionMock = mock((req: unknown) =>
+const originalGetSessionMock = mock((_req: unknown) =>
   Promise.resolve({
-    user: { id: "original-user", email: "original@example.com", name: "Original User" },
-    session: { id: "original-session", token: "original-token", expiresAt: new Date() },
+    user: {
+      id: "original-user",
+      email: "original@example.com",
+      name: "Original User",
+    },
+    session: {
+      id: "original-session",
+      token: "original-token",
+      expiresAt: new Date(),
+    },
   })
 );
 
 // Mock prisma adapter
-const mockPrismaAdapterResult = { type: "prisma-adapter", provider: "postgresql" };
+const mockPrismaAdapterResult = {
+  type: "prisma-adapter",
+  provider: "postgresql",
+};
 const mockPrismaAdapter = mock(() => mockPrismaAdapterResult);
 
 // Mock plugins
@@ -124,7 +135,10 @@ describe("auth/config/auth - Auth initialization", () => {
     it("should verify Prisma adapter was configured during initialization", () => {
       // Verify that prismaAdapter was called during module load
       expect(initialPrismaAdapterCalls.length).toBeGreaterThan(0);
-      const callArgs = initialPrismaAdapterCalls[0] as [unknown, { provider: string }];
+      const callArgs = initialPrismaAdapterCalls[0] as [
+        unknown,
+        { provider: string },
+      ];
       expect(callArgs[1]).toEqual({
         provider: "postgresql",
       });
@@ -179,7 +193,11 @@ describe("auth/config/auth - Auth initialization", () => {
 
     it("should enable cookie cache with compact strategy", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
-      const cookieCache = (config.session as { cookieCache: { enabled: boolean; strategy: string; maxAge: number } }).cookieCache;
+      const cookieCache = (
+        config.session as {
+          cookieCache: { enabled: boolean; strategy: string; maxAge: number };
+        }
+      ).cookieCache;
       expect(cookieCache).toBeDefined();
       expect(cookieCache.enabled).toBe(true);
       expect(cookieCache.strategy).toBe("compact");
@@ -191,23 +209,26 @@ describe("auth/config/auth - Auth initialization", () => {
     it("should configure GitHub provider with correct client ID", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
       expect(config.socialProviders).toBeDefined();
-      expect((config.socialProviders as { github: { clientId: string } }).github.clientId).toBe(
-        "test-github-client-id"
-      );
+      expect(
+        (config.socialProviders as { github: { clientId: string } }).github
+          .clientId
+      ).toBe("test-github-client-id");
     });
 
     it("should configure GitHub provider with correct client secret", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
-      expect((config.socialProviders as { github: { clientSecret: string } }).github.clientSecret).toBe(
-        "test-github-client-secret"
-      );
+      expect(
+        (config.socialProviders as { github: { clientSecret: string } }).github
+          .clientSecret
+      ).toBe("test-github-client-secret");
     });
 
     it("should configure GitHub provider with correct redirect URI", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
-      expect((config.socialProviders as { github: { redirectURI: string } }).github.redirectURI).toBe(
-        "http://localhost:3001/api/auth/callback/github"
-      );
+      expect(
+        (config.socialProviders as { github: { redirectURI: string } }).github
+          .redirectURI
+      ).toBe("http://localhost:3001/api/auth/callback/github");
     });
   });
 
@@ -215,7 +236,11 @@ describe("auth/config/auth - Auth initialization", () => {
     it("should configure logger with correct level and settings", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
       expect(config.logger).toBeDefined();
-      const logger = config.logger as { level: string; disabled: boolean; verboseLogging: boolean };
+      const logger = config.logger as {
+        level: string;
+        disabled: boolean;
+        verboseLogging: boolean;
+      };
       expect(logger.level).toBe("info");
       expect(logger.disabled).toBe(false);
     });
@@ -229,7 +254,10 @@ describe("auth/config/auth - Auth initialization", () => {
     it("should configure advanced cookie settings based on NODE_ENV", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
       expect(config.advanced).toBeDefined();
-      const advanced = config.advanced as { useSecureCookies: boolean; cookieSameSite: string };
+      const advanced = config.advanced as {
+        useSecureCookies: boolean;
+        cookieSameSite: string;
+      };
       // In development
       expect(advanced.useSecureCookies).toBe(false);
       expect(advanced.cookieSameSite).toBe("lax");
@@ -241,7 +269,9 @@ describe("auth/config/auth - Auth initialization", () => {
       const config = initialBetterAuthCalls[0] as Record<string, unknown>;
       expect(config.emailAndPassword).toBeDefined();
       // In development, it should be enabled
-      expect((config.emailAndPassword as { enabled: boolean }).enabled).toBe(true);
+      expect((config.emailAndPassword as { enabled: boolean }).enabled).toBe(
+        true
+      );
     });
   });
 });
@@ -262,7 +292,13 @@ describe("auth/config/auth - E2E session bypass logic", () => {
       // The actual getSession has been wrapped by the E2E bypass logic
       // We need to verify the behavior by calling it
       const result = (await auth.api.getSession(mockReq)) as {
-        user: { id: string; name: string; email: string; emailVerified: boolean; image: null };
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          emailVerified: boolean;
+          image: null;
+        };
         session: { id: string; token: string; userId: string };
       } | null;
 
@@ -308,8 +344,16 @@ describe("auth/config/auth - E2E session bypass logic", () => {
 
       // Setup the original mock to return a specific value
       originalGetSessionMock.mockResolvedValueOnce({
-        user: { id: "original-user", email: "original@example.com", name: "Original User" },
-        session: { id: "original-session", token: "original-token", expiresAt: new Date() },
+        user: {
+          id: "original-user",
+          email: "original@example.com",
+          name: "Original User",
+        },
+        session: {
+          id: "original-session",
+          token: "original-token",
+          expiresAt: new Date(),
+        },
       });
 
       const result = (await auth.api.getSession(mockReq)) as {
@@ -374,8 +418,16 @@ describe("auth/config/auth - E2E session bypass logic", () => {
 
       // Setup the original mock
       originalGetSessionMock.mockResolvedValueOnce({
-        user: { id: "fallback-user", email: "fallback@example.com", name: "Fallback User" },
-        session: { id: "fallback-session", token: "fallback-token", expiresAt: new Date() },
+        user: {
+          id: "fallback-user",
+          email: "fallback@example.com",
+          name: "Fallback User",
+        },
+        session: {
+          id: "fallback-session",
+          token: "fallback-token",
+          expiresAt: new Date(),
+        },
       });
 
       const result = (await auth.api.getSession(mockReq)) as {
@@ -428,8 +480,25 @@ describe("auth/config/auth - E2E session bypass logic", () => {
       };
 
       const result = (await auth.api.getSession(mockReq)) as {
-        user: { id: string; name: string; email: string; emailVerified: boolean; image: null; createdAt: Date; updatedAt: Date };
-        session: { id: string; userId: string; token: string; expiresAt: Date; ipAddress: null; userAgent: null; createdAt: Date; updatedAt: Date };
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          emailVerified: boolean;
+          image: null;
+          createdAt: Date;
+          updatedAt: Date;
+        };
+        session: {
+          id: string;
+          userId: string;
+          token: string;
+          expiresAt: Date;
+          ipAddress: null;
+          userAgent: null;
+          createdAt: Date;
+          updatedAt: Date;
+        };
       } | null;
 
       expect(result).toBeDefined();
@@ -475,7 +544,7 @@ describe("auth/config/auth - E2E session bypass logic", () => {
 describe("auth/config/auth - E2E bypass disabled in production", () => {
   it("should contain NODE_ENV production check in source code", async () => {
     // Read the source file to verify the production check exists
-    const fs = await import("fs");
+    const fs = await import("node:fs");
     const sourcePath = new URL("./auth.ts", import.meta.url).pathname;
     const sourceContent = fs.readFileSync(sourcePath, "utf-8");
 
@@ -484,7 +553,7 @@ describe("auth/config/auth - E2E bypass disabled in production", () => {
   });
 
   it("should have E2E_SESSION_REGEX defined at top level", async () => {
-    const fs = await import("fs");
+    const fs = await import("node:fs");
     const sourcePath = new URL("./auth.ts", import.meta.url).pathname;
     const sourceContent = fs.readFileSync(sourcePath, "utf-8");
 

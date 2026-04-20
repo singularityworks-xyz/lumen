@@ -368,4 +368,19 @@ defmodule Presence.Test.Fixtures do
       name: Keyword.get(opts, :name, "Test Workspace")
     }
   end
+
+  @doc """
+  Generate a JWKS response with just keys (for testing cache_jwks).
+  Returns a map with just the "keys" field.
+  """
+  def jwks_response_with_keys(opts \\ []) do
+    kid = Keyword.get(opts, :kid, "test-key-#{System.unique_integer([:positive])}")
+    {_private_key, public_key} = generate_key_pair()
+
+    %{
+      "keys" => [
+        Map.put(public_key, "kid", kid)
+      ]
+    }
+  end
 end

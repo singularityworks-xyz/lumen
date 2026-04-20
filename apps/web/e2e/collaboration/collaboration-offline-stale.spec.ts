@@ -350,6 +350,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 

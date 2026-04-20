@@ -112,6 +112,22 @@ defmodule Presence.TelemetryTest do
         assert result == :ok
       end
     end
+
+    test "idle transition event returns :ok to cover line 126" do
+      measurements = %{}
+      metadata = %{user_id: "user_123", workspace_id: "ws_456", previous_status: "online"}
+
+      result =
+        Telemetry.handle_event(
+          [:presence, :idle, :transition],
+          measurements,
+          metadata,
+          %{}
+        )
+
+      # This covers the return statement at line 126
+      assert result == :ok
+    end
   end
 
   describe "handle_event/4 track event with zero duration" do

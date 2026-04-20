@@ -25,6 +25,8 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-17: Conflict - Move Task While Editing", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 

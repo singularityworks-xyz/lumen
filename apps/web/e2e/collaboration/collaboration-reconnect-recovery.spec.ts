@@ -184,13 +184,14 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
   test("cursor presence recovers after reconnect", async () => {
     const boardNode = ownerPage.locator('[data-testid="board-node"]').first();
     await boardNode.hover();
-    // Wait for cursor to appear on peer page
-    await editorPage
+    const peerCursor = editorPage
       .locator('[data-testid="peer-cursor"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+      .first();
 
-    const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
-    await expect(cursorBefore).toBeVisible({ timeout: 5000 });
+    // Wait for cursor to appear on peer page
+    await peerCursor.waitFor({ state: "visible", timeout: 5000 });
+
+    await expect(peerCursor).toBeVisible({ timeout: 5000 });
 
     await editorPage.context().setOffline(true);
     // Wait for offline state
@@ -206,12 +207,9 @@ test.describe("E2E-17: Reconnect and Recovery", () => {
 
     await ownerPage.mouse.move(500, 400);
     // Wait for cursor to reappear after reconnect
-    await editorPage
-      .locator('[data-testid="peer-cursor"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await peerCursor.waitFor({ state: "visible", timeout: 5000 });
 
-    const cursorAfter = editorPage.locator('[data-testid="peer-cursor"]');
-    await expect(cursorAfter).toBeVisible({ timeout: 10_000 });
+    await expect(peerCursor).toBeVisible({ timeout: 10_000 });
   });
 
   test("connection indicator reflects actual state", async () => {

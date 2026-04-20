@@ -1,13 +1,29 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { describe, expect, it, beforeEach, afterEach, mock, beforeAll } from "bun:test";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import * as Y from "yjs";
 
 // Mock logger to capture log calls
-const mockDebug = mock(() => {});
-const mockWarn = mock(() => {});
-const mockError = mock(() => {});
-const mockInfo = mock(() => {});
+const mockDebug = mock(() => {
+  // No-op mock for debug logs
+});
+const mockWarn = mock(() => {
+  // No-op mock for warn logs
+});
+const mockError = mock(() => {
+  // No-op mock for error logs
+});
+const mockInfo = mock(() => {
+  // No-op mock for info logs
+});
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -20,8 +36,8 @@ mock.module("@lumen/logger", () => ({
 
 // Define room interface for type safety
 interface MockRoom {
-  doc: Y.Doc;
   connections: Map<string, unknown>;
+  doc: Y.Doc;
 }
 
 // Create a mock Y.Doc that we can use for testing
@@ -33,8 +49,12 @@ const createMockDoc = (): Y.Doc => {
 // Mock the room manager - use generic signature to allow parameter
 const mockGetRoom = mock((_id?: string): MockRoom | undefined => undefined);
 const mockLoadRoomState = mock(() => Promise.resolve(false));
-const mockScheduleRoomCleanup = mock(() => {});
-const mockReset = mock(() => {});
+const mockScheduleRoomCleanup = mock(() => {
+  // No-op mock for room cleanup
+});
+const mockReset = mock(() => {
+  // No-op mock for reset
+});
 
 mock.module("../../../collab", () => ({
   roomManager: {
@@ -117,7 +137,9 @@ describe("getWorkspaceYjsDoc", () => {
     it("should return document with boards map accessible", async () => {
       const mockDoc = createMockDoc();
       // Add some data to the boards map
-      mockDoc.getMap("boards").set("board-1", { id: "board-1", name: "Test Board" });
+      mockDoc
+        .getMap("boards")
+        .set("board-1", { id: "board-1", name: "Test Board" });
 
       const existingRoom: MockRoom = {
         doc: mockDoc,
@@ -265,7 +287,7 @@ describe("getWorkspaceYjsDoc", () => {
       expect(mockError).toHaveBeenCalled();
     });
 
-    it("should propagate errors from getRoom that occur before try-catch", async () => {
+    it("should propagate errors from getRoom that occur before try-catch", () => {
       // Errors from roomManager.getRoom() at line 19 are not caught by the try-catch
       // which only wraps lines 42-58. This is intentional behavior.
       mockGetRoom.mockImplementation(() => {
@@ -302,7 +324,9 @@ describe("getWorkspaceYjsDoc", () => {
       let callCount = 0;
       mockGetRoom.mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return undefined;
+        if (callCount === 1) {
+          return;
+        }
         return roomWithoutDoc;
       });
 
@@ -353,8 +377,10 @@ describe("getWorkspaceYjsDoc", () => {
         connections: new Map([["conn-1", { id: "conn-1" }]]),
       };
       mockGetRoom.mockImplementation((id: unknown) => {
-        if (id === "workspace-123_special.chars") return existingRoom;
-        return undefined;
+        if (id === "workspace-123_special.chars") {
+          return existingRoom;
+        }
+        return;
       });
 
       const result = await getWorkspaceYjsDoc("workspace-123_special.chars");
@@ -441,7 +467,9 @@ describe("getWorkspaceYjsDoc", () => {
       await getWorkspaceYjsDoc("cleanup-once-workspace");
 
       expect(mockScheduleRoomCleanup).toHaveBeenCalledTimes(1);
-      expect(mockScheduleRoomCleanup).toHaveBeenCalledWith("cleanup-once-workspace");
+      expect(mockScheduleRoomCleanup).toHaveBeenCalledWith(
+        "cleanup-once-workspace"
+      );
     });
   });
 });

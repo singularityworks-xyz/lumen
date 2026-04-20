@@ -202,11 +202,12 @@ defmodule Presence.TokenTest do
       assert match?({:error, _}, result)
     end
 
-    test "cache_jwks stores last_fetch timestamp" do
+    test "cache_jwks stores last_fetch timestamp - line 147" do
+      # This test specifically covers the :ets.insert(:last_fetch, timestamp) on line 147
       {_token, _claims, jwks} = valid_jwt_token_with_jwks()
       Token.clear_jwks_cache()
 
-      # Fetch JWKS which internally calls cache_jwks
+      # Fetch JWKS which internally calls cache_jwks with last_fetch
       bypass = Bypass.open()
 
       Bypass.expect(bypass, "GET", "/api/auth/jwks", fn conn ->
@@ -387,6 +388,27 @@ defmodule Presence.TokenTest do
       {token, _, _jwks} = valid_jwt_token_with_jwks()
       # JWKS that is just a string
       Token.set_jwks_for_test("not_a_map")
+
+      result = Token.verify(token)
+      assert result == {:error, :malformed_jwks}
+    end
+  end
+
+  describe "find_key/2 private function - malformed JWKS clause" do
+    test "returns malformed_jwks error when JWKS has no keys field" do
+      {token, _claims, _jwks} = valid_jwt_token_with_jwks()
+      # JWKS that is a map but without a "keys" field
+      malformed_jwks = %{"some_other_field" => "value"}
+      Token.set_jwks_for_test(malformed_jwks)
+
+      result = Token.verify(token)
+      assert result == {:error, :malformed_jwks}
+    end
+
+    test "returns malformed_jwks error when JWKS keys is not a list" do
+      {token, _claims, _jwks} = valid_jwt_token_with_jwks()
+      malformed_jwks = %{"keys" => "not_a_list"}
+      Token.set_jwks_for_test(malformed_jwks)
 
       result = Token.verify(token)
       assert result == {:error, :malformed_jwks}

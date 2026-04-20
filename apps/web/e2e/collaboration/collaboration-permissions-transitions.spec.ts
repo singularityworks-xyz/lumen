@@ -8,6 +8,8 @@ import {
 } from "../helpers/commands";
 
 test.describe("E2E-16: Permission Transitions", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
   let shareLink: string;

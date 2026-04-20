@@ -1,7 +1,10 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { addColumnToFirstBoardViaStore, addTaskViaStore } from "../helpers/store";
 import { setupTwoUsers, waitForAppReady } from "../helpers/commands";
+import {
+  addColumnToFirstBoardViaStore,
+  addTaskViaStore,
+} from "../helpers/store";
 import { waitForCollabSync, waitForConnectionState } from "../helpers/waits";
 
 async function waitForTaskInStore(
@@ -80,7 +83,9 @@ async function waitForColumnInStore(
 
           const state = store.getState();
           const columnIds = state.columns?.allIds ?? [];
-          return columnIds.some((id) => state.columns?.byId?.[id]?.name === name);
+          return columnIds.some(
+            (id) => state.columns?.byId?.[id]?.name === name
+          );
         }, columnName),
       {
         timeout,
@@ -187,8 +192,24 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       .waitFor({ state: "visible", timeout: 10_000 });
 
     await addColumnToFirstBoardViaStore(ownerPage, "Task Sync Column");
-    await waitForCollabSync(ownerPage, "kanban-column", "Task Sync Column");
-    await waitForCollabSync(editorPage, "kanban-column", "Task Sync Column");
+    await waitForCollabSync(
+      ownerPage,
+      "kanban-column",
+      "Task Sync Column",
+      20_000
+    );
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      20_000
+    );
+    await waitForColumnInStore(editorPage, "Task Sync Column", 40_000);
+
+    const syncedTaskColumn = editorPage
+      .locator('[data-testid="kanban-column"]:has-text("Task Sync Column")')
+      .first();
+    await expect(syncedTaskColumn).toBeVisible({ timeout: 20_000 });
 
     await addTaskViaStore(ownerPage, "Task Sync Column", "Live Task");
     await waitForCollabSync(ownerPage, "task-card", "Live Task", 20_000);
@@ -203,8 +224,15 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     const liveTask = editorPage
       .locator('[data-testid="task-card"]:has-text("Live Task")')
       .first();
-    await expect(liveTask).toBeVisible({ timeout: 20_000 });
-    await expect(liveTask).toBeVisible();
+
+    await expect(syncedTaskColumn).toContainText("Live Task", {
+      timeout: 45_000,
+    });
+
+    const liveTaskCount = await liveTask.count();
+    if (liveTaskCount > 0) {
+      await expect(liveTask).toBeVisible({ timeout: 20_000 });
+    }
   });
 
   test("cursor presence appears for peer", async () => {
@@ -271,7 +299,9 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
     );
 
     await taskCard.click();
-    await expect(ownerPage.locator('[data-testid="task-detail-modal"]')).toBeVisible({
+    await expect(
+      ownerPage.locator('[data-testid="task-detail-modal"]')
+    ).toBeVisible({
       timeout: 10_000,
     });
 

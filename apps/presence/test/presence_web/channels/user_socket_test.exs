@@ -300,6 +300,10 @@ defmodule PresenceWeb.UserSocketTest do
       result = UserSocket.connect(%{"allow_anonymous" => "1"}, socket, %{})
       assert :error = result
     end
+
+    # Note: The compile-time config @allow_e2e_anon_socket is set to true in test.exs
+    # so we cannot test line 96 (the @allow_e2e_anon_socket check returning false)
+    # without recompiling the module with a different config.
   end
 
   describe "connect/3 error logging" do
