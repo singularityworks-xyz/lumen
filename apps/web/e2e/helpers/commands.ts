@@ -8,6 +8,73 @@ import type {
 import { cleanupE2EAuth, type SeedResult, seedE2EAuth } from "./auth";
 import { waitForConnectionState } from "./waits";
 
+const contextBypassUsers = new WeakMap<BrowserContext, string>();
+const contextsWithBypassRoute = new WeakSet<BrowserContext>();
+const contextSeedPromises = new WeakMap<BrowserContext, Promise<SeedResult>>();
+
+function cloneStorageCookiesWithLoopbackDomain(
+  storageState: SeedResult["storageState"]
+): SeedResult["storageState"]["cookies"] {
+  return storageState.cookies.map((cookie) => ({
+    ...cookie,
+    domain: "127.0.0.1",
+  }));
+}
+
+async function installE2EBypassRoute(
+  context: BrowserContext,
+  userId?: string
+): Promise<void> {
+  if (userId) {
+    contextBypassUsers.set(context, userId);
+  }
+
+  if (contextsWithBypassRoute.has(context)) {
+    return;
+  }
+
+  await context.route("**/api/**", (route) => {
+    const headers = route.request().headers();
+    if (route.request().method() !== "OPTIONS") {
+      const bypassUserId = contextBypassUsers.get(context) ?? "e2e-user";
+      headers["x-e2e-bypass"] = "true";
+      headers["x-e2e-user-id"] = bypassUserId;
+    }
+    route.continue({ headers });
+  });
+
+  contextsWithBypassRoute.add(context);
+}
+
+async function ensureContextE2EAuth(
+  context: BrowserContext
+): Promise<SeedResult> {
+  const existingSeedPromise = contextSeedPromises.get(context);
+  if (existingSeedPromise) {
+    return existingSeedPromise;
+  }
+
+  const seedPromise = (async () => {
+    const seed = await seedE2EAuth();
+    registerSeedCleanup(context, seed);
+    contextBypassUsers.set(context, seed.userId);
+    await installE2EBypassRoute(context);
+    await context.addCookies(
+      cloneStorageCookiesWithLoopbackDomain(seed.storageState)
+    );
+    return seed;
+  })();
+
+  contextSeedPromises.set(context, seedPromise);
+
+  try {
+    return await seedPromise;
+  } catch (error) {
+    contextSeedPromises.delete(context);
+    throw error;
+  }
+}
+
 function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
   context.once("close", () => {
     cleanupE2EAuth(seed.userId, seed.sessionId).catch((error) => {
@@ -16,7 +83,16 @@ function registerSeedCleanup(context: BrowserContext, seed: SeedResult): void {
   });
 }
 
+async function installE2EWindowFlag(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as Window & { __E2E__?: boolean }).__E2E__ = true;
+  });
+}
+
 export async function clearLocalStorageAndIndexedDB(page: Page) {
+  await installE2EWindowFlag(page);
+  await ensureContextE2EAuth(page.context());
+
   try {
     await page.evaluate(async () => {
       localStorage.clear();
@@ -43,6 +119,7 @@ export async function clearLocalStorageAndIndexedDB(page: Page) {
 }
 
 export async function disableAnimations(page: Page) {
+  await installE2EWindowFlag(page);
   await page.addInitScript(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -67,10 +144,7 @@ function cloneStorageStateWithLoopbackDomain(
   storageState: SeedResult["storageState"]
 ): SeedResult["storageState"] {
   return {
-    cookies: storageState.cookies.map((cookie) => ({
-      ...cookie,
-      domain: "127.0.0.1",
-    })),
+    cookies: cloneStorageCookiesWithLoopbackDomain(storageState),
     origins: storageState.origins.map((origin) => ({
       ...origin,
       localStorage: origin.localStorage.map((entry) => ({ ...entry })),
@@ -89,18 +163,13 @@ export async function createAuthenticatedDevicePage(
     storageState,
     serviceWorkers: "block",
   });
+  contextSeedPromises.set(context, Promise.resolve(seed));
+  contextBypassUsers.set(context, seed.userId);
   if (!existingSeed) {
     registerSeedCleanup(context, seed);
   }
 
-  await context.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = seed.userId;
-    }
-    route.continue({ headers });
-  });
+  await installE2EBypassRoute(context);
 
   const page = await context.newPage();
   await clearLocalStorageAndIndexedDB(page);
@@ -116,14 +185,38 @@ export async function createAuthenticatedDevicePage(
 export async function waitForAppReady(page: Page) {
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
-    () => {
-      return (
-        document.querySelector('[data-testid="workspace-selector"]') !== null ||
-        document.querySelector('[data-testid="welcome-screen"]') !== null
-      );
-    },
+    () =>
+      document.querySelector('[data-testid="workspace-selector"]') !== null ||
+      document.querySelector('[data-testid="welcome-screen"]') !== null ||
+      document.querySelector('[data-testid="board-node"]') !== null ||
+      document.querySelector('[data-testid="sync-status-indicator"]') !== null,
     { timeout: 15_000 }
   );
+}
+
+export async function dismissTransientOverlays(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(100);
+  }
+
+  try {
+    await page
+      .locator('[data-testid="board-share-option"]')
+      .first()
+      .waitFor({ state: "hidden", timeout: 3000 });
+  } catch {
+    // Quick actions may already be closed.
+  }
+
+  try {
+    await page
+      .locator('[data-testid="task-delete-option"]')
+      .first()
+      .waitFor({ state: "hidden", timeout: 2000 });
+  } catch {
+    // Task quick actions may already be closed.
+  }
 }
 
 export async function openCommentsDrawer(page: Page): Promise<void> {
@@ -389,6 +482,20 @@ async function waitForCurrentWorkspaceId(
   return false;
 }
 
+function canReadCurrentWorkspaceIdFromStore(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const store = (
+      window as Window & {
+        __KANBAN_STORE__?: {
+          getState?: () => unknown;
+        };
+      }
+    ).__KANBAN_STORE__;
+
+    return typeof store?.getState === "function";
+  });
+}
+
 export function setCurrentWorkspaceFromStore(
   page: Page,
   workspaceId: string
@@ -414,7 +521,7 @@ export function setCurrentWorkspaceFromStore(
   }, workspaceId);
 }
 
-function isExpectedWorkspaceContext(
+async function isExpectedWorkspaceContext(
   page: Page,
   options: {
     workspaceId?: string;
@@ -425,7 +532,23 @@ function isExpectedWorkspaceContext(
   const { workspaceId, workspaceName, workspaceIdTimeoutMs = 1200 } = options;
 
   if (workspaceId) {
-    return waitForCurrentWorkspaceId(page, workspaceId, workspaceIdTimeoutMs);
+    const canReadWorkspaceId = await canReadCurrentWorkspaceIdFromStore(page);
+    if (canReadWorkspaceId) {
+      const matchesWorkspaceId = await waitForCurrentWorkspaceId(
+        page,
+        workspaceId,
+        workspaceIdTimeoutMs
+      );
+      if (matchesWorkspaceId) {
+        return true;
+      }
+    }
+
+    if (workspaceName) {
+      return isExpectedWorkspaceSelected(page, workspaceName);
+    }
+
+    return !canReadWorkspaceId;
   }
 
   if (workspaceName) {
@@ -629,12 +752,80 @@ interface ReactFlowViewport {
 
 export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
   return page.evaluate(() => {
+    const defaultViewport: ReactFlowViewport = { x: 0, y: 0, zoom: 1 };
+
     const rf = (
       window as Window & {
         __reactFlow?: { getViewport: () => ReactFlowViewport };
       }
     ).__reactFlow;
-    return rf ? rf.getViewport() : { x: 0, y: 0, zoom: 1 };
+
+    if (rf) {
+      return rf.getViewport();
+    }
+
+    const viewportEl = document.querySelector(
+      ".react-flow__viewport"
+    ) as HTMLElement | null;
+    if (!viewportEl) {
+      return defaultViewport;
+    }
+
+    const transform =
+      viewportEl.style.transform ||
+      window.getComputedStyle(viewportEl).transform ||
+      "";
+
+    if (!transform || transform === "none") {
+      return defaultViewport;
+    }
+
+    interface MatrixLike {
+      a?: number;
+      e?: number;
+      f?: number;
+      m41?: number;
+      m42?: number;
+    }
+
+    type MatrixCtor = new (init?: string) => MatrixLike;
+
+    const matrixApi = window as Window & {
+      DOMMatrixReadOnly?: MatrixCtor;
+      DOMMatrix?: MatrixCtor;
+      WebKitCSSMatrix?: MatrixCtor;
+    };
+
+    const MatrixCtor =
+      matrixApi.DOMMatrixReadOnly ??
+      matrixApi.DOMMatrix ??
+      matrixApi.WebKitCSSMatrix;
+
+    if (!MatrixCtor) {
+      return defaultViewport;
+    }
+
+    try {
+      const matrix = new MatrixCtor(transform);
+      const zoom = matrix.a;
+      const x = matrix.m41 ?? matrix.e;
+      const y = matrix.m42 ?? matrix.f;
+
+      if (
+        typeof zoom === "number" &&
+        Number.isFinite(zoom) &&
+        typeof x === "number" &&
+        Number.isFinite(x) &&
+        typeof y === "number" &&
+        Number.isFinite(y)
+      ) {
+        return { x, y, zoom };
+      }
+    } catch {
+      return defaultViewport;
+    }
+
+    return defaultViewport;
   });
 }
 
@@ -666,19 +857,19 @@ export async function createShareLinkForFirstBoard(
 
   // Retry the share link button if it fails
   let shareLink = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       await boardNode
         .locator('[data-testid="board-header"]')
         .click({ button: "right", timeout: 10_000 });
       await page.waitForSelector('[data-testid="board-share-option"]', {
-        timeout: 10_000,
+        timeout: 15_000,
       });
       await page.click('[data-testid="board-share-option"]', {
         timeout: 10_000,
       });
       await page.waitForSelector('[data-testid="share-dialog"]', {
-        timeout: 10_000,
+        timeout: 15_000,
       });
 
       await page.waitForFunction(
@@ -690,18 +881,18 @@ export async function createShareLinkForFirstBoard(
             button instanceof HTMLButtonElement && button.disabled === false
           );
         },
-        { timeout: 10_000 }
+        { timeout: 20_000 }
       );
 
       await page.click('[data-testid="create-share-link-button"]', {
-        timeout: 5000,
+        timeout: 15_000,
       });
       await page.waitForSelector('[data-testid="share-link-input"]', {
-        timeout: 5000,
+        timeout: 20_000,
       });
       shareLink = await page
         .locator('[data-testid="share-link-input"]')
-        .inputValue({ timeout: 5000 });
+        .inputValue({ timeout: 15_000 });
 
       const closeShareDialogButton = page.locator(
         'button[aria-label="Close share dialog"]'
@@ -720,15 +911,29 @@ export async function createShareLinkForFirstBoard(
         // Non-fatal: continue even if dialog animation races.
       }
 
+      for (let closeAttempt = 0; closeAttempt < 2; closeAttempt++) {
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(100);
+      }
+
+      try {
+        await page
+          .locator('[data-testid="board-share-option"]')
+          .first()
+          .waitFor({ state: "hidden", timeout: 3000 });
+      } catch {
+        // Non-fatal: quick actions menu can already be gone.
+      }
+
       break;
     } catch (e: unknown) {
-      if (attempt === 2) {
+      if (attempt === 4) {
         throw e;
       }
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(2500);
       // close and reopen the dialog if it failed
       await page.keyboard.press("Escape");
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(1500);
     }
   }
 
@@ -1035,27 +1240,15 @@ export async function setupTwoUsers(
     storageState: editorSeed.storageState,
     serviceWorkers: "block",
   });
+  contextSeedPromises.set(ownerContext, Promise.resolve(ownerSeed));
+  contextSeedPromises.set(editorContext, Promise.resolve(editorSeed));
   registerSeedCleanup(ownerContext, ownerSeed);
   registerSeedCleanup(editorContext, editorSeed);
 
-  // Inject E2E bypass headers
-  await ownerContext.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = ownerSeed.userId;
-    }
-    route.continue({ headers });
-  });
-
-  await editorContext.route("**/api/**", (route) => {
-    const headers = route.request().headers();
-    if (route.request().method() !== "OPTIONS") {
-      headers["x-e2e-bypass"] = "true";
-      headers["x-e2e-user-id"] = editorSeed.userId;
-    }
-    route.continue({ headers });
-  });
+  contextBypassUsers.set(ownerContext, ownerSeed.userId);
+  contextBypassUsers.set(editorContext, editorSeed.userId);
+  await installE2EBypassRoute(ownerContext);
+  await installE2EBypassRoute(editorContext);
 
   const ownerPage = await ownerContext.newPage();
   const editorPage = await editorContext.newPage();
@@ -1338,26 +1531,15 @@ export async function setupTwoUsersCrossBrowser(
       storageState: editorSeed.storageState,
       serviceWorkers: "block",
     });
+    contextSeedPromises.set(ownerContext, Promise.resolve(ownerSeed));
+    contextSeedPromises.set(editorContext, Promise.resolve(editorSeed));
     registerSeedCleanup(ownerContext, ownerSeed);
     registerSeedCleanup(editorContext, editorSeed);
 
-    await ownerContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = ownerSeed.userId;
-      }
-      route.continue({ headers });
-    });
-
-    await editorContext.route("**/api/**", (route) => {
-      const headers = route.request().headers();
-      if (route.request().method() !== "OPTIONS") {
-        headers["x-e2e-bypass"] = "true";
-        headers["x-e2e-user-id"] = editorSeed.userId;
-      }
-      route.continue({ headers });
-    });
+    contextBypassUsers.set(ownerContext, ownerSeed.userId);
+    contextBypassUsers.set(editorContext, editorSeed.userId);
+    await installE2EBypassRoute(ownerContext);
+    await installE2EBypassRoute(editorContext);
 
     const ownerPage = await ownerContext.newPage();
     const editorPage = await editorContext.newPage();

@@ -143,13 +143,13 @@ describe("toggleConnectionLineStyle", () => {
     const { boardId: target } = addBoardToState(state);
 
     const connId = actions.addConnection(source, target);
-    expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("solid");
+    expect(state.boardConnections.byId[connId!]?.lineStyle).toBe("solid");
 
     actions.toggleConnectionLineStyle(connId ?? "");
-    expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("dotted");
+    expect(state.boardConnections.byId[connId!]?.lineStyle).toBe("dotted");
 
     actions.toggleConnectionLineStyle(connId ?? "");
-    expect(state.boardConnections.byId[connId!]!.lineStyle).toBe("solid");
+    expect(state.boardConnections.byId[connId!]?.lineStyle).toBe("solid");
   });
 
   it("does nothing when connection does not exist", () => {

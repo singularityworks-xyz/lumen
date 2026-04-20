@@ -144,13 +144,8 @@ export function useDialogPresenceLifecycle(
     [dialogId, dialogType, targetId, dialogData]
   );
 
-  // Keep track of the current dialog object for cleanup and updates
-  const currentDialogRef = useRef<OpenDialog>(dialogObj);
-
-  // Update ref when dialogObj changes
-  useEffect(() => {
-    currentDialogRef.current = dialogObj;
-  }, [dialogObj]);
+  // Keep track of previous dialog object so we can detect identity changes
+  const previousDialogRef = useRef<OpenDialog>(dialogObj);
 
   // Handle pointer down to claim presence
   const handleDialogPointerDown = useCallback(() => {
@@ -190,11 +185,13 @@ export function useDialogPresenceLifecycle(
     if (
       isCollaborating &&
       hasRegisteredRef.current &&
-      (currentDialogRef.current.id !== dialogObj.id ||
-        currentDialogRef.current.targetId !== dialogObj.targetId)
+      (previousDialogRef.current.id !== dialogObj.id ||
+        previousDialogRef.current.targetId !== dialogObj.targetId)
     ) {
       updateOpenDialogs([dialogObj]);
     }
+
+    previousDialogRef.current = dialogObj;
   }, [isCollaborating, updateOpenDialogs, dialogObj]);
 
   return {

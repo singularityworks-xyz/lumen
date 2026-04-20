@@ -23,37 +23,7 @@ test.describe("E2E-09: Share Link (Owner)", () => {
   });
 
   test("owner can create share link", async ({ page }) => {
-    const workspaceSelector = page.locator(
-      '[data-testid="workspace-selector"]'
-    );
-    await workspaceSelector.click();
-
-    await page.waitForSelector('[data-testid="workspace-option"]', {
-      timeout: 5000,
-    });
-
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    await boardNode
-      .locator('[data-testid="board-header"]')
-      .click({ button: "right" });
-
-    await page.waitForSelector('[data-testid="board-share-option"]');
-    await page.click('[data-testid="board-share-option"]');
-
-    await page.waitForSelector('[data-testid="share-dialog"]');
-    const shareDialog = page.locator('[data-testid="share-dialog"]');
-    await expect(shareDialog).toBeVisible();
-
-    const createLinkButton = page.locator(
-      '[data-testid="create-share-link-button"]'
-    );
-    await createLinkButton.click();
-
-    await page.waitForSelector('[data-testid="share-link-input"]', {
-      timeout: 5000,
-    });
-    const shareLinkInput = page.locator('[data-testid="share-link-input"]');
-    const shareLink = await shareLinkInput.inputValue();
+    const shareLink = await createShareLinkForFirstBoard(page);
     expect(shareLink).toContain("share=");
   });
 

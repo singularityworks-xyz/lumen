@@ -1,3 +1,11 @@
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+try {
+  GlobalRegistrator.register();
+} catch {
+  /* ignore - already registered */
+}
+
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
@@ -25,9 +33,7 @@ const mockStore = {
   setDeletedSharedWorkspace: mockSetDeletedSharedWorkspace,
 };
 
-const mockUseKanbanStore = mock((selector) => {
-  return selector(mockStore);
-});
+const mockUseKanbanStore = mock((selector) => selector(mockStore));
 
 mock.module("@/src/features/kanban/store/kanban-store", () => ({
   useKanbanStore: mockUseKanbanStore,

@@ -43,26 +43,20 @@ const app = new Elysia()
   .use(authRoutes)
   .use(collabRoutes)
   .use(aiRoutes)
-  .get("/", () => {
-    return {
-      message: "Lumen Workers",
-      version: WORKERS_VERSION,
-      status: "operational",
-    };
-  })
-  .get("/health", () => {
-    return {
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    };
-  })
-  .get("/instance-id", () => {
-    return {
-      instanceId: `workers-${env.PORT}`,
-      port: env.PORT,
-    };
-  })
+  .get("/", () => ({
+    message: "Lumen Workers",
+    version: WORKERS_VERSION,
+    status: "operational",
+  }))
+  .get("/health", () => ({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  }))
+  .get("/instance-id", () => ({
+    instanceId: `workers-${env.PORT}`,
+    port: env.PORT,
+  }))
   .onStart(() => {
     logger.info("Server starting", {
       port: env.PORT,

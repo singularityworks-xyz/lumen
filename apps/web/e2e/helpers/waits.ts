@@ -144,7 +144,7 @@ export async function waitForPresenceCursor(
     return cursor.all();
   }
 
-  await cursor.waitFor({ state: "visible", timeout: resolvedTimeout });
+  await cursor.first().waitFor({ state: "visible", timeout: resolvedTimeout });
   return cursor;
 }
 
@@ -154,7 +154,7 @@ export async function waitForPresenceCursorHidden(
   timeout = 10_000
 ): Promise<Locator> {
   const cursor = page.locator(`[data-testid="${cursorTestId}"]`);
-  await cursor.waitFor({ state: "hidden", timeout });
+  await cursor.first().waitFor({ state: "hidden", timeout });
   return cursor;
 }
 

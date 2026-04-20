@@ -4,26 +4,27 @@ import { motion } from "motion/react";
 import { memo } from "react";
 import { cn } from "@/src/lib/utils";
 
-type SwitchButtonConfig = {
-  id: string;
+interface SwitchButtonConfig {
+  count?: number;
   icon: React.ReactNode;
+  id: string;
   label: string;
   onClick: () => void;
-  count?: number;
-};
+}
 
-type SwitchButtonsProps = {
+interface SwitchButtonsProps {
   buttons: SwitchButtonConfig[];
-};
+}
 
 export const SwitchButtons = memo(({ buttons }: SwitchButtonsProps) => {
-  if (buttons.length === 0) return null;
+  if (buttons.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 flex flex-col gap-2">
+    <div className="absolute top-1/2 left-0 flex -translate-x-full -translate-y-1/2 flex-col gap-2">
       {buttons.map((button, index) => (
         <motion.button
-          key={button.id}
           animate={{ opacity: 1, x: 0 }}
           aria-label={`Switch to ${button.label}`}
           className={cn(
@@ -38,6 +39,7 @@ export const SwitchButtons = memo(({ buttons }: SwitchButtonsProps) => {
             "group cursor-pointer transition-all duration-200"
           )}
           initial={{ opacity: 0, x: 20 }}
+          key={button.id}
           onClick={button.onClick}
           transition={{
             type: "tween",

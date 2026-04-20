@@ -58,6 +58,17 @@ export function getStoreState(
   page: Page
 ): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => {
+    type WindowWithKanbanStore = Window & {
+      __KANBAN_STORE__?: {
+        getState?: () => Record<string, unknown>;
+      };
+    };
+
+    const kanbanStore = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+    if (typeof kanbanStore?.getState === "function") {
+      return kanbanStore.getState();
+    }
+
     const storeElement = document.querySelector('[data-testid="kanban-store"]');
     return storeElement
       ? JSON.parse(storeElement.getAttribute("data-state") || "{}")
@@ -402,8 +413,8 @@ export function compareCommentOrdering(
   const getCommentsForTask = (
     snapshot: NormalizedClientSnapshot,
     targetTaskId: string
-  ): CommentWithTask[] => {
-    return snapshot.comments
+  ): CommentWithTask[] =>
+    snapshot.comments
       .filter((c) => {
         const task = snapshot.tasks.find((t) => t.title === c.content);
         return task?.id === targetTaskId;
@@ -419,7 +430,6 @@ export function compareCommentOrdering(
         const timeB = new Date(b.createdAt).getTime();
         return timeA - timeB;
       });
-  };
 
   const getAllTaskIds = (snapshot: NormalizedClientSnapshot): string[] => {
     const taskIds = new Set<string>();

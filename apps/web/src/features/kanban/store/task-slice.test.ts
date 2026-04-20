@@ -34,10 +34,10 @@ describe("addTask", () => {
     const taskId = actions.addTask(colId, boardId, "My Task");
 
     expect(state.tasks.byId[taskId]).toBeDefined();
-    expect(state.tasks.byId[taskId]!.title).toBe("My Task");
+    expect(state.tasks.byId[taskId]?.title).toBe("My Task");
     expect(state.tasks.allIds).toContain(taskId);
-    expect(state.columns.byId[colId]!.task_ids).toContain(taskId);
-    expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(boardId);
+    expect(state.columns.byId[colId]?.task_ids).toContain(taskId);
+    expect(state.workspaces.byId[wsId]?.lastFocusedBoardId).toBe(boardId);
   });
 
   it("sets priority, description, progress, due_date, tags from options", () => {
@@ -82,8 +82,8 @@ describe("moveTask", () => {
     expect(task.column_id).toBe(colB);
     expect(task.board_id).toBe(boardId);
     expect(task.progress).toBe(75);
-    expect(state.columns.byId[colA]!.task_ids).not.toContain(taskId);
-    expect(state.columns.byId[colB]!.task_ids).toContain(taskId);
+    expect(state.columns.byId[colA]?.task_ids).not.toContain(taskId);
+    expect(state.columns.byId[colB]?.task_ids).toContain(taskId);
   });
 });
 
@@ -101,7 +101,7 @@ describe("deleteTask", () => {
 
     expect(state.tasks.byId[taskId]).toBeUndefined();
     expect(state.tasks.allIds).not.toContain(taskId);
-    expect(state.columns.byId[colId]!.task_ids).not.toContain(taskId);
+    expect(state.columns.byId[colId]?.task_ids).not.toContain(taskId);
     expect(state.selectedTaskIds).not.toContain(taskId);
   });
 });
@@ -141,10 +141,10 @@ describe("bulkUpdateTasks", () => {
 
     actions.bulkUpdateTasks([t1, t2], { priority: "high" });
 
-    expect(state.tasks.byId[t1]!.priority).toBe("high");
-    expect(state.tasks.byId[t2]!.priority).toBe("high");
-    expect(state.tasks.byId[t1]!.updated_at).toBe(
-      state.tasks.byId[t2]!.updated_at
+    expect(state.tasks.byId[t1]?.priority).toBe("high");
+    expect(state.tasks.byId[t2]?.priority).toBe("high");
+    expect(state.tasks.byId[t1]?.updated_at).toBe(
+      state.tasks.byId[t2]?.updated_at
     );
   });
 });
@@ -209,7 +209,7 @@ describe("duplicateTask", () => {
     if (!checklists) {
       throw new Error("checklists missing");
     }
-    expect(checklists[0]!.completed).toBe(false);
+    expect(checklists[0]?.completed).toBe(false);
   });
 });
 

@@ -1,3 +1,15 @@
+// Must be first - register happy-dom before any imports
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+// Register happy-dom before any imports (only if not already registered)
+if (!(globalThis.document && globalThis.window)) {
+  try {
+    GlobalRegistrator.register();
+  } catch {
+    // Already registered, ignore
+  }
+}
+
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "@testing-library/react";
 import React from "react";
@@ -19,9 +31,16 @@ mock.module("lucide-react", () => ({
   Circle: () => React.createElement("span", { "data-icon": "Circle" }),
   GripVertical: () =>
     React.createElement("span", { "data-icon": "GripVertical" }),
+  Plus: () => React.createElement("span", { "data-icon": "Plus" }),
   SquarePen: () => React.createElement("span", { "data-icon": "SquarePen" }),
   Trash2: () => React.createElement("span", { "data-icon": "Trash2" }),
   User: () => React.createElement("span", { "data-icon": "User" }),
+}));
+
+// Mock auth-client to avoid import errors
+mock.module("@/src/lib/auth-client", () => ({
+  getCurrentUser: mock(() => Promise.resolve(null)),
+  getJwtToken: mock(() => Promise.resolve(null)),
 }));
 
 mock.module("next/image", () => ({
@@ -137,9 +156,7 @@ const mockStore = {
 };
 
 const mockUseKanbanStore = mock(
-  (selector: (state: typeof mockStore) => unknown) => {
-    return selector(mockStore);
-  }
+  (selector: (state: typeof mockStore) => unknown) => selector(mockStore)
 );
 
 mock.module("@/src/features/kanban/store/kanban-store", () => ({

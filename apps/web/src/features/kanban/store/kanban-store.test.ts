@@ -149,7 +149,7 @@ describe("kanban-store", () => {
 
       const workspace = state.workspaces.byId[wsId];
       expect(workspace).toBeDefined();
-      expect(workspace!.showMiniMap).toBe(true);
+      expect(workspace?.showMiniMap).toBe(true);
     });
   });
 

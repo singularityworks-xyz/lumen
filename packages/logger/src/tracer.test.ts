@@ -61,11 +61,39 @@ const mockTracer = {
 };
 
 mock.module("@opentelemetry/api", () => ({
+  createContextKey: (name: string) => Symbol(name),
+  DiagConsoleLogger() {
+    /* mock */
+  },
+  DiagLogLevel: {
+    ALL: 0,
+    DEBUG: 1,
+    ERROR: 4,
+    INFO: 3,
+    NONE: 5,
+    VERBOSE: 2,
+    WARN: 6,
+  },
   trace: {
     getTracer: () => mockTracer,
     getActiveSpan: mockGetActiveSpan,
   },
   SpanStatusCode: { UNSET: 0, OK: 1, ERROR: 2 },
+  context: {
+    active: mock(() => ({})),
+    createContextKey: (name: string) => Symbol(name),
+  },
+  diag: {
+    setLogger: mock(() => undefined),
+    info: mock(() => undefined),
+    warn: mock(() => undefined),
+    error: mock(() => undefined),
+    debug: mock(() => undefined),
+    verbose: mock(() => undefined),
+  },
+  metrics: {
+    setGlobalMeterProvider: mock(() => undefined),
+  },
 }));
 
 import {

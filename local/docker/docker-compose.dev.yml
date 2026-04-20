@@ -1,37 +1,63 @@
-# OTEL Observability Stack for Local Development
-# Start with: docker compose -f docker-compose.otel.yml up -d
-# Access Grafana at: http://localhost:3001
-
 services:
-  # OpenTelemetry Collector - receives telemetry and forwards to backends
+  lumendb:
+    image: postgres:18.3
+    container_name: lumendb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lumendb
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD: lumen
+    ports:
+      - "5154:5432"
+    volumes:
+      - lumendb-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumendb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  lumencache:
+    image: redis:8.6.2
+    container_name: lumencache
+    restart: unless-stopped
+    ports:
+      - "5354:6379"
+    volumes:
+      - lumencache-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: lumen-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./monitoring/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-      - "8889:8889" # Prometheus metrics exporter
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
     depends_on:
       - tempo
       - loki
+      - prometheus
 
-  # Tempo - Distributed tracing backend
   tempo:
     image: grafana/tempo:latest
     container_name: lumen-tempo
     command: ["-config.file=/etc/tempo.yaml"]
     user: "0:0"
     volumes:
-      - ./tempo-config.yaml:/etc/tempo.yaml
+      - ./monitoring/tempo-config.yaml:/etc/tempo.yaml
       - tempo-data:/var/tempo
     ports:
       - "3200:3200"
       - "4417:4317"
 
-  # Loki - Log aggregation
   loki:
     image: grafana/loki:latest
     container_name: lumen-loki
@@ -41,7 +67,6 @@ services:
     volumes:
       - loki-data:/loki
 
-  # Prometheus - Metrics
   prometheus:
     image: prom/prometheus:latest
     container_name: lumen-prometheus
@@ -50,12 +75,11 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--web.enable-remote-write-receiver"
     volumes:
-      - ./prometheus-config.yaml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus-config.yaml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     ports:
       - "9099:9090"
 
-  # Grafana - Visualization
   grafana:
     image: grafana/grafana:latest
     container_name: lumen-grafana
@@ -65,8 +89,8 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
-      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
-      - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ./monitoring/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
       - ./dashboards:/etc/grafana/provisioning/dashboards
       - grafana-data:/var/lib/grafana
     ports:
@@ -77,6 +101,8 @@ services:
       - prometheus
 
 volumes:
+  lumendb-data:
+  lumencache-data:
   tempo-data:
   loki-data:
   prometheus-data:

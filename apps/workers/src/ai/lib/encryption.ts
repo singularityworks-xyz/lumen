@@ -132,3 +132,11 @@ export async function decryptContent(ciphertext: string): Promise<string> {
 export function isEncrypted(content: string): boolean {
   return content.startsWith(ENCRYPTED_PREFIX);
 }
+
+/**
+ * Reset the cached encryption key. Used in tests to ensure clean state.
+ * @internal
+ */
+export function __resetCachedKey(): void {
+  cachedKey = null;
+}

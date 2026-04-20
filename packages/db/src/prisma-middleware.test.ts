@@ -92,10 +92,13 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", privateKey: (_args.data as any).privateKey })
+        Promise.resolve({
+          id: "1",
+          privateKey: (_args.data as any).privateKey,
+        })
       );
 
-      await handlers.create!({
+      await handlers.create?.({
         args: { data: { privateKey: "my-raw-key", kid: "k1" } },
         query: queryFn,
       });
@@ -111,10 +114,13 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
+        Promise.resolve({
+          id: "1",
+          ...(_args.data as Record<string, unknown>),
+        })
       );
 
-      await handlers.create!({
+      await handlers.create?.({
         args: { data: { privateKey: "plaintext-key", kid: "k1" } },
         query: queryFn,
       });
@@ -129,10 +135,13 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
+        Promise.resolve({
+          id: "1",
+          ...(_args.data as Record<string, unknown>),
+        })
       );
 
-      await handlers.create!({
+      await handlers.create?.({
         args: { data: { kid: "k1", publicKey: "pub" } },
         query: queryFn,
       });
@@ -147,7 +156,7 @@ describe("prisma-middleware", () => {
       const queryFn = mock(() => Promise.resolve({ id: "1" }));
 
       await expect(
-        handlers.create!({
+        handlers.create?.({
           args: { data: { privateKey: "bad-key", kid: "k1" } },
           query: queryFn,
         })
@@ -160,10 +169,13 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
+        Promise.resolve({
+          id: "1",
+          ...(_args.data as Record<string, unknown>),
+        })
       );
 
-      await handlers.update!({
+      await handlers.update?.({
         args: { data: { privateKey: "updated-key" } },
         query: queryFn,
       });
@@ -179,10 +191,13 @@ describe("prisma-middleware", () => {
       const handlers = buildHandlers();
 
       const queryFn = mock((_args: Record<string, unknown>) =>
-        Promise.resolve({ id: "1", ...(_args.data as Record<string, unknown>) })
+        Promise.resolve({
+          id: "1",
+          ...(_args.data as Record<string, unknown>),
+        })
       );
 
-      await handlers.update!({
+      await handlers.update?.({
         args: { data: { privateKey: "updated-key" } },
         query: queryFn,
       });
@@ -202,7 +217,7 @@ describe("prisma-middleware", () => {
       const queryFn = mock(() => Promise.resolve({ id: "1" }));
 
       await expect(
-        handlers.update!({
+        handlers.update?.({
           args: { data: { privateKey: "bad-key" } },
           query: queryFn,
         })
@@ -218,7 +233,7 @@ describe("prisma-middleware", () => {
         Promise.resolve({ id: "1", privateKey: _args.create })
       );
 
-      await handlers.upsert!({
+      await handlers.upsert?.({
         args: {
           create: { privateKey: "create-key", kid: "k1" },
           update: { privateKey: "update-key" },
@@ -242,7 +257,7 @@ describe("prisma-middleware", () => {
         })
       );
 
-      await handlers.upsert!({
+      await handlers.upsert?.({
         args: {
           create: { privateKey: "create-key" },
           update: { privateKey: "update-key" },
@@ -262,7 +277,7 @@ describe("prisma-middleware", () => {
       const queryFn = mock(() => Promise.resolve({ id: "1" }));
 
       await expect(
-        handlers.upsert!({
+        handlers.upsert?.({
           args: {
             create: { privateKey: "bad-create-key" },
             update: { privateKey: "update-key" },
@@ -280,7 +295,7 @@ describe("prisma-middleware", () => {
       );
 
       await expect(
-        handlers.create!({
+        handlers.create?.({
           args: { data: { privateKey: "my-raw-key", kid: "k1" } },
           query: queryFn,
         })
@@ -297,7 +312,7 @@ describe("prisma-middleware", () => {
       const queryFn = mock(() => Promise.resolve({ id: "1" }));
 
       await expect(
-        handlers.upsert!({
+        handlers.upsert?.({
           args: {
             create: { privateKey: "create-key" },
             update: { privateKey: "bad-update-key" },
@@ -316,7 +331,7 @@ describe("prisma-middleware", () => {
         Promise.resolve({ id: "1", privateKey: "encrypted:stored-key" })
       );
 
-      const result = (await handlers.findUnique!({
+      const result = (await handlers.findUnique?.({
         args: { where: { id: "1" } },
         query: queryFn,
       })) as { id: string; privateKey: string };
@@ -335,7 +350,7 @@ describe("prisma-middleware", () => {
         Promise.resolve({ id: "1", privateKey: "plaintext-key" })
       );
 
-      const result = (await handlers.findUnique!({
+      const result = (await handlers.findUnique?.({
         args: { where: { id: "1" } },
         query: queryFn,
       })) as { id: string; privateKey: string };
@@ -349,7 +364,7 @@ describe("prisma-middleware", () => {
 
       const queryFn = mock(() => Promise.resolve(null));
 
-      const result = await handlers.findUnique!({
+      const result = await handlers.findUnique?.({
         args: { where: { id: "nonexistent" } },
         query: queryFn,
       });
@@ -369,7 +384,7 @@ describe("prisma-middleware", () => {
       );
 
       await expect(
-        handlers.findUnique!({
+        handlers.findUnique?.({
           args: { where: { id: "1" } },
           query: queryFn,
         })
@@ -385,7 +400,7 @@ describe("prisma-middleware", () => {
         Promise.resolve({ id: "1", privateKey: "encrypted:found-key" })
       );
 
-      const result = (await handlers.findFirst!({
+      const result = (await handlers.findFirst?.({
         args: {},
         query: queryFn,
       })) as { id: string; privateKey: string };
@@ -402,7 +417,7 @@ describe("prisma-middleware", () => {
       );
 
       await expect(
-        handlers.findFirst!({ args: {}, query: queryFn })
+        handlers.findFirst?.({ args: {}, query: queryFn })
       ).rejects.toThrow("Decryption failed");
     });
   });
@@ -418,14 +433,14 @@ describe("prisma-middleware", () => {
         ])
       );
 
-      const result = (await handlers.findMany!({
+      const result = (await handlers.findMany?.({
         args: {},
         query: queryFn,
       })) as Array<{ id: string; privateKey: string }>;
 
       expect(decryptPrivateKeyMock).toHaveBeenCalledTimes(2);
-      expect(result[0]!.privateKey).toBe("key-a");
-      expect(result[1]!.privateKey).toBe("key-b");
+      expect(result[0]?.privateKey).toBe("key-a");
+      expect(result[1]?.privateKey).toBe("key-b");
     });
 
     it("returns result unchanged when encryption is not configured", async () => {
@@ -439,14 +454,14 @@ describe("prisma-middleware", () => {
         ])
       );
 
-      const result = (await handlers.findMany!({
+      const result = (await handlers.findMany?.({
         args: {},
         query: queryFn,
       })) as Array<{ id: string; privateKey: string }>;
 
       expect(decryptPrivateKeyMock).not.toHaveBeenCalled();
-      expect(result[0]!.privateKey).toBe("plaintext-a");
-      expect(result[1]!.privateKey).toBe("plaintext-b");
+      expect(result[0]?.privateKey).toBe("plaintext-a");
+      expect(result[1]?.privateKey).toBe("plaintext-b");
     });
 
     it("handles items without privateKey gracefully", async () => {
@@ -460,15 +475,15 @@ describe("prisma-middleware", () => {
         ])
       );
 
-      const result = (await handlers.findMany!({
+      const result = (await handlers.findMany?.({
         args: {},
         query: queryFn,
       })) as Array<{ id: string; privateKey: string | null }>;
 
       expect(decryptPrivateKeyMock).toHaveBeenCalledTimes(2);
-      expect(result[0]!.privateKey).toBe("key-a");
-      expect(result[1]!.privateKey).toBeNull();
-      expect(result[2]!.privateKey).toBe("key-c");
+      expect(result[0]?.privateKey).toBe("key-a");
+      expect(result[1]?.privateKey).toBeNull();
+      expect(result[2]?.privateKey).toBe("key-c");
     });
 
     it("surfaces decryption errors for any item", async () => {
@@ -482,7 +497,7 @@ describe("prisma-middleware", () => {
       );
 
       await expect(
-        handlers.findMany!({ args: {}, query: queryFn })
+        handlers.findMany?.({ args: {}, query: queryFn })
       ).rejects.toThrow("Decryption failed");
     });
   });

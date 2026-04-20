@@ -54,6 +54,7 @@ export const CollaboratorSelectionOverlayScreen =
             return (
               <div
                 className="absolute rounded border-2 border-dashed"
+                data-testid="peer-selection"
                 key={c.id}
                 style={{
                   left,

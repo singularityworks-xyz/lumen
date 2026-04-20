@@ -144,13 +144,13 @@ describe("color-icon-utils", () => {
     });
 
     it("first color is None/empty", () => {
-      expect(ACCENT_COLORS[0]!.value).toBe("");
-      expect(ACCENT_COLORS[0]!.name).toBe("None");
+      expect(ACCENT_COLORS[0]?.value).toBe("");
+      expect(ACCENT_COLORS[0]?.name).toBe("None");
     });
 
     it("first icon is None/empty", () => {
-      expect(COLUMN_ICONS[0]!.value).toBe("");
-      expect(COLUMN_ICONS[0]!.name).toBe("None");
+      expect(COLUMN_ICONS[0]?.value).toBe("");
+      expect(COLUMN_ICONS[0]?.name).toBe("None");
     });
   });
 });

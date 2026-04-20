@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -213,4 +213,8 @@ describe("buildMessagesFromHistory", () => {
     expect(toolCallParts).toHaveLength(1);
     expect(toolCallParts[0].toolCallId).toBe("call-ok");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

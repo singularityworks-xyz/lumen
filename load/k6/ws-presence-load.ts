@@ -1,14 +1,17 @@
 import { check, sleep } from "k6";
 import { Counter, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const presenceFanoutCount = new Counter("presence_fanout_count");
 const cursorMovementCount = new Counter("cursor_movement_count");
 const cursorPositionDrift = new Trend("cursor_position_drift_pixels");
 const collaboratorCountTrend = new Trend("collaborator_count");
 
-const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "20", 10);
-const CURSOR_ROUNDS = parseInt(__ENV.CURSOR_ROUNDS || "20", 10);
+const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "20", 10);
+const CURSOR_ROUNDS = Number.parseInt(__ENV.CURSOR_ROUNDS || "20", 10);
 
 export const options = {
   scenarios: {
@@ -30,16 +33,17 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-presence-test";
 
-  if (!wsUrl || !authToken) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     return;
   }
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     return;
   }
 
@@ -84,7 +88,7 @@ export default function () {
 }
 
 export function handleSummary(data: {
-  metrics: Record<string, { values: Record<string, number> } };
+  metrics: Record<string, { values: Record<string, number> }>;
 }) {
   return {
     "presence-summary": JSON.stringify(data.metrics, null, 2),

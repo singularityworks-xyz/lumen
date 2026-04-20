@@ -1,4 +1,15 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+// Set environment variables BEFORE any imports that use env.ts
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -43,9 +54,10 @@ mock.module("../lib/request-queue", () => ({
   },
 }));
 
-// Dynamically import after mocks are set up
+// Use a cache-busting query to get the real implementation
+// This bypasses any mocks set up by other test files
 const { shouldGenerateTitle, generateConversationTitle } = await import(
-  "./title-generator"
+  `./title-generator?${Date.now()}`
 );
 
 beforeEach(() => {
@@ -139,7 +151,7 @@ describe("generateConversationTitle", () => {
   });
 
   it("returns null when generated title is whitespace only", async () => {
-    mockGenerateText.mockImplementation(() => Promise.resolve({ text: "   " }));
+    mockGenerateText.mockImplementation(() => Promise.resolve({ text: " " }));
 
     const result = await generateConversationTitle({
       messages: [
@@ -170,11 +182,11 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    expect(callArgs.messages[0]!.role).toBe("user");
-    expect(callArgs.messages[0]!.content).toContain("User: Hello world");
-    expect(callArgs.messages[0]!.content).toContain("Larity: Hi there!");
-    expect(callArgs.messages[0]!.content).toContain("User: Help me");
-    expect(callArgs.messages[0]!.content).toContain("Larity: Sure");
+    expect(callArgs.messages[0]?.role).toBe("user");
+    expect(callArgs.messages[0]?.content).toContain("User: Hello world");
+    expect(callArgs.messages[0]?.content).toContain("Larity: Hi there!");
+    expect(callArgs.messages[0]?.content).toContain("User: Help me");
+    expect(callArgs.messages[0]?.content).toContain("Larity: Sure");
   });
 
   it("truncates message content to 500 characters", async () => {
@@ -193,7 +205,7 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    const userContent = callArgs.messages[0]!.content;
+    const userContent = callArgs.messages[0]?.content;
     expect(userContent).toContain("A".repeat(500));
     expect(userContent).not.toContain("A".repeat(501));
   });
@@ -220,7 +232,7 @@ describe("generateConversationTitle", () => {
       .calls[0][0] as {
       messages: Array<{ role: string; content: string }>;
     };
-    const content = callArgs.messages[0]!.content;
+    const content = callArgs.messages[0]?.content;
     expect(content).toContain("Message 6");
     expect(content).not.toContain("Message 7");
   });
@@ -315,4 +327,8 @@ describe("generateConversationTitle", () => {
 
     expect(result).toBe("Recovered Title");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

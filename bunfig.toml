@@ -7,5 +7,15 @@ coveragePathIgnorePatterns = [
   "**/node_modules/**",
   "**/tests/config/**",
   "**/auth-client.ts",
-  "**/packages/db/prisma/generated/**"
+  "**/packages/db/prisma/generated/**",
+  "**/e2e/**",
+  "**/presence/e2e/**"
+]
+testFilePattern = "**/*.test.{ts,tsx}"
+exclude = [
+  "**/e2e/**",
+  "**/presence/e2e/**",
+  "**/node_modules/**",
+  "**/*.spec.ts",
+  "**/apps/presence/e2e/**"
 ]

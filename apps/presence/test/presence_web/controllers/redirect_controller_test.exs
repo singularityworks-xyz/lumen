@@ -30,5 +30,41 @@ defmodule PresenceWeb.RedirectControllerTest do
                status == 301 and location == ["https://lumen.itssingularity.com"]
              end)
     end
+
+    test "redirects with single query param", %{conn: conn} do
+      conn = get(conn, "/?ref=presence")
+
+      assert conn.status == 301
+      assert Plug.Conn.get_resp_header(conn, "location") == ["https://lumen.itssingularity.com"]
+    end
+
+    test "redirects with multiple query params", %{conn: conn} do
+      conn = get(conn, "/?utm_source=test&utm_medium=email&campaign=launch")
+
+      assert conn.status == 301
+      assert Plug.Conn.get_resp_header(conn, "location") == ["https://lumen.itssingularity.com"]
+    end
+
+    test "redirects with empty query string", %{conn: conn} do
+      conn = get(conn, "/?")
+
+      assert conn.status == 301
+      assert Plug.Conn.get_resp_header(conn, "location") == ["https://lumen.itssingularity.com"]
+    end
+
+    test "redirects with special characters in query params", %{conn: conn} do
+      conn = get(conn, "/?search=hello%20world&filter=a+b")
+
+      assert conn.status == 301
+      assert Plug.Conn.get_resp_header(conn, "location") == ["https://lumen.itssingularity.com"]
+    end
+
+    test "redirects with very long query string", %{conn: conn} do
+      long_value = String.duplicate("a", 1000)
+      conn = get(conn, "/?data=#{long_value}")
+
+      assert conn.status == 301
+      assert Plug.Conn.get_resp_header(conn, "location") == ["https://lumen.itssingularity.com"]
+    end
   end
 end

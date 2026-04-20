@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -35,7 +35,11 @@ describe("summarizeCoverage", () => {
     const coverage = summarizeCoverage(
       [
         { path: "/repo/apps/web/src/app.ts", linesFound: 10, linesHit: 6 },
-        { path: "/repo/apps/web/src/app.test.ts", linesFound: 20, linesHit: 20 },
+        {
+          path: "/repo/apps/web/src/app.test.ts",
+          linesFound: 20,
+          linesHit: 20,
+        },
       ],
       ["apps/web/src/"]
     );
@@ -124,7 +128,14 @@ end_of_record
       "test"
     );
     writeFileSync(
-      join(rootDir, "packages", "yjs-shared", "test", "integration", "sync.integration.test.ts"),
+      join(
+        rootDir,
+        "packages",
+        "yjs-shared",
+        "test",
+        "integration",
+        "sync.integration.test.ts"
+      ),
       "test"
     );
 
@@ -151,7 +162,9 @@ end_of_record
 
     const markdown = renderCoverageSummary(summary);
 
-    expect(markdown).toContain("| apps/web | 40.0% unit lines (target 95.0%) |");
+    expect(markdown).toContain(
+      "| apps/web | 40.0% unit lines (target 95.0%) |"
+    );
     expect(markdown).toContain("apps/presence");
     expect(markdown).toContain("packages/yjs-shared");
   });

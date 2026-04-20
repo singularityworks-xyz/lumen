@@ -1,6 +1,9 @@
 import { sleep } from "k6";
 import { Counter, Gauge } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");
@@ -28,11 +31,20 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-soak-shared";
 
-  const session = connectCollabSession(wsUrl!, authToken!, workspaceId);
+  if (!(wsUrl && (authToken || useBypass))) {
+    return;
+  }
 
-  if (!session.established) {
+  const session = connectCollabSession(
+    wsUrl ?? "",
+    authToken ?? "",
+    workspaceId
+  );
+
+  if (!waitForSessionEstablished(session)) {
     return;
   }
 
@@ -42,12 +54,14 @@ export default function () {
   const sessionStart = Date.now();
   let updateCounter = 0;
 
-  const iterations = Math.floor((parseInt(soakDurationMinutes, 10) * 60) / 5);
+  const iterations = Math.floor(
+    (Number.parseInt(soakDurationMinutes, 10) * 60) / 5
+  );
 
   for (let i = 0; i < iterations; i++) {
     updateCounter++;
 
-    session.sendSyncUpdate(__VU * 10000 + updateCounter);
+    session.sendSyncUpdate(__VU * 10_000 + updateCounter);
 
     if (updateCounter % 3 === 0) {
       session.sendAwarenessUpdate({

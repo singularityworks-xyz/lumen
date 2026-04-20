@@ -32,9 +32,7 @@ test.describe("E2E-TOPOLOGY-PRESENCE-1: Multi-Instance Presence Topology", () =>
     topology = new MultiInstanceTopology();
   });
 
-  test.afterEach(() => {
-    return topology.stopAll();
-  });
+  test.afterEach(() => topology.stopAll());
 
   test("primary presence instance is accessible", async ({ page: _page }) => {
     const primaryPresenceUrl = topology.getPrimaryPresenceUrl();

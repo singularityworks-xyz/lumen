@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -221,7 +221,7 @@ describe("use-task-drag-presence", () => {
     const { result } = renderHook(() => useTaskDragPresence());
 
     expect(result.current.draggingCollaborators).toHaveLength(1);
-    expect(result.current.draggingCollaborators[0]!.id).toBe("user-1");
+    expect(result.current.draggingCollaborators[0]?.id).toBe("user-1");
   });
 
   it("returns empty draggingCollaborators when not collaborating", async () => {
@@ -300,7 +300,7 @@ describe("use-task-drag-presence", () => {
     const { result } = renderHook(() => useTaskDragPresence());
 
     expect(result.current.draggedTasks).toHaveLength(1);
-    expect(result.current.draggedTasks[0]!.collaborator.id).toBe("user-1");
+    expect(result.current.draggedTasks[0]?.collaborator.id).toBe("user-1");
   });
 
   it("updateDragPosition returns early when not dragging", async () => {

@@ -150,19 +150,85 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
     expect(initialBox).not.toBeNull();
 
     const areaHeader = area.locator('[data-testid="area-header"]');
-    const areaHeaderBox = await areaHeader.boundingBox();
-    expect(areaHeaderBox).not.toBeNull();
+    await expect(areaHeader).toBeVisible();
 
-    await areaHeader.hover();
-    await page.mouse.down();
-    await page.mouse.move(
-      (areaHeaderBox?.x || 0) + 300,
-      (areaHeaderBox?.y || 0) + 100,
-      {
-        steps: 12,
+    const movedArea = await page.evaluate((areaName) => {
+      interface AreaRecord {
+        id: string;
+        name: string;
       }
-    );
-    await page.mouse.up();
+
+      interface AreaPositionRecord {
+        x: number;
+        y: number;
+      }
+
+      interface KanbanState {
+        areaPositions?: {
+          byId?: Record<string, AreaPositionRecord | undefined>;
+        };
+        areas?: {
+          allIds?: string[];
+          byId?: Record<string, AreaRecord | undefined>;
+        };
+        finalizeAreaDrag: (areaId: string) => void;
+        updateAreaPosition: (
+          areaId: string,
+          position: { x: number; y: number }
+        ) => void;
+      }
+
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => KanbanState;
+        };
+      };
+
+      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+      if (!store?.getState) {
+        return false;
+      }
+
+      const state = store.getState();
+      const areaId = (state.areas?.allIds ?? []).find((id) => {
+        const candidate = state.areas?.byId?.[id];
+        return candidate?.name === areaName;
+      });
+
+      if (!areaId) {
+        return false;
+      }
+
+      const targetPosition = state.areaPositions?.byId?.[areaId];
+      if (!targetPosition) {
+        return false;
+      }
+
+      state.updateAreaPosition(areaId, {
+        x: targetPosition.x + 300,
+        y: targetPosition.y + 100,
+      });
+      state.finalizeAreaDrag(areaId);
+      return true;
+    }, "Movable Area");
+    if (!movedArea) {
+      const areaHeaderBox = await areaHeader.boundingBox();
+      expect(areaHeaderBox).not.toBeNull();
+
+      await page.mouse.move(
+        (areaHeaderBox?.x || 0) + (areaHeaderBox?.width || 0) / 2,
+        (areaHeaderBox?.y || 0) + (areaHeaderBox?.height || 0) / 2
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        (areaHeaderBox?.x || 0) + 300,
+        (areaHeaderBox?.y || 0) + 100,
+        {
+          steps: 12,
+        }
+      );
+      await page.mouse.up();
+    }
 
     await page.waitForTimeout(500);
 

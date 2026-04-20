@@ -64,6 +64,10 @@ if (!isUpstashConfigured) {
 class InMemoryRateLimiter {
   private timestamps: number[] = [];
 
+  reset(): void {
+    this.timestamps = [];
+  }
+
   limit(): {
     success: boolean;
     remaining: number;
@@ -100,6 +104,11 @@ class InMemoryRateLimiter {
 }
 
 const inMemoryLimiter = new InMemoryRateLimiter();
+
+// Export for testing only
+export function _resetInMemoryLimiter(): void {
+  inMemoryLimiter.reset();
+}
 
 // Unified rate limiter that uses Upstash when available, falls back to in-memory
 async function checkRateLimit(identifier = "global"): Promise<{
@@ -359,6 +368,10 @@ class RateLimitedQueue {
 }
 
 export const aiRequestQueue = new RateLimitedQueue();
+
+// Re-export queue methods for direct access in tests
+export const getQueueStatus = (requestId: string) =>
+  aiRequestQueue.getQueueStatus(requestId);
 
 export function getQueueStats() {
   return aiRequestQueue.getStats();

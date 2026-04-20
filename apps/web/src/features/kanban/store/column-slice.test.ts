@@ -33,12 +33,12 @@ describe("addColumn", () => {
     const colId = actions.addColumn(boardId, "New Column");
 
     expect(state.columns.byId[colId]).toBeDefined();
-    expect(state.columns.byId[colId]!.name).toBe("New Column");
-    expect(state.columns.byId[colId]!.board_id).toBe(boardId);
-    expect(state.columns.byId[colId]!.position).toBe(prevLength);
-    expect(state.columns.byId[colId]!.task_ids).toEqual([]);
+    expect(state.columns.byId[colId]?.name).toBe("New Column");
+    expect(state.columns.byId[colId]?.board_id).toBe(boardId);
+    expect(state.columns.byId[colId]?.position).toBe(prevLength);
+    expect(state.columns.byId[colId]?.task_ids).toEqual([]);
     expect(state.columns.allIds).toContain(colId);
-    expect(state.boards.byId[boardId]!.column_ids).toContain(colId);
+    expect(state.boards.byId[boardId]?.column_ids).toContain(colId);
   });
 
   it("inserts column at specified position", () => {
@@ -48,7 +48,7 @@ describe("addColumn", () => {
 
     const colId = actions.addColumn(boardId, "Inserted", 1);
 
-    expect(state.columns.byId[colId]!.position).toBe(1);
+    expect(state.columns.byId[colId]?.position).toBe(1);
   });
 });
 
@@ -80,7 +80,7 @@ describe("deleteColumn", () => {
 
     actions.deleteColumn(boardId, colId);
 
-    expect(state.boards.byId[boardId]!.column_ids).not.toContain(colId);
+    expect(state.boards.byId[boardId]?.column_ids).not.toContain(colId);
     expect(state.columns.byId[colId]).toBeUndefined();
     expect(state.columns.allIds).not.toContain(colId);
   });
@@ -95,10 +95,10 @@ describe("moveColumn", () => {
 
     actions.moveColumn(boardId, c0!, 2);
 
-    expect(state.boards.byId[boardId]!.column_ids).toEqual([c1!, c2!, c0!]);
-    expect(state.columns.byId[c1!]!.position).toBe(0);
-    expect(state.columns.byId[c2!]!.position).toBe(1);
-    expect(state.columns.byId[c0!]!.position).toBe(2);
+    expect(state.boards.byId[boardId]?.column_ids).toEqual([c1!, c2!, c0!]);
+    expect(state.columns.byId[c1!]?.position).toBe(0);
+    expect(state.columns.byId[c2!]?.position).toBe(1);
+    expect(state.columns.byId[c0!]?.position).toBe(2);
   });
 });
 
@@ -115,16 +115,16 @@ describe("moveColumnToBoard", () => {
 
     actions.moveColumnToBoard(sourceId, colId, targetId);
 
-    expect(state.boards.byId[sourceId]!.column_ids).not.toContain(colId);
-    expect(state.boards.byId[targetId]!.column_ids).toContain(colId);
-    expect(state.columns.byId[colId]!.board_id).toBe(targetId);
-    expect(state.columns.byId[colId]!.position).toBe(targetColCount);
-    expect(state.tasks.byId[task1]!.board_id).toBe(targetId);
-    expect(state.tasks.byId[task2]!.board_id).toBe(targetId);
+    expect(state.boards.byId[sourceId]?.column_ids).not.toContain(colId);
+    expect(state.boards.byId[targetId]?.column_ids).toContain(colId);
+    expect(state.columns.byId[colId]?.board_id).toBe(targetId);
+    expect(state.columns.byId[colId]?.position).toBe(targetColCount);
+    expect(state.tasks.byId[task1]?.board_id).toBe(targetId);
+    expect(state.tasks.byId[task2]?.board_id).toBe(targetId);
 
-    const remainingSrcCols = state.boards.byId[sourceId]!.column_ids;
+    const remainingSrcCols = state.boards.byId[sourceId]?.column_ids ?? [];
     for (const [i, id] of remainingSrcCols.entries()) {
-      expect(state.columns.byId[id]!.position).toBe(i);
+      expect(state.columns.byId[id]?.position).toBe(i);
     }
   });
 
@@ -137,10 +137,10 @@ describe("moveColumnToBoard", () => {
 
     actions.moveColumnToBoard(boardId, colId, boardId);
 
-    expect(state.boards.byId[boardId]!.column_ids).toEqual(
+    expect(state.boards.byId[boardId]?.column_ids).toEqual(
       before.boards.byId[boardId].column_ids
     );
-    expect(state.columns.byId[colId]!.board_id).toBe(
+    expect(state.columns.byId[colId]?.board_id).toBe(
       before.columns.byId[colId].board_id
     );
   });
@@ -201,9 +201,9 @@ describe("updateColumn", () => {
 
     actions.updateColumn(colId, { name: "Updated", description: "desc" });
 
-    expect(state.columns.byId[colId]!.name).toBe("Updated");
-    expect(state.columns.byId[colId]!.description).toBe("desc");
-    expect(state.columns.byId[colId]!.board_id).toBeDefined();
+    expect(state.columns.byId[colId]?.name).toBe("Updated");
+    expect(state.columns.byId[colId]?.description).toBe("desc");
+    expect(state.columns.byId[colId]?.board_id).toBeDefined();
   });
 });
 
@@ -244,11 +244,11 @@ describe("updateColumnQuickActionsPosition", () => {
 
     const quickActions = state.columnQuickActions[colId];
     expect(quickActions).toBeDefined();
-    expect(quickActions!.position).toEqual({ x: 500, y: 300 });
+    expect(quickActions?.position).toEqual({ x: 500, y: 300 });
 
     const modal = state.createTaskModals[modalId];
     expect(modal).toBeDefined();
-    expect(modal!.sourceRect).toEqual({
+    expect(modal?.sourceRect).toEqual({
       left: 500,
       top: 460,
       right: 720,

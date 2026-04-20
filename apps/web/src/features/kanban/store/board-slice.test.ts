@@ -52,8 +52,8 @@ describe("addBoard", () => {
 
     expect(state.selectedBoardId).toBe(boardId);
     expect(state.canvas.focusedBoardId).toBe(boardId);
-    expect(state.workspaces.byId[wsId]!.board_ids).toContain(boardId);
-    expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(boardId);
+    expect(state.workspaces.byId[wsId]?.board_ids).toContain(boardId);
+    expect(state.workspaces.byId[wsId]?.lastFocusedBoardId).toBe(boardId);
   });
 
   it("auto-placement uses selected board when no explicit position provided", () => {
@@ -134,7 +134,7 @@ describe("removeBoard", () => {
     expect(state.tasks.allIds).not.toContain(taskId);
     expect(state.boardPositions.byId[boardId]).toBeUndefined();
     expect(state.boardPositions.allIds).not.toContain(boardId);
-    expect(state.workspaces.byId[wsId]!.board_ids).not.toContain(boardId);
+    expect(state.workspaces.byId[wsId]?.board_ids).not.toContain(boardId);
     expect(state.selectedBoardIds).not.toContain(boardId);
   });
 
@@ -186,8 +186,8 @@ describe("duplicateBoard", () => {
     expect(newTask.title).toBe("Original Task");
     expect(newTask.column_id).toBe(newColId);
 
-    expect(state.workspaces.byId[wsId]!.board_ids).toContain(newBoardId!);
-    expect(state.workspaces.byId[wsId]!.lastFocusedBoardId).toBe(newBoardId);
+    expect(state.workspaces.byId[wsId]?.board_ids).toContain(newBoardId!);
+    expect(state.workspaces.byId[wsId]?.lastFocusedBoardId).toBe(newBoardId);
   });
 
   it("copies outbound connections only when requested", () => {
@@ -219,7 +219,7 @@ describe("duplicateBoard", () => {
       .map((id) => state.boardConnections.byId[id]!)
       .filter((c) => c && c.source_board_id === withCopy);
     expect(withCopyConns).toHaveLength(1);
-    expect(withCopyConns[0]!.target_board_id).toBe(targetBoardId);
+    expect(withCopyConns[0]?.target_board_id).toBe(targetBoardId);
   });
 });
 
@@ -257,11 +257,11 @@ describe("updateBoardQuickActionsPosition", () => {
 
     const quickActions = state.boardQuickActions[boardId];
     expect(quickActions).toBeDefined();
-    expect(quickActions!.position).toEqual({ x: 500, y: 300 });
+    expect(quickActions?.position).toEqual({ x: 500, y: 300 });
 
     const modal = state.createTaskModals[modalId];
     expect(modal).toBeDefined();
-    expect(modal!.sourceRect).toEqual({
+    expect(modal?.sourceRect).toEqual({
       left: 500,
       top: 380,
       right: 720,
@@ -304,7 +304,7 @@ describe("updateBoardQuickActionsPosition", () => {
     actions.updateBoardQuickActionsPosition(boardId, { x: 500, y: 300 });
 
     const modal = state.createTaskModals[modalId];
-    expect(modal!.sourceRect).toEqual(originalRect);
+    expect(modal?.sourceRect).toEqual(originalRect);
   });
 });
 
@@ -319,6 +319,6 @@ describe("updateBoardDialogPosition", () => {
 
     actions.updateBoardDialogPosition(id, { x: 100, y: 200 });
 
-    expect(state.boardDialogs[id]!.position).toEqual({ x: 100, y: 200 });
+    expect(state.boardDialogs[id]?.position).toEqual({ x: 100, y: 200 });
   });
 });

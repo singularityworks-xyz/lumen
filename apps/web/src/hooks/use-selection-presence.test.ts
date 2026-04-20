@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -144,5 +144,41 @@ describe("use-selection-presence", () => {
     const { result } = renderHook(() => useSelectionPresence());
 
     expect(result.current.collaborators).toEqual(collabState.collaborators);
+  });
+
+  it("throttles rapid non-null selection box updates", async () => {
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+
+    const { useSelectionPresence } = await import(
+      "@/src/hooks/use-selection-presence"
+    );
+    const { result } = renderHook(() => useSelectionPresence());
+
+    result.current.setSelectionBox({ x: 1, y: 1, width: 10, height: 10 });
+    result.current.setSelectionBox({ x: 2, y: 2, width: 20, height: 20 });
+
+    expect(mockAwareness.setLocalStateField).toHaveBeenCalledTimes(1);
+    expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
+      "selectionBox",
+      { x: 1, y: 1, width: 10, height: 10 }
+    );
+  });
+
+  it("allows null box update without throttle short-circuit", async () => {
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+
+    const { useSelectionPresence } = await import(
+      "@/src/hooks/use-selection-presence"
+    );
+    const { result } = renderHook(() => useSelectionPresence());
+
+    result.current.setSelectionBox(null);
+
+    expect(mockAwareness.setLocalStateField).toHaveBeenCalledWith(
+      "selectionBox",
+      null
+    );
   });
 });

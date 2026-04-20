@@ -1,20 +1,30 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+// Set environment variables BEFORE any imports that use them
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockEnv = {
   CEREBRAS_API_KEY: "test-api-key",
 };
 
+// Mock the env module BEFORE importing providers
 mock.module("../env", () => ({
   env: mockEnv,
 }));
 
-import { DEFAULT_PRIMARY_MODEL } from "@lumen/ai";
-import {
-  getModel,
-  getModelChain,
-  isAiEnabled,
-  isRateLimitError,
-} from "./providers";
+// Import these after setting up mocks - they'll use the mocked env
+const { DEFAULT_PRIMARY_MODEL } = await import("@lumen/ai");
+const { getModel, getModelChain, isAiEnabled, isRateLimitError } = await import(
+  "./providers"
+);
 
 describe("isAiEnabled", () => {
   it("returns true when CEREBRAS_API_KEY is set", () => {
@@ -74,4 +84,8 @@ describe("isRateLimitError", () => {
     expect(isRateLimitError(null)).toBe(false);
     expect(isRateLimitError(undefined)).toBe(false);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

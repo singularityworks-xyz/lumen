@@ -1,7 +1,7 @@
 export interface CollabPayloads {
-  small: K6Fixture;
-  medium: K6Fixture;
   large: K6Fixture;
+  medium: K6Fixture;
+  small: K6Fixture;
 }
 
 export interface K6Fixture {

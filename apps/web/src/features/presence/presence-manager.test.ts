@@ -265,7 +265,7 @@ describe("PresenceManager", () => {
       expect(socket.channel).toHaveBeenCalledWith("workspace:ws-1", {});
 
       // Channel joined
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       expect(chan.join).toHaveBeenCalled();
     });
   });
@@ -280,7 +280,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
 
       // Trigger join ok to setup heartbeat
       chan.joinReceiveHandlers.ok?.();
@@ -306,7 +306,7 @@ describe("PresenceManager", () => {
       chan.onHandlers.presence_state?.(payload);
 
       expect(onPresenceUpdate).toHaveBeenCalledTimes(1);
-      const users = onPresenceUpdate.mock.calls[0]![0];
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
       expect(users).toHaveLength(2);
       expect(
         users.find((u: { id: string }) => u.id === "user-1")!
@@ -324,9 +324,9 @@ describe("PresenceManager", () => {
       chan.onHandlers.presence_state?.(payload2);
 
       expect(onPresenceUpdate).toHaveBeenCalledTimes(2);
-      const users2 = onPresenceUpdate.mock.calls[1]![0];
+      const users2 = onPresenceUpdate.mock.calls[1]?.[0];
       expect(users2).toHaveLength(1);
-      expect(users2[0]!.id).toBe("user-3");
+      expect(users2[0]?.id).toBe("user-3");
     });
   });
 
@@ -340,7 +340,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Initial state
@@ -363,7 +363,7 @@ describe("PresenceManager", () => {
       chan.onHandlers.presence_diff?.(diffPayload);
 
       expect(onPresenceUpdate).toHaveBeenCalledTimes(1);
-      const users = onPresenceUpdate.mock.calls[0]![0];
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
       expect(users).toHaveLength(2);
       expect(
         users.find((u: { id: string }) => u.id === "user-1")!
@@ -383,7 +383,7 @@ describe("PresenceManager", () => {
       };
       chan.onHandlers.presence_diff?.(updatePayload);
 
-      const updatedUsers = onPresenceUpdate.mock.calls[0]![0];
+      const updatedUsers = onPresenceUpdate.mock.calls[0]?.[0];
       const alice = updatedUsers.find(
         (u: { id: string }) => u.id === "user-1"
       )!;
@@ -402,7 +402,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Initial state with 3 users
@@ -431,7 +431,7 @@ describe("PresenceManager", () => {
       chan.onHandlers.presence_diff?.(diffPayload);
 
       expect(onPresenceUpdate).toHaveBeenCalledTimes(1);
-      const users = onPresenceUpdate.mock.calls[0]![0];
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
       expect(users).toHaveLength(2);
       expect(
         users.find((u: { id: string }) => u.id === "user-1")!
@@ -454,7 +454,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
 
       // Before join ok, no intervals should be registered
       expect(intervalCallbacks.length).toBe(0);
@@ -479,7 +479,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       const before = chan.push.mock.calls.length;
@@ -491,7 +491,7 @@ describe("PresenceManager", () => {
         (c) => c[0] === "activity_ping"
       );
       expect(pushCall).toBeDefined();
-      expect(pushCall![1]).toHaveProperty("timestamp");
+      expect(pushCall?.[1]).toHaveProperty("timestamp");
     });
   });
 
@@ -505,7 +505,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Initial state
@@ -523,14 +523,14 @@ describe("PresenceManager", () => {
       // Fire idle check interval
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
       expect(idleCheckCb).toBeDefined();
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
 
       // Should have pushed status_update with idle
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "idle" });
+      expect(statusCall?.[1]).toEqual({ status: "idle" });
     });
 
     it("should NOT transition to idle if less than 5 minutes have passed", () => {
@@ -540,7 +540,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
       chan.push.mockReset();
 
@@ -548,7 +548,7 @@ describe("PresenceManager", () => {
       advanceTime(200_000);
 
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
@@ -563,17 +563,17 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // First, transition to idle
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       // Trigger idle check again — should not push another status_update
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
@@ -591,7 +591,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
       chan.push.mockReset();
 
@@ -599,14 +599,14 @@ describe("PresenceManager", () => {
       setDocumentHidden(true);
       const visibilityHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "visibilitychange"
-      )![1];
+      )?.[1];
       visibilityHandler();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "away" });
+      expect(statusCall?.[1]).toEqual({ status: "away" });
     });
 
     it("should transition to online when document becomes visible", () => {
@@ -616,7 +616,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
       chan.push.mockReset();
 
@@ -624,7 +624,7 @@ describe("PresenceManager", () => {
       setDocumentHidden(true);
       const visibilityHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "visibilitychange"
-      )![1];
+      )?.[1];
       visibilityHandler();
 
       // Verify we went away
@@ -632,7 +632,7 @@ describe("PresenceManager", () => {
         (c) => c[0] === "status_update"
       );
       expect(awayCall).toBeDefined();
-      expect(awayCall![1]).toEqual({ status: "away" });
+      expect(awayCall?.[1]).toEqual({ status: "away" });
       chan.push.mockReset();
 
       // Now make document visible — should transition to online
@@ -643,7 +643,7 @@ describe("PresenceManager", () => {
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "online" });
+      expect(statusCall?.[1]).toEqual({ status: "online" });
     });
 
     it("should reset lastActivity when document becomes visible", () => {
@@ -653,31 +653,31 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // First transition to idle
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       // Make document visible — should reset lastActivity and go online
       setDocumentHidden(false);
       const visibilityHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "visibilitychange"
-      )![1];
+      )?.[1];
       visibilityHandler();
 
       // Now fire idle check — should NOT transition to idle because lastActivity was reset
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
 
       const statusCalls = chan.push.mock.calls.filter(
         (c) => c[0] === "status_update"
       );
       // Only the "online" transition from visibility change
       expect(statusCalls).toHaveLength(1);
-      expect(statusCalls[0]![1]).toEqual({ status: "online" });
+      expect(statusCalls[0]?.[1]).toEqual({ status: "online" });
     });
   });
 
@@ -690,19 +690,19 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // First transition to idle
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       // Simulate mousemove activity
       const mousemoveHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "mousemove"
-      )![1];
+      )?.[1];
       mousemoveHandler();
 
       // Should have pushed status_update with online
@@ -710,10 +710,10 @@ describe("PresenceManager", () => {
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "online" });
+      expect(statusCall?.[1]).toEqual({ status: "online" });
 
       // Fire idle check again — should not go idle because activity reset the timer
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       const statusCallsAfter = chan.push.mock.calls.filter(
         (c) => c[0] === "status_update"
       );
@@ -727,24 +727,24 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       const keydownHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "keydown"
-      )![1];
+      )?.[1];
       keydownHandler();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "online" });
+      expect(statusCall?.[1]).toEqual({ status: "online" });
     });
 
     it("should reset idle timer on click", () => {
@@ -754,24 +754,24 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       const clickHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "click"
-      )![1];
+      )?.[1];
       clickHandler();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "online" });
+      expect(statusCall?.[1]).toEqual({ status: "online" });
     });
 
     it("should reset idle timer on scroll", () => {
@@ -781,24 +781,24 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       const scrollHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "scroll"
-      )![1];
+      )?.[1];
       scrollHandler();
 
       const statusCall = chan.push.mock.calls.find(
         (c) => c[0] === "status_update"
       );
       expect(statusCall).toBeDefined();
-      expect(statusCall![1]).toEqual({ status: "online" });
+      expect(statusCall?.[1]).toEqual({ status: "online" });
     });
 
     it("should throttle activity events to once per second", () => {
@@ -808,18 +808,18 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // First transition to idle
       advanceTime(301_000);
       const idleCheckCb = intervalCallbacks.find((c) => c.delay === 10_000)!;
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       const mousemoveHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "mousemove"
-      )![1];
+      )?.[1];
 
       // First call — should trigger (idle -> online)
       mousemoveHandler();
@@ -836,7 +836,7 @@ describe("PresenceManager", () => {
       // Advance time past throttle delay, then go idle again
       advanceTime(1001);
       advanceTime(301_000);
-      idleCheckCb!.fn();
+      idleCheckCb?.fn();
       chan.push.mockReset();
 
       // Now activity should trigger again (idle -> online)
@@ -853,14 +853,14 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
       chan.push.mockReset();
 
       // Trigger activity while already online
       const mousemoveHandler = addEventListenerMock.mock.calls.find(
         (c) => c[0] === "mousemove"
-      )![1];
+      )?.[1];
       mousemoveHandler();
 
       // Should NOT push status_update because already online
@@ -880,7 +880,7 @@ describe("PresenceManager", () => {
       const manager = new PresenceManager(defaultOptions());
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Verify intervals exist
@@ -920,7 +920,7 @@ describe("PresenceManager", () => {
       );
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Add some users
@@ -950,7 +950,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // User with multiple metas (multiple connections)
@@ -974,13 +974,13 @@ describe("PresenceManager", () => {
       };
       chan.onHandlers.presence_state?.(payload);
 
-      const users = onPresenceUpdate.mock.calls[0]![0];
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
       expect(users).toHaveLength(1);
-      expect(users[0]!.id).toBe("user-1");
-      expect(users[0]!.name).toBe("Alice Primary");
-      expect(users[0]!.avatar).toBe("a1.png");
-      expect(users[0]!.status).toBe("online");
-      expect(users[0]!.joinedAt).toBe(100);
+      expect(users[0]?.id).toBe("user-1");
+      expect(users[0]?.name).toBe("Alice Primary");
+      expect(users[0]?.avatar).toBe("a1.png");
+      expect(users[0]?.status).toBe("online");
+      expect(users[0]?.joinedAt).toBe(100);
     });
   });
 
@@ -997,7 +997,7 @@ describe("PresenceManager", () => {
       );
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Add users
@@ -1114,7 +1114,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // Send empty diff
@@ -1132,7 +1132,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       chan.onHandlers.presence_diff?.({
@@ -1151,7 +1151,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       // null payload
@@ -1172,7 +1172,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       const payload = {
@@ -1183,9 +1183,9 @@ describe("PresenceManager", () => {
       };
       chan.onHandlers.presence_state?.(payload);
 
-      const users = onPresenceUpdate.mock.calls[0]![0];
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
       expect(users).toHaveLength(1);
-      expect(users[0]!.id).toBe("user-2");
+      expect(users[0]?.id).toBe("user-2");
     });
 
     it("should handle parsePresencePayload with missing avatar", () => {
@@ -1196,7 +1196,7 @@ describe("PresenceManager", () => {
       new PresenceManager(defaultOptions({ onPresenceUpdate }));
 
       const socket = mockSocketInstances[0]!;
-      const chan = socket.channel.mock.results[0]!.value as MockChannel;
+      const chan = socket.channel.mock.results[0]?.value as MockChannel;
       chan.joinReceiveHandlers.ok?.();
 
       const payload = {
@@ -1206,8 +1206,8 @@ describe("PresenceManager", () => {
       };
       chan.onHandlers.presence_state?.(payload);
 
-      const users = onPresenceUpdate.mock.calls[0]![0];
-      expect(users[0]!.avatar).toBeUndefined();
+      const users = onPresenceUpdate.mock.calls[0]?.[0];
+      expect(users[0]?.avatar).toBeUndefined();
     });
 
     it("should use correct workspace topic", () => {

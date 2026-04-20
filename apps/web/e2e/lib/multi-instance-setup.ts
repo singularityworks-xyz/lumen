@@ -17,7 +17,16 @@ export interface InstanceProcess {
 
 function resolvePrimaryPresencePort(): number {
   const fallbackPort = 4010;
-  const configuredPresenceUrl = process.env.PRESENCE_URL;
+  const configuredPresencePort = process.env.E2E_PRESENCE_PORT;
+  if (configuredPresencePort) {
+    const parsed = Number.parseInt(configuredPresencePort, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const configuredPresenceUrl =
+    process.env.E2E_PRESENCE_URL ?? process.env.PRESENCE_URL;
 
   if (!configuredPresenceUrl) {
     return fallbackPort;
@@ -37,16 +46,70 @@ function resolvePrimaryPresencePort(): number {
   }
 }
 
-const DEFAULT_PORTS = {
-  workers: { primary: 3002, secondary: 3003 },
-  presence: (() => {
-    const primary = resolvePrimaryPresencePort();
-    return {
-      primary,
-      secondary: primary + 2,
-    };
-  })(),
-} as const;
+const WORKER_PORT_STRIDE = 20;
+
+const parseNonNegativeInteger = (value: string | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
+export function resolvePlaywrightWorkerIndex(
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const testParallelIndex = parseNonNegativeInteger(env.TEST_PARALLEL_INDEX);
+  if (testParallelIndex !== null) {
+    return testParallelIndex;
+  }
+
+  const testWorkerIndex = parseNonNegativeInteger(env.TEST_WORKER_INDEX);
+  if (testWorkerIndex !== null) {
+    return testWorkerIndex;
+  }
+
+  const fallbackWorkerIndex = parseNonNegativeInteger(env.PLAYWRIGHT_WORKER);
+  return fallbackWorkerIndex ?? 0;
+}
+
+export function resolveTopologyPorts(
+  workerIndex = resolvePlaywrightWorkerIndex(),
+  primaryPresencePort = resolvePrimaryPresencePort()
+): {
+  workers: { primary: number; secondary: number };
+  presence: { primary: number; secondary: number };
+} {
+  const workerOffset = workerIndex * WORKER_PORT_STRIDE;
+  const workersPrimaryPort = (() => {
+    const configuredWorkersPort = process.env.E2E_WORKERS_PORT;
+    if (configuredWorkersPort) {
+      const parsed = Number.parseInt(configuredWorkersPort, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return 3002;
+  })();
+
+  return {
+    workers: {
+      primary: workersPrimaryPort,
+      secondary: workersPrimaryPort + 1 + workerOffset,
+    },
+    presence: {
+      primary: primaryPresencePort,
+      secondary: primaryPresencePort + 2 + workerOffset,
+    },
+  };
+}
+
+const DEFAULT_PORTS = resolveTopologyPorts();
 
 export class MultiInstanceTopology {
   private instances: InstanceProcess[] = [];
@@ -69,6 +132,12 @@ export class MultiInstanceTopology {
         ...process.env,
         PORT: String(config.port),
         NODE_ENV: "test",
+        BETTER_AUTH_URL:
+          process.env.E2E_WORKERS_URL ?? process.env.BETTER_AUTH_URL,
+        BETTER_AUTH_TRUSTED_ORIGINS:
+          process.env.E2E_WEB_URL ?? process.env.BETTER_AUTH_TRUSTED_ORIGINS,
+        WEB_URL: process.env.E2E_WEB_URL ?? process.env.WEB_URL,
+        ALLOWED_ORIGINS: process.env.E2E_WEB_URL ?? process.env.ALLOWED_ORIGINS,
       },
       stdio: "pipe",
     });
@@ -76,7 +145,7 @@ export class MultiInstanceTopology {
     const instance: InstanceProcess = {
       config,
       process: proc,
-      url: `http://localhost:${config.port}`,
+      url: `http://127.0.0.1:${config.port}`,
     };
 
     this.instances.push(instance);
@@ -97,7 +166,14 @@ export class MultiInstanceTopology {
       env: {
         ...process.env,
         ALLOW_E2E_ANON_SOCKET: process.env.ALLOW_E2E_ANON_SOCKET ?? "true",
-        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "http://localhost:3002",
+        BETTER_AUTH_URL:
+          process.env.E2E_WORKERS_URL ??
+          process.env.BETTER_AUTH_URL ??
+          "http://127.0.0.1:3002",
+        WORKERS_API_URL:
+          process.env.E2E_WORKERS_URL ??
+          process.env.WORKERS_API_URL ??
+          "http://127.0.0.1:3002",
         MIX_ENV: process.env.PRESENCE_MIX_ENV ?? "test",
         PHX_SERVER: "true",
         PORT: String(config.port),
@@ -109,7 +185,7 @@ export class MultiInstanceTopology {
     const instance: InstanceProcess = {
       config,
       process: proc,
-      url: `http://localhost:${config.port}`,
+      url: `http://127.0.0.1:${config.port}`,
     };
 
     this.instances.push(instance);
@@ -139,31 +215,32 @@ export class MultiInstanceTopology {
 
   async stopAll(): Promise<void> {
     await Promise.all(
-      this.instances.map((instance) => {
-        return new Promise<void>((resolve) => {
-          let exited = false;
-          instance.process.once("exit", () => {
-            exited = true;
-            resolve();
-          });
-          instance.process.kill("SIGTERM");
-          setTimeout(() => {
-            if (!exited) {
-              instance.process.kill("SIGKILL");
-            }
-          }, 5000);
-        });
-      })
+      this.instances.map(
+        (instance) =>
+          new Promise<void>((resolve) => {
+            let exited = false;
+            instance.process.once("exit", () => {
+              exited = true;
+              resolve();
+            });
+            instance.process.kill("SIGTERM");
+            setTimeout(() => {
+              if (!exited) {
+                instance.process.kill("SIGKILL");
+              }
+            }, 5000);
+          })
+      )
     );
     this.instances = [];
   }
 
   getPrimaryWorkersUrl(): string {
-    return `http://localhost:${this.basePorts.workers.primary}`;
+    return `http://127.0.0.1:${this.basePorts.workers.primary}`;
   }
 
   getPrimaryPresenceUrl(): string {
-    return `ws://localhost:${this.basePorts.presence.primary}`;
+    return `ws://127.0.0.1:${this.basePorts.presence.primary}`;
   }
 }
 
@@ -195,17 +272,29 @@ export async function createPageConnectedToInstance(
 }
 
 export function getSecondaryWorkersUrl(): string {
-  return `http://localhost:${DEFAULT_PORTS.workers.secondary}`;
+  return `http://127.0.0.1:${getSecondaryWorkersPort()}`;
 }
 
 export function getSecondaryPresenceUrl(): string {
-  return `ws://localhost:${DEFAULT_PORTS.presence.secondary}`;
+  return `ws://127.0.0.1:${getSecondaryPresencePort()}`;
+}
+
+export function getSecondaryWorkersPort(): number {
+  return DEFAULT_PORTS.workers.secondary;
+}
+
+export function getSecondaryPresencePort(): number {
+  return DEFAULT_PORTS.presence.secondary;
+}
+
+export function getSecondaryWorkersInstanceId(): string {
+  return `workers-${getSecondaryWorkersPort()}`;
 }
 
 export const SECONDARY_PORTS = {
-  workers: DEFAULT_PORTS.workers.secondary,
-  presence: DEFAULT_PORTS.presence.secondary,
-} as const;
+  workers: getSecondaryWorkersPort(),
+  presence: getSecondaryPresencePort(),
+};
 
 export interface WorkersRoutingOptions {
   presenceUrl?: string;
@@ -214,7 +303,7 @@ export interface WorkersRoutingOptions {
 
 function normalizeUrl(url?: string): string | undefined {
   if (url === undefined) {
-    return undefined;
+    return;
   }
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
@@ -304,7 +393,7 @@ export async function fetchPresenceInstanceId(
 
 export async function getWorkersInstanceIdFromPage(
   page: Page,
-  url = "http://localhost:3002"
+  url = process.env.E2E_WORKERS_URL ?? "http://127.0.0.1:3002"
 ): Promise<string | null> {
   try {
     const response = await page.evaluate(async (instanceUrl) => {
@@ -324,12 +413,11 @@ export async function getWorkersInstanceIdFromPage(
 export function getPresenceInstanceIdFromSocket(
   page: Page
 ): Promise<string | null> {
-  return page.evaluate(() => {
-    return (
+  return page.evaluate(
+    () =>
       (window as Window & { __PRESENCE_INSTANCE_ID__?: string })
         .__PRESENCE_INSTANCE_ID__ ?? null
-    );
-  });
+  );
 }
 
 export interface StateSnapshot {

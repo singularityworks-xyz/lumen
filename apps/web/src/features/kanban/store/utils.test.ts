@@ -55,7 +55,7 @@ describe("createInitialState", () => {
     expect(state.workspaces.allIds).toHaveLength(1);
     const id = state.workspaces.allIds[0]!;
     expect(state.workspaces.byId[id]).toBeDefined();
-    expect(state.workspaces.byId[id]!.name).toBe("Default Workspace");
+    expect(state.workspaces.byId[id]?.name).toBe("Default Workspace");
     expect(state.currentWorkspaceId).toBe(id);
   });
 

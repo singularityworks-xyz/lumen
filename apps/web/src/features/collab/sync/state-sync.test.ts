@@ -122,9 +122,9 @@ describe("state-sync", () => {
         currentWorkspaceId
       );
 
-      expect(result.boards!.allIds).toEqual(["board-1"]);
-      expect(result.boards!.byId["board-1"]).toBeDefined();
-      expect(result.boards!.byId["board-2"]).toBeUndefined();
+      expect(result.boards?.allIds).toEqual(["board-1"]);
+      expect(result.boards?.byId["board-1"]).toBeDefined();
+      expect(result.boards?.byId["board-2"]).toBeUndefined();
     });
 
     it("preserves local-only entities outside synced workspace", () => {
@@ -166,8 +166,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.boards!.allIds).toContain("board-local");
-      expect(result.boards!.byId["board-local"]).toBeDefined();
+      expect(result.boards?.allIds).toContain("board-local");
+      expect(result.boards?.byId["board-local"]).toBeDefined();
     });
 
     it("removes synced entities only when raw Yjs absence confirmed", () => {
@@ -222,8 +222,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.boards!.byId["board-1"]).toBeDefined();
-      expect(result.boards!.byId["board-deleted"]).toBeUndefined();
+      expect(result.boards?.byId["board-1"]).toBeDefined();
+      expect(result.boards?.byId["board-deleted"]).toBeUndefined();
     });
 
     it("removes workspace comments missing from Yjs even without metadata", () => {
@@ -258,8 +258,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.comments!.byId["comment-1"]).toBeUndefined();
-      expect(result.comments!.allIds).not.toContain("comment-1");
+      expect(result.comments?.byId["comment-1"]).toBeUndefined();
+      expect(result.comments?.allIds).not.toContain("comment-1");
     });
 
     it("preserves comments from other workspaces when syncing current workspace", () => {
@@ -294,8 +294,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.comments!.byId["comment-other"]).toBeDefined();
-      expect(result.comments!.allIds).toContain("comment-other");
+      expect(result.comments?.byId["comment-other"]).toBeDefined();
+      expect(result.comments?.allIds).toContain("comment-other");
     });
 
     it("removes workspace chat messages missing from Yjs even without metadata", () => {
@@ -329,8 +329,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.chatMessages!.byId["message-1"]).toBeUndefined();
-      expect(result.chatMessages!.allIds).not.toContain("message-1");
+      expect(result.chatMessages?.byId["message-1"]).toBeUndefined();
+      expect(result.chatMessages?.allIds).not.toContain("message-1");
     });
 
     it("preserves board when task-detail modal references it", () => {
@@ -391,8 +391,8 @@ describe("state-sync", () => {
 
       const result = applyYjsToState(doc, currentState, currentWorkspaceId);
 
-      expect(result.boards!.byId["board-modal"]).toBeDefined();
-      expect(result.boards!.allIds).toContain("board-modal");
+      expect(result.boards?.byId["board-modal"]).toBeDefined();
+      expect(result.boards?.allIds).toContain("board-modal");
     });
 
     it("converts ephemeral dialog maps to store shape correctly", () => {
@@ -420,7 +420,7 @@ describe("state-sync", () => {
         currentWorkspaceId
       );
 
-      expect(result.areaDialogs!["dialog-1"]).toEqual({
+      expect(result.areaDialogs?.["dialog-1"]).toEqual({
         id: "dialog-1",
         areaId: "area-1",
         areaName: "Area 1",
@@ -486,7 +486,7 @@ describe("state-sync", () => {
       );
 
       expect(result.boards).toBeDefined();
-      expect(result.boardPositions!.byId["board-1"]).toBeDefined();
+      expect(result.boardPositions?.byId["board-1"]).toBeDefined();
     });
   });
 });

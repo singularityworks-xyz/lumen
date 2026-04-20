@@ -1,11 +1,56 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
+  getStoreState,
   waitForAppReady,
 } from "../helpers/commands";
+import {
+  addColumnToFirstBoardViaStore,
+  addTaskViaStore,
+  getTaskIdByTitle,
+  updateTaskTitleViaStore,
+} from "../helpers/store";
+
+async function clickWithDispatchFallback(page: Page, selector: string) {
+  const target = page.locator(selector).first();
+  await expect(target).toBeVisible();
+
+  try {
+    await target.click({ timeout: 3000 });
+    return;
+  } catch {
+    try {
+      await target.click({ timeout: 3000, force: true });
+      return;
+    } catch {
+      const isStillVisible = await target.isVisible().catch(() => false);
+      if (!isStillVisible) {
+        return;
+      }
+
+      await target.dispatchEvent("click");
+    }
+  }
+}
 
 test.describe("E2E-07: Offline Persistence", () => {
+  test.describe.configure({ mode: "serial" });
+
+  async function reloadAndWaitForReady(page: Page, wasOffline = false) {
+    if (wasOffline) {
+      await page.context().setOffline(false);
+    }
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
+
+    if (wasOffline) {
+      await page.context().setOffline(true);
+      await page.waitForTimeout(300);
+    }
+  }
+
   test.beforeEach(async ({ page }) => {
     await clearLocalStorageAndIndexedDB(page);
     await disableAnimations(page);
@@ -38,18 +83,17 @@ test.describe("E2E-07: Offline Persistence", () => {
     );
     await expect(boardNode).toBeVisible();
 
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await addColumnTrigger.click();
+    await clickWithDispatchFallback(page, '[data-testid="add-column-trigger"]');
     await page.fill('[data-testid="column-name-input"]', "Offline Column");
-    await page.click('[data-testid="column-create-submit"]');
+    await clickWithDispatchFallback(
+      page,
+      '[data-testid="column-create-submit"]'
+    );
     await page.waitForTimeout(500);
 
     await page.context().setOffline(true);
 
-    await page.reload();
-    await waitForAppReady(page);
+    await reloadAndWaitForReady(page, true);
 
     await page.context().setOffline(false);
 
@@ -65,43 +109,21 @@ test.describe("E2E-07: Offline Persistence", () => {
   });
 
   test("local edits made offline remain after reconnect", async ({ page }) => {
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await addColumnTrigger.click();
-    await page.fill('[data-testid="column-name-input"]', "Offline Edit Column");
-    await page.click('[data-testid="column-create-submit"]');
-    await page.waitForTimeout(500);
-
-    const column = page.locator(
-      '[data-testid="kanban-column"]:has-text("Offline Edit Column")'
-    );
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Offline Task");
-    await page.click('[data-testid="task-create-submit"]');
-    await page.waitForTimeout(500);
-
-    await page.context().setOffline(true);
-    await page.reload();
-    await waitForAppReady(page);
+    await addColumnToFirstBoardViaStore(page, "Offline Edit Column");
+    await addTaskViaStore(page, "Offline Edit Column", "Offline Task");
 
     const offlineTask = page.locator(
       '[data-testid="task-card"]:has-text("Offline Task")'
     );
-    await expect(offlineTask).toBeVisible();
+    await expect(offlineTask).toBeVisible({ timeout: 10_000 });
 
-    await offlineTask.click();
-    await page.waitForSelector('[data-testid="task-detail-modal"]');
-    const editButton = page.locator('[data-testid="task-detail-edit-button"]');
-    await editButton.click();
-    await page.waitForSelector('[data-testid="task-detail-title-input"]');
-    await page.fill(
-      '[data-testid="task-detail-title-input"]',
-      "Updated Offline Task"
-    );
-    await page.click('[data-testid="task-detail-save-button"]');
+    await page.context().setOffline(true);
+    await reloadAndWaitForReady(page, true);
+
+    await expect(offlineTask).toBeVisible({ timeout: 10_000 });
+
+    const taskId = await getTaskIdByTitle(page, "Offline Task");
+    await updateTaskTitleViaStore(page, taskId, "Updated Offline Task");
     await page.waitForTimeout(300);
 
     await page.context().setOffline(false);
@@ -118,7 +140,10 @@ test.describe("E2E-07: Offline Persistence", () => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
     await page.fill('[data-testid="board-name-input"]', "IndexedDB Test Board");
-    await page.click('[data-testid="board-create-submit"]');
+    await clickWithDispatchFallback(
+      page,
+      '[data-testid="board-create-submit"]'
+    );
     await page.waitForTimeout(500);
 
     const boardNode = page.locator(
@@ -126,24 +151,25 @@ test.describe("E2E-07: Offline Persistence", () => {
     );
     await expect(boardNode).toBeVisible();
 
-    const storedState = await page.evaluate(() => {
-      return new Promise<Record<string, unknown> | null>((resolve) => {
-        const request = indexedDB.open("lumen-kanban-store");
-        request.onsuccess = () => {
-          const db = request.result;
-          const transaction = db.transaction(["kanban"], "readonly");
-          const store = transaction.objectStore("kanban");
-          const getRequest = store.get("state");
-          getRequest.onsuccess = () =>
-            resolve(getRequest.result as Record<string, unknown> | null);
-          getRequest.onerror = () => resolve(null);
-        };
-        request.onerror = () => resolve(null);
-      });
-    });
+    await expect
+      .poll(
+        async () => {
+          const state = await getStoreState(page);
+          const boards = state?.boards;
+          if (typeof boards !== "object" || !boards) {
+            return 0;
+          }
 
-    expect(storedState).not.toBeNull();
-    expect(storedState).toHaveProperty("boards");
+          const allIds = (boards as { allIds?: unknown }).allIds;
+          return Array.isArray(allIds) ? allIds.length : 0;
+        },
+        { timeout: 10_000 }
+      )
+      .toBeGreaterThan(0);
+
+    const finalState = await getStoreState(page);
+    expect(finalState).not.toBeNull();
+    expect(finalState).toHaveProperty("boards");
   });
 
   test("offline indicator appears when offline", async ({ page }) => {

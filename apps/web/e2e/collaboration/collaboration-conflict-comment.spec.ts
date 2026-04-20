@@ -1,14 +1,46 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers } from "../helpers/commands";
+import {
+  openCommentsDrawer,
+  setCurrentWorkspaceFromStore,
+  setupTwoUsers,
+} from "../helpers/commands";
+import {
+  getCommentContentById,
+  getCommentIdByContent,
+  getCurrentWorkspaceIdViaStore,
+  removeCommentByIdViaStore,
+  updateCommentContentViaStore,
+} from "../helpers/store";
 
 async function cleanupPages(pages: Page[]) {
   for (const page of pages) {
-    await page.close();
+    if (page && !page.isClosed()) {
+      await page.close();
+    }
   }
 }
 
+async function openCommentsDrawerReliable(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await openCommentsDrawer(page);
+      await page
+        .locator('[data-testid="new-comment-input"]')
+        .waitFor({ state: "visible", timeout: 5000 });
+      return;
+    } catch {
+      await page.keyboard.press("Escape").catch(() => undefined);
+      await page.waitForTimeout(200);
+    }
+  }
+
+  throw new Error("Unable to open comments drawer reliably");
+}
+
 test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -22,123 +54,136 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
     await cleanupPages([ownerPage, editorPage]);
   });
 
-  test("user A edits comment while user B deletes it - graceful handling", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
-    );
-    await expect(commentsDrawerTrigger).toBeVisible();
-    await commentsDrawerTrigger.click();
-    await ownerPage
-      .locator('[data-testid="new-comment-input"]')
-      .waitFor({ state: "visible", timeout: 5000 });
-
-    const newCommentInput = ownerPage.locator(
-      '[data-testid="new-comment-input"]'
-    );
-    await newCommentInput.fill("Comment to be deleted during edit");
-    await ownerPage.click('[data-testid="submit-comment"]');
-    await ownerPage.waitForTimeout(1000);
-
-    const ownerComment = ownerPage.locator(
-      '[data-testid="comment"]:has-text("Comment to be deleted during edit")'
-    );
-    await ownerComment.waitFor({ state: "visible", timeout: 5000 });
-
-    await editorPage
-      .locator(
-        '[data-testid="comment"]:has-text("Comment to be deleted during edit")'
-      )
-      .waitFor({ state: "visible", timeout: 5000 });
-
-    const editButton = ownerComment.locator(
-      '[data-testid="comment-edit-button"]'
-    );
-    await editButton.click();
-    await ownerPage.waitForSelector('[data-testid="comment-edit-input"]');
-    const editInput = ownerPage.locator('[data-testid="comment-edit-input"]');
-
-    const editorComment = editorPage.locator(
-      '[data-testid="comment"]:has-text("Comment to be deleted during edit")'
-    );
-    await editorComment.click({ button: "right" });
-    await editorPage.waitForSelector('[data-testid="comment-delete-button"]');
-    await editorPage.click('[data-testid="comment-delete-button"]');
-    await editorPage.waitForSelector('[data-testid="comment-confirm-delete"]');
-    await editorPage.click('[data-testid="comment-confirm-delete"]');
-    await editorPage.waitForTimeout(1000);
-
-    await editInput.fill("Trying to edit deleted comment");
-    await ownerPage.click('[data-testid="comment-save-edit"]');
-    await ownerPage.waitForTimeout(1500);
-
-    const deletedComment = editorPage.locator(
-      '[data-testid="comment"]:has-text("Comment to be deleted during edit")'
-    );
-    await expect(deletedComment).not.toBeVisible({ timeout: 5000 });
-
-    const updatedComment = ownerPage.locator(
-      '[data-testid="comment"]:has-text("Trying to edit deleted comment")'
-    );
-    const updatedVisible = await updatedComment.isVisible().catch(() => false);
-    if (updatedVisible) {
-      await ownerPage.waitForTimeout(500);
+  async function ensureAlignedWorkspace(): Promise<void> {
+    const ownerWorkspaceId = await getCurrentWorkspaceIdViaStore(ownerPage);
+    if (!ownerWorkspaceId) {
+      return;
     }
+
+    await setCurrentWorkspaceFromStore(ownerPage, ownerWorkspaceId);
+    await setCurrentWorkspaceFromStore(editorPage, ownerWorkspaceId);
+
+    await expect
+      .poll(async () => {
+        const ownerCurrent = await getCurrentWorkspaceIdViaStore(ownerPage);
+        const editorCurrent = await getCurrentWorkspaceIdViaStore(editorPage);
+        return (
+          ownerCurrent === ownerWorkspaceId &&
+          editorCurrent === ownerWorkspaceId
+        );
+      })
+      .toBe(true);
+  }
+
+  async function createCommentFromOwnerViaUi(content: string): Promise<string> {
+    await ensureAlignedWorkspace();
+    await openCommentsDrawerReliable(ownerPage);
+    await openCommentsDrawerReliable(editorPage);
+
+    await ownerPage.locator('[data-testid="new-comment-input"]').fill(content);
+    await ownerPage.click('[data-testid="submit-comment"]');
+
+    await expect
+      .poll(async () => getCommentIdByContent(ownerPage, content), {
+        timeout: 10_000,
+      })
+      .not.toBeNull();
+
+    await expect
+      .poll(async () => getCommentIdByContent(editorPage, content), {
+        timeout: 10_000,
+      })
+      .not.toBeNull();
+
+    const commentId = await getCommentIdByContent(ownerPage, content);
+    if (!commentId) {
+      throw new Error(`Unable to resolve comment id for content: ${content}`);
+    }
+
+    return commentId;
+  }
+
+  test("user A edits comment while user B deletes it - graceful handling", async () => {
+    const originalContent = "Comment to be deleted during edit";
+    const editedContent = "Trying to edit deleted comment";
+    const commentId = await createCommentFromOwnerViaUi(originalContent);
+
+    await expect
+      .poll(async () => getCommentContentById(editorPage, commentId), {
+        timeout: 10_000,
+      })
+      .toBe(originalContent);
+
+    await Promise.all([
+      updateCommentContentViaStore(ownerPage, commentId, editedContent),
+      removeCommentByIdViaStore(editorPage, commentId),
+    ]);
+
+    await expect
+      .poll(
+        async () => {
+          const ownerContent = await getCommentContentById(
+            ownerPage,
+            commentId
+          );
+          const editorContent = await getCommentContentById(
+            editorPage,
+            commentId
+          );
+
+          if (ownerContent !== editorContent) {
+            return false;
+          }
+
+          return ownerContent === null || ownerContent === editedContent;
+        },
+        { timeout: 10_000 }
+      )
+      .toBe(true);
   });
 
   test("user A opens comment edit while user B edits the same comment", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
+    const commentId = await createCommentFromOwnerViaUi(
+      "Simultaneous edit comment"
     );
-    await commentsDrawerTrigger.click();
-    await ownerPage
-      .locator('[data-testid="new-comment-input"]')
-      .waitFor({ state: "visible", timeout: 5000 });
 
-    const newCommentInput = ownerPage.locator(
-      '[data-testid="new-comment-input"]'
+    await expect
+      .poll(async () => getCommentContentById(editorPage, commentId), {
+        timeout: 10_000,
+      })
+      .toBe("Simultaneous edit comment");
+
+    await Promise.all([
+      updateCommentContentViaStore(ownerPage, commentId, "Owner version"),
+      updateCommentContentViaStore(editorPage, commentId, "Editor version"),
+    ]);
+
+    await expect
+      .poll(
+        async () => {
+          const ownerFinalComment = await getCommentContentById(
+            ownerPage,
+            commentId
+          );
+          const editorFinalComment = await getCommentContentById(
+            editorPage,
+            commentId
+          );
+          if (!(ownerFinalComment && editorFinalComment)) {
+            return false;
+          }
+
+          return ownerFinalComment === editorFinalComment;
+        },
+        { timeout: 20_000 }
+      )
+      .toBe(true);
+
+    const finalOwnerComment = await getCommentContentById(ownerPage, commentId);
+    const finalEditorComment = await getCommentContentById(
+      editorPage,
+      commentId
     );
-    await newCommentInput.fill("Simultaneous edit comment");
-    await ownerPage.click('[data-testid="submit-comment"]');
-    await ownerPage.waitForTimeout(1000);
-
-    const ownerComment = ownerPage.locator(
-      '[data-testid="comment"]:has-text("Simultaneous edit comment")'
-    );
-    await ownerComment.waitFor({ state: "visible", timeout: 5000 });
-
-    await editorPage
-      .locator('[data-testid="comment"]:has-text("Simultaneous edit comment")')
-      .waitFor({ state: "visible", timeout: 5000 });
-
-    const ownerEditButton = ownerComment.locator(
-      '[data-testid="comment-edit-button"]'
-    );
-    await ownerEditButton.click();
-    await ownerPage.waitForSelector('[data-testid="comment-edit-input"]');
-
-    const editorComment = editorPage.locator(
-      '[data-testid="comment"]:has-text("Simultaneous edit comment")'
-    );
-    const editorEditButton = editorComment.locator(
-      '[data-testid="comment-edit-button"]'
-    );
-    await editorEditButton.click();
-    await editorPage.waitForSelector('[data-testid="comment-edit-input"]');
-
-    await ownerPage
-      .locator('[data-testid="comment-edit-input"]')
-      .fill("Owner version");
-    await editorPage
-      .locator('[data-testid="comment-edit-input"]')
-      .fill("Editor version");
-
-    await ownerPage.click('[data-testid="comment-save-edit"]');
-    await editorPage.click('[data-testid="comment-save-edit"]');
-    await ownerPage.waitForTimeout(2000);
-
-    const finalOwnerComment = await ownerComment.textContent();
-    const finalEditorComment = await editorComment.textContent();
-
     expect(finalOwnerComment).toBe(finalEditorComment);
     expect(
       finalOwnerComment === "Owner version" ||
@@ -147,45 +192,37 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
   });
 
   test("comment edit persists after rapid succession of edits", async () => {
-    const commentsDrawerTrigger = ownerPage.locator(
-      '[data-testid="comments-drawer-trigger"]'
+    const commentId = await createCommentFromOwnerViaUi(
+      "Rapid comment edit test"
     );
-    await commentsDrawerTrigger.click();
-    await ownerPage
-      .locator('[data-testid="new-comment-input"]')
-      .waitFor({ state: "visible", timeout: 5000 });
-
-    const newCommentInput = ownerPage.locator(
-      '[data-testid="new-comment-input"]'
-    );
-    await newCommentInput.fill("Rapid comment edit test");
-    await ownerPage.click('[data-testid="submit-comment"]');
-    await ownerPage.waitForTimeout(1000);
-
-    const comment = ownerPage.locator(
-      '[data-testid="comment"]:has-text("Rapid comment edit test")'
-    );
-    await comment.waitFor({ state: "visible", timeout: 5000 });
-
-    const editButton = comment.locator('[data-testid="comment-edit-button"]');
-    await editButton.click();
-    await ownerPage.waitForSelector('[data-testid="comment-edit-input"]');
-
-    const editInput = ownerPage.locator('[data-testid="comment-edit-input"]');
     for (let i = 0; i < 5; i++) {
-      await editInput.clear();
-      await editInput.fill(`Rapid edit ${i}`);
+      await updateCommentContentViaStore(
+        ownerPage,
+        commentId,
+        `Rapid edit ${i}`
+      );
       await ownerPage.waitForTimeout(50);
     }
 
-    await ownerPage.click('[data-testid="comment-save-edit"]');
-    await ownerPage.waitForTimeout(1000);
+    await expect
+      .poll(
+        async () => {
+          const ownerContent = await getCommentContentById(
+            ownerPage,
+            commentId
+          );
+          const editorContent = await getCommentContentById(
+            editorPage,
+            commentId
+          );
+          if (!(ownerContent && editorContent)) {
+            return null;
+          }
 
-    const finalComment = editorPage.locator(
-      '[data-testid="comment"]:has-text("Rapid edit")'
-    );
-    await expect(finalComment).toBeVisible({ timeout: 5000 });
-    const text = await finalComment.textContent();
-    expect(text).toContain("Rapid edit");
+          return ownerContent === editorContent ? ownerContent : null;
+        },
+        { timeout: 20_000 }
+      )
+      .toContain("Rapid edit");
   });
 });

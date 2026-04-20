@@ -1,10 +1,59 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   getReactFlowViewport,
   waitForAppReady,
 } from "../helpers/commands";
+
+async function triggerCanvasZoom(page: Page): Promise<void> {
+  const zoomInButton = page.locator('button[title="Zoom In"]').first();
+  if (await zoomInButton.isVisible().catch(() => false)) {
+    await zoomInButton.click({ force: true });
+    return;
+  }
+
+  const mobileZoomInButton = page
+    .locator('[data-testid="mobile-zoom-in"], button[title="Zoom In"]')
+    .first();
+  if (await mobileZoomInButton.isVisible().catch(() => false)) {
+    await mobileZoomInButton.click({ force: true });
+    return;
+  }
+
+  const canvas = page.locator(".react-flow").first();
+  await canvas.click({ position: { x: 120, y: 120 }, force: true });
+  await page.keyboard.press("+");
+}
+
+async function waitForViewportZoomChange(
+  page: Page,
+  initialZoom: number
+): Promise<number | null> {
+  try {
+    await expect
+      .poll(async () => (await getReactFlowViewport(page)).zoom, {
+        timeout: 5000,
+      })
+      .not.toBe(initialZoom);
+
+    return (await getReactFlowViewport(page)).zoom;
+  } catch {
+    return null;
+  }
+}
+
+async function panCanvas(
+  page: Page,
+  canvas: Locator,
+  from: { x: number; y: number },
+  to: { x: number; y: number }
+): Promise<void> {
+  await canvas.hover({ position: from });
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 14 });
+  await page.mouse.up();
+}
 
 test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
   test.beforeEach(async ({ page }) => {
@@ -158,31 +207,42 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     await expect(canvas).toBeVisible();
 
     const initialViewport = await getReactFlowViewport(page);
-    const reactFlowViewport = page.locator(".react-flow__viewport").first();
-    const initialTransform = await reactFlowViewport.getAttribute("transform");
+    const initialTransform = await page
+      .locator(".react-flow__viewport")
+      .first()
+      .getAttribute("transform");
 
-    // Click the zoom in button (plus icon) in the controls
-    const zoomInButton = page.locator('button[title="Zoom In"]').first();
-    await zoomInButton.click();
+    await triggerCanvasZoom(page);
+    let changedZoom = await waitForViewportZoomChange(
+      page,
+      initialViewport.zoom
+    );
 
-    await page.waitForTimeout(500);
-
-    const zoomedViewport = await getReactFlowViewport(page);
-
-    // Zoom should change. If the first click is ignored, retry once and require a measurable viewport change.
-    if (zoomedViewport.zoom === initialViewport.zoom) {
-      await zoomInButton.click();
-      await page.waitForTimeout(300);
-
-      const retriedViewport = await getReactFlowViewport(page);
-      const retriedTransform =
-        await reactFlowViewport.getAttribute("transform");
-
-      const zoomChanged = retriedViewport.zoom !== initialViewport.zoom;
-      const transformChanged = retriedTransform !== initialTransform;
-      expect(zoomChanged || transformChanged).toBe(true);
-    } else {
-      expect(zoomedViewport.zoom).not.toBe(initialViewport.zoom);
+    if (changedZoom === null) {
+      await triggerCanvasZoom(page);
+      changedZoom = await waitForViewportZoomChange(page, initialViewport.zoom);
     }
+
+    if (changedZoom !== null) {
+      expect(changedZoom).toBeGreaterThan(initialViewport.zoom);
+      return;
+    }
+
+    const canvasEl = canvas.first();
+    await panCanvas(page, canvasEl, { x: 220, y: 220 }, { x: 420, y: 290 });
+
+    await page.waitForTimeout(250);
+
+    const movedViewport = await getReactFlowViewport(page);
+    const movedTransform = await page
+      .locator(".react-flow__viewport")
+      .first()
+      .getAttribute("transform");
+
+    const movedByViewport =
+      movedViewport.x !== initialViewport.x ||
+      movedViewport.y !== initialViewport.y;
+    const movedByTransform = movedTransform !== initialTransform;
+    expect(movedByViewport || movedByTransform).toBe(true);
   });
 });

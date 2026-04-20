@@ -37,8 +37,8 @@ describe("modal-slice", () => {
       expect(result.isExisting).toBe(false);
       expect(result.position).toEqual({ x: 100, y: 200 });
       expect(state.createTaskModals[result.id]).toBeDefined();
-      expect(state.createTaskModals[result.id]!.boardId).toBe(boardId);
-      expect(state.createTaskModals[result.id]!.columnId).toBe(columnIds[0]!);
+      expect(state.createTaskModals[result.id]?.boardId).toBe(boardId);
+      expect(state.createTaskModals[result.id]?.columnId).toBe(columnIds[0]!);
     });
 
     it("reuses existing board modal instead of duplicating", () => {
@@ -105,8 +105,8 @@ describe("modal-slice", () => {
         boardId: b2,
       });
 
-      expect(state.createTaskModals[second.id]!.zIndex).toBeGreaterThan(
-        state.createTaskModals[first.id]!.zIndex
+      expect(state.createTaskModals[second.id]?.zIndex).toBeGreaterThan(
+        state.createTaskModals[first.id]?.zIndex ?? 0
       );
     });
   });
@@ -138,8 +138,8 @@ describe("modal-slice", () => {
       expect(result.usedLastPosition).toBe(false);
       expect(result.position).toEqual({ x: 50, y: 60 });
       expect(state.taskDetailModals[result.id]).toBeDefined();
-      expect(state.taskDetailModals[result.id]!.taskId).toBe("task-1");
-      expect(state.taskDetailModals[result.id]!.boardId).toBe(boardId);
+      expect(state.taskDetailModals[result.id]?.taskId).toBe("task-1");
+      expect(state.taskDetailModals[result.id]?.boardId).toBe(boardId);
     });
 
     it("reuses existing modal for same taskId", () => {
@@ -225,7 +225,7 @@ describe("modal-slice", () => {
 
       actions.updateModalPosition(id, { x: 500, y: 600 });
 
-      expect(state.createTaskModals[id]!.position).toEqual({ x: 500, y: 600 });
+      expect(state.createTaskModals[id]?.position).toEqual({ x: 500, y: 600 });
     });
   });
 
@@ -243,9 +243,9 @@ describe("modal-slice", () => {
         progress: 50,
       });
 
-      expect(state.createTaskModals[id]!.formData.title).toBe("New Title");
-      expect(state.createTaskModals[id]!.formData.priority).toBe("high");
-      expect(state.createTaskModals[id]!.formData.progress).toBe(50);
+      expect(state.createTaskModals[id]?.formData.title).toBe("New Title");
+      expect(state.createTaskModals[id]?.formData.priority).toBe("high");
+      expect(state.createTaskModals[id]?.formData.progress).toBe(50);
     });
   });
 
@@ -265,13 +265,15 @@ describe("modal-slice", () => {
         columnId: c2[0]!,
         boardId: b2,
       });
-      const z1Before = state.createTaskModals[id1]!.zIndex;
+      const z1Before = state.createTaskModals[id1]?.zIndex;
 
       actions.bringModalToFront(id1);
 
-      expect(state.createTaskModals[id1]!.zIndex).toBeGreaterThan(z1Before);
-      expect(state.createTaskModals[id1]!.zIndex).toBeGreaterThan(
-        state.createTaskModals[id2]!.zIndex
+      expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(
+        z1Before ?? 0
+      );
+      expect(state.createTaskModals[id1]?.zIndex).toBeGreaterThan(
+        state.createTaskModals[id2]?.zIndex ?? 0
       );
     });
   });
@@ -287,13 +289,15 @@ describe("modal-slice", () => {
         taskId: "task-2",
         boardId,
       });
-      const z1Before = state.taskDetailModals[id1]!.zIndex;
+      const z1Before = state.taskDetailModals[id1]?.zIndex;
 
       actions.bringTaskDetailModalToFront(id1);
 
-      expect(state.taskDetailModals[id1]!.zIndex).toBeGreaterThan(z1Before);
-      expect(state.taskDetailModals[id1]!.zIndex).toBeGreaterThan(
-        state.taskDetailModals[id2]!.zIndex
+      expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(
+        z1Before ?? 0
+      );
+      expect(state.taskDetailModals[id1]?.zIndex).toBeGreaterThan(
+        state.taskDetailModals[id2]?.zIndex ?? 0
       );
     });
   });
@@ -313,12 +317,12 @@ describe("modal-slice", () => {
         draftProgress: 75,
       });
 
-      expect(state.taskDetailModals[id]!.draftTitle).toBe("Updated Title");
-      expect(state.taskDetailModals[id]!.draftDescription).toBe(
+      expect(state.taskDetailModals[id]?.draftTitle).toBe("Updated Title");
+      expect(state.taskDetailModals[id]?.draftDescription).toBe(
         "Updated Description"
       );
-      expect(state.taskDetailModals[id]!.draftPriority).toBe("high");
-      expect(state.taskDetailModals[id]!.draftProgress).toBe(75);
+      expect(state.taskDetailModals[id]?.draftPriority).toBe("high");
+      expect(state.taskDetailModals[id]?.draftProgress).toBe(75);
     });
 
     it("draft updates touch only allowed fields", () => {

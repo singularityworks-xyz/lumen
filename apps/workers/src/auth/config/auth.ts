@@ -68,7 +68,7 @@ logger.info("Better Auth initialized successfully", {
   jwtEnabled: true,
 });
 
-if (env.NODE_ENV === "development") {
+if (env.NODE_ENV !== "production") {
   const originalGetSession = (
     auth.api as { getSession: (req: unknown) => Promise<unknown> }
   ).getSession;

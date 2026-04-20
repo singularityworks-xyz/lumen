@@ -500,7 +500,7 @@ describe("fixer", () => {
 
       const result = fixColumnTaskIds(state);
 
-      expect(result.columns.byId["col-1"]!.task_ids).toEqual([
+      expect(result.columns.byId["col-1"]?.task_ids).toEqual([
         "task-1",
         "task-2",
       ]);
@@ -547,7 +547,7 @@ describe("fixer", () => {
 
       const result = fixBoardColumnIds(state);
 
-      expect(result.boards.byId["board-1"]!.column_ids).toEqual([
+      expect(result.boards.byId["board-1"]?.column_ids).toEqual([
         "col-1",
         "col-2",
       ]);
@@ -596,7 +596,7 @@ describe("fixer", () => {
 
       const result = fixAreaBoardIds(state);
 
-      expect(result.areas.byId["area-1"]!.board_ids).toEqual([
+      expect(result.areas.byId["area-1"]?.board_ids).toEqual([
         "board-1",
         "board-2",
       ]);
@@ -638,10 +638,10 @@ describe("fixer", () => {
 
       expect(result.boardPositions.allIds).toContain("board-1");
       expect(result.boardPositions.allIds).toContain("board-2");
-      expect(result.boardPositions.byId["board-1"]!.x).toBe(100);
-      expect(result.boardPositions.byId["board-2"]!.x).toBe(500);
-      expect(result.boardPositions.byId["board-1"]!.zIndex).toBe(1);
-      expect(result.boardPositions.byId["board-2"]!.zIndex).toBe(2);
+      expect(result.boardPositions.byId["board-1"]?.x).toBe(100);
+      expect(result.boardPositions.byId["board-2"]?.x).toBe(500);
+      expect(result.boardPositions.byId["board-1"]?.zIndex).toBe(1);
+      expect(result.boardPositions.byId["board-2"]?.zIndex).toBe(2);
     });
   });
 

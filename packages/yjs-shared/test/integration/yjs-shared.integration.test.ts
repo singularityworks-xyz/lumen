@@ -270,8 +270,8 @@ describe("yjs-shared integration", () => {
       });
 
       expect(task.checklists).toHaveLength(3);
-      expect(task.checklists![0].completed).toBe(true);
-      expect(task.checklists![1].completed).toBe(false);
+      expect(task.checklists?.[0].completed).toBe(true);
+      expect(task.checklists?.[1].completed).toBe(false);
     });
   });
 

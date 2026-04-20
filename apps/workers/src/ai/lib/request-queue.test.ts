@@ -1,4 +1,9 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
+
+// Set environment variables BEFORE any imports to ensure in-memory limiter is used
+// (not Upstash - we want in-memory for tests so we can reset state between tests)
+process.env.UPSTASH_REDIS_REST_URL = "http://localhost:6379";
+process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
 
 const mockLoggerInfo = mock(() => {
   // intentionally empty mock
@@ -22,6 +27,12 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
+mock.module("@upstash/redis", () => ({
+  Redis: class {},
+}));
+
+// Mock must be set up before importing request-queue
+// This mock ensures rate limit always allows requests
 mock.module("@upstash/ratelimit", () => ({
   Ratelimit: class {
     limit = mock(() =>
@@ -34,21 +45,30 @@ mock.module("@upstash/ratelimit", () => ({
   },
 }));
 
-mock.module("@upstash/redis", () => ({
-  Redis: class {},
-}));
+// Import types for the module we're about to import
+type RequestQueueModule = typeof import("./request-queue");
 
-import {
+// Use dynamic import with cache-busting to get fresh module
+// This bypasses any mocks set up by other test files (like title-generator.test.ts)
+const requestQueueModule = (await import(
+  `./request-queue?${Date.now()}`
+)) as RequestQueueModule;
+
+const {
+  _resetInMemoryLimiter,
   aiRequestQueue,
   getQueueStats,
+  getQueueStatus,
   isUpstashEnabled,
-} from "./request-queue";
+} = requestQueueModule;
 
 beforeEach(() => {
   mockLoggerInfo.mockClear();
   mockLoggerWarn.mockClear();
   mockLoggerError.mockClear();
   mockLoggerDebug.mockClear();
+  // Reset the in-memory rate limiter state before each test to prevent rate limiting
+  _resetInMemoryLimiter();
 });
 
 describe("RateLimitedQueue - immediate execution", () => {
@@ -63,10 +83,20 @@ describe("RateLimitedQueue - immediate execution", () => {
   });
 
   it("WORKERS-U-05: immediate execution increments activeRequests during execution", async () => {
-    const execute = mock(() => Promise.resolve("ok"));
+    let activeRequestsDuringExecution = 0;
+    const execute = mock(() => {
+      // Capture activeRequests during execution
+      const stats = getQueueStats();
+      activeRequestsDuringExecution = stats.activeRequests;
+      return Promise.resolve("ok");
+    });
 
     await aiRequestQueue.enqueue(execute);
 
+    // During execution, activeRequests should be incremented
+    expect(activeRequestsDuringExecution).toBe(1);
+
+    // After execution completes, activeRequests should be back to 0
     const stats = getQueueStats();
     expect(stats.activeRequests).toBe(0);
   });
@@ -128,11 +158,13 @@ describe("RateLimitedQueue - priority queue insertion", () => {
 
 describe("RateLimitedQueue - status reporting", () => {
   it("WORKERS-U-05: returns null status for unknown request ID", () => {
-    const status = aiRequestQueue.getQueueStatus("nonexistent-id");
+    const status = getQueueStatus("nonexistent-id");
     expect(status).toBeNull();
   });
 
   it("WORKERS-U-05: queue status includes queueLength", () => {
+    const _status = getQueueStatus("unknown-id");
+    // getQueueStatus returns null for unknown IDs, so we check getQueueStats instead
     const stats = getQueueStats();
     expect(typeof stats.queueLength).toBe("number");
   });
@@ -171,4 +203,8 @@ describe("isUpstashEnabled", () => {
     const result = isUpstashEnabled();
     expect(typeof result).toBe("boolean");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

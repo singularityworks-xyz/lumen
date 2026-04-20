@@ -111,17 +111,37 @@ mock.module("@opentelemetry/core", () => ({
   },
 }));
 
-mock.module("@opentelemetry/otlp-exporter-base", () => ({}));
+// Properly mock OTLPExporterBase to be extendable
+class MockOTLPExporterBase {
+  export(_items: unknown, _resultCallback: unknown) {
+    /* mock */
+  }
+}
 
+mock.module("@opentelemetry/otlp-exporter-base", () => ({
+  OTLPExporterBase: MockOTLPExporterBase,
+}));
+
+// Track the current state of env mock - use a dynamic getter to allow changes
+// This variable is exported so other test files can control it
+let _otelEnabled = true;
 const envMock = {
   NODE_ENV: "test",
-  OTEL_ENABLED: true,
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
+  get OTEL_ENABLED() {
+    return _otelEnabled;
+  },
+  get OTEL_EXPORTER_OTLP_ENDPOINT() {
+    return _otelEnabled ? "http://localhost:4318" : "";
+  },
   OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
 };
 
 mock.module("./env", () => ({
-  env: envMock,
+  get env() {
+    return envMock;
+  },
+  // Export the control variable for cross-test coordination
+  _otelEnabledControl: _otelEnabled,
 }));
 
 mock.module("./config", () => ({
@@ -135,11 +155,13 @@ mock.module("./config", () => ({
         environment: "browser",
       };
     }
+    const currentEnv = envMock;
     return {
-      enabled: envMock.OTEL_ENABLED && !!envMock.OTEL_EXPORTER_OTLP_ENDPOINT,
-      endpoint: envMock.OTEL_EXPORTER_OTLP_ENDPOINT || "",
+      enabled:
+        currentEnv.OTEL_ENABLED && !!currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+      endpoint: currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "",
       headers: (() => {
-        const headersStr = envMock.OTEL_EXPORTER_OTLP_HEADERS;
+        const headersStr = currentEnv.OTEL_EXPORTER_OTLP_HEADERS;
         if (!headersStr) {
           return {};
         }
@@ -155,7 +177,7 @@ mock.module("./config", () => ({
         return headers;
       })(),
       serviceName,
-      environment: envMock.NODE_ENV,
+      environment: currentEnv.NODE_ENV,
     };
   },
 }));
@@ -198,19 +220,19 @@ describe("logger integration", () => {
     it("logger creates and logs with correct config-derived environment", () => {
       const l = createLogger({ level: "info", pretty: false });
       l.info("config test");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"env":"test"');
     });
 
     it("disabled OTEL config is consistent with logger behavior", () => {
-      envMock.OTEL_ENABLED = false;
+      _otelEnabled = false;
       const config = getOtelConfig("svc");
       expect(config.enabled).toBe(false);
       // Logger still works even when OTEL is disabled
       const l = createLogger({ level: "info", pretty: false });
       l.info("works without otel");
       expect(consoleLogMock).toHaveBeenCalled();
-      envMock.OTEL_ENABLED = true; // restore
+      _otelEnabled = true; // restore
     });
   });
 
@@ -225,9 +247,10 @@ describe("logger integration", () => {
         l.info("traced message", { requestId: "req-123" });
 
         expect(emitMock).toHaveBeenCalled();
-        const data = emitMock.mock.calls[0]![0];
-        expect(data.body).toBe("traced message");
-        expect(data.attributes["logger.name"]).toBe("traced-logger");
+        const data = emitMock.mock.calls[0]?.[0];
+        expect(data).toBeDefined();
+        expect(data!.body).toBe("traced message");
+        expect(data!.attributes["logger.name"]).toBe("traced-logger");
         return null;
       });
     });
@@ -241,7 +264,7 @@ describe("logger integration", () => {
         l.error("Operation failed", { error: error.message });
 
         expect(consoleLogMock).toHaveBeenCalled();
-        const call = consoleLogMock.mock.calls[0]![0]! as string;
+        const call = consoleLogMock.mock.calls[0]?.[0]! as string;
         expect(call).toContain("Operation failed");
         expect(call).toContain("integration failure");
         return null;
@@ -279,7 +302,7 @@ describe("logger integration", () => {
         const child = createChildLogger(parent, { module: "auth" });
 
         child.info("child in span");
-        const call = consoleLogMock.mock.calls[0]![0]! as string;
+        const call = consoleLogMock.mock.calls[0]?.[0]! as string;
         expect(call).toContain('"service":"api"');
         expect(call).toContain('"module":"auth"');
         return null;
@@ -297,7 +320,7 @@ describe("logger integration", () => {
       const handler = createChildLogger(module, { handler: "create" });
 
       handler.info("deeply nested");
-      const call = consoleLogMock.mock.calls[0]![0]! as string;
+      const call = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(call).toContain('"app":"lumen"');
       expect(call).toContain('"service":"api"');
       expect(call).toContain('"module":"users"');
@@ -341,7 +364,7 @@ describe("logger integration", () => {
       // Server mode
       const serverLogger = createLogger({ level: "info", pretty: false });
       serverLogger.info("server msg");
-      const serverCall = consoleLogMock.mock.calls[0]![0]! as string;
+      const serverCall = consoleLogMock.mock.calls[0]?.[0]! as string;
       expect(serverCall).toContain("INFO");
 
       // Switch to browser mode
@@ -361,16 +384,18 @@ describe("logger integration", () => {
       const l = createLogger({ level: "info", name: "integration-svc" });
       l.info("test");
       expect(emitMock).toHaveBeenCalled();
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["logger.name"]).toBe("integration-svc");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["logger.name"]).toBe("integration-svc");
     });
 
     it("base env attribute is included in otel emission", () => {
       const l = createLogger({ level: "info" });
       l.info("env check");
       expect(emitMock).toHaveBeenCalled();
-      const data = emitMock.mock.calls[0]![0];
-      expect(data.attributes["base.env"]).toBe("test");
+      const data = emitMock.mock.calls[0]?.[0];
+      expect(data).toBeDefined();
+      expect(data!.attributes["base.env"]).toBe("test");
     });
   });
 

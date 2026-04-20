@@ -1,4 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+// Set AI_ENCRYPTION_KEY FIRST before any imports that might cache the encryption module
+process.env.AI_ENCRYPTION_KEY = "dGVzdC1rZXktMzItYnl0ZXMtZm9yLWVuY3J5cHRpb24=";
+
+// Set other environment variables BEFORE any imports that use env.ts
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -10,6 +32,7 @@ mock.module("@lumen/logger", () => ({
 }));
 
 import {
+  __resetCachedKey,
   decryptContent,
   encryptContent,
   isEncrypted,
@@ -25,6 +48,7 @@ afterEach(() => {
     }
   }
   Object.assign(process.env, ORIGINAL_ENV);
+  __resetCachedKey();
 });
 
 describe("isEncryptionEnabled", () => {
@@ -135,15 +159,7 @@ describe("encryption - key validation edge cases", () => {
 
   it("decryptContent returns failure marker when key is empty string", async () => {
     process.env.AI_ENCRYPTION_KEY = "";
-    const { decryptContent: decrypt } = await import("./encryption");
-    const result = await decrypt("enc:v1:aW52YWxpZA==");
-    expect(result).toBe("[Encrypted content - key not available]");
-  });
-
-  it("decryptContent returns failure marker when key is empty string", async () => {
-    process.env.AI_ENCRYPTION_KEY = "";
-    const { decryptContent: decrypt } = await import("./encryption");
-    const result = await decrypt("enc:v1:aW52YWxpZA==");
+    const result = await decryptContent("enc:v1:aW52YWxpZA==");
     expect(result).toBe("[Encrypted content - key not available]");
   });
 
@@ -151,4 +167,8 @@ describe("encryption - key validation edge cases", () => {
     expect(isEncrypted("")).toBe(false);
     expect(isEncrypted("no-prefix-here")).toBe(false);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

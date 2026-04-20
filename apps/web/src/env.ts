@@ -6,7 +6,9 @@ const logger = createLogger({ name: "web:env" });
 
 export const env = createEnv({
   server: {
-    NODE_ENV: z.enum(["development", "production"]).default("development"),
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
     // Telemetry
     NEXT_TELEMETRY_DISABLED: z.string().default("1"),
     TURBO_TELEMETRY_DISABLED: z.string().default("1"),

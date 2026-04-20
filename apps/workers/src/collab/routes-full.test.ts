@@ -16,6 +16,9 @@ const withSpanAsyncMock = mock(
   (_name: string, fn: (span: unknown) => Promise<unknown>) => fn(null)
 );
 
+// Track if routes module is loaded
+let routesModule: typeof import("./routes") | undefined;
+
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const prismaMock = {
@@ -197,6 +200,15 @@ mock.module("jose", () => joseMock);
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
+// Lazy load routes module after mocks are set up
+// This prevents TDZ issues when running tests together with other test files
+async function getCollabRoutes() {
+  if (!routesModule) {
+    routesModule = await import("./routes");
+  }
+  return routesModule.collabRoutes;
+}
+
 function makeSession(
   overrides: Partial<{ id: string; email: string; name: string }> = {}
 ) {
@@ -361,7 +373,7 @@ describe("collabRoutes", () => {
 
   describe("Session auth vs token auth paths", () => {
     it("uses JWT auth path when token query param is provided", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When token is present, the code imports jose and does jwtVerify
@@ -370,7 +382,7 @@ describe("collabRoutes", () => {
     });
 
     it("uses session auth path when no token query param is provided", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When token is absent, the code calls auth.api.getSession()
@@ -378,7 +390,7 @@ describe("collabRoutes", () => {
     });
 
     it("both auth paths store auth data in pendingAuthQueues", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Both JWT and session auth paths end with:
@@ -401,7 +413,7 @@ describe("collabRoutes", () => {
         Promise.resolve(1)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
       // The code checks: if (!payload.sub) { set.status = 401; return { error: "Unauthorized" } }
       expect(true).toBe(true);
@@ -412,7 +424,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
       // The code checks: if (!session) { set.status = 401; return { error: "Unauthorized" } }
       expect(true).toBe(true);
@@ -425,7 +437,7 @@ describe("collabRoutes", () => {
     it("returns 410 when roomManager.isWorkspaceDeleted returns true", async () => {
       roomManagerMock.isWorkspaceDeleted.mockImplementation(() => true);
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // The beforeHandle checks isWorkspaceDeleted first and returns:
@@ -436,7 +448,7 @@ describe("collabRoutes", () => {
     it("logs a warning when rejecting deleted workspace connection", async () => {
       roomManagerMock.isWorkspaceDeleted.mockImplementation(() => true);
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // logger.warn("WebSocket connection rejected - workspace deleted", { workspaceId })
@@ -448,7 +460,7 @@ describe("collabRoutes", () => {
 
   describe("Close cleanup behavior", () => {
     it("calls roomManager.leave with connectionId on ws close", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // The close handler does: roomManager.leave(connectionId)
@@ -457,7 +469,7 @@ describe("collabRoutes", () => {
     });
 
     it("calls decrementActiveConnections on ws close", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // The close handler does: decrementActiveConnections()
@@ -465,7 +477,7 @@ describe("collabRoutes", () => {
     });
 
     it("skips cleanup when connectionId is undefined", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // The close handler returns early if !connectionId
@@ -481,7 +493,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Without session: set.status = 401; return { error: "Unauthorized" }
@@ -502,7 +514,7 @@ describe("collabRoutes", () => {
         Promise.resolve(false)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Non-collaborator with 0 count and non-existent workspace returns 404
@@ -517,7 +529,7 @@ describe("collabRoutes", () => {
         Promise.resolve({ role: "EDITOR" as Role } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // if (!collab || collab.role !== "OWNER") { set.status = 403; return { error: "Only workspace owner..." } }
@@ -535,7 +547,7 @@ describe("collabRoutes", () => {
         Promise.resolve("new-share-token")
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // OWNER role passes the check and proceeds to createShareToken
@@ -556,7 +568,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When no collaborators exist, auto-assigns OWNER and creates workspace record
@@ -572,7 +584,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // if (!shareInfo) { set.status = 404; return { error: "Share link not found or expired" } }
@@ -596,7 +608,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) { set.status = 410 }
@@ -620,7 +632,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { workspaceId, workspaceName, owner }
@@ -643,7 +655,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // expiresAt is null, so the expiry check is skipped
@@ -659,7 +671,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized", message: "Please login..." }
@@ -674,7 +686,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 404; return { error: "Share link not found or expired" }
@@ -701,7 +713,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 410; return { error: "Share link has expired" }
@@ -730,7 +742,7 @@ describe("collabRoutes", () => {
         Promise.resolve({ role: "EDITOR" as Role } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { workspaceId, role: existing.role, message: "Already a collaborator" }
@@ -759,7 +771,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // addCollaborator(workspaceId, userId, "EDITOR")
@@ -776,7 +788,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -791,7 +803,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 403; return { error: "Not a collaborator on this workspace" }
@@ -815,7 +827,7 @@ describe("collabRoutes", () => {
         () => ({ doc: mockDoc }) as any
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns Object.fromEntries(doc.getMap("workspace").entries()), etc.
@@ -839,7 +851,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Falls back to prisma.workspaceState.findUnique
@@ -858,7 +870,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { workspace: {}, boards: {}, columns: {}, tasks: {}, boardPositions: {} }
@@ -880,7 +892,7 @@ describe("collabRoutes", () => {
         Promise.resolve(1)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When collab count > 0 and user is not a collaborator:
@@ -896,7 +908,7 @@ describe("collabRoutes", () => {
         Promise.resolve(1)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Same 403 path for JWT auth
@@ -911,7 +923,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // GET /api/workspaces/:workspaceId/state returns 403
@@ -926,7 +938,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // GET /api/workspaces/:workspaceId/share returns 403
@@ -951,7 +963,7 @@ describe("collabRoutes", () => {
         Promise.resolve(true)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When count === 0 and workspace exists:
@@ -970,7 +982,7 @@ describe("collabRoutes", () => {
         Promise.resolve(true)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Same auto-assign logic for JWT auth path
@@ -991,7 +1003,7 @@ describe("collabRoutes", () => {
         Promise.resolve(false)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When count === 0 but workspace doesn't exist:
@@ -1004,7 +1016,7 @@ describe("collabRoutes", () => {
 
   describe("Auth data cleanup", () => {
     it("has a setInterval for cleaning up old pending auth entries", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // The module sets up: setInterval(() => { ... }, 30_000)
@@ -1013,7 +1025,7 @@ describe("collabRoutes", () => {
     });
 
     it("removes workspace entry from queue when all entries are expired", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When filtered.length === 0: pendingAuthQueues.delete(workspaceId)
@@ -1021,7 +1033,7 @@ describe("collabRoutes", () => {
     });
 
     it("keeps non-expired entries in the queue", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When filtered.length !== queue.length: pendingAuthQueues.set(workspaceId, filtered)
@@ -1047,7 +1059,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { token, url, expiresAt }
@@ -1065,7 +1077,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { url: null }
@@ -1079,7 +1091,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -1105,7 +1117,7 @@ describe("collabRoutes", () => {
         ] as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns array of workspaces with isShared flag
@@ -1119,7 +1131,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -1139,7 +1151,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Creates workspace with upsert, adds user as OWNER collaborator
@@ -1153,7 +1165,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -1168,7 +1180,7 @@ describe("collabRoutes", () => {
         Promise.resolve({ role: "EDITOR" as Role } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 403; return { error: "Only workspace owner can update..." }
@@ -1193,7 +1205,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Updates workspace via prisma.workspace.update
@@ -1207,7 +1219,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -1219,7 +1231,7 @@ describe("collabRoutes", () => {
         Promise.resolve(makeSession() as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // When ephemeral=true: roomManager.deleteRoom(workspaceId); return { success: true }
@@ -1234,7 +1246,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 404; return { error: "Workspace not found" }
@@ -1252,7 +1264,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 403; return { error: "Only the owner can delete..." }
@@ -1270,7 +1282,7 @@ describe("collabRoutes", () => {
         } as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Calls roomManager.deleteRoom and prisma.workspace.delete
@@ -1284,7 +1296,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 401; return { error: "Unauthorized" }
@@ -1302,7 +1314,7 @@ describe("collabRoutes", () => {
         Promise.resolve(null as any)
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // set.status = 403; return { error: "Not a collaborator on this workspace" }
@@ -1357,7 +1369,7 @@ describe("collabRoutes", () => {
           ] as any
       );
 
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
       expect(collabRoutes).toBeDefined();
 
       // Returns { collaborators: [...], onlineCount: number }
@@ -1369,7 +1381,7 @@ describe("collabRoutes", () => {
 
   describe("WebSocket open handler async behavior", () => {
     it("open handler uses withSpanAsync and awaits roomManager.join", async () => {
-      const { collabRoutes } = await import("./routes");
+      const collabRoutes = await getCollabRoutes();
 
       const route = (
         collabRoutes as unknown as {
@@ -1484,4 +1496,5 @@ describe("collabRoutes", () => {
 
 afterAll(() => {
   process.env = originalEnv;
+  mock.restore();
 });

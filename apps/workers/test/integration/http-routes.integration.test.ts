@@ -9,7 +9,7 @@ process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
 process.env.LOG_LEVEL = "error";
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Elysia } from "elysia";
 
 const mockSession = {
@@ -225,6 +225,10 @@ mock.module("@lumen/yjs-shared", () => ({
   MESSAGE_WORKSPACE_DELETED: 3,
   MESSAGE_SYNC: 0,
   MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
 }));
 
 // Mock the auth config module to avoid Better Auth initialization
@@ -817,4 +821,9 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
       expect(res.headers.get("access-control-allow-credentials")).toBe("true");
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

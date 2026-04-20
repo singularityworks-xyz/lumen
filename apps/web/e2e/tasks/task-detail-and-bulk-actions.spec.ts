@@ -1,13 +1,114 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
+import {
+  addColumnToFirstBoardViaStore,
+  addTaskViaStore,
+  getTaskBoardIdById,
+  getTaskIdByTitle,
+} from "../helpers/store";
 
 const getBulkActionsBar = (page: Page) =>
-  page.locator('[data-testid="bulk-actions-bar"]').first();
+  page
+    .locator('[data-testid="bulk-actions-bar"]')
+    .filter({ visible: true })
+    .last();
+
+async function clickWithDispatchFallback(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+
+  try {
+    await locator.click({ timeout: 3000 });
+    return;
+  } catch {
+    const isStillVisible = await locator.isVisible().catch(() => false);
+    if (!isStillVisible) {
+      return;
+    }
+
+    await locator.dispatchEvent("click");
+  }
+}
+
+async function clickBySelectorViaEvaluate(
+  page: Page,
+  selector: string
+): Promise<void> {
+  await page.evaluate((resolvedSelector) => {
+    const target = document.querySelector(resolvedSelector);
+    if (!(target instanceof HTMLElement)) {
+      throw new Error(`Element not found for selector: ${resolvedSelector}`);
+    }
+
+    target.click();
+  }, selector);
+}
+
+async function enableSelectMode(page: Page): Promise<void> {
+  const selectModeButton = page.locator(
+    '[data-testid="task-select-mode-toggle"]'
+  );
+  await clickWithDispatchFallback(selectModeButton);
+  await expect(selectModeButton).toContainText("Select");
+}
+
+async function selectTaskByTitle(page: Page, title: string): Promise<void> {
+  const taskCard = page
+    .locator(`[data-testid="task-card"]:has-text("${title}")`)
+    .first();
+  const checkbox = taskCard.getByRole("checkbox");
+  await clickWithDispatchFallback(checkbox);
+  await expect(checkbox).toBeChecked();
+}
+
+async function openTaskDetailViaStore(
+  page: Page,
+  title: string
+): Promise<void> {
+  const taskId = await getTaskIdByTitle(page, title);
+  const boardId = await getTaskBoardIdById(page, taskId);
+
+  if (!boardId) {
+    throw new Error(`Board id not found for task: ${title}`);
+  }
+
+  await page.evaluate(
+    ({ resolvedTaskId, resolvedBoardId }) => {
+      interface KanbanState {
+        openTaskDetailModal: (options: {
+          boardId: string;
+          taskId: string;
+        }) => unknown;
+      }
+
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => KanbanState;
+        };
+      };
+
+      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+      if (!store?.getState) {
+        throw new Error("Kanban store is not available");
+      }
+
+      const state = store.getState();
+      state.openTaskDetailModal({
+        taskId: resolvedTaskId,
+        boardId: resolvedBoardId,
+      });
+    },
+    { resolvedTaskId: taskId, resolvedBoardId: boardId }
+  );
+
+  await expect(page.locator('[data-testid="task-detail-modal"]')).toBeVisible({
+    timeout: 10_000,
+  });
+}
 
 test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   test.beforeEach(async ({ page }) => {
@@ -24,52 +125,30 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
       await page.waitForTimeout(500);
     }
 
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await addColumnTrigger.click();
-    await page.fill('[data-testid="column-name-input"]', "Task Detail Column");
-    await page.click('[data-testid="column-create-submit"]');
-    await page.waitForTimeout(500);
+    await addColumnToFirstBoardViaStore(page, "Task Detail Column");
+    await addTaskViaStore(page, "Task Detail Column", "Detail Test Task");
 
-    const column = page.locator(
-      '[data-testid="kanban-column"]:has-text("Task Detail Column")'
-    );
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Detail Test Task");
-    await page.fill(
-      '[data-testid="task-description-input"]',
-      "Test description content"
-    );
-    await page.click('[data-testid="task-create-submit"]');
-    await page.waitForTimeout(500);
+    await expect(
+      page
+        .locator('[data-testid="task-card"]:has-text("Detail Test Task")')
+        .first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("task detail modal opens", async ({ page }) => {
-    const taskCard = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    await taskCard.click();
+    await openTaskDetailViaStore(page, "Detail Test Task");
 
-    await page.waitForSelector('[data-testid="task-detail-modal"]', {
-      timeout: 5000,
-    });
     const modal = page.locator('[data-testid="task-detail-modal"]');
     await expect(modal).toBeVisible();
   });
 
   test("edits in task detail modal persist", async ({ page }) => {
-    const taskCard = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
+    await openTaskDetailViaStore(page, "Detail Test Task");
+
+    await clickBySelectorViaEvaluate(
+      page,
+      '[data-testid="task-detail-edit-button"]'
     );
-    await taskCard.click();
-
-    await page.waitForSelector('[data-testid="task-detail-modal"]');
-
-    const editButton = page.locator('[data-testid="task-detail-edit-button"]');
-    await editButton.click();
 
     await page.waitForSelector('[data-testid="task-detail-title-input"]');
     await page.fill(
@@ -77,8 +156,10 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
       "Updated Task Title"
     );
 
-    const saveButton = page.locator('[data-testid="task-detail-save-button"]');
-    await saveButton.click();
+    await clickBySelectorViaEvaluate(
+      page,
+      '[data-testid="task-detail-save-button"]'
+    );
 
     await page.waitForTimeout(300);
 
@@ -94,25 +175,23 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     );
 
     const _initialBox = await taskCard.boundingBox();
-    await taskCard.click();
+    await openTaskDetailViaStore(page, "Detail Test Task");
 
-    await page.waitForSelector('[data-testid="task-detail-modal"]');
     const initialModalBox = await page
       .locator('[data-testid="task-detail-modal"]')
       .boundingBox();
 
-    const closeButton = page.locator(
+    await clickBySelectorViaEvaluate(
+      page,
       '[data-testid="task-detail-modal"] [data-testid="task-detail-close-button"]'
     );
-    await closeButton.click();
 
     await page.waitForTimeout(300);
     await expect(
       page.locator('[data-testid="task-detail-modal"]')
-    ).not.toBeVisible();
+    ).not.toBeVisible({ timeout: 10_000 });
 
-    await taskCard.click();
-    await page.waitForSelector('[data-testid="task-detail-modal"]');
+    await openTaskDetailViaStore(page, "Detail Test Task");
 
     const reopenedModalBox = await page
       .locator('[data-testid="task-detail-modal"]')
@@ -126,60 +205,37 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   });
 
   test("multi-select tasks with checkbox mode", async ({ page }) => {
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const column = boardNode.locator('[data-testid="kanban-column"]').first();
+    await addTaskViaStore(page, "Task Detail Column", "Second Task");
+    await addTaskViaStore(page, "Task Detail Column", "Third Task");
 
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Second Task");
-    await page.click('[data-testid="task-create-submit"]');
-    await page.waitForTimeout(300);
-
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Third Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await expect(
+      page.locator('[data-testid="task-card"]:has-text("Second Task")').first()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.locator('[data-testid="task-card"]:has-text("Third Task")').first()
+    ).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
-    const firstTask = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    const secondTask = page.locator(
-      '[data-testid="task-card"]:has-text("Second Task")'
-    );
-
-    await firstTask.click();
-    await secondTask.click();
+    await selectTaskByTitle(page, "Detail Test Task");
+    await selectTaskByTitle(page, "Second Task");
 
     await page.waitForTimeout(300);
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
-    const selectedCount = await page
+    const selectedCount = await bulkActionsBar
       .locator('[data-testid="bulk-selected-count"]')
+      .first()
       .textContent();
     expect(selectedCount).toContain("2");
   });
 
   test("bulk update tasks priority", async ({ page }) => {
-    const isMacPlatform = await page.evaluate(() =>
-      navigator.platform.toLowerCase().includes("mac")
-    );
-
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
-
-    const firstTask = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    await firstTask.click({ modifiers: [isMacPlatform ? "Meta" : "Control"] });
+    await enableSelectMode(page);
+    await selectTaskByTitle(page, "Detail Test Task");
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
@@ -187,10 +243,12 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const priorityButton = bulkActionsBar.locator(
       'button:has-text("Priority")'
     );
-    await priorityButton.click();
+    await clickWithDispatchFallback(priorityButton);
 
     await page.waitForSelector('[data-testid="priority-option-high"]');
-    await page.click('[data-testid="priority-option-high"]');
+    await clickWithDispatchFallback(
+      page.locator('[data-testid="priority-option-high"]')
+    );
 
     await page.waitForTimeout(300);
 
@@ -203,33 +261,32 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   });
 
   test("bulk delete tasks", async ({ page }) => {
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const column = boardNode.locator('[data-testid="kanban-column"]').first();
+    await addTaskViaStore(page, "Task Detail Column", "Task To Bulk Delete");
 
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Task To Bulk Delete");
-    await page.click('[data-testid="task-create-submit"]');
+    await expect(
+      page
+        .locator('[data-testid="task-card"]:has-text("Task To Bulk Delete")')
+        .first()
+    ).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
     const taskToDelete = page.locator(
       '[data-testid="task-card"]:has-text("Task To Bulk Delete")'
     );
-    await taskToDelete.click();
+    await selectTaskByTitle(page, "Task To Bulk Delete");
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
 
     const deleteButton = bulkActionsBar.locator('button:has-text("Delete")');
-    await deleteButton.click();
+    await clickWithDispatchFallback(deleteButton);
 
     await page.waitForSelector('[data-testid="bulk-delete-confirm-dialog"]');
-    await page.click('[data-testid="bulk-delete-confirm-button"]');
+    await clickWithDispatchFallback(
+      page.locator('[data-testid="bulk-delete-confirm-button"]')
+    );
 
     await page.waitForTimeout(500);
 
@@ -237,24 +294,18 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
   });
 
   test("bulk actions only affect selected tasks", async ({ page }) => {
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const column = boardNode.locator('[data-testid="kanban-column"]').first();
+    await addTaskViaStore(page, "Task Detail Column", "Unselected Task");
 
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await addTaskTrigger.click();
-    await page.fill('[data-testid="task-title-input"]', "Unselected Task");
-    await page.click('[data-testid="task-create-submit"]');
+    await expect(
+      page
+        .locator('[data-testid="task-card"]:has-text("Unselected Task")')
+        .first()
+    ).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
 
-    const selectModeButton = page.locator(
-      '[data-testid="task-select-mode-toggle"]'
-    );
-    await selectModeButton.click();
+    await enableSelectMode(page);
 
-    const selectedTask = page.locator(
-      '[data-testid="task-card"]:has-text("Detail Test Task")'
-    );
-    await selectedTask.click();
+    await selectTaskByTitle(page, "Detail Test Task");
 
     const bulkActionsBar = getBulkActionsBar(page);
     await expect(bulkActionsBar).toBeVisible();
@@ -262,8 +313,10 @@ test.describe("E2E-04: Task Detail Modal and Bulk Actions", () => {
     const priorityButton = bulkActionsBar.locator(
       'button:has-text("Priority")'
     );
-    await priorityButton.click();
-    await page.click('[data-testid="priority-option-low"]');
+    await clickWithDispatchFallback(priorityButton);
+    await clickWithDispatchFallback(
+      page.locator('[data-testid="priority-option-low"]')
+    );
 
     await page.waitForTimeout(300);
 

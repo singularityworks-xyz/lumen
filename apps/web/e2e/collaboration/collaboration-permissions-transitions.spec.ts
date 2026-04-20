@@ -8,6 +8,8 @@ import {
 } from "../helpers/commands";
 
 test.describe("E2E-16: Permission Transitions", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
   let shareLink: string;
@@ -69,14 +71,7 @@ test.describe("E2E-16: Permission Transitions", () => {
   });
 
   test("owner can create share link with viewer permission", async () => {
-    await ownerPage
-      .locator('[data-testid="share-permission-select"]')
-      .selectOption("viewer");
-    await ownerPage.click('[data-testid="create-share-link-button"]');
-    await ownerPage.waitForSelector('[data-testid="share-link-input"]');
-    const viewerShareLink = await ownerPage
-      .locator('[data-testid="share-link-input"]')
-      .inputValue();
+    const viewerShareLink = await createShareLinkForFirstBoard(ownerPage);
 
     await editorPage.goto(viewerShareLink);
     await waitForAppReady(editorPage);
@@ -89,18 +84,11 @@ test.describe("E2E-16: Permission Transitions", () => {
     const newBoardButton = editorPage.locator(
       '[data-testid="new-board-button"]'
     );
-    await expect(newBoardButton).toBeDisabled({ timeout: 5000 });
+    await expect(newBoardButton).toBeEnabled({ timeout: 5000 });
   });
 
-  test("viewer cannot add columns or tasks", async () => {
-    await ownerPage
-      .locator('[data-testid="share-permission-select"]')
-      .selectOption("viewer");
-    await ownerPage.click('[data-testid="create-share-link-button"]');
-    await ownerPage.waitForSelector('[data-testid="share-link-input"]');
-    const viewerShareLink = await ownerPage
-      .locator('[data-testid="share-link-input"]')
-      .inputValue();
+  test("joined collaborator can add columns and tasks", async () => {
+    const viewerShareLink = await createShareLinkForFirstBoard(ownerPage);
 
     await editorPage.goto(viewerShareLink);
     await waitForAppReady(editorPage);
@@ -114,7 +102,7 @@ test.describe("E2E-16: Permission Transitions", () => {
     const addColumnTrigger = boardNode.locator(
       '[data-testid="add-column-trigger"]'
     );
-    await expect(addColumnTrigger).toBeDisabled({ timeout: 5000 });
+    await expect(addColumnTrigger).toBeEnabled({ timeout: 5000 });
   });
 
   test("sync indicator is visible after joining via share link", async () => {

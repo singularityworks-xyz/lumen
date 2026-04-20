@@ -1,13 +1,27 @@
-name: CI Unit & Integration
+name: CI
+
+# Event matrix:
+# - push to non-origin branches: lint + type-check only (fast feedback)
+# - pull_request targeting origin: full CI quality gate (no deploy)
+# - push to origin (post-merge): full CI + deploy/release jobs
+#
+# Note: E2E/visual regression are intentionally excluded from CI gating
+# and are run manually via `.github/workflows/e2e-tests.yml` as they are more time-consuming and can be flaky.
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [ "**" ]
+  pull_request:
+    branches: [ origin ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
     name: Detect Deploy Targets
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
     runs-on: ubuntu-latest
     outputs:
       presence: ${{ steps.filter.outputs.presence }}
@@ -19,111 +33,144 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Detect changed files
         id: filter
         shell: bash
         run: |
           set -euo pipefail
-
-          BEFORE_SHA="${{ github.event.before }}"
-          AFTER_SHA="${{ github.sha }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BEFORE_SHA="${{ github.event.pull_request.base.sha }}"
+            AFTER_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BEFORE_SHA="${{ github.event.before }}"
+            AFTER_SHA="${{ github.sha }}"
+          fi
           ZERO_SHA="0000000000000000000000000000000000000000"
-
           if [ "$BEFORE_SHA" = "$ZERO_SHA" ] || ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
-            echo "Falling back to changed files from current tree because before SHA is unavailable: $BEFORE_SHA"
             git ls-tree -r --name-only "$AFTER_SHA" > changed-files.txt
           else
             git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > changed-files.txt
           fi
-
           if rg -q '^(apps/web/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/native-bridge/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/web-deploy\.yml$)' changed-files.txt; then
             echo "web=true" >> "$GITHUB_OUTPUT"
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
           fi
-
           if rg -q '^(apps/workers/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/workers-deploy\.yml$)' changed-files.txt; then
             echo "workers=true" >> "$GITHUB_OUTPUT"
           else
             echo "workers=false" >> "$GITHUB_OUTPUT"
           fi
-
           if rg -q '^(apps/presence/|package\.json$|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
             echo "presence=true" >> "$GITHUB_OUTPUT"
           else
             echo "presence=false" >> "$GITHUB_OUTPUT"
           fi
-
           if rg -q '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
 
-  quality:
-    name: Quality
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
           bun-version: "1.3.11"
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
       - name: Setup Beam
         uses: erlef/setup-beam@v1
         with:
           otp-version: "28.2"
           elixir-version: "1.19.0"
           version-type: strict
-
       - name: Install Presence dependencies
         working-directory: apps/presence
         run: |
           mix local.hex --force
           mix local.rebar --force
           mix deps.get
-
-      - name: Run checks
+      - name: Run lint checks
         run: bun run check:ci
 
-      - name: Run type checks
-        run: bun run check-types
-
-  unit-web:
-    name: Unit Web
+  type-check:
+    name: Type Check
+    needs: [ lint ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
           bun-version: "1.3.11"
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Run type checks
+        run: bun run check-types
 
+  build:
+    name: Build
+    needs: [ type-check ]
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun-cache
+        with:
+          bun-version: "1.3.11"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Setup Beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.2"
+          elixir-version: "1.19.0"
+          version-type: strict
+      - name: Install Presence dependencies
+        working-directory: apps/presence
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
       - name: Generate Prisma client
         run: bun run db:gen
+      - name: Build all packages
+        run: bun run build
 
+  unit-web:
+    name: Unit Web
+    needs: [ type-check ]
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun-cache
+        with:
+          bun-version: "1.3.11"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Generate Prisma client
+        run: bun run db:gen
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts --coverage
-
+        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts
+          --coverage
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-web
           path: coverage/bun/lcov.info
           retention-days: 7
-
       - name: Upload JUnit
         uses: actions/upload-artifact@v7
         with:
@@ -134,25 +181,23 @@ jobs:
 
   unit-server-and-packages:
     name: Unit Server & Packages
+    needs: [ type-check ]
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
           bun-version: "1.3.11"
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
       - name: Generate Prisma client
         run: bun run db:gen
-
       - name: Run worker unit tests
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/src/**/*.test.ts --coverage
-
+        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
+          ./apps/workers/src/**/*.test.ts --coverage
       - name: Run package unit tests
         run: |
           bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
@@ -161,14 +206,12 @@ jobs:
           bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
           bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
           bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
-
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-server-and-packages
           path: coverage/bun/lcov.info
           retention-days: 7
-
       - name: Upload JUnit
         uses: actions/upload-artifact@v7
         with:
@@ -177,106 +220,21 @@ jobs:
           retention-days: 7
         continue-on-error: true
 
-  integration-web:
-    name: Integration Web
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: lumen_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Bun
-        uses: ./.github/actions/setup-bun-cache
-        with:
-          bun-version: "1.3.11"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: bun run db:gen
-
-      - name: Push schema to test DB
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun run db:push
-
-      - name: Run integration tests
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/test/integration/*.test.ts
-
-  integration-workers:
-    name: Integration Workers
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: lumen_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Bun
-        uses: ./.github/actions/setup-bun-cache
-        with:
-          bun-version: "1.3.11"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: bun run db:gen
-
-      - name: Push schema to test DB
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun run db:push
-
-      - name: Run integration tests
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts ./apps/workers/test/integration/*.test.ts
-
   presence-tests:
     name: Presence Tests
+    needs: [ changes, type-check ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      needs.changes.outputs.presence == 'true'
     runs-on: ubuntu-latest
-    needs: [changes]
-    if: needs.changes.outputs.presence == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Beam
         uses: erlef/setup-beam@v1
         with:
           otp-version: "28.2"
           elixir-version: "1.19.0"
           version-type: strict
-
       - name: Cache Elixir/Mix dependencies
         uses: actions/cache@v4
         with:
@@ -288,22 +246,18 @@ jobs:
           key: ${{ runner.os }}-beam-${{ hashFiles('apps/presence/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-beam-
-
       - name: Install Presence dependencies
         working-directory: apps/presence
         run: |
           mix local.hex --force
           mix local.rebar --force
           mix deps.get
-
       - name: Compile Presence
         working-directory: apps/presence
         run: mix compile
-
       - name: Run Presence tests with coverage
         working-directory: apps/presence
         run: mix test --cover
-
       - name: Upload Presence coverage
         uses: actions/upload-artifact@v7
         with:
@@ -311,10 +265,89 @@ jobs:
           path: apps/presence/cover/lcov.info
           retention-days: 7
 
+  integration-web:
+    name: Integration Web
+    needs: [ unit-web ]
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: lumen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun-cache
+        with:
+          bun-version: "1.3.11"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Generate Prisma client
+        run: bun run db:gen
+      - name: Push schema to test DB
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
+        run: bun run db:push
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
+        run: bun test --preload ./tests/config/web.setup.ts
+          ./apps/web/test/integration/*.test.ts
+
+  integration-workers:
+    name: Integration Workers
+    needs: [ unit-server-and-packages ]
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: lumen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun-cache
+        with:
+          bun-version: "1.3.11"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Generate Prisma client
+        run: bun run db:gen
+      - name: Push schema to test DB
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
+        run: bun run db:push
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
+        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
+          ./apps/workers/test/integration/*.test.ts
+
   coverage-gate:
     name: Coverage Summary
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.unit-web.result == 'success' && needs.unit-server-and-packages.result == 'success' }}
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      always() && (needs.unit-web.result == 'success' || needs.unit-web.result
+      == 'skipped') && (needs.unit-server-and-packages.result == 'success' ||
+      needs.unit-server-and-packages.result == 'skipped')
     needs:
       - changes
       - unit-web
@@ -323,37 +356,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
           bun-version: "1.3.11"
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
       - name: Install lcov
         run: sudo apt-get update && sudo apt-get install -y lcov
-
       - name: Download unit-web coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-web
           path: coverage/unit-web
-
       - name: Download unit-server-and-packages coverage
         uses: actions/download-artifact@v7
         with:
           name: coverage-unit-server-and-packages
           path: coverage/unit-server-and-packages
-
       - name: Download Presence coverage
         if: ${{ needs.presence-tests.result == 'success' }}
         uses: actions/download-artifact@v7
         with:
           name: coverage-presence
           path: coverage/presence
-
       - name: Setup Beam
         if: ${{ needs.presence-tests.result == 'success' }}
         uses: erlef/setup-beam@v1
@@ -361,29 +387,41 @@ jobs:
           otp-version: "28.2"
           elixir-version: "1.19.0"
           version-type: strict
-
       - name: Install Hex
         if: ${{ needs.presence-tests.result == 'success' }}
         run: mix local.hex --force
-
       - name: Merge LCOV files
         run: |
           mkdir -p coverage/merged
           lcov -a coverage/unit-web/lcov.info -a coverage/unit-server-and-packages/lcov.info -o coverage/merged/lcov.info
-
       - name: Generate coverage summary
         run: |
           BUN_LCOV_PATH=coverage/merged/lcov.info PRESENCE_LCOV_PATH=coverage/presence/lcov.info bun run scripts/testing/coverage-summary.ts
-
       - name: Run Presence coverage gate
-        if: ${{ needs.presence-tests.result == 'success' && hashFiles('coverage/presence/lcov.info') != '' }}
-        run: LCOV_PATH=coverage/presence/lcov.info elixir apps/presence/scripts/coverage_gate.exs
+        if: ${{ needs.presence-tests.result == 'success' &&
+          hashFiles('coverage/presence/lcov.info') != '' }}
+        run: LCOV_PATH=coverage/presence/lcov.info elixir
+          apps/presence/scripts/coverage_gate.exs
 
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      always() &&
+      needs.lint.result == 'success' &&
+      needs.type-check.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.unit-web.result == 'success' || needs.unit-web.result == 'skipped') &&
+      (needs.unit-server-and-packages.result == 'success' || needs.unit-server-and-packages.result == 'skipped') &&
+      (needs.integration-web.result == 'success' || needs.integration-web.result == 'skipped') &&
+      (needs.integration-workers.result == 'success' || needs.integration-workers.result == 'skipped') &&
+      (needs.presence-tests.result == 'success' || needs.presence-tests.result == 'skipped') &&
+      (needs.coverage-gate.result == 'success' || needs.coverage-gate.result == 'skipped')
     needs:
-      - quality
+      - lint
+      - type-check
+      - build
       - unit-web
       - unit-server-and-packages
       - integration-web
@@ -392,7 +430,7 @@ jobs:
       - coverage-gate
     steps:
       - name: Confirm CI status
-        run: echo "Quality checks and tests passed."
+        run: echo "All quality checks, tests, and build passed."
 
   deploy-web:
     name: Deploy Web
@@ -408,7 +446,8 @@ jobs:
 
   deploy-workers:
     name: Deploy Workers
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.workers == 'true' }}
+    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.workers == 'true'
+      }}
     needs:
       - changes
       - ci-passed
@@ -420,7 +459,8 @@ jobs:
 
   deploy-presence:
     name: Deploy Presence
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true' }}
+    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true'
+      }}
     needs:
       - changes
       - ci-passed

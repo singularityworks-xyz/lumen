@@ -1,8 +1,10 @@
 import Config
 
-# Load .env file in dev/test environments
+# Load environment-specific env files in dev/test environments
 if config_env() in [:dev, :test] do
-  Dotenvy.source([".env", ".env.#{config_env()}", ".env.local"])
+  env_suffix = if config_env() == :dev, do: "development", else: to_string(config_env())
+
+  Dotenvy.source([".env.#{env_suffix}", System.get_env()], side_effect: &System.put_env/1)
 end
 
 # Parse OTEL headers from comma-separated key=value format

@@ -1,0 +1,26 @@
+[test]
+coverage = true
+coverageReporter = ["text", "lcov"]
+coverageDir = "./coverage/bun"
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "**/node_modules/**",
+  "**/tests/config/**",
+  "**/auth-client.ts",
+  "**/packages/db/prisma/generated/**",
+  "**/e2e/**",
+  "**/presence/**",
+  "**/workers/**",
+  "**/native/**",
+  "**/landing/**"
+]
+testFilePattern = "src/**/*.test.{ts,tsx}"
+exclude = [
+  "**/e2e/**",
+  "**/node_modules/**",
+  "**/*.spec.ts",
+  "**/presence/**",
+  "**/workers/**",
+  "**/native/**",
+  "**/landing/**"
+]

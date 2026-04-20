@@ -1,8 +1,6 @@
 "use client";
 
-// biome-ignore lint/performance/noNamespaceImport: Radix primitives require namespace imports for proper component composition
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-// biome-ignore lint/performance/noNamespaceImport: Radix primitives require namespace imports for proper component composition
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";

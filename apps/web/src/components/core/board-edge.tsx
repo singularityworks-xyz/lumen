@@ -98,7 +98,6 @@ export function BoardEdgeComponent({
           >
             {isEditingLabel ? (
               <input
-                autoFocus
                 className="rounded border border-border bg-background px-2 py-1 font-medium text-foreground text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onBlur={handleLabelBlur}
                 onChange={handleLabelChange}

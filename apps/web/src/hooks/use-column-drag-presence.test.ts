@@ -2,7 +2,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 try {
   GlobalRegistrator.register();
-} catch (_e) {
+} catch {
   /* ignore */
 }
 
@@ -122,6 +122,50 @@ describe("use-column-drag-presence", () => {
     );
   });
 
+  it("skips position updates before drag starts", async () => {
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+
+    const { useColumnDragPresence } = await import(
+      "@/src/hooks/use-column-drag-presence"
+    );
+    const { result } = renderHook(() => useColumnDragPresence());
+
+    result.current.updateDragPosition(222, 333);
+
+    expect(mockAwareness.getLocalState).not.toHaveBeenCalled();
+    expect(mockAwareness.setLocalStateField).not.toHaveBeenCalled();
+  });
+
+  it("throttles high-frequency drag position updates", async () => {
+    collabState.isCollaborating = true;
+    collabState.awareness = mockAwareness;
+
+    const { useColumnDragPresence } = await import(
+      "@/src/hooks/use-column-drag-presence"
+    );
+    const { result } = renderHook(() => useColumnDragPresence());
+
+    result.current.startDragging("col-1", "board-1", 10, 10);
+    mockAwareness.getLocalState.mockImplementation(() => ({
+      draggingColumn: {
+        columnId: "col-1",
+        sourceBoardId: "board-1",
+        cursorX: 10,
+        cursorY: 10,
+      },
+    }));
+
+    result.current.updateDragPosition(20, 20);
+    result.current.updateDragPosition(30, 30);
+
+    expect(mockAwareness.setLocalStateField).toHaveBeenCalledTimes(2);
+    expect(mockAwareness.setLocalStateField).not.toHaveBeenCalledWith(
+      "draggingColumn",
+      expect.objectContaining({ cursorX: 30, cursorY: 30 })
+    );
+  });
+
   it("stops dragging and clears state", async () => {
     collabState.isCollaborating = true;
     collabState.awareness = mockAwareness;
@@ -181,7 +225,7 @@ describe("use-column-drag-presence", () => {
     const { result } = renderHook(() => useColumnDragPresence());
 
     expect(result.current.draggingCollaborators).toHaveLength(1);
-    expect(result.current.draggingCollaborators[0]!.id).toBe("user-1");
+    expect(result.current.draggingCollaborators[0]?.id).toBe("user-1");
   });
 
   it("returns dragged columns data", async () => {
@@ -195,8 +239,8 @@ describe("use-column-drag-presence", () => {
     const { result } = renderHook(() => useColumnDragPresence());
 
     expect(result.current.draggedColumns).toHaveLength(1);
-    expect(result.current.draggedColumns[0]!.dragState.columnId).toBe("col-1");
-    expect(result.current.draggedColumns[0]!.collaborator.id).toBe("user-1");
+    expect(result.current.draggedColumns[0]?.dragState.columnId).toBe("col-1");
+    expect(result.current.draggedColumns[0]?.collaborator.id).toBe("user-1");
   });
 
   it("does nothing when not collaborating", async () => {

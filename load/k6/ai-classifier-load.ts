@@ -1,11 +1,11 @@
-import http from "k6/http";
 import { check, sleep } from "k6";
+import http from "k6/http";
 import { Counter, Gauge, Rate, Trend } from "k6/metrics";
 
 // Custom metrics
 const classifySuccess = new Rate("classify_success_rate");
 const classifyDuration = new Trend("classify_duration_ms");
-const queueLength = new Gauge("classifier_queue_length");
+const _queueLength = new Gauge("classifier_queue_length");
 const errorCount = new Counter("classify_errors");
 
 // Configuration
@@ -81,7 +81,7 @@ export default function () {
     headers: {
       "Content-Type": "application/json",
     },
-    timeout: 30000,
+    timeout: 30_000,
   };
 
   const res = http.post(`${BASE_URL}/api/ai/chat`, payload, params);
@@ -95,7 +95,7 @@ export default function () {
         return false;
       }
     },
-    "response time < 10s": (r) => r.timings.duration < 10000,
+    "response time < 10s": (r) => r.timings.duration < 10_000,
   });
 
   classifySuccess.add(success);
@@ -111,8 +111,7 @@ export default function () {
 export function handleSummary(data: {
   metrics: Record<string, { values?: { avg?: number } }>;
 }) {
-  const avgDuration =
-    data.metrics["classify_duration_ms"]?.values?.avg || 0;
+  const avgDuration = data.metrics.classify_duration_ms?.values?.avg || 0;
   console.log(`Average classification duration: ${avgDuration.toFixed(0)}ms`);
   return {
     stdout: JSON.stringify(data, null, 2),

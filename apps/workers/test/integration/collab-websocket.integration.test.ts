@@ -1,18 +1,35 @@
 process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+process.env.LOG_LEVEL = "error";
 
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as Y from "yjs";
-import {
-  MESSAGE_WORKSPACE_DELETED,
-  roomManager,
-} from "../../src/collab/room-manager";
+
+// Room manager imports - loaded dynamically after mock setup
+let MESSAGE_WORKSPACE_DELETED: number;
+let roomManager: typeof import("../../src/collab/room-manager").roomManager;
 
 const _MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
+const LOCAL_MESSAGE_AWARENESS = 1;
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];
@@ -126,12 +143,53 @@ mock.module("@lumen/ai", () => ({
   aiRoutes: new Elysia({ name: "ai-routes" }),
 }));
 
+mock.module("@lumen/yjs-shared", () => ({
+  YJS_MAP_NAMES: {
+    WORKSPACE: "workspace",
+    BOARDS: "boards",
+    COLUMNS: "columns",
+    TASKS: "tasks",
+    BOARD_POSITIONS: "boardPositions",
+    BOARD_CONNECTIONS: "boardConnections",
+    AREAS: "areas",
+    AREA_POSITIONS: "areaPositions",
+    AREA_DIALOGS: "areaDialogs",
+    CANVAS: "canvas",
+    BOARD_QUICK_ACTIONS: "boardQuickActions",
+    BOARD_DIALOGS: "boardDialogs",
+    CONNECTION_DIALOGS: "connectionDialogs",
+    CREATE_TASK_MODALS: "createTaskModals",
+    COLUMN_QUICK_ACTIONS: "columnQuickActions",
+    COLUMN_DIALOGS: "columnDialogs",
+    TASK_QUICK_ACTIONS: "taskQuickActions",
+    TASK_DETAIL_MODALS: "taskDetailModals",
+    COMMENTS: "comments",
+    CHAT_MESSAGES: "chatMessages",
+  },
+  MESSAGE_WORKSPACE_DELETED: 3,
+  MESSAGE_SYNC: 0,
+  MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
+}));
+
+// Load room manager dynamically after mocks are set up
+beforeAll(async () => {
+  const roomManagerModule = await import("../../src/collab/room-manager");
+  MESSAGE_WORKSPACE_DELETED = roomManagerModule.MESSAGE_WORKSPACE_DELETED;
+  roomManager = roomManagerModule.roomManager;
+});
+
 describe("WORKERS-I-04: collab-websocket integration", () => {
   afterEach(() => {
     mockPrisma.workspace.findUnique.mockReset();
     mockPrisma.workspaceCollaborator.findUnique.mockReset();
     mockPrisma.workspaceCollaborator.count.mockReset();
     mockPrisma.workspaceState.upsert.mockReset();
+    // Clean up room manager state between tests to prevent interference
+    roomManager?.reset();
   });
 
   describe("non-existent workspace behavior", () => {
@@ -231,7 +289,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       });
 
       const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+      encoding.writeVarUint(encoder, LOCAL_MESSAGE_AWARENESS);
       const testUpdate = awarenessProtocol.encodeAwarenessUpdate(
         new awarenessProtocol.Awareness(new Y.Doc()),
         []
@@ -268,7 +326,7 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       sent2.length = 0;
 
       const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+      encoding.writeVarUint(encoder, LOCAL_MESSAGE_AWARENESS);
       const testUpdate = awarenessProtocol.encodeAwarenessUpdate(
         new awarenessProtocol.Awareness(new Y.Doc()),
         []
@@ -352,4 +410,9 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(ws2.close).toHaveBeenCalled();
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

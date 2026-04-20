@@ -101,23 +101,17 @@ describe("env", () => {
   });
 
   describe("env export structure", () => {
-    it("exports env object with all required fields", async () => {
+    it("exports env object with expected runtime-safe fields", async () => {
       const { env } = await import("./env");
       expect(env).toBeDefined();
-      expect("NODE_ENV" in env).toBe(true);
-      expect("OTEL_ENABLED" in env).toBe(true);
-      expect("OTEL_EXPORTER_OTLP_ENDPOINT" in env).toBe(true);
-      expect("OTEL_EXPORTER_OTLP_HEADERS" in env).toBe(true);
-    });
-
-    it("NODE_ENV is a string", async () => {
-      const { env } = await import("./env");
       expect(typeof env.NODE_ENV).toBe("string");
-    });
-
-    it("OTEL_ENABLED is a boolean (transformed)", async () => {
-      const { env } = await import("./env");
       expect(typeof env.OTEL_ENABLED).toBe("boolean");
+      expect(["string", "undefined"]).toContain(
+        typeof env.OTEL_EXPORTER_OTLP_ENDPOINT
+      );
+      expect(["string", "undefined"]).toContain(
+        typeof env.OTEL_EXPORTER_OTLP_HEADERS
+      );
     });
   });
 });

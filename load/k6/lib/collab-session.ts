@@ -1,5 +1,6 @@
+import { sleep } from "k6";
+import { Counter, Rate, Trend } from "k6/metrics";
 import ws from "k6/ws";
-import { Counter, Trend, Rate } from "k6/metrics";
 
 const wsConnectSuccess = new Rate("ws_connect_success");
 const wsConnectDuration = new Trend("ws_connect_duration");
@@ -17,10 +18,14 @@ const SYNC_STEP1 = 0;
 const SYNC_STEP2 = 1;
 const SYNC_UPDATE = 2;
 
+const CONNECT_TIMEOUT_SECONDS = 5;
+
 declare global {
   const __ENV: {
     WS_URL?: string;
     AUTH_TOKEN?: string;
+    E2E_BYPASS?: string;
+    E2E_BYPASS_USER_ID?: string;
     SOAK_DURATION_MINUTES?: string;
     WORKSPACE_ID?: string;
     AI_BASE_URL?: string;
@@ -32,7 +37,7 @@ declare global {
 }
 
 class BinaryEncoder {
-  private parts: Uint8Array[] = [];
+  private readonly parts: Uint8Array[] = [];
   private length = 0;
 
   writeVarUint(value: number): void {
@@ -40,14 +45,17 @@ class BinaryEncoder {
       throw new Error("Cannot encode non-integer or negative varuint");
     }
     if (value > Number.MAX_SAFE_INTEGER) {
-      throw new Error("Cannot encode value larger than MAX_SAFE_INTEGER as varuint");
+      throw new Error(
+        "Cannot encode value larger than MAX_SAFE_INTEGER as varuint"
+      );
     }
     const bytes: number[] = [];
-    while (value > 0x7f) {
-      bytes.push((value & 0x7f) | 0x80);
-      value >>>= 7;
+    let remaining = value;
+    while (remaining > 0x7f) {
+      bytes.push((remaining & 0x7f) | 0x80);
+      remaining >>>= 7;
     }
-    bytes.push(value & 0x7f);
+    bytes.push(remaining & 0x7f);
     const buf = new Uint8Array(bytes);
     this.parts.push(buf);
     this.length += buf.byteLength;
@@ -68,16 +76,12 @@ class BinaryEncoder {
     }
     return result;
   }
-
-  getLength(): number {
-    return this.length;
-  }
 }
 
 class BinaryDecoder {
-  private view: DataView;
+  private readonly view: DataView;
   private pos = 0;
-  private bytes: Uint8Array;
+  private readonly bytes: Uint8Array;
 
   constructor(data: Uint8Array) {
     this.bytes = data;
@@ -102,23 +106,6 @@ class BinaryDecoder {
     return result >>> 0;
   }
 
-  readVarUint8Array(): Uint8Array {
-    const len = this.readVarUint();
-    if (this.pos + len > this.bytes.length) {
-      throw new Error("BinaryDecoder: not enough data for uint8array");
-    }
-    const result = this.bytes.slice(this.pos, this.pos + len);
-    this.pos += len;
-    return result;
-  }
-
-  peekVarUint(): number {
-    const saved = this.pos;
-    const val = this.readVarUint();
-    this.pos = saved;
-    return val;
-  }
-
   hasContent(): boolean {
     return this.pos < this.bytes.length;
   }
@@ -136,14 +123,6 @@ function encodeSyncStep1(): Uint8Array {
   encoder.writeVarUint(SYNC_STEP1);
   const sv = encodeStateVector();
   encoder.writeVarUint8Array(sv);
-  return encoder.toUint8Array();
-}
-
-function encodeSyncStep2(update: Uint8Array): Uint8Array {
-  const encoder = new BinaryEncoder();
-  encoder.writeVarUint(MESSAGE_SYNC);
-  encoder.writeVarUint(SYNC_STEP2);
-  encoder.writeVarUint8Array(update);
   return encoder.toUint8Array();
 }
 
@@ -165,31 +144,33 @@ function encodeAwarenessUpdate(
   const inner = new BinaryEncoder();
   inner.writeVarUint(1);
   inner.writeVarUint(clientId);
-  const clock = 1;
-  inner.writeVarUint(clock);
+  inner.writeVarUint(1);
+
   const stateStr = JSON.stringify(state);
   const stateBytes = new TextEncoder().encode(stateStr);
   inner.writeVarUint8Array(stateBytes);
 
-  const innerData = inner.toUint8Array();
-  encoder.writeVarUint8Array(innerData);
+  encoder.writeVarUint8Array(inner.toUint8Array());
   return encoder.toUint8Array();
 }
 
 function decodeServerMessage(
   data: Uint8Array
-): { type: number; syncType?: number; raw: Uint8Array } | null {
+): { type: number; syncType?: number } | null {
   try {
     const decoder = new BinaryDecoder(data);
     const msgType = decoder.readVarUint();
+
     if (msgType === MESSAGE_SYNC) {
       const syncType = decoder.hasContent() ? decoder.readVarUint() : -1;
-      return { type: MESSAGE_SYNC, syncType, raw: data };
+      return { type: MESSAGE_SYNC, syncType };
     }
+
     if (msgType === MESSAGE_AWARENESS) {
-      return { type: MESSAGE_AWARENESS, raw: data };
+      return { type: MESSAGE_AWARENESS };
     }
-    return { type: msgType, raw: data };
+
+    return { type: msgType };
   } catch {
     return null;
   }
@@ -206,30 +187,34 @@ function generateFakeYjsUpdate(seed: number): Uint8Array {
 }
 
 export interface CollabSession {
-  response: ws.Response | null;
-  workspaceId: string;
-  token: string;
   connectStart: number;
+  disconnect: () => void;
   established: boolean;
-  receivedSyncStep2: boolean;
-  receivedAwareness: boolean;
-  receivedUpdates: number;
-  sentMessages: number;
   lastMessageTime: number;
-  sendSyncUpdate: (updateSeed: number) => boolean;
+  receivedAwareness: boolean;
+  receivedSyncStep2: boolean;
+  receivedUpdates: number;
+  response: ws.Response | null;
   sendAwarenessUpdate: (cursor: {
     x: number;
     y: number;
     user: string;
   }) => boolean;
-  disconnect: () => void;
+  sendSyncUpdate: (updateSeed: number) => boolean;
+  sentMessages: number;
+  token: string;
+  workspaceId: string;
+}
+
+interface InternalCollabSession extends CollabSession {
+  __connectMetricsRecorded: boolean;
 }
 
 export interface CollabMetrics {
+  averageLatency: number;
+  totalAwarenessMessages: number;
   totalConnections: number;
   totalSyncMessages: number;
-  totalAwarenessMessages: number;
-  averageLatency: number;
 }
 
 export function connectCollabSession(
@@ -237,10 +222,21 @@ export function connectCollabSession(
   token: string,
   workspaceId: string
 ): CollabSession {
-  const fullUrl = `${url}/ws/collab/${workspaceId}?token=${token}`;
+  const fullUrl = token
+    ? `${url}/ws/collab/${workspaceId}?token=${token}`
+    : `${url}/ws/collab/${workspaceId}`;
+
+  const wsConnectOptions: { headers?: Record<string, string> } = {};
+  if (__ENV.E2E_BYPASS === "true") {
+    wsConnectOptions.headers = {
+      "x-e2e-bypass": "true",
+      "x-e2e-user-id": __ENV.E2E_BYPASS_USER_ID || "e2e-load-user",
+    };
+  }
+
   const connectStart = Date.now();
 
-  const session: CollabSession = {
+  const session: InternalCollabSession = {
     response: null,
     workspaceId,
     token,
@@ -251,36 +247,39 @@ export function connectCollabSession(
     receivedUpdates: 0,
     sentMessages: 0,
     lastMessageTime: Date.now(),
+    __connectMetricsRecorded: false,
     sendSyncUpdate: () => false,
     sendAwarenessUpdate: () => false,
-    disconnect: () => {},
+    disconnect: () => {
+      // No-op for unestablished session
+    },
   };
 
-  const resp = ws.connect(fullUrl, {}, function (socket) {
-    const connectEnd = Date.now();
-    wsConnectDuration.add(connectEnd - connectStart);
+  const resp = ws.connect(fullUrl, wsConnectOptions, (socket) => {
+    socket.on("open", () => {
+      session.established = true;
 
-    if (resp.status !== 101) {
-      wsConnectSuccess.add(false);
-      return;
-    }
+      if (!session.__connectMetricsRecorded) {
+        const connectEnd = Date.now();
+        wsConnectDuration.add(connectEnd - connectStart);
+        wsConnectSuccess.add(true);
+        session.__connectMetricsRecorded = true;
+      }
 
-    wsConnectSuccess.add(true);
-    session.established = true;
+      const syncStep1 = encodeSyncStep1();
+      socket.sendBinary(syncStep1.buffer);
+      wsSyncMessagesSent.add(1);
+    });
 
-    const syncStep1 = encodeSyncStep1();
-    socket.sendBinary(syncStep1.buffer);
-    wsSyncMessagesSent.add(1);
-
-    socket.setInterval(function () {
+    socket.setInterval(() => {
       const pingEncoder = new BinaryEncoder();
       pingEncoder.writeVarUint(MESSAGE_SYNC);
       pingEncoder.writeVarUint(0);
       const pingData = pingEncoder.toUint8Array();
       socket.sendBinary(pingData.buffer);
-    }, 30000);
+    }, 30_000);
 
-    socket.on("binaryMessage", function (data: ArrayBuffer) {
+    socket.on("binaryMessage", (data: ArrayBuffer) => {
       const msg = decodeServerMessage(new Uint8Array(data));
       if (!msg) {
         return;
@@ -299,11 +298,11 @@ export function connectCollabSession(
       }
     });
 
-    socket.on("close", function () {
+    socket.on("close", () => {
       wsDisconnectCount.add(1);
     });
 
-    socket.on("error", function () {
+    socket.on("error", () => {
       wsMessageFailures.add(1);
     });
 
@@ -353,5 +352,39 @@ export function connectCollabSession(
     };
   });
 
+  session.response = resp;
+
+  if (resp.status !== 101 && !session.__connectMetricsRecorded) {
+    const connectEnd = Date.now();
+    wsConnectDuration.add(connectEnd - connectStart);
+    wsConnectSuccess.add(false);
+    session.__connectMetricsRecorded = true;
+  }
+
   return session;
+}
+
+export function waitForSessionEstablished(
+  session: CollabSession,
+  timeoutSeconds = CONNECT_TIMEOUT_SECONDS
+): boolean {
+  const internalSession = session as InternalCollabSession;
+  const connectDeadline = Date.now() + timeoutSeconds * 1000;
+
+  while (!session.established && Date.now() < connectDeadline) {
+    sleep(0.05);
+  }
+
+  if (session.established) {
+    return true;
+  }
+
+  if (!internalSession.__connectMetricsRecorded) {
+    wsConnectDuration.add(Date.now() - session.connectStart);
+    wsConnectSuccess.add(false);
+    internalSession.__connectMetricsRecorded = true;
+  }
+
+  session.disconnect();
+  return false;
 }

@@ -19,7 +19,7 @@ const envProxy = new Proxy({} as Record<string, unknown>, {
     if (prop in envState) {
       return { configurable: true, enumerable: true, value: envState[prop] };
     }
-    return undefined;
+    return;
   },
 });
 

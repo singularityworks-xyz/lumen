@@ -1,5 +1,18 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+// Set environment variables BEFORE any imports that use env.ts
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+process.env.CEREBRAS_API_KEY = "test-cerebras-api-key";
 
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
+
+// Mock logger before any imports that use it
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
     info: mock(),
@@ -64,8 +77,11 @@ mock.module("ai", () => ({
   ModelMessage: {},
 }));
 
-import { streamWithFallback } from "./streaming";
+// Import types statically (they don't have side effects)
 import type { StreamOptions, StreamResult } from "./types";
+
+// Dynamically import the module under test
+const { streamWithFallback } = await import("./streaming");
 
 function makeOpts(overrides: Partial<StreamOptions> = {}): StreamOptions {
   return {
@@ -364,4 +380,8 @@ describe("streamWithFallback", () => {
       }
     }).toThrow("Rate limited");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

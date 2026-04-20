@@ -1,14 +1,17 @@
-import { check, sleep } from "k6";
+import { sleep } from "k6";
+import { browser, type Page } from "k6/browser";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
-import { browser, Page } from "k6/browser";
 import * as Y from "yjs";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
 const wsUpdateLatency = new Trend("hybrid_ws_update_latency_ms");
 const wsUpdatesSent = new Counter("hybrid_ws_updates_sent");
 const wsUpdatesReceived = new Counter("hybrid_ws_updates_received");
-const wsAwarenessSent = new Counter("hybrid_ws_awareness_sent");
+const _wsAwarenessSent = new Counter("hybrid_ws_awareness_sent");
 
 const browserDragLatency = new Trend("hybrid_browser_drag_latency_ms");
 const browserDragSuccess = new Rate("hybrid_browser_drag_success");
@@ -18,7 +21,9 @@ const stateVectorMatches = new Counter("hybrid_state_vector_matches");
 const stateVectorMismatches = new Counter("hybrid_state_vector_mismatches");
 const documentHashMatches = new Counter("hybrid_document_hash_matches");
 const documentHashMismatches = new Counter("hybrid_document_hash_mismatches");
-const exactCoordinateAgreement = new Counter("hybrid_exact_coordinate_agreement");
+const exactCoordinateAgreement = new Counter(
+  "hybrid_exact_coordinate_agreement"
+);
 const coordinateMismatches = new Counter("hybrid_coordinate_mismatches");
 const hybridConvergencePass = new Rate("hybrid_convergence_pass");
 const awarenessFanoutComplete = new Counter("hybrid_awareness_fanout_complete");
@@ -33,8 +38,11 @@ const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 const COORDINATE_DRIFT_THRESHOLD = 5;
 
 let globalYjsDoc: Y.Doc | null = null;
-let globalWorkspaceId: string = "";
-const globalSentUpdates: Map<string, { x: number; y: number; seed: number; round: number }> = new Map();
+let globalWorkspaceId = "";
+const globalSentUpdates: Map<
+  string,
+  { x: number; y: number; seed: number; round: number }
+> = new Map();
 
 function computeDocHash(doc: Y.Doc): string {
   const state = Y.encodeStateAsUpdate(doc);
@@ -50,17 +58,27 @@ function computeStateVector(doc: Y.Doc): Uint8Array {
 }
 
 function stateVectorsEqual(sv1: Uint8Array, sv2: Uint8Array): boolean {
-  if (sv1.length !== sv2.length) return false;
+  if (sv1.length !== sv2.length) {
+    return false;
+  }
   for (let i = 0; i < sv1.length; i++) {
-    if (sv1[i] !== sv2[i]) return false;
+    if (sv1[i] !== sv2[i]) {
+      return false;
+    }
   }
   return true;
 }
 
-function createYjsUpdate(doc: Y.Doc, seed: number, x: number, y: number, round: number): Uint8Array {
+function createYjsUpdate(
+  doc: Y.Doc,
+  seed: number,
+  x: number,
+  y: number,
+  round: number
+): Uint8Array {
   const maps = doc.getMaps();
   const targetMap = maps.length > 0 ? maps[0] : doc.getMap("updates");
-  doc.clientID = seed % 100000;
+  doc.clientID = seed % 100_000;
   targetMap.set(`update-${seed}`, {
     x,
     y,
@@ -72,7 +90,9 @@ function createYjsUpdate(doc: Y.Doc, seed: number, x: number, y: number, round: 
   return Y.encodeStateAsUpdate(doc);
 }
 
-function extractPositionsFromDoc(doc: Y.Doc): Array<{ x: number; y: number; id: string }> {
+function extractPositionsFromDoc(
+  doc: Y.Doc
+): Array<{ x: number; y: number; id: string }> {
   const positions: Array<{ x: number; y: number; id: string }> = [];
   for (const map of doc.getMaps()) {
     map.forEach((value, key) => {
@@ -95,9 +115,13 @@ function getSharedYjsDoc(workspaceId: string): Y.Doc {
   return globalYjsDoc;
 }
 
-async function performBrowserDrag(page: Page, boardId: string, contentionFactor: number): Promise<number> {
-  const startX = 100 + (contentionFactor * 17) % 400;
-  const startY = 100 + (contentionFactor * 23) % 300;
+async function performBrowserDrag(
+  page: Page,
+  _boardId: string,
+  contentionFactor: number
+): Promise<number> {
+  const startX = 100 + ((contentionFactor * 17) % 400);
+  const startY = 100 + ((contentionFactor * 23) % 300);
   const endX = startX + 150 + contentionFactor * 11;
   const endY = startY + 100 + contentionFactor * 7;
 
@@ -113,11 +137,17 @@ async function performBrowserDrag(page: Page, boardId: string, contentionFactor:
   return Date.now() - startTime;
 }
 
-async function runBrowserScenario(page: Page, iteration: number): Promise<void> {
+async function runBrowserScenario(
+  page: Page,
+  iteration: number
+): Promise<void> {
   const workspaceId = `hybrid-browser-${__VU}-${iteration}`;
 
   try {
-    await page.goto(`${BASE_URL}/workspace/${workspaceId}`, { waitUntil: "networkidle", timeout: 30000 });
+    await page.goto(`${BASE_URL}/workspace/${workspaceId}`, {
+      waitUntil: "networkidle",
+      timeout: 30_000,
+    });
     browserConcurrentUsers.add(1);
 
     const boardId = `hybrid-board-${__VU}`;
@@ -126,7 +156,11 @@ async function runBrowserScenario(page: Page, iteration: number): Promise<void> 
       const contentionFactor = __VU * 100 + round * 10 + iteration;
 
       try {
-        const latency = await performBrowserDrag(page, boardId, contentionFactor);
+        const latency = await performBrowserDrag(
+          page,
+          boardId,
+          contentionFactor
+        );
         browserDragLatency.add(latency);
         browserDragSuccess.add(true);
       } catch {
@@ -143,16 +177,19 @@ async function runBrowserScenario(page: Page, iteration: number): Promise<void> 
 export async function runProtocolVu(): Promise<void> {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "hybrid-load-test";
 
-  if (!wsUrl || !authToken) {
-    console.error("WS_URL and AUTH_TOKEN environment variables are required for protocol VUs");
+  if (!(wsUrl && (authToken || useBypass))) {
+    console.error(
+      "WS_URL and AUTH_TOKEN environment variables are required for protocol VUs"
+    );
     return;
   }
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     wsConnectSuccess.add(false);
     return;
   }
@@ -160,22 +197,27 @@ export async function runProtocolVu(): Promise<void> {
   wsConnectSuccess.add(true);
 
   const myLabel = `hybrid-protocol-${__VU}`;
-  const baseUpdate = __VU * 10000;
+  const baseUpdate = __VU * 10_000;
   const yjsDoc = getSharedYjsDoc(workspaceId);
 
   const initialStateVector = computeStateVector(yjsDoc);
-  let initialHash = "";
+  let _initialHash = "";
 
   sleep(1);
 
   if (session.receivedSyncStep2) {
     stateVectorMatches.add(1);
-    initialHash = computeDocHash(yjsDoc);
+    _initialHash = computeDocHash(yjsDoc);
   } else {
     stateVectorMismatches.add(1);
   }
 
-  const expectedPositions: Array<{ x: number; y: number; seed: number; round: number }> = [];
+  const expectedPositions: Array<{
+    x: number;
+    y: number;
+    seed: number;
+    round: number;
+  }> = [];
 
   for (let round = 0; round < 10; round++) {
     const updateStart = Date.now();
@@ -183,7 +225,7 @@ export async function runProtocolVu(): Promise<void> {
     const x = (__VU * 50 + round * 10) % 1920;
     const y = (__VU * 30 + round * 7) % 1080;
 
-    const yjsUpdate = createYjsUpdate(yjsDoc, seed, x, y, round);
+    const _yjsUpdate = createYjsUpdate(yjsDoc, seed, x, y, round);
     globalSentUpdates.set(`vu-${__VU}-round-${round}`, { x, y, seed, round });
     session.sendSyncUpdate(seed);
 
@@ -204,7 +246,10 @@ export async function runProtocolVu(): Promise<void> {
   }
 
   const finalStateVector = computeStateVector(yjsDoc);
-  const stateVectorEqual = stateVectorsEqual(initialStateVector, finalStateVector);
+  const stateVectorEqual = stateVectorsEqual(
+    initialStateVector,
+    finalStateVector
+  );
 
   if (stateVectorEqual && session.receivedUpdates > 0) {
     stateVectorMatches.add(1);
@@ -251,13 +296,20 @@ export async function runProtocolVu(): Promise<void> {
   session.disconnect();
   sleep(1);
 
-  const reconnectSession = connectCollabSession(wsUrl, authToken, workspaceId);
+  const reconnectSession = connectCollabSession(
+    wsUrl,
+    authToken ?? "",
+    workspaceId
+  );
 
-  if (reconnectSession.established) {
+  if (waitForSessionEstablished(reconnectSession)) {
     sleep(1);
     if (reconnectSession.receivedSyncStep2) {
       const reconnectStateVector = computeStateVector(yjsDoc);
-      const vectorMatch = stateVectorsEqual(finalStateVector, reconnectStateVector);
+      const vectorMatch = stateVectorsEqual(
+        finalStateVector,
+        reconnectStateVector
+      );
       if (vectorMatch) {
         stateVectorMatches.add(1);
         roomCleanupSuccess.add(true);

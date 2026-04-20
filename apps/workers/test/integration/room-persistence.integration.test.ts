@@ -1,10 +1,10 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
-import { roomManager } from "../../src/collab/room-manager";
 
+// Set up mocks BEFORE importing the module under test
 const findUniqueMock = mock(() => Promise.resolve(null));
 const upsertMock = mock(() => Promise.resolve({}));
 const updateMock = mock(() => Promise.resolve({}));
@@ -69,6 +69,41 @@ mock.module("../../src/collab/metrics", () => ({
 mock.module("@lumen/ai", () => ({
   aiRoutes: new Elysia({ name: "ai-routes" }),
 }));
+
+mock.module("@lumen/yjs-shared", () => ({
+  YJS_MAP_NAMES: {
+    WORKSPACE: "workspace",
+    BOARDS: "boards",
+    COLUMNS: "columns",
+    TASKS: "tasks",
+    BOARD_POSITIONS: "boardPositions",
+    BOARD_CONNECTIONS: "boardConnections",
+    AREAS: "areas",
+    AREA_POSITIONS: "areaPositions",
+    AREA_DIALOGS: "areaDialogs",
+    CANVAS: "canvas",
+    BOARD_QUICK_ACTIONS: "boardQuickActions",
+    BOARD_DIALOGS: "boardDialogs",
+    CONNECTION_DIALOGS: "connectionDialogs",
+    CREATE_TASK_MODALS: "createTaskModals",
+    COLUMN_QUICK_ACTIONS: "columnQuickActions",
+    COLUMN_DIALOGS: "columnDialogs",
+    TASK_QUICK_ACTIONS: "taskQuickActions",
+    TASK_DETAIL_MODALS: "taskDetailModals",
+    COMMENTS: "comments",
+    CHAT_MESSAGES: "chatMessages",
+  },
+  MESSAGE_WORKSPACE_DELETED: 3,
+  MESSAGE_SYNC: 0,
+  MESSAGE_AWARENESS: 1,
+  assignSafeYjsClientId: (doc: { clientID: number }) => {
+    doc.clientID = 1;
+    return 1;
+  },
+}));
+
+// Import roomManager AFTER all mocks are set up
+const { roomManager } = await import("../../src/collab/room-manager");
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];
@@ -346,4 +381,9 @@ describe("WORKERS-I-05: room-persistence integration", () => {
       expect(findUniqueMock).toHaveBeenCalledTimes(1);
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

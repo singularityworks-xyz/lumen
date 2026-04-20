@@ -31,6 +31,9 @@ const mockTracerProviderShutdown = mock(() => Promise.resolve());
 const mockMeterProviderShutdown = mock(() => Promise.resolve());
 const mockLoggerProviderShutdown = mock(() => Promise.resolve());
 const mockTracerProviderRegister = mock(() => undefined);
+const mockDiagSetLogger = mock(() => undefined);
+const mockDiagWarn = mock((_message: string, _error?: Error) => undefined);
+const mockRegisterInstrumentations = mock(() => undefined);
 
 const mockTracerProvider = {
   register: mockTracerProviderRegister,
@@ -47,16 +50,32 @@ const mockLoggerProvider = {
 
 // Track initialized state to control getOtelConfig mock
 let otelEnabled = true;
+let otelEnvironment: "development" | "production" | "test" = "test";
 
 mock.module("./env", () => ({
   get env() {
     return {
-      NODE_ENV: "test",
+      NODE_ENV: otelEnvironment,
       get OTEL_ENABLED() {
         return otelEnabled;
       },
       OTEL_EXPORTER_OTLP_ENDPOINT: otelEnabled ? "http://localhost:4318" : "",
       OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+    };
+  },
+}));
+
+// Also mock the config to ensure OTEL_ENABLED is respected
+mock.module("./config", () => ({
+  getOtelConfig: (serviceName: string) => {
+    const currentOtelEnabled = otelEnabled;
+    const endpoint = currentOtelEnabled ? "http://localhost:4318" : "";
+    return {
+      enabled: currentOtelEnabled && !!endpoint,
+      endpoint,
+      headers: { Authorization: "Bearer test" },
+      serviceName,
+      environment: otelEnvironment,
     };
   },
 }));
@@ -73,9 +92,9 @@ mock.module("@opentelemetry/api", () => {
     DiagConsoleLogger,
     DiagLogLevel: { INFO: 9, WARN: 13, ERROR: 17 },
     diag: {
-      setLogger: mock(() => undefined),
+      setLogger: mockDiagSetLogger,
       info: mock(() => undefined),
-      warn: mock(() => undefined),
+      warn: mockDiagWarn,
       error: mock(() => undefined),
     },
     metrics: {
@@ -92,14 +111,31 @@ mock.module("@opentelemetry/api", () => {
   };
 });
 
-class OTLPExporterBase {}
+class OTLPExporterBase {
+  export(_items: unknown, _resultCallback: unknown) {
+    /* mock */
+  }
+}
 
-mock.module("@opentelemetry/otlp-exporter-base", () => ({
-  OTLPExporterBase,
-}));
+// This is needed to make OTLPExporterBase extendable
+Object.defineProperty(OTLPExporterBase, "name", { value: "OTLPExporterBase" });
+
+mock.module("@opentelemetry/otlp-exporter-base", () => {
+  // Return a proper extendable class
+  return {
+    OTLPExporterBase: class MockOTLPExporterBase {
+      export(_items: unknown, _resultCallback: unknown) {
+        /* mock */
+      }
+    },
+  };
+});
 
 mock.module("@opentelemetry/otlp-exporter-base/node-http", () => ({
-  OTLPNodeExporterBase: OTLPExporterBase,
+  OTLPExporterNodeBase: OTLPExporterBase,
+  OTLPExporterBase,
+  createOtlpHttpExportDelegate: mock(() => ({})),
+  convertLegacyHttpOptions: mock(() => ({})),
 }));
 
 mock.module("@opentelemetry/core", () => {
@@ -119,7 +155,9 @@ mock.module("@opentelemetry/core", () => {
   };
 });
 
-mock.module("@opentelemetry/otlp-transformer", () => ({}));
+mock.module("@opentelemetry/otlp-transformer", () => ({
+  JsonLogsSerializer: {},
+}));
 
 mock.module("@opentelemetry/sdk-metrics", () => {
   function PeriodicExportingMetricReader() {
@@ -131,12 +169,11 @@ mock.module("@opentelemetry/sdk-metrics", () => {
   };
 });
 
-mock.module("@opentelemetry/exporter-logs-otlp-http", () => {
-  function OTLPLogExporter() {
-    /* mock */
-  }
-  return { OTLPLogExporter };
-});
+class OTLPLogExporterMock {}
+
+mock.module("@opentelemetry/exporter-logs-otlp-http", () => ({
+  OTLPLogExporter: OTLPLogExporterMock,
+}));
 
 mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
   function OTLPMetricExporter() {
@@ -162,7 +199,7 @@ mock.module("@opentelemetry/host-metrics", () => {
 });
 
 mock.module("@opentelemetry/instrumentation", () => ({
-  registerInstrumentations: mock(() => undefined),
+  registerInstrumentations: mockRegisterInstrumentations,
 }));
 
 mock.module("@opentelemetry/resources", () => ({
@@ -179,14 +216,12 @@ mock.module("@opentelemetry/sdk-logs", () => {
   };
 });
 
-mock.module("@opentelemetry/api-logs", () => {
-  return {
-    logs: {
-      setGlobalLoggerProvider: mock(() => undefined),
-      getLogger: mock(() => ({ emit: mock() })),
-    },
-  };
-});
+mock.module("@opentelemetry/api-logs", () => ({
+  logs: {
+    setGlobalLoggerProvider: mock(() => undefined),
+    getLogger: mock(() => ({ emit: mock() })),
+  },
+}));
 
 mock.module("@opentelemetry/sdk-trace-node", () => {
   function BatchSpanProcessor() {
@@ -210,10 +245,14 @@ import {
 describe("sdk-node", () => {
   beforeEach(() => {
     otelEnabled = true;
+    otelEnvironment = "test";
     mockTracerProviderShutdown.mockClear();
     mockMeterProviderShutdown.mockClear();
     mockLoggerProviderShutdown.mockClear();
     mockTracerProviderRegister.mockClear();
+    mockDiagSetLogger.mockClear();
+    mockDiagWarn.mockClear();
+    mockRegisterInstrumentations.mockClear();
   });
 
   afterEach(async () => {
@@ -293,6 +332,44 @@ describe("sdk-node", () => {
       initOtel("test-service", [instrumentation]);
 
       expect(isOtelInitialized()).toBe(true);
+      expect(mockRegisterInstrumentations).toHaveBeenCalledTimes(1);
+    });
+
+    it("sets diagnostic logger in development environment", () => {
+      otelEnvironment = "development";
+
+      const result = initOtel("test-service");
+
+      expect(result).toBe(true);
+      expect(mockDiagSetLogger).toHaveBeenCalledTimes(1);
+    });
+
+    it("warns when instrumentation registration throws", () => {
+      const instrumentation = {
+        enable: () => undefined,
+        instrumentationName: "test",
+        instrumentationVersion: "1.0.0",
+        disable: () => undefined,
+        setTracerProvider: () => undefined,
+        setMeterProvider: () => undefined,
+        setLoggerProvider: () => undefined,
+        getConfig: () => ({ enabled: true }),
+        setConfig: () => ({ enabled: true }),
+        _config: { enabled: true },
+      } as unknown as Instrumentation;
+
+      mockRegisterInstrumentations.mockImplementationOnce(() => {
+        throw new Error("register failed");
+      });
+
+      const result = initOtel("test-service", [instrumentation]);
+
+      expect(result).toBe(true);
+      const warningCall = mockDiagWarn.mock.calls.find(
+        ([message]) => message === "[OTEL] Failed to register instrumentations"
+      );
+      expect(warningCall).toBeDefined();
+      expect(warningCall?.[1]).toBeInstanceOf(Error);
     });
   });
 

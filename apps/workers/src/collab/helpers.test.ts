@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+// Set environment variables BEFORE any imports that might trigger prisma initialization
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "test";
+
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 type MockFn = ReturnType<typeof mock<() => Promise<unknown>>>;
 
@@ -449,4 +453,8 @@ describe("collab/helpers", () => {
       expect(result?.owner).toBeUndefined();
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

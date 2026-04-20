@@ -1,18 +1,25 @@
 import { check, sleep } from "k6";
-import { Counter, Gauge, Rate, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import { Counter, Rate, Trend } from "k6/metrics";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const stickyRoutingSuccess = new Rate("sticky_routing_success");
 const sameWorkerReconnectCount = new Counter("same_worker_reconnect_count");
-const differentWorkerReconnectCount = new Counter("different_worker_reconnect_count");
-const stateConsistencyAfterReroute = new Rate("state_consistency_after_reroute");
+const differentWorkerReconnectCount = new Counter(
+  "different_worker_reconnect_count"
+);
+const stateConsistencyAfterReroute = new Rate(
+  "state_consistency_after_reroute"
+);
 const workerAffinityMaintained = new Rate("worker_affinity_maintained");
 const routingLatency = new Trend("routing_latency_ms");
 const stickinessCheckCount = new Counter("stickiness_check_count");
 
-const COHORT_SIZE = parseInt(__ENV.COHORT_SIZE || "30", 10);
-const STICKINESS_ROUNDS = parseInt(__ENV.STICKINESS_ROUNDS || "3", 10);
-const RECONNECT_DELAY = parseInt(__ENV.RECONNECT_DELAY || "3", 10);
+const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "30", 10);
+const STICKINESS_ROUNDS = Number.parseInt(__ENV.STICKINESS_ROUNDS || "3", 10);
+const RECONNECT_DELAY = Number.parseInt(__ENV.RECONNECT_DELAY || "3", 10);
 
 export const options = {
   scenarios: {
@@ -34,18 +41,18 @@ export const options = {
 };
 
 interface RoutingMetrics {
-  workerId: string | null;
-  reconnectCount: number;
-  updatesSent: number;
-  updatesReceived: number;
   lastUpdateSeed: number;
+  reconnectCount: number;
+  updatesReceived: number;
+  updatesSent: number;
+  workerId: string | null;
 }
 
 interface StickyUserState {
-  userId: string;
-  sessionTokens: Map<string, string>;
-  workerAssignments: Map<string, string>;
   lastWorkerId: string | null;
+  sessionTokens: Map<string, string>;
+  userId: string;
+  workerAssignments: Map<string, string>;
 }
 
 const userStates = new Map<string, StickyUserState>();
@@ -56,45 +63,61 @@ function getUserId(vu: number, iter: number): string {
 
 function getOrCreateUserState(vu: number, iter: number): StickyUserState {
   const userId = getUserId(vu, iter);
-  if (!userStates.has(userId)) {
-    userStates.set(userId, {
+  let state = userStates.get(userId);
+  if (!state) {
+    state = {
       userId,
       sessionTokens: new Map(),
       workerAssignments: new Map(),
       lastWorkerId: null,
-    });
+    };
+    userStates.set(userId, state);
   }
-  return userStates.get(userId)!;
+  return state;
 }
 
-function extractWorkerId(session: ReturnType<typeof connectCollabSession>): string | null {
+function extractWorkerId(
+  session: ReturnType<typeof connectCollabSession>
+): string | null {
   const resp = session.response;
-  if (!resp) return null;
-  
+  if (!resp) {
+    return null;
+  }
+
   const headers = resp.headers;
   if (headers && typeof headers === "object") {
     for (const [key, value] of Object.entries(headers)) {
-      if (key.toLowerCase() === "x-worker-id" || key.toLowerCase() === "server") {
+      if (
+        key.toLowerCase() === "x-worker-id" ||
+        key.toLowerCase() === "server"
+      ) {
         return String(value);
       }
     }
   }
-  
+
   return `worker-${Math.floor(Math.random() * 2) + 1}`;
 }
+
+// Top-level regex for performance
+const PORT_REGEX = /:\d+/;
 
 function simulateWorkerReroute(wsUrl: string): string {
   const workers = ["primary", "secondary"];
   const targetWorker = workers[Math.floor(Math.random() * workers.length)];
-  return wsUrl.replace(/:\d+/, `:${targetWorker === "primary" ? "3002" : "3003"}`);
+  return wsUrl.replace(
+    PORT_REGEX,
+    `:${targetWorker === "primary" ? "3002" : "3003"}`
+  );
 }
 
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-sticky-routing";
 
-  if (!wsUrl || !authToken) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     return;
   }
@@ -105,12 +128,12 @@ export default function () {
   const userState = getOrCreateUserState(vu, iter);
 
   const routingStart = Date.now();
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
   const routingEnd = Date.now();
 
   routingLatency.add(routingEnd - routingStart);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     stickyRoutingSuccess.add(false);
     return;
   }
@@ -121,7 +144,7 @@ export default function () {
   userState.lastWorkerId = initialWorkerId;
 
   const myLabel = `sticky-${userId}`;
-  const baseUpdate = vu * 10000 + iter * 1000;
+  const baseUpdate = vu * 10_000 + iter * 1000;
 
   for (let round = 0; round < 5; round++) {
     const updateSeed = baseUpdate + round;
@@ -148,14 +171,18 @@ export default function () {
 
   for (let reroute = 0; reroute < STICKINESS_ROUNDS; reroute++) {
     const reconnectStart = Date.now();
-    
+
     const targetUrl = reroute % 2 === 0 ? wsUrl : simulateWorkerReroute(wsUrl);
-    const reconnectSession = connectCollabSession(targetUrl, authToken, workspaceId);
+    const reconnectSession = connectCollabSession(
+      targetUrl,
+      authToken ?? "",
+      workspaceId
+    );
     const reconnectEnd = Date.now();
 
     routingLatency.add(reconnectEnd - reconnectStart);
 
-    if (!reconnectSession.established) {
+    if (!waitForSessionEstablished(reconnectSession)) {
       stickyRoutingSuccess.add(false);
       continue;
     }
@@ -164,7 +191,7 @@ export default function () {
     metrics.reconnectCount++;
 
     const newWorkerId = extractWorkerId(reconnectSession);
-    
+
     if (newWorkerId === userState.lastWorkerId) {
       sameWorkerReconnectCount.add(1);
       workerAffinityMaintained.add(true);
@@ -184,7 +211,7 @@ export default function () {
     });
 
     const receivedBeforeReroute = reconnectSession.receivedUpdates;
-    
+
     reconnectSession.sendSyncUpdate(baseUpdate + 200 + reroute);
     sleep(0.5);
 
@@ -203,11 +230,15 @@ export default function () {
 
   stickinessCheckCount.add(1);
 
-  const finalSession = connectCollabSession(wsUrl, authToken, workspaceId);
-  
-  if (finalSession.established) {
+  const finalSession = connectCollabSession(
+    wsUrl,
+    authToken ?? "",
+    workspaceId
+  );
+
+  if (waitForSessionEstablished(finalSession)) {
     const finalWorkerId = extractWorkerId(finalSession);
-    
+
     check(finalSession, {
       "final session established": (s) => s.established === true,
       "final session received sync": (s) => s.receivedSyncStep2 === true,

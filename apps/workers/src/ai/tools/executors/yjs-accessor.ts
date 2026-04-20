@@ -5,9 +5,30 @@
 
 import { createLogger } from "@lumen/logger";
 import type { Doc } from "yjs";
+import type { RoomManager } from "../../../collab";
 import { roomManager } from "../../../collab";
 
 export const logger = createLogger({ name: "ai:tool-executor" });
+
+// Default room manager instance - can be overridden for testing
+let _roomManager: RoomManager = roomManager;
+
+/**
+ * Set the room manager instance (for testing purposes)
+ * @internal
+ */
+export function _setRoomManager(manager: RoomManager): void {
+  _roomManager = manager;
+}
+
+/**
+ * Reset the room manager to the default instance (for testing purposes)
+ * @internal
+ */
+export function _resetRoomManager(): void {
+  _roomManager = roomManager;
+}
+
 // Get workspace Yjs document for action tools (create, update, delete).
 // This is needed because action tools modify shared state via Yjs.
 // This function should ONLY be called for shared workspaces. For local
@@ -16,7 +37,7 @@ export async function getWorkspaceYjsDoc(
   workspaceId: string
 ): Promise<Doc | null> {
   // First try to get existing room (user is connected via WebSocket)
-  let room = roomManager.getRoom(workspaceId);
+  let room = _roomManager.getRoom(workspaceId);
 
   logger.debug("getWorkspaceYjsDoc called", {
     workspaceId,
@@ -39,7 +60,7 @@ export async function getWorkspaceYjsDoc(
   logger.debug("No active room, loading state from database", { workspaceId });
 
   try {
-    const loaded = await roomManager.loadRoomState(workspaceId);
+    const loaded = await _roomManager.loadRoomState(workspaceId);
     if (!loaded) {
       logger.warn("Failed to load workspace state from database", {
         workspaceId,
@@ -48,11 +69,11 @@ export async function getWorkspaceYjsDoc(
     }
 
     // Get the room that was created during loadRoomState
-    room = roomManager.getRoom(workspaceId);
+    room = _roomManager.getRoom(workspaceId);
 
     // Schedule cleanup for rooms loaded from database (zero connections)
     if (room && room.connections.size === 0) {
-      roomManager.scheduleRoomCleanup(workspaceId);
+      _roomManager.scheduleRoomCleanup(workspaceId);
     }
 
     return room?.doc ?? null;
