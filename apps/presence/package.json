@@ -1,6 +1,6 @@
 {
   "name": "@lumen/presence",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "private": true,
   "scripts": {
     "dev": "set -a && source .env && set +a && mix phx.server",

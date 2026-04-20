@@ -262,9 +262,9 @@ defmodule PresenceWeb.UserSocketTest do
     end
 
     test "rejects anonymous when compile-time config is false (line 96)" do
-      # This test documents that the compile-time @allow_e2e_anon_socket 
+      # This test documents that the compile-time @allow_e2e_anon_socket
       # module attribute must be true for anonymous connections to work.
-      # The test above already covers this since in test env the compile-time 
+      # The test above already covers this since in test env the compile-time
       # config is false by default. We verify by testing with env var set.
       previous = System.get_env("ALLOW_E2E_ANON_SOCKET")
       System.delete_env("ALLOW_E2E_ANON_SOCKET")

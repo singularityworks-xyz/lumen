@@ -34,7 +34,7 @@ describe("sendChatMessage", () => {
     const messageId = state.chatMessages.allIds[0];
     expect(messageId).toBeDefined();
 
-    const message = state.chatMessages.byId[messageId];
+    const message = state.chatMessages.byId[messageId!];
     expect(message).toBeDefined();
     expect(message?.content).toBe(content);
     expect(message?.authorId).toBe(author.id);
@@ -80,7 +80,7 @@ describe("sendChatMessage", () => {
 
     actions.sendChatMessage("Reply message", author, options);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.replyToId).toBe(options.replyToId);
@@ -103,7 +103,7 @@ describe("sendChatMessage", () => {
 
     actions.sendChatMessage("@Mentioned User hello", author, { mentions });
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.mentions).toEqual(mentions);
@@ -136,7 +136,7 @@ describe("sendChatMessage", () => {
     const ids = new Set<string>();
     for (let i = 0; i < 10; i++) {
       actions.sendChatMessage(`Message ${i}`, author);
-      ids.add(state.chatMessages.allIds[i]);
+      ids.add(state.chatMessages.allIds[i]!);
     }
 
     expect(ids.size).toBe(10);
@@ -149,7 +149,7 @@ describe("editChatMessage", () => {
     const author = { id: "user-1", name: "Test User" };
 
     actions.sendChatMessage("Original content", author);
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     const beforeEdit = state.chatMessages.byId[messageId]?.updatedAt;
 
@@ -161,7 +161,7 @@ describe("editChatMessage", () => {
 
     actions.editChatMessage(messageId, "Updated content");
 
-    const message = state.chatMessages.byId[messageId];
+    const message = state.chatMessages.byId[messageId!];
     expect(message?.content).toBe("Updated content");
     expect(message?.isEdited).toBe(true);
     expect(message?.lastEditedAt).toBeDefined();
@@ -177,7 +177,7 @@ describe("editChatMessage", () => {
     ];
 
     actions.sendChatMessage("Hello", author, { mentions: originalMentions });
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     const newMentions: ChatMention[] = [
       { userId: "user-3", userName: "New User", startIndex: 0, endIndex: 8 },
@@ -198,7 +198,7 @@ describe("editChatMessage", () => {
     ];
 
     actions.sendChatMessage("Hello", author, { mentions });
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     actions.editChatMessage(messageId, "Updated");
 
@@ -211,7 +211,7 @@ describe("editChatMessage", () => {
     const author = { id: "user-1", name: "Test User" };
 
     actions.sendChatMessage("Original", author);
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     actions.editChatMessage("non-existent-id", "Updated");
 
@@ -228,7 +228,7 @@ describe("deleteChatMessage", () => {
 
     actions.sendChatMessage("Message 1", author);
     actions.sendChatMessage("Message 2", author);
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     actions.deleteChatMessage(messageId);
 
@@ -244,18 +244,18 @@ describe("deleteChatMessage", () => {
     actions.sendChatMessage("Message 2", author);
     actions.sendChatMessage("Message 3", author);
 
-    const middleId = state.chatMessages.allIds[1];
+    const middleId = state.chatMessages.allIds[1]!;
 
     actions.deleteChatMessage(middleId);
 
     expect(state.chatMessages.allIds).toHaveLength(2);
     expect(state.chatMessages.allIds).not.toContain(middleId);
-    expect(state.chatMessages.byId[state.chatMessages.allIds[0]]?.content).toBe(
-      "Message 1"
-    );
-    expect(state.chatMessages.byId[state.chatMessages.allIds[1]]?.content).toBe(
-      "Message 3"
-    );
+    expect(
+      state.chatMessages.byId[state.chatMessages.allIds[0]!]?.content
+    ).toBe("Message 1");
+    expect(
+      state.chatMessages.byId[state.chatMessages.allIds[1]!]?.content
+    ).toBe("Message 3");
   });
 
   it("handles deletion of non-existent ID gracefully", () => {
@@ -263,7 +263,7 @@ describe("deleteChatMessage", () => {
     const author = { id: "user-1", name: "Test User" };
 
     actions.sendChatMessage("Message", author);
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     actions.deleteChatMessage("non-existent-id");
 
@@ -406,14 +406,13 @@ describe("message data integrity", () => {
     actions.sendChatMessage("Test message", author);
     const afterSend = new Date().toISOString();
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.createdAt).toBeDefined();
     expect(message?.updatedAt).toBeDefined();
-    expect(
-      message?.createdAt >= beforeSend || message?.createdAt <= afterSend
-    ).toBe(true);
+    const createdAt = message?.createdAt!;
+    expect(createdAt >= beforeSend || createdAt <= afterSend).toBe(true);
   });
 
   it("handles messages without optional author image", () => {
@@ -422,7 +421,7 @@ describe("message data integrity", () => {
 
     actions.sendChatMessage("Test", author);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.authorImage).toBeUndefined();
@@ -434,7 +433,7 @@ describe("message data integrity", () => {
 
     actions.sendChatMessage("Test", author);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.replyToId).toBeUndefined();
@@ -448,7 +447,7 @@ describe("message data integrity", () => {
 
     actions.sendChatMessage("Test", author);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.mentions).toBeUndefined();
@@ -464,7 +463,7 @@ describe("edge cases", () => {
 
     actions.sendChatMessage(specialContent, author);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.content).toBe(specialContent);
@@ -478,7 +477,7 @@ describe("edge cases", () => {
 
     actions.sendChatMessage(longContent, author);
 
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
     const message = state.chatMessages.byId[messageId];
 
     expect(message?.content).toHaveLength(10_000);
@@ -489,7 +488,7 @@ describe("edge cases", () => {
     const author = { id: "user-1", name: "Test User" };
 
     actions.sendChatMessage("Original", author);
-    const messageId = state.chatMessages.allIds[0];
+    const messageId = state.chatMessages.allIds[0]!;
 
     actions.editChatMessage(messageId, "Edit 1");
     actions.editChatMessage(messageId, "Edit 2");

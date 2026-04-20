@@ -929,6 +929,9 @@ describe("useTaskDialogSync", () => {
       // Execute cleanup functions to test unobservation
       for (let i = useEffectCalls.length - 1; i >= 0; i--) {
         const call = useEffectCalls[i];
+        if (!call) {
+          continue;
+        }
         const cleanup = call[0];
         if (typeof cleanup === "function") {
           (cleanup as () => void)();

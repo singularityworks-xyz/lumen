@@ -4,6 +4,26 @@ import * as Y from "yjs";
 // Store state and subscribers (must be defined before mock module declarations)
 type StoreSubscriber = (state: StoreState, prevState: StoreState) => void;
 
+interface Task {
+  board_id: string;
+  column_id: string;
+  created_at: string;
+  created_by: string;
+  id: string;
+  position: number;
+  priority: "low" | "medium" | "high";
+  progress: number;
+  status: "todo" | "done" | "trash";
+  title: string;
+  updated_at: string;
+}
+
+interface DiffResult<T> {
+  added: T[];
+  changed: T[];
+  removed: string[];
+}
+
 interface StoreState {
   areaDialogs: Record<string, unknown>;
   areaDragOrigins: Record<string, unknown>;
@@ -168,10 +188,10 @@ mock.module("@/src/features/collab/sync/syncs", () => ({
 }));
 
 // Mock deep-equals
-const mockDiffEntityMaps = mock(() => ({
-  added: [],
-  changed: [],
-  removed: [],
+const mockDiffEntityMaps = mock(<T>() => ({
+  added: [] as T[],
+  changed: [] as T[],
+  removed: [] as string[],
 }));
 
 mock.module("@/src/features/collab/utils/deep-equals", () => ({
@@ -251,9 +271,9 @@ function resetMocks() {
   }
 
   mockDiffEntityMaps.mockReturnValue({
-    added: [],
-    changed: [],
-    removed: [],
+    added: [] as unknown[],
+    changed: [] as unknown[],
+    removed: [] as string[],
   });
 
   mockApplyYjsToStateWithRepair.mockReturnValue({});
@@ -452,7 +472,7 @@ describe("useYjsSync", () => {
 
       const result = useYjsSync(doc, true, "ws-1");
 
-      const task = {
+      const task: Task = {
         id: "task-1",
         board_id: "board-1",
         column_id: "col-1",
@@ -683,7 +703,7 @@ describe("useYjsSync", () => {
         added: [board],
         changed: [],
         removed: [],
-      });
+      } as DiffResult<typeof board>);
 
       triggerStoreStateChange({
         boards: {
@@ -718,7 +738,7 @@ describe("useYjsSync", () => {
         added: [],
         changed: [],
         removed: ["board-1"],
-      });
+      } as DiffResult<typeof board>);
 
       triggerStoreStateChange({
         boards: { byId: {}, allIds: [] },
@@ -735,7 +755,7 @@ describe("useYjsSync", () => {
 
       useYjsSync(doc, true, "ws-1");
 
-      const task = {
+      const task: Task = {
         id: "task-1",
         board_id: "board-1",
         column_id: "col-1",
@@ -750,9 +770,21 @@ describe("useYjsSync", () => {
       };
 
       mockDiffEntityMaps
-        .mockReturnValueOnce({ added: [], changed: [], removed: [] })
-        .mockReturnValueOnce({ added: [], changed: [], removed: [] })
-        .mockReturnValueOnce({ added: [task], changed: [], removed: [] });
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [task],
+          changed: [],
+          removed: [],
+        } as DiffResult<Task>);
 
       triggerStoreStateChange({
         tasks: {
@@ -766,7 +798,7 @@ describe("useYjsSync", () => {
 
     it("deletes tasks from Yjs when they are removed", () => {
       const doc = createTestDoc();
-      const task = {
+      const task: Task = {
         id: "task-1",
         board_id: "board-1",
         column_id: "col-1",
@@ -792,9 +824,21 @@ describe("useYjsSync", () => {
       useYjsSync(doc, true, "ws-1");
 
       mockDiffEntityMaps
-        .mockReturnValueOnce({ added: [], changed: [], removed: [] })
-        .mockReturnValueOnce({ added: [], changed: [], removed: [] })
-        .mockReturnValueOnce({ added: [], changed: [], removed: ["task-1"] });
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: ["task-1"],
+        } as DiffResult<Task>);
 
       triggerStoreStateChange({
         tasks: { byId: {}, allIds: [] },
