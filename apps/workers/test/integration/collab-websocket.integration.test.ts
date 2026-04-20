@@ -171,6 +171,8 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
     mockPrisma.workspaceCollaborator.findUnique.mockReset();
     mockPrisma.workspaceCollaborator.count.mockReset();
     mockPrisma.workspaceState.upsert.mockReset();
+    // Clean up room manager state between tests to prevent interference
+    roomManager?.reset();
   });
 
   describe("non-existent workspace behavior", () => {

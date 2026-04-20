@@ -9,6 +9,7 @@ process.env.GITHUB_CLIENT_ID = "test-github-client-id";
 process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.LOG_LEVEL = "info";
 process.env.DATABASE_URL = "postgres://localhost:5432/test";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-min-length-32";
 
 // ============================================================================
 // MOCKS SETUP - Must be defined before importing the module under test
