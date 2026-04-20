@@ -17,6 +17,8 @@ const TEST_ENV: Record<string, string> = {
   DATABASE_URL: "postgresql://test:test@localhost:5432/lumen_test",
   JWKS_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  AI_ENCRYPTION_KEY: "test-encryption-key-32-bytes!!",
+  CEREBRAS_API_KEY: "test-cerebras-api-key",
   LOG_LEVEL: "error",
   OTEL_ENABLED: "false",
 };

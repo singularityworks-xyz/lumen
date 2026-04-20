@@ -3,17 +3,41 @@ import { expect, test } from "@playwright/test";
 import {
   clearLocalStorageAndIndexedDB,
   createShareLinkForFirstBoard,
-  deleteWorkspace,
   disableAnimations,
   waitForAppReady,
 } from "../helpers/commands";
 import { waitForConnectionState } from "../helpers/waits";
 
 const SAVE_AS_LOCAL_REGEX = /save as local workspace/i;
+const STORE_DELETE_TIMEOUT_MS = 12_000;
+
+async function deleteCurrentWorkspaceViaUi(page: Page): Promise<boolean> {
+  try {
+    await page
+      .locator('[data-testid="workspace-selector"]')
+      .click({ button: "right", timeout: 5_000 });
+    await page
+      .locator('[data-testid="workspace-delete-option"]')
+      .waitFor({ state: "visible", timeout: 5_000 });
+    await page.click('[data-testid="workspace-delete-option"]', {
+      timeout: 5_000,
+    });
+    await page
+      .locator('[data-testid="workspace-delete-confirm-input"]')
+      .waitFor({ state: "visible", timeout: 5_000 });
+    await page.fill('[data-testid="workspace-delete-confirm-input"]', "DELETE");
+    await page.click('[data-testid="workspace-delete-submit"]', {
+      timeout: 5_000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function deleteCurrentWorkspaceReliable(page: Page): Promise<void> {
   const deletedViaStore = await page
-    .evaluate(async () => {
+    .evaluate(async (timeoutMs) => {
       interface KanbanState {
         currentWorkspaceId?: string | null;
         deleteWorkspace?: (workspaceId: string) => Promise<boolean> | boolean;
@@ -45,13 +69,21 @@ async function deleteCurrentWorkspaceReliable(page: Page): Promise<void> {
         return false;
       }
 
-      const deleted = await state.deleteWorkspace(workspaceId);
-      return deleted === true;
-    })
+      const deleted = await Promise.race([
+        Promise.resolve(state.deleteWorkspace(workspaceId))
+          .then((result) => result === true)
+          .catch(() => false),
+        new Promise<boolean>((resolve) => {
+          window.setTimeout(() => resolve(false), timeoutMs);
+        }),
+      ]);
+
+      return deleted;
+    }, STORE_DELETE_TIMEOUT_MS)
     .catch(() => false);
 
   if (!deletedViaStore) {
-    await deleteWorkspace(page);
+    await deleteCurrentWorkspaceViaUi(page);
   }
 }
 
