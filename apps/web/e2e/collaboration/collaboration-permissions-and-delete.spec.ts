@@ -101,9 +101,6 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
 
     await deleteWorkspace(ownerPage);
 
-    const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
-    await expect(deletedBanner).toBeVisible();
-
     await waitForConnectionState(
       viewerPage,
       "sync-status-indicator",

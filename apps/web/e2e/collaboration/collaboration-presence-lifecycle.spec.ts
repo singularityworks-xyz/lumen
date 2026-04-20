@@ -12,6 +12,8 @@ import {
 } from "../helpers/waits";
 
 test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
 
@@ -85,18 +87,16 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
 
     await ownerPage.mouse.move(500, 350);
     // Wait for cursor position to update on peer
-    await editorPage
-      .locator('[data-testid="peer-cursor"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await waitForPresenceCursor(editorPage);
 
-    const cursorIndicator = editorPage.locator('[data-testid="peer-cursor"]');
+    const cursorIndicator = editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .first();
     await expect(cursorIndicator).toBeVisible({ timeout: 5000 });
 
     await ownerPage.mouse.move(600, 400);
     // Wait for final cursor position to sync
-    await editorPage
-      .locator('[data-testid="peer-cursor"]')
-      .waitFor({ state: "visible", timeout: 5000 });
+    await waitForPresenceCursor(editorPage);
 
     const cursorBox = await cursorIndicator.boundingBox();
     expect(cursorBox).not.toBeNull();
@@ -143,7 +143,9 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     // Wait for cursor to appear on peer's view
     await waitForPresenceCursor(editorPage);
 
-    const cursorIndicator = editorPage.locator('[data-testid="peer-cursor"]');
+    const cursorIndicator = editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .first();
     await expect(cursorIndicator).toBeVisible({ timeout: 5000 });
   });
 
@@ -153,7 +155,9 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     // Wait for cursor to appear
     await waitForPresenceCursor(editorPage);
 
-    const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
+    const cursorBefore = editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .first();
     await expect(cursorBefore).toBeVisible({ timeout: 5000 });
 
     await ownerPage.close();
@@ -186,7 +190,9 @@ test.describe("E2E-14: Presence and Cursor Lifecycle", () => {
     // Wait for cursor to appear
     await waitForPresenceCursor(editorPage);
 
-    const cursorBefore = editorPage.locator('[data-testid="peer-cursor"]');
+    const cursorBefore = editorPage
+      .locator('[data-testid="peer-cursor"]')
+      .first();
     await expect(cursorBefore).toBeVisible({ timeout: 5000 });
 
     const ownerContext = await ownerPage.context();

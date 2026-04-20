@@ -190,6 +190,8 @@ async function addTaskViaStore(
 }
 
 test.describe("E2E-13: Multi-User Drag Sync", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
   let shareLink: string;

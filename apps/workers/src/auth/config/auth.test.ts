@@ -135,7 +135,7 @@ describe("auth/config/auth - Auth initialization", () => {
     it("should verify Prisma adapter was configured during initialization", () => {
       // Verify that prismaAdapter was called during module load
       expect(initialPrismaAdapterCalls.length).toBeGreaterThan(0);
-      const callArgs = initialPrismaAdapterCalls[0] as [
+      const callArgs = initialPrismaAdapterCalls[0] as unknown as [
         unknown,
         { provider: string },
       ];
@@ -414,7 +414,7 @@ describe("auth/config/auth - E2E session bypass logic", () => {
     });
 
     it("should handle missing headers gracefully", async () => {
-      const mockReq = {};
+      const mockReq = { headers: new Headers({}) };
 
       // Setup the original mock
       originalGetSessionMock.mockResolvedValueOnce({

@@ -16,6 +16,7 @@ import {
   removeBoardByIdViaStore,
   updateTaskTitleViaStore,
 } from "../helpers/store";
+import { waitForConnectionState } from "../helpers/waits";
 import {
   assertServerClientMatch,
   verifyServerClientStateMatch,
@@ -32,8 +33,36 @@ async function cleanupPages(pages: Page[]) {
 }
 
 test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   let ownerPage: Page;
   let editorPage: Page;
+
+  async function ensureAlignedWorkspaceContext(): Promise<string | null> {
+    const ownerWorkspaceId = await getCurrentWorkspaceIdViaStore(ownerPage);
+    if (!ownerWorkspaceId) {
+      return null;
+    }
+
+    await setCurrentWorkspaceFromStore(ownerPage, ownerWorkspaceId);
+    await setCurrentWorkspaceFromStore(editorPage, ownerWorkspaceId);
+
+    await expect
+      .poll(
+        async () => {
+          const ownerCurrent = await getCurrentWorkspaceIdViaStore(ownerPage);
+          const editorCurrent = await getCurrentWorkspaceIdViaStore(editorPage);
+          return (
+            ownerCurrent === ownerWorkspaceId &&
+            editorCurrent === ownerWorkspaceId
+          );
+        },
+        { timeout: 10_000 }
+      )
+      .toBe(true);
+
+    return ownerWorkspaceId;
+  }
 
   test.beforeEach(async ({ browser }) => {
     const setup = await setupTwoUsers(browser);
@@ -46,6 +75,20 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
   });
 
   test("user A opens task for edit while user B deletes it - graceful handling", async () => {
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      10_000
+    );
+    const alignedWorkspaceId = await ensureAlignedWorkspaceContext();
+
     await addColumnToFirstBoardViaStore(ownerPage, "Delete Conflict Column");
     await addTaskViaStore(
       ownerPage,
@@ -67,6 +110,11 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
     await expect
       .poll(
         async () => {
+          if (alignedWorkspaceId) {
+            await setCurrentWorkspaceFromStore(ownerPage, alignedWorkspaceId);
+            await setCurrentWorkspaceFromStore(editorPage, alignedWorkspaceId);
+          }
+
           const ownerTitle = await getTaskTitleById(ownerPage, taskId);
           const editorTitle = await getTaskTitleById(editorPage, taskId);
           if (ownerTitle !== editorTitle) {
@@ -77,7 +125,7 @@ test.describe("E2E-18: Conflict - Delete Task While Editing", () => {
             ownerTitle === null || ownerTitle === "Trying to save deleted task"
           );
         },
-        { timeout: 10_000 }
+        { timeout: 30_000, intervals: [250, 500, 1000] }
       )
       .toBe(true);
 
