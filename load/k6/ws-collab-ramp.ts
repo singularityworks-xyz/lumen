@@ -1,5 +1,5 @@
 import { check, sleep } from "k6";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 export const options = {
   scenarios: {

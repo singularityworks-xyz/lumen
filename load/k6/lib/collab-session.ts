@@ -21,6 +21,8 @@ declare global {
   const __ENV: {
     WS_URL?: string;
     AUTH_TOKEN?: string;
+    E2E_BYPASS?: string;
+    E2E_BYPASS_USER_ID?: string;
     SOAK_DURATION_MINUTES?: string;
     WORKSPACE_ID?: string;
     AI_BASE_URL?: string;
@@ -240,7 +242,18 @@ export function connectCollabSession(
   token: string,
   workspaceId: string
 ): CollabSession {
-  const fullUrl = `${url}/ws/collab/${workspaceId}?token=${token}`;
+  const fullUrl = token
+    ? `${url}/ws/collab/${workspaceId}?token=${token}`
+    : `${url}/ws/collab/${workspaceId}`;
+
+  const wsConnectOptions: { headers?: Record<string, string> } = {};
+  if (__ENV.E2E_BYPASS === "true") {
+    wsConnectOptions.headers = {
+      "x-e2e-bypass": "true",
+      "x-e2e-user-id": __ENV.E2E_BYPASS_USER_ID || "e2e-load-user",
+    };
+  }
+
   const connectStart = Date.now();
 
   const session: CollabSession = {
@@ -261,16 +274,7 @@ export function connectCollabSession(
     },
   };
 
-  const resp = ws.connect(fullUrl, {}, (socket) => {
-    const connectEnd = Date.now();
-    wsConnectDuration.add(connectEnd - connectStart);
-
-    if (resp.status !== 101) {
-      wsConnectSuccess.add(false);
-      return;
-    }
-
-    wsConnectSuccess.add(true);
+  const resp = ws.connect(fullUrl, wsConnectOptions, (socket) => {
     session.established = true;
 
     const syncStep1 = encodeSyncStep1();
@@ -357,6 +361,17 @@ export function connectCollabSession(
       }
     };
   });
+
+  const connectEnd = Date.now();
+  wsConnectDuration.add(connectEnd - connectStart);
+  session.response = resp;
+  session.established = resp.status === 101;
+
+  if (resp.status === 101) {
+    wsConnectSuccess.add(true);
+  } else {
+    wsConnectSuccess.add(false);
+  }
 
   return session;
 }

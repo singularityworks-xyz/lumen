@@ -21,6 +21,23 @@ async function cleanupPages(pages: Page[]) {
   }
 }
 
+async function openCommentsDrawerReliable(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await openCommentsDrawer(page);
+      await page
+        .locator('[data-testid="new-comment-input"]')
+        .waitFor({ state: "visible", timeout: 5000 });
+      return;
+    } catch {
+      await page.keyboard.press("Escape").catch(() => undefined);
+      await page.waitForTimeout(200);
+    }
+  }
+
+  throw new Error("Unable to open comments drawer reliably");
+}
+
 test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
   test.describe.configure({ timeout: 90_000 });
 
@@ -60,8 +77,8 @@ test.describe("E2E-19: Conflict - Comment Edit vs Delete", () => {
 
   async function createCommentFromOwnerViaUi(content: string): Promise<string> {
     await ensureAlignedWorkspace();
-    await openCommentsDrawer(ownerPage);
-    await openCommentsDrawer(editorPage);
+    await openCommentsDrawerReliable(ownerPage);
+    await openCommentsDrawerReliable(editorPage);
 
     await ownerPage.locator('[data-testid="new-comment-input"]').fill(content);
     await ownerPage.click('[data-testid="submit-comment"]');

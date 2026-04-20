@@ -1,6 +1,6 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 const stickyRoutingSuccess = new Rate("sticky_routing_success");
 const sameWorkerReconnectCount = new Counter("same_worker_reconnect_count");

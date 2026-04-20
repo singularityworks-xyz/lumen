@@ -1,7 +1,7 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import * as Y from "yjs";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 const convergencePass = new Rate("convergence_pass");
 const _convergenceLatency = new Trend("convergence_latency");

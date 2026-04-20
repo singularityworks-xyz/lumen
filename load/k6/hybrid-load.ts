@@ -2,7 +2,7 @@ import { sleep } from "k6";
 import { browser, type Page } from "k6/browser";
 import { Counter, Rate, Trend } from "k6/metrics";
 import * as Y from "yjs";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
 const wsUpdateLatency = new Trend("hybrid_ws_update_latency_ms");

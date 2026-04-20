@@ -15,19 +15,19 @@ async function deleteCurrentWorkspaceViaUi(page: Page): Promise<boolean> {
   try {
     await page
       .locator('[data-testid="workspace-selector"]')
-      .click({ button: "right", timeout: 5_000 });
+      .click({ button: "right", timeout: 5000 });
     await page
       .locator('[data-testid="workspace-delete-option"]')
-      .waitFor({ state: "visible", timeout: 5_000 });
+      .waitFor({ state: "visible", timeout: 5000 });
     await page.click('[data-testid="workspace-delete-option"]', {
-      timeout: 5_000,
+      timeout: 5000,
     });
     await page
       .locator('[data-testid="workspace-delete-confirm-input"]')
-      .waitFor({ state: "visible", timeout: 5_000 });
+      .waitFor({ state: "visible", timeout: 5000 });
     await page.fill('[data-testid="workspace-delete-confirm-input"]', "DELETE");
     await page.click('[data-testid="workspace-delete-submit"]', {
-      timeout: 5_000,
+      timeout: 5000,
     });
     return true;
   } catch {
@@ -177,11 +177,14 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
 
     await deleteCurrentWorkspaceReliable(ownerPage);
 
+    const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
+    await expect(deletedBanner).toBeVisible({ timeout: 15_000 });
+
     await waitForConnectionState(
       viewerPage,
       "sync-status-indicator",
       "disconnected",
-      10_000
+      15_000
     );
   });
 

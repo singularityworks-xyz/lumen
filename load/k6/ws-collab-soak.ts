@@ -1,6 +1,6 @@
 import { sleep } from "k6";
 import { Counter, Gauge } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");

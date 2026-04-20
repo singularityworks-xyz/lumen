@@ -124,7 +124,7 @@ describe("ws-collab-ramp config", () => {
   });
 
   it("imports connectCollabSession", () => {
-    expect(src).toContain('from "./lib/collab-session"');
+    expect(src).toContain('from "./lib/collab-session.ts"');
   });
 
   it("sends 10 sync updates per session", () => {

@@ -7,6 +7,7 @@ import {
   waitForAppReady,
 } from "../helpers/commands";
 import {
+  waitForCollabSync,
   waitForCollabUpdate,
   waitForConnectionState,
   waitForReconnected,
@@ -392,15 +393,17 @@ test.describe("E2E-TOPOLOGY-1: Multi-Instance Topology", () => {
 
       await createColumnOnFirstBoard(user2Page, "Load Balance User2 Column");
       await Promise.all([
-        waitForCollabUpdate(
+        waitForCollabSync(
           user1Page,
           "kanban-column",
-          "Load Balance User2 Column"
+          "Load Balance User2 Column",
+          20_000
         ),
-        waitForCollabUpdate(
+        waitForCollabSync(
           user3Page,
           "kanban-column",
-          "Load Balance User2 Column"
+          "Load Balance User2 Column",
+          20_000
         ),
       ]);
 

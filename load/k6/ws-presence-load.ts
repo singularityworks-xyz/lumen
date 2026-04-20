@@ -1,6 +1,6 @@
 import { check, sleep } from "k6";
 import { Counter, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session";
+import { connectCollabSession } from "./lib/collab-session.ts";
 
 const presenceFanoutCount = new Counter("presence_fanout_count");
 const cursorMovementCount = new Counter("cursor_movement_count");
