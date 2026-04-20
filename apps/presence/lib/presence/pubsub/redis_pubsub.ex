@@ -5,12 +5,16 @@ defmodule Presence.RedisPubSub do
 
   require Logger
 
+  # Allow dependency injection for testing
+  @default_opts [env_getter: &__MODULE__.env_getter/1]
+
   @doc """
   Broadcast a presence event to Redis using Upstash REST API.
   """
-  def broadcast(channel, payload) do
-    url = get_redis_url()
-    token = get_redis_token()
+  def broadcast(channel, payload, opts \\ []) do
+    env_getter = Keyword.get(opts, :env_getter, @default_opts[:env_getter])
+    url = get_redis_url(env_getter)
+    token = get_redis_token(env_getter)
 
     if url == "" or token == "" do
       Logger.warning("Redis not configured, skipping broadcast", channel: channel)
@@ -55,9 +59,10 @@ defmodule Presence.RedisPubSub do
   @doc """
   Execute a Redis command via Upstash REST API.
   """
-  def command(cmd) when is_list(cmd) do
-    url = get_redis_url()
-    token = get_redis_token()
+  def command(cmd, opts \\ []) when is_list(cmd) do
+    env_getter = Keyword.get(opts, :env_getter, @default_opts[:env_getter])
+    url = get_redis_url(env_getter)
+    token = get_redis_token(env_getter)
 
     if url == "" or token == "" do
       Logger.warning("Redis not configured, skipping command")
@@ -83,15 +88,20 @@ defmodule Presence.RedisPubSub do
     end
   end
 
-  defp get_redis_url do
+  defp get_redis_url(env_getter) do
     Application.get_env(:presence, :upstash_redis_rest_url) ||
-      System.get_env("UPSTASH_REDIS_REST_URL") ||
+      env_getter.("UPSTASH_REDIS_REST_URL") ||
       ""
   end
 
-  defp get_redis_token do
+  defp get_redis_token(env_getter) do
     Application.get_env(:presence, :upstash_redis_rest_token) ||
-      System.get_env("UPSTASH_REDIS_REST_TOKEN") ||
+      env_getter.("UPSTASH_REDIS_REST_TOKEN") ||
       ""
+  end
+
+  # Default environment getter - reads from System environment
+  def env_getter(key) do
+    System.get_env(key)
   end
 end

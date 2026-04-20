@@ -1,4 +1,12 @@
 process.env.DATABASE_URL = "postgres://dummy";
+process.env.NODE_ENV = "development";
+process.env.WEB_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
 
 import {
   afterAll,
@@ -11,6 +19,7 @@ import {
   mock,
 } from "bun:test";
 import * as Y from "yjs";
+import type { RoomManager } from "../../../collab";
 
 // Mock logger to capture log calls
 const mockDebug = mock(() => {
@@ -47,7 +56,7 @@ const createMockDoc = (): Y.Doc => {
   return doc;
 };
 
-// Mock the room manager - use generic signature to allow parameter
+// Create mock room manager
 const mockGetRoom = mock((_id?: string): MockRoom | undefined => undefined);
 const mockLoadRoomState = mock(() => Promise.resolve(false));
 const mockScheduleRoomCleanup = mock(() => {
@@ -57,30 +66,42 @@ const mockReset = mock(() => {
   // No-op mock for reset
 });
 
-mock.module("../../../collab", () => ({
-  roomManager: {
-    getRoom: mockGetRoom,
-    loadRoomState: mockLoadRoomState,
-    scheduleRoomCleanup: mockScheduleRoomCleanup,
-    reset: mockReset,
-    getOrCreateRoom: mock((workspaceId: string) => ({
-      doc: createMockDoc(),
-      connections: new Map(),
-      workspaceId,
-    })),
-  },
-}));
+// Create a mock room manager object
+const mockRoomManager = {
+  getRoom: mockGetRoom,
+  loadRoomState: mockLoadRoomState,
+  scheduleRoomCleanup: mockScheduleRoomCleanup,
+  reset: mockReset,
+  getOrCreateRoom: mock((workspaceId: string) => ({
+    doc: createMockDoc(),
+    connections: new Map(),
+    workspaceId,
+  })),
+  // Mock other RoomManager methods
+  hasRoom: mock(() => false),
+  getOrCreateDoc: mock(() => createMockDoc()),
+  saveRoomState: mock(() => Promise.resolve()),
+  hasActiveConnections: mock(() => false),
+  getConnectionCount: mock(() => 0),
+  rooms: new Map(),
+};
 
-// Import the function being tested after mocks are set up
+// Import the module after setting up mocks
+let yjsAccessorModule: typeof import("./yjs-accessor");
 let getWorkspaceYjsDoc: typeof import("./yjs-accessor").getWorkspaceYjsDoc;
 
 describe("getWorkspaceYjsDoc", () => {
   beforeAll(async () => {
-    const module = await import("./yjs-accessor");
-    getWorkspaceYjsDoc = module.getWorkspaceYjsDoc;
+    yjsAccessorModule = await import("./yjs-accessor");
+    getWorkspaceYjsDoc = yjsAccessorModule.getWorkspaceYjsDoc;
   });
 
   beforeEach(() => {
+    // Inject the mock room manager before each test
+    yjsAccessorModule._setRoomManager(
+      mockRoomManager as unknown as RoomManager
+    );
+
     // Reset all mocks before each test
     mockGetRoom.mockClear();
     mockLoadRoomState.mockClear();
@@ -92,6 +113,8 @@ describe("getWorkspaceYjsDoc", () => {
   });
 
   afterEach(() => {
+    // Reset the room manager after each test
+    yjsAccessorModule._resetRoomManager();
     // Clean up after each test
     mockReset();
   });

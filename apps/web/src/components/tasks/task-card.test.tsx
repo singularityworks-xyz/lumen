@@ -1,3 +1,15 @@
+// Must be first - register happy-dom before any imports
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+// Register happy-dom before any imports
+if (!(globalThis.document && globalThis.window)) {
+  try {
+    GlobalRegistrator.register();
+  } catch {
+    // Already registered, ignore
+  }
+}
+
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
@@ -13,6 +25,12 @@ const mockLogger = {
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => mockLogger,
+}));
+
+// Mock auth-client to avoid import errors
+mock.module("@/src/lib/auth-client", () => ({
+  getCurrentUser: mock(() => Promise.resolve(null)),
+  getJwtToken: mock(() => Promise.resolve(null)),
 }));
 
 const mockGetViewport = mock(() => ({ x: 0, y: 0, zoom: 1 }));

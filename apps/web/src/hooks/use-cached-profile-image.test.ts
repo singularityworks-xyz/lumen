@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { renderHook } from "@testing-library/react";
 
-// Register happy-dom before tests
-GlobalRegistrator.register();
+// Register happy-dom before tests (only if not already registered)
+if (!(globalThis.document && globalThis.window)) {
+  try {
+    GlobalRegistrator.register();
+  } catch {
+    // Already registered, ignore
+  }
+}
 
 interface UseQueryOptions {
   enabled?: boolean;

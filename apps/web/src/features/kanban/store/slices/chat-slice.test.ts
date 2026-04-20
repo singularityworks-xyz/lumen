@@ -144,7 +144,7 @@ describe("sendChatMessage", () => {
 });
 
 describe("editChatMessage", () => {
-  it("updates message content and marks as edited", () => {
+  it("updates message content and marks as edited", async () => {
     state.currentWorkspaceId = "workspace-1";
     const author = { id: "user-1", name: "Test User" };
 
@@ -154,10 +154,7 @@ describe("editChatMessage", () => {
     const beforeEdit = state.chatMessages.byId[messageId]?.updatedAt;
 
     // Small delay to ensure timestamp changes
-    const start = Date.now();
-    while (Date.now() - start < 2) {
-      // Busy wait for at least 2ms
-    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     actions.editChatMessage(messageId, "Updated content");
 
@@ -165,7 +162,9 @@ describe("editChatMessage", () => {
     expect(message?.content).toBe("Updated content");
     expect(message?.isEdited).toBe(true);
     expect(message?.lastEditedAt).toBeDefined();
-    expect(message?.updatedAt).not.toBe(beforeEdit);
+    // Compare timestamps ignoring millisecond precision differences
+    expect(message?.updatedAt).toBeDefined();
+    expect(message?.updatedAt !== beforeEdit).toBe(true);
   });
 
   it("updates mentions when provided", () => {

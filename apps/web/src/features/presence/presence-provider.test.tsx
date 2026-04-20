@@ -1,3 +1,11 @@
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+try {
+  GlobalRegistrator.register();
+} catch {
+  /* ignore - already registered */
+}
+
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";

@@ -31,21 +31,25 @@ defmodule Presence.RedisPubSubTest do
       Application.delete_env(:presence, :upstash_redis_rest_url)
       Application.delete_env(:presence, :upstash_redis_rest_token)
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", %{data: "test"}, env_getter: fn _ -> nil end)
     end
 
     test "returns error when URL is empty string" do
       Application.put_env(:presence, :upstash_redis_rest_url, "")
       Application.put_env(:presence, :upstash_redis_rest_token, "valid_token")
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", %{data: "test"}, env_getter: fn _ -> nil end)
     end
 
     test "returns error when token is empty string" do
       Application.put_env(:presence, :upstash_redis_rest_url, "https://example.com")
       Application.put_env(:presence, :upstash_redis_rest_token, "")
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", %{data: "test"}, env_getter: fn _ -> nil end)
     end
   end
 
@@ -64,7 +68,9 @@ defmodule Presence.RedisPubSubTest do
       Application.delete_env(:presence, :upstash_redis_rest_url)
       Application.delete_env(:presence, :upstash_redis_rest_token)
 
-      assert {:error, :not_configured} = RedisPubSub.command(["GET", "key"])
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.command(["GET", "key"], env_getter: fn _ -> nil end)
     end
   end
 
@@ -153,14 +159,18 @@ defmodule Presence.RedisPubSubTest do
       Application.delete_env(:presence, :upstash_redis_rest_url)
       Application.delete_env(:presence, :upstash_redis_rest_token)
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("", %{data: "test"})
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("", %{data: "test"}, env_getter: fn _ -> nil end)
     end
 
     test "handles empty payload gracefully when not configured" do
       Application.delete_env(:presence, :upstash_redis_rest_url)
       Application.delete_env(:presence, :upstash_redis_rest_token)
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", %{})
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", %{}, env_getter: fn _ -> nil end)
     end
 
     test "handles nested payload gracefully when not configured" do
@@ -174,7 +184,9 @@ defmodule Presence.RedisPubSubTest do
         }
       }
 
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", payload)
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", payload, env_getter: fn _ -> nil end)
     end
 
     test "handles unicode in payload gracefully when not configured" do
@@ -182,7 +194,33 @@ defmodule Presence.RedisPubSubTest do
       Application.delete_env(:presence, :upstash_redis_rest_token)
 
       payload = %{message: "Hello 世界 🌍", user: "用户名"}
-      assert {:error, :not_configured} = RedisPubSub.broadcast("test_channel", payload)
+
+      # Use a mock env_getter that returns nil to bypass System.get_env fallback
+      assert {:error, :not_configured} =
+               RedisPubSub.broadcast("test_channel", payload, env_getter: fn _ -> nil end)
+    end
+  end
+
+  describe "env_getter/1" do
+    test "delegates to System.get_env/1" do
+      # When UPSTASH_REDIS_REST_URL is set in .env.test
+      assert Presence.RedisPubSub.env_getter("UPSTASH_REDIS_REST_URL") ==
+               "http://127.0.0.1:5354"
+
+      # For non-existent variable
+      assert Presence.RedisPubSub.env_getter("NON_EXISTENT_VAR_12345") == nil
+    end
+  end
+
+  describe "broadcast/2 and command/1 with default env_getter" do
+    test "uses System.get_env when Application env is not set" do
+      Application.delete_env(:presence, :upstash_redis_rest_url)
+      Application.delete_env(:presence, :upstash_redis_rest_token)
+
+      # When Application env is cleared, it falls back to System env (from .env.test)
+      # which causes an HTTP error since the server isn't running
+      assert {:error, :http_error} = RedisPubSub.broadcast("test_channel", %{data: "test"})
+      assert {:error, :http_error} = RedisPubSub.command(["GET", "key"])
     end
   end
 end

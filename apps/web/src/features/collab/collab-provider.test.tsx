@@ -1,3 +1,11 @@
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+try {
+  GlobalRegistrator.register();
+} catch {
+  /* ignore - already registered */
+}
+
 import {
   afterAll,
   afterEach,
@@ -28,10 +36,22 @@ const mockRecordError = mock();
 const mockWithSpanAsync = mock(
   async <T,>(_name: string, fn: (span: unknown) => Promise<T>) => fn({} as T)
 );
+const mockGetTraceContext = mock(() => null);
+const mockAddSpanEvent = mock();
+const mockGetTracer = mock(() => ({
+  startActiveSpan: mock(),
+  startSpan: mock(),
+}));
 
 mock.module("@lumen/logger/tracer", () => ({
   recordError: mockRecordError,
   withSpanAsync: mockWithSpanAsync,
+  getTraceContext: mockGetTraceContext,
+  addSpanEvent: mockAddSpanEvent,
+  getTracer: mockGetTracer,
+  recordSpanError: mock(),
+  setSpanAttributes: mock(),
+  withSpan: mock((_name: string, fn: (span: unknown) => unknown) => fn({})),
 }));
 
 // Mock IndexeddbPersistence
