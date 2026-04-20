@@ -188,7 +188,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
       .waitFor({ state: "visible", timeout: 10_000 });
 
     await deleteCurrentWorkspaceReliable(ownerPage);
-  
+
     const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
     await expect(deletedBanner).toBeVisible();
 
