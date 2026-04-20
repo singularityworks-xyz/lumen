@@ -1,12 +1,17 @@
+// Must be first - register happy-dom before any imports
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-try {
-  GlobalRegistrator.register();
-} catch {
-  /* ignore */
+// Register happy-dom before any imports (only if not already registered)
+if (!(globalThis.document && globalThis.window)) {
+  try {
+    GlobalRegistrator.register();
+  } catch {
+    // Already registered, ignore
+  }
 }
 
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import React from "react";
 
 const mockSetSelectedBoard = mock();
 const mockBringBoardToFront = mock();
@@ -28,6 +33,12 @@ const mockGetViewport = mock(() => ({ x: 0, y: 0, zoom: 1 }));
 const mockSetViewport = mock();
 const mockUpdateCursor = mock();
 const mockUpdateSelection = mock();
+
+// Mock auth-client to avoid import errors
+mock.module("@/src/lib/auth-client", () => ({
+  getCurrentUser: mock(() => Promise.resolve(null)),
+  getJwtToken: mock(() => Promise.resolve(null)),
+}));
 
 const mockBoards = {
   byId: {} as Record<
@@ -410,7 +421,6 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import React from "react";
 
 function setupStore({
   boardId = "board-1",

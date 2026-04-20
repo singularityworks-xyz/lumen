@@ -1,9 +1,13 @@
+// Must be first - register happy-dom before any imports
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-try {
-  GlobalRegistrator.register();
-} catch {
-  /* ignore */
+// Register happy-dom before any imports (only if not already registered)
+if (!(globalThis.document && globalThis.window)) {
+  try {
+    GlobalRegistrator.register();
+  } catch {
+    // Already registered, ignore
+  }
 }
 
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
@@ -31,6 +35,12 @@ mock.module("lucide-react", () => ({
   SquarePen: () => React.createElement("span", { "data-icon": "SquarePen" }),
   Trash2: () => React.createElement("span", { "data-icon": "Trash2" }),
   User: () => React.createElement("span", { "data-icon": "User" }),
+}));
+
+// Mock auth-client to avoid import errors
+mock.module("@/src/lib/auth-client", () => ({
+  getCurrentUser: mock(() => Promise.resolve(null)),
+  getJwtToken: mock(() => Promise.resolve(null)),
 }));
 
 mock.module("next/image", () => ({

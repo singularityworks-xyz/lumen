@@ -1,3 +1,33 @@
+// Mock logger before any imports
+import { mock } from "bun:test";
+
+const mockLogger = {
+  info: mock(),
+  warn: mock(),
+  error: mock(),
+  debug: mock(),
+};
+
+mock.module("@lumen/logger", () => ({
+  createLogger: () => mockLogger,
+}));
+
+mock.module("@lumen/logger/tracer", () => ({
+  recordError: mock(),
+  withSpanAsync: mock(
+    (_name: string, fn: (span: unknown) => Promise<unknown>) => fn({})
+  ),
+  getTraceContext: mock(() => null),
+  addSpanEvent: mock(),
+  getTracer: mock(() => ({
+    startActiveSpan: mock(),
+    startSpan: mock(),
+  })),
+  recordSpanError: mock(),
+  setSpanAttributes: mock(),
+  withSpan: mock((_name: string, fn: (span: unknown) => unknown) => fn({})),
+}));
+
 import { describe, expect, it } from "bun:test";
 import * as Y from "yjs";
 import { YJS_MAP_NAMES } from "./entity-sync";
