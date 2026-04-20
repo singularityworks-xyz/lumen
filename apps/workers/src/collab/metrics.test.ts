@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger/server", () => ({
   getMeter: () => ({
@@ -120,4 +120,8 @@ describe("metrics", () => {
       ).not.toThrow();
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

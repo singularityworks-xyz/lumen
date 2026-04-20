@@ -43,9 +43,10 @@ mock.module("../lib/request-queue", () => ({
   },
 }));
 
-// Dynamically import after mocks are set up
+// Use a cache-busting query to get the real implementation
+// This bypasses any mocks set up by other test files
 const { shouldGenerateTitle, generateConversationTitle } = await import(
-  "./title-generator"
+  `./title-generator?${Date.now()}`
 );
 
 beforeEach(() => {
@@ -139,7 +140,7 @@ describe("generateConversationTitle", () => {
   });
 
   it("returns null when generated title is whitespace only", async () => {
-    mockGenerateText.mockImplementation(() => Promise.resolve({ text: "   " }));
+    mockGenerateText.mockImplementation(() => Promise.resolve({ text: " " }));
 
     const result = await generateConversationTitle({
       messages: [

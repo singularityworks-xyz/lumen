@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockIncrementRequestCount = mock();
 const mockRecordRequestDuration = mock();
@@ -273,4 +273,8 @@ describe("otel-metrics", () => {
       expect(result).toBe("/ws/:id/docs");
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

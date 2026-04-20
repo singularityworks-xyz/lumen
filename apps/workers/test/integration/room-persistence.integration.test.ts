@@ -1,6 +1,6 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
 
@@ -381,4 +381,9 @@ describe("WORKERS-I-05: room-persistence integration", () => {
       expect(findUniqueMock).toHaveBeenCalledTimes(1);
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

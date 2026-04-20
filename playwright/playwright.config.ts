@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
@@ -20,10 +20,24 @@ const resolveIntegerEnv = (key: string, fallback: number): number => {
   return parsed;
 };
 
+const resolvedNodeEnv = process.env.NODE_ENV ?? "test";
+
+const workersEnvCandidates = [
+  fileURLToPath(
+    new URL(`../apps/workers/.env.${resolvedNodeEnv}`, import.meta.url)
+  ),
+  fileURLToPath(new URL("../apps/workers/.env.development", import.meta.url)),
+];
+
 try {
-  const workersEnvPath = fileURLToPath(
-    new URL("../apps/workers/.env", import.meta.url)
+  const workersEnvPath = workersEnvCandidates.find((candidate) =>
+    existsSync(candidate)
   );
+
+  if (!workersEnvPath) {
+    throw new Error("No workers env file found");
+  }
+
   const envConfig = readFileSync(workersEnvPath, "utf-8");
   for (const rawLine of envConfig.split(/\r?\n/)) {
     const line = rawLine.trim();

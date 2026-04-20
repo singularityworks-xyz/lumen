@@ -230,15 +230,14 @@ mock.module("@/src/components/ui/popover", () => ({
   Popover: ({
     children,
     open,
-    onOpenChange,
   }: {
     children: React.ReactNode;
     open: boolean;
-    onOpenChange: (open: boolean) => void;
+    onOpenChange?: (open: boolean) => void;
   }) =>
     React.createElement(
       "div",
-      { "data-popover-open": open, "data-popover-change": onOpenChange },
+      { "data-popover-open": open ? "true" : "false" },
       children
     ),
   PopoverTrigger: ({ children }: { children: React.ReactNode }) =>
@@ -404,7 +403,13 @@ mock.module("@/src/features/kanban/components/area-node", () => ({
   AreaNodeComponent: () => null,
 }));
 
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import React from "react";
 
 function setupStore({
@@ -521,48 +526,52 @@ describe("BoardNodeComponent", () => {
     mockUpdateSelection.mockReset();
   });
 
-  it("returns null when board data not found in store", () => {
+  it("returns null when board data not found in store", async () => {
     mockBoards.byId = {};
     mockBoards.allIds = [];
 
-    const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "missing-board", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+    const { container } = await act(async () =>
+      render(
+        React.createElement(BoardNodeComponent as any, {
+          id: "node-1",
+          data: { boardId: "missing-board", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders board name and description", () => {
+  it("renders board name and description", async () => {
     setupStore({
       boardName: "Sprint Planning",
       boardDescription: "Track sprint tasks",
     });
 
-    const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+    const { container } = await act(async () =>
+      render(
+        React.createElement(BoardNodeComponent as any, {
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     expect(container.textContent).toContain("Sprint Planning");
     expect(container.textContent).toContain("Track sprint tasks");
   });
 
-  it("shows task count badge with done/total", () => {
+  it("shows task count badge with done/total", async () => {
     setupStore({
       taskIds: ["task-1", "task-2", "task-3"],
     });
@@ -570,16 +579,18 @@ describe("BoardNodeComponent", () => {
     mockTasks.byId["task-2"]!.status = "done";
     mockTasks.byId["task-3"]!.status = "todo";
 
-    const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+    const { container } = await act(async () =>
+      render(
+        React.createElement(BoardNodeComponent as any, {
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     expect(container.textContent).toContain("2");
@@ -587,23 +598,25 @@ describe("BoardNodeComponent", () => {
     expect(container.textContent).toContain("/");
   });
 
-  it("shows completed state when all tasks done", () => {
+  it("shows completed state when all tasks done", async () => {
     setupStore({
       taskIds: ["task-1", "task-2"],
     });
     mockTasks.byId["task-1"]!.status = "done";
     mockTasks.byId["task-2"]!.status = "done";
 
-    const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+    const { container } = await act(async () =>
+      render(
+        React.createElement(BoardNodeComponent as any, {
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     expect(container.innerHTML).toContain("emerald");

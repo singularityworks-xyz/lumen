@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -63,4 +63,8 @@ describe("ai/lib/utils", () => {
       expect(result.isRateLimit).toBe(false);
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

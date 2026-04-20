@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockLoggerInfo = mock(() => {
   // intentionally empty mock
@@ -41,6 +41,7 @@ mock.module("@upstash/redis", () => ({
 import {
   aiRequestQueue,
   getQueueStats,
+  getQueueStatus,
   isUpstashEnabled,
 } from "./request-queue";
 
@@ -63,10 +64,20 @@ describe("RateLimitedQueue - immediate execution", () => {
   });
 
   it("WORKERS-U-05: immediate execution increments activeRequests during execution", async () => {
-    const execute = mock(() => Promise.resolve("ok"));
+    let activeRequestsDuringExecution = 0;
+    const execute = mock(() => {
+      // Capture activeRequests during execution
+      const stats = getQueueStats();
+      activeRequestsDuringExecution = stats.activeRequests;
+      return Promise.resolve("ok");
+    });
 
     await aiRequestQueue.enqueue(execute);
 
+    // During execution, activeRequests should be incremented
+    expect(activeRequestsDuringExecution).toBe(1);
+
+    // After execution completes, activeRequests should be back to 0
     const stats = getQueueStats();
     expect(stats.activeRequests).toBe(0);
   });
@@ -128,11 +139,13 @@ describe("RateLimitedQueue - priority queue insertion", () => {
 
 describe("RateLimitedQueue - status reporting", () => {
   it("WORKERS-U-05: returns null status for unknown request ID", () => {
-    const status = aiRequestQueue.getQueueStatus("nonexistent-id");
+    const status = getQueueStatus("nonexistent-id");
     expect(status).toBeNull();
   });
 
   it("WORKERS-U-05: queue status includes queueLength", () => {
+    const _status = getQueueStatus("unknown-id");
+    // getQueueStatus returns null for unknown IDs, so we check getQueueStats instead
     const stats = getQueueStats();
     expect(typeof stats.queueLength).toBe("number");
   });
@@ -171,4 +184,8 @@ describe("isUpstashEnabled", () => {
     const result = isUpstashEnabled();
     expect(typeof result).toBe("boolean");
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

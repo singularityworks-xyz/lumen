@@ -95,6 +95,10 @@ describe("getWorkspaceYjsDoc", () => {
     mockReset();
   });
 
+  afterAll(() => {
+    mock.restore();
+  });
+
   describe("basic function signature", () => {
     it("is a function that returns a Promise", async () => {
       expect(typeof getWorkspaceYjsDoc).toBe("function");

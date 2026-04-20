@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 // Mock query executors and utilities from @lumen/ai/tools
 // These are the only things we need to mock for tool-executor tests
@@ -208,4 +208,8 @@ describe("tool-executor", () => {
       expect(result.success).toBe(false);
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

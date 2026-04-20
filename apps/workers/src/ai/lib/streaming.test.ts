@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -350,13 +350,26 @@ describe("streamWithFallback", () => {
     }).toThrow("API error");
   });
 
-  it("throws when all models are rate limited", async () => {
-    mockGetModelChain.mockImplementation(() => ["model-1", "model-2"]);
-    mockIsRateLimitError.mockImplementation(() => true);
+    it("throws when all models are rate limited", async () => {
+      mockGetModelChain.mockImplementation(() => ["model-1", "model-2"]);
+      mockIsRateLimitError.mockImplementation(() => true);
 
-    mockStreamText.mockImplementation(() => {
-      throw new Error("Rate limited");
+      mockStreamText.mockImplementation(() => {
+        throw new Error("Rate limited");
+      });
+
+      await expect(async () => {
+        for await (const _result of streamWithFallback(makeOpts())) {
+          // consume
+        }
+      }).toThrow("Rate limited");
     });
+  });
+});
+
+afterAll(() => {
+  mock.restore();
+});
 
     await expect(async () => {
       for await (const _result of streamWithFallback(makeOpts())) {

@@ -1484,4 +1484,5 @@ describe("collabRoutes", () => {
 
 afterAll(() => {
   process.env = originalEnv;
+  mock.restore();
 });

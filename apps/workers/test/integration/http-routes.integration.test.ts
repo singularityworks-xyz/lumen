@@ -9,7 +9,7 @@ process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
 process.env.LOG_LEVEL = "error";
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Elysia } from "elysia";
 
 const mockSession = {
@@ -821,4 +821,9 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
       expect(res.headers.get("access-control-allow-credentials")).toBe("true");
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

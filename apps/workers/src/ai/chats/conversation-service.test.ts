@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/db", () => ({
   prisma: {
@@ -184,4 +184,8 @@ describe("toApiMessages", () => {
     const result = await toApiMessages([]);
     expect(result).toEqual([]);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Mock Y.Doc with a simple Map-based implementation
 function createMockDoc() {
@@ -729,12 +729,18 @@ describe("executeBulkDeleteTasks", () => {
     expect((result.data as { deletedCount: number }).deletedCount).toBe(1);
   });
 
-  it("fails when workspace not loaded", async () => {
-    mockState.returnNull = true;
-    const result = await executeBulkDeleteTasks(
-      { taskIds: ["task-1"] },
-      baseCtx
-    );
-    expect(result.success).toBe(false);
+    it("fails when workspace not loaded", async () => {
+      mockState.returnNull = true;
+      const result = await executeBulkDeleteTasks(
+        { taskIds: ["task-1"] },
+        baseCtx
+      );
+      expect(result.success).toBe(false);
+    });
   });
+});
+
+afterAll(() => {
+  mock.restore();
+});
 });

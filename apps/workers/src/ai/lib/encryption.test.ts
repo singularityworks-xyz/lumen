@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
@@ -10,6 +10,7 @@ mock.module("@lumen/logger", () => ({
 }));
 
 import {
+  __resetCachedKey,
   decryptContent,
   encryptContent,
   isEncrypted,
@@ -25,6 +26,7 @@ afterEach(() => {
     }
   }
   Object.assign(process.env, ORIGINAL_ENV);
+  __resetCachedKey();
 });
 
 describe("isEncryptionEnabled", () => {
@@ -135,15 +137,7 @@ describe("encryption - key validation edge cases", () => {
 
   it("decryptContent returns failure marker when key is empty string", async () => {
     process.env.AI_ENCRYPTION_KEY = "";
-    const { decryptContent: decrypt } = await import("./encryption");
-    const result = await decrypt("enc:v1:aW52YWxpZA==");
-    expect(result).toBe("[Encrypted content - key not available]");
-  });
-
-  it("decryptContent returns failure marker when key is empty string", async () => {
-    process.env.AI_ENCRYPTION_KEY = "";
-    const { decryptContent: decrypt } = await import("./encryption");
-    const result = await decrypt("enc:v1:aW52YWxpZA==");
+    const result = await decryptContent("enc:v1:aW52YWxpZA==");
     expect(result).toBe("[Encrypted content - key not available]");
   });
 
@@ -151,4 +145,8 @@ describe("encryption - key validation edge cases", () => {
     expect(isEncrypted("")).toBe(false);
     expect(isEncrypted("no-prefix-here")).toBe(false);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

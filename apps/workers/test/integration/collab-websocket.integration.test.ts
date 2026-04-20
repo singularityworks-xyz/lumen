@@ -1,6 +1,14 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { afterEach, beforeAll, describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import type { Role } from "@lumen/db";
 import { Elysia } from "elysia";
 import * as encoding from "lib0/encoding";
@@ -393,4 +401,9 @@ describe("WORKERS-I-04: collab-websocket integration", () => {
       expect(ws2.close).toHaveBeenCalled();
     });
   });
+});
+
+// Restore module mocks after all tests in this file complete
+afterAll(() => {
+  mock.restore();
 });

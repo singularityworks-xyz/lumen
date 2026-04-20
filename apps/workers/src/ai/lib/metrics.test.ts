@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockCounterAdd = mock();
 const mockHistogramRecord = mock();
@@ -235,4 +235,8 @@ describe("metrics", () => {
       expect((getMeter as ReturnType<typeof mock>).mock.calls.length).toBe(1);
     });
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

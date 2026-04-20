@@ -1,6 +1,6 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
 import * as encoding from "lib0/encoding";
@@ -157,6 +157,10 @@ function buildAwarenessMessage(): Uint8Array {
 
 afterEach(() => {
   roomManager.reset();
+});
+
+afterAll(() => {
+  mock.restore();
 });
 
 describe("RoomManager - deleted workspaces", () => {

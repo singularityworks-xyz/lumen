@@ -1,3 +1,11 @@
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+try {
+  GlobalRegistrator.register();
+} catch {
+  /* ignore */
+}
+
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "@testing-library/react";
 import React from "react";
@@ -19,6 +27,7 @@ mock.module("lucide-react", () => ({
   Circle: () => React.createElement("span", { "data-icon": "Circle" }),
   GripVertical: () =>
     React.createElement("span", { "data-icon": "GripVertical" }),
+  Plus: () => React.createElement("span", { "data-icon": "Plus" }),
   SquarePen: () => React.createElement("span", { "data-icon": "SquarePen" }),
   Trash2: () => React.createElement("span", { "data-icon": "Trash2" }),
   User: () => React.createElement("span", { "data-icon": "User" }),

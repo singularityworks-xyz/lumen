@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 let mockConversation: Record<string, unknown> | null = null;
 
@@ -227,4 +227,8 @@ describe("cleanupOldConversations", () => {
     expect(result.conversationsDeleted).toBe(1);
     expect(result.messagesDeleted).toBe(5);
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });
