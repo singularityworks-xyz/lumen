@@ -1,6 +1,9 @@
 import { check, sleep } from "k6";
 import { Counter, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const presenceFanoutCount = new Counter("presence_fanout_count");
 const cursorMovementCount = new Counter("cursor_movement_count");
@@ -30,16 +33,17 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-presence-test";
 
-  if (!(wsUrl && authToken)) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     return;
   }
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     return;
   }
 

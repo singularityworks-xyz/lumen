@@ -232,6 +232,30 @@ describe("use-dialog-presence", () => {
     expect(collaborator?.id).toBe("user-1");
   });
 
+  it("getTargetDialogCollaborator skips collaborators without open dialogs", async () => {
+    const mockUpdateFn = mock(() => undefined);
+    collabState.isCollaborating = true;
+    collabState.collaborators = [
+      {
+        id: "user-empty",
+        name: "Empty",
+        color: "#111111",
+        role: "editor" as const,
+        openDialogs: [],
+      },
+    ];
+    collabState.updateOpenDialogs = mockUpdateFn;
+
+    const { useDialogPresence } = await import(
+      "@/src/hooks/use-dialog-presence"
+    );
+    const { result } = renderHook(() => useDialogPresence());
+
+    expect(
+      result.current.getTargetDialogCollaborator("task-1")
+    ).toBeUndefined();
+  });
+
   it("getTargetDialogCollaborator returns undefined when not collaborating", async () => {
     const mockUpdateFn = mock(() => undefined);
     collabState.isCollaborating = false;
@@ -339,6 +363,36 @@ describe("useDialogPresenceLifecycle", () => {
 
     expect(result.current.dialogCollaborator).toBeUndefined();
     expect(result.current.isCollaborating).toBe(false);
+  });
+
+  it("dialogCollaborator ignores collaborators with empty openDialogs", async () => {
+    const mockUpdateFn = mock(() => undefined);
+    collabState.isCollaborating = true;
+    collabState.collaborators = [
+      {
+        id: "user-empty",
+        name: "Empty",
+        color: "#111111",
+        role: "editor" as const,
+        openDialogs: [],
+      },
+    ];
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
+    collabState.updateOpenDialogs = mockUpdateFn;
+
+    const { useDialogPresenceLifecycle } = await import(
+      "@/src/hooks/use-dialog-presence"
+    );
+    const { result } = renderHook(() =>
+      useDialogPresenceLifecycle("dialog-1", "task-dialog", "task-1")
+    );
+
+    expect(result.current.dialogCollaborator).toBeUndefined();
   });
 
   it("handleDialogPointerDown updates open dialogs when collaborating", async () => {
@@ -481,5 +535,47 @@ describe("useDialogPresenceLifecycle", () => {
     unmount();
 
     expect(mockUpdateFn).toHaveBeenCalledWith([]);
+  });
+
+  it("re-publishes presence when registered dialog identity changes", async () => {
+    const mockUpdateFn = mock(() => undefined);
+    collabState.isCollaborating = true;
+    collabState.collaborators = [];
+    collabState.localUser = {
+      id: "local-user",
+      name: "Local",
+      color: "#fff",
+      role: "editor",
+    };
+    collabState.updateOpenDialogs = mockUpdateFn;
+
+    const { useDialogPresenceLifecycle } = await import(
+      "@/src/hooks/use-dialog-presence"
+    );
+
+    const { result, rerender } = renderHook(
+      ({ dialogId, targetId }: { dialogId: string; targetId: string }) =>
+        useDialogPresenceLifecycle(dialogId, "task-dialog", targetId),
+      {
+        initialProps: { dialogId: "dialog-1", targetId: "task-1" },
+      }
+    );
+
+    act(() => {
+      result.current.handleDialogPointerDown();
+    });
+
+    mockUpdateFn.mockClear();
+
+    act(() => {
+      rerender({ dialogId: "dialog-2", targetId: "task-2" });
+    });
+
+    expect(mockUpdateFn).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "dialog-2",
+        targetId: "task-2",
+      }),
+    ]);
   });
 });

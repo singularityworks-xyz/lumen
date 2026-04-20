@@ -1,6 +1,9 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const stateDivergenceCount = new Counter("state_divergence_count");
 const droppedAwarenessCount = new Counter("dropped_awareness_count");
@@ -44,21 +47,22 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-churn-test";
 
-  if (!(wsUrl && authToken)) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     initialConnectSuccess.add(false);
     return;
   }
 
   const joinStart = Date.now();
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
   const joinEnd = Date.now();
 
   joinLatency.add(joinEnd - joinStart);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     initialConnectSuccess.add(false);
     return;
   }
@@ -110,10 +114,14 @@ export default function () {
   sleep(1);
 
   const _reconnectStart = Date.now();
-  const reconnectSession = connectCollabSession(wsUrl, authToken, workspaceId);
+  const reconnectSession = connectCollabSession(
+    wsUrl,
+    authToken ?? "",
+    workspaceId
+  );
   const _reconnectEnd = Date.now();
 
-  if (reconnectSession.established) {
+  if (waitForSessionEstablished(reconnectSession)) {
     reconnectSuccessRate.add(true);
 
     check(reconnectSession, {

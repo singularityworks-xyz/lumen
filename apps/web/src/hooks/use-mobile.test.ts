@@ -154,6 +154,38 @@ describe("use-mobile", () => {
       mql.removeEventListener("change", handler);
       expect(listenerRemoved).toBe(true);
     });
+
+    it("updates via matchMedia callback and unsubscribes same handler", async () => {
+      let changeListener: ((ev: unknown) => void) | undefined;
+      let removedListener: ((ev: unknown) => void) | undefined;
+
+      setViewportWidth(900);
+      setMatchMedia((query: string) => {
+        const mql = createMockMediaQueryList(query, false);
+        mql.addEventListener = (_type, listener) => {
+          changeListener = listener;
+        };
+        mql.removeEventListener = (_type, listener) => {
+          removedListener = listener;
+        };
+        return mql;
+      });
+
+      const { useIsMobile } = await import("./use-mobile");
+      const { result, unmount } = renderHook(() => useIsMobile());
+
+      expect(result.current).toBe(false);
+
+      act(() => {
+        setViewportWidth(640);
+        changeListener?.({});
+      });
+
+      expect(result.current).toBe(true);
+
+      unmount();
+      expect(removedListener).toBe(changeListener);
+    });
   });
 
   describe("breakpoint transitions", () => {

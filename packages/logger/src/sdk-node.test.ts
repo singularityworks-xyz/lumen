@@ -31,6 +31,9 @@ const mockTracerProviderShutdown = mock(() => Promise.resolve());
 const mockMeterProviderShutdown = mock(() => Promise.resolve());
 const mockLoggerProviderShutdown = mock(() => Promise.resolve());
 const mockTracerProviderRegister = mock(() => undefined);
+const mockDiagSetLogger = mock(() => undefined);
+const mockDiagWarn = mock((_message: string, _error?: Error) => undefined);
+const mockRegisterInstrumentations = mock(() => undefined);
 
 const mockTracerProvider = {
   register: mockTracerProviderRegister,
@@ -47,11 +50,12 @@ const mockLoggerProvider = {
 
 // Track initialized state to control getOtelConfig mock
 let otelEnabled = true;
+let otelEnvironment: "development" | "production" | "test" = "test";
 
 mock.module("./env", () => ({
   get env() {
     return {
-      NODE_ENV: "test",
+      NODE_ENV: otelEnvironment,
       get OTEL_ENABLED() {
         return otelEnabled;
       },
@@ -71,7 +75,7 @@ mock.module("./config", () => ({
       endpoint,
       headers: { Authorization: "Bearer test" },
       serviceName,
-      environment: "test",
+      environment: otelEnvironment,
     };
   },
 }));
@@ -88,9 +92,9 @@ mock.module("@opentelemetry/api", () => {
     DiagConsoleLogger,
     DiagLogLevel: { INFO: 9, WARN: 13, ERROR: 17 },
     diag: {
-      setLogger: mock(() => undefined),
+      setLogger: mockDiagSetLogger,
       info: mock(() => undefined),
-      warn: mock(() => undefined),
+      warn: mockDiagWarn,
       error: mock(() => undefined),
     },
     metrics: {
@@ -195,7 +199,7 @@ mock.module("@opentelemetry/host-metrics", () => {
 });
 
 mock.module("@opentelemetry/instrumentation", () => ({
-  registerInstrumentations: mock(() => undefined),
+  registerInstrumentations: mockRegisterInstrumentations,
 }));
 
 mock.module("@opentelemetry/resources", () => ({
@@ -241,10 +245,14 @@ import {
 describe("sdk-node", () => {
   beforeEach(() => {
     otelEnabled = true;
+    otelEnvironment = "test";
     mockTracerProviderShutdown.mockClear();
     mockMeterProviderShutdown.mockClear();
     mockLoggerProviderShutdown.mockClear();
     mockTracerProviderRegister.mockClear();
+    mockDiagSetLogger.mockClear();
+    mockDiagWarn.mockClear();
+    mockRegisterInstrumentations.mockClear();
   });
 
   afterEach(async () => {
@@ -324,6 +332,44 @@ describe("sdk-node", () => {
       initOtel("test-service", [instrumentation]);
 
       expect(isOtelInitialized()).toBe(true);
+      expect(mockRegisterInstrumentations).toHaveBeenCalledTimes(1);
+    });
+
+    it("sets diagnostic logger in development environment", () => {
+      otelEnvironment = "development";
+
+      const result = initOtel("test-service");
+
+      expect(result).toBe(true);
+      expect(mockDiagSetLogger).toHaveBeenCalledTimes(1);
+    });
+
+    it("warns when instrumentation registration throws", () => {
+      const instrumentation = {
+        enable: () => undefined,
+        instrumentationName: "test",
+        instrumentationVersion: "1.0.0",
+        disable: () => undefined,
+        setTracerProvider: () => undefined,
+        setMeterProvider: () => undefined,
+        setLoggerProvider: () => undefined,
+        getConfig: () => ({ enabled: true }),
+        setConfig: () => ({ enabled: true }),
+        _config: { enabled: true },
+      } as unknown as Instrumentation;
+
+      mockRegisterInstrumentations.mockImplementationOnce(() => {
+        throw new Error("register failed");
+      });
+
+      const result = initOtel("test-service", [instrumentation]);
+
+      expect(result).toBe(true);
+      const warningCall = mockDiagWarn.mock.calls.find(
+        ([message]) => message === "[OTEL] Failed to register instrumentations"
+      );
+      expect(warningCall).toBeDefined();
+      expect(warningCall?.[1]).toBeInstanceOf(Error);
     });
   });
 

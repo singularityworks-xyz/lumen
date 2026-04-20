@@ -43,6 +43,43 @@ declare module "k6/ws" {
   ): Response;
 }
 
+declare module "k6/websockets" {
+  export interface WebSocketParams {
+    headers?: Record<string, string>;
+    tags?: Record<string, string>;
+  }
+
+  export class WebSocket {
+    static readonly OPEN: number;
+    static readonly CLOSED: number;
+
+    binaryType: string;
+    onopen: (() => void) | null;
+    onclose: (() => void) | null;
+    onerror: (() => void) | null;
+    onmessage:
+      | ((event: { data: string | ArrayBuffer | Uint8Array }) => void)
+      | null;
+    readyState: number;
+    constructor(
+      url: string,
+      protocols?: string | string[],
+      params?: WebSocketParams
+    );
+    addEventListener(
+      event: "error" | ("close" | "open"),
+      listener: () => void
+    ): void;
+    addEventListener(
+      event: "message",
+      listener: (event: { data: string | ArrayBuffer | Uint8Array }) => void
+    ): void;
+
+    close(code?: number, reason?: string): void;
+    send(data: string | ArrayBuffer | Uint8Array): void;
+  }
+}
+
 declare module "k6/metrics" {
   export class Metric {
     constructor(name: string, isTime?: boolean);

@@ -2,7 +2,10 @@ import { sleep } from "k6";
 import { browser, type Page } from "k6/browser";
 import { Counter, Rate, Trend } from "k6/metrics";
 import * as Y from "yjs";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
 const wsUpdateLatency = new Trend("hybrid_ws_update_latency_ms");
@@ -174,18 +177,19 @@ async function runBrowserScenario(
 export async function runProtocolVu(): Promise<void> {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "hybrid-load-test";
 
-  if (!(wsUrl && authToken)) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error(
       "WS_URL and AUTH_TOKEN environment variables are required for protocol VUs"
     );
     return;
   }
 
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     wsConnectSuccess.add(false);
     return;
   }
@@ -292,9 +296,13 @@ export async function runProtocolVu(): Promise<void> {
   session.disconnect();
   sleep(1);
 
-  const reconnectSession = connectCollabSession(wsUrl, authToken, workspaceId);
+  const reconnectSession = connectCollabSession(
+    wsUrl,
+    authToken ?? "",
+    workspaceId
+  );
 
-  if (reconnectSession.established) {
+  if (waitForSessionEstablished(reconnectSession)) {
     sleep(1);
     if (reconnectSession.receivedSyncStep2) {
       const reconnectStateVector = computeStateVector(yjsDoc);

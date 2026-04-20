@@ -1,7 +1,10 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import * as Y from "yjs";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const convergencePass = new Rate("convergence_pass");
 const _convergenceLatency = new Trend("convergence_latency");
@@ -160,7 +163,13 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-convergence-test";
+
+  if (!(wsUrl && (authToken || useBypass))) {
+    check(false, { "session established": () => false });
+    return;
+  }
 
   const session = connectCollabSession(
     wsUrl ?? "",
@@ -182,7 +191,7 @@ export default function () {
 
   globalDocRegistry.set(`client-${__VU}-${__ITER}`, clientState);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     check(false, { "session established": () => false });
     return;
   }
@@ -325,7 +334,7 @@ export default function () {
     workspaceId
   );
 
-  if (reconnectSession.established) {
+  if (waitForSessionEstablished(reconnectSession)) {
     reconnectSuccess.add(true);
 
     sleep(1);

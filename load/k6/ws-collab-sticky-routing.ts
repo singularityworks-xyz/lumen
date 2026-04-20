@@ -1,6 +1,9 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 const stickyRoutingSuccess = new Rate("sticky_routing_success");
 const sameWorkerReconnectCount = new Counter("same_worker_reconnect_count");
@@ -111,9 +114,10 @@ function simulateWorkerReroute(wsUrl: string): string {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-sticky-routing";
 
-  if (!(wsUrl && authToken)) {
+  if (!(wsUrl && (authToken || useBypass))) {
     console.error("WS_URL and AUTH_TOKEN environment variables are required");
     return;
   }
@@ -124,12 +128,12 @@ export default function () {
   const userState = getOrCreateUserState(vu, iter);
 
   const routingStart = Date.now();
-  const session = connectCollabSession(wsUrl, authToken, workspaceId);
+  const session = connectCollabSession(wsUrl, authToken ?? "", workspaceId);
   const routingEnd = Date.now();
 
   routingLatency.add(routingEnd - routingStart);
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     stickyRoutingSuccess.add(false);
     return;
   }
@@ -171,14 +175,14 @@ export default function () {
     const targetUrl = reroute % 2 === 0 ? wsUrl : simulateWorkerReroute(wsUrl);
     const reconnectSession = connectCollabSession(
       targetUrl,
-      authToken,
+      authToken ?? "",
       workspaceId
     );
     const reconnectEnd = Date.now();
 
     routingLatency.add(reconnectEnd - reconnectStart);
 
-    if (!reconnectSession.established) {
+    if (!waitForSessionEstablished(reconnectSession)) {
       stickyRoutingSuccess.add(false);
       continue;
     }
@@ -226,9 +230,13 @@ export default function () {
 
   stickinessCheckCount.add(1);
 
-  const finalSession = connectCollabSession(wsUrl, authToken, workspaceId);
+  const finalSession = connectCollabSession(
+    wsUrl,
+    authToken ?? "",
+    workspaceId
+  );
 
-  if (finalSession.established) {
+  if (waitForSessionEstablished(finalSession)) {
     const finalWorkerId = extractWorkerId(finalSession);
 
     check(finalSession, {

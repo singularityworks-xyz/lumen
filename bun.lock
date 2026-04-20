@@ -83,7 +83,7 @@
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.0.95",
+      "version": "1.0.96",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -254,7 +254,7 @@
     },
     "packages/logger": {
       "name": "@lumen/logger",
-      "version": "0.0.28",
+      "version": "0.0.29",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/api-logs": "^0.208.0",
@@ -297,7 +297,7 @@
     },
     "packages/yjs-shared": {
       "name": "@lumen/yjs-shared",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "lib0": "^0.2.117",
         "y-protocols": "^1.0.7",

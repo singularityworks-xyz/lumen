@@ -152,4 +152,28 @@ describe("formatRelativeTime", () => {
     const result = formatRelativeTime(new Date().toISOString());
     expect(result).toBe("just now");
   });
+
+  it("handles pre-1970 date math", () => {
+    expect(
+      formatRelativeTime("1969-12-31T00:00:00Z", {
+        nowIso: "1970-01-01T00:00:00Z",
+      })
+    ).toBe("yesterday");
+  });
+
+  it("handles leap-day carry in month accumulation", () => {
+    expect(
+      formatRelativeTime("2024-02-29T00:00:00Z", {
+        nowIso: "2024-03-01T00:00:00Z",
+      })
+    ).toBe("yesterday");
+  });
+
+  it("falls back to zero diff when nowIso parses but does not match internal ISO pattern", () => {
+    expect(
+      formatRelativeTime("2025-06-15T11:00:00Z", {
+        nowIso: "2025-06-15",
+      })
+    ).toBe("just now");
+  });
 });

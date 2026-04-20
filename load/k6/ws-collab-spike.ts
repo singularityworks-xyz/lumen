@@ -1,5 +1,8 @@
 import { check, sleep } from "k6";
-import { connectCollabSession } from "./lib/collab-session.ts";
+import {
+  connectCollabSession,
+  waitForSessionEstablished,
+} from "./lib/collab-session.ts";
 
 export const options = {
   scenarios: {
@@ -23,7 +26,12 @@ export const options = {
 export default function () {
   const wsUrl = __ENV.WS_URL;
   const authToken = __ENV.AUTH_TOKEN;
+  const useBypass = __ENV.E2E_BYPASS === "true";
   const workspaceId = __ENV.WORKSPACE_ID || "ws-spike-shared";
+
+  if (!(wsUrl && (authToken || useBypass))) {
+    return;
+  }
 
   const session = connectCollabSession(
     wsUrl ?? "",
@@ -31,7 +39,7 @@ export default function () {
     workspaceId
   );
 
-  if (!session.established) {
+  if (!waitForSessionEstablished(session)) {
     return;
   }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import type { z } from "zod";
 import {
   AreaDialogSchema,
@@ -743,6 +743,31 @@ describe("yjs-shared schemas", () => {
       expect(doc.clientID).toBe(assigned);
       expect(assigned).toBeGreaterThanOrEqual(1);
       expect(assigned).toBeLessThanOrEqual(MAX_YJS_CLIENT_ID);
+    });
+
+    it("falls back to Math.random when crypto.getRandomValues is unavailable", () => {
+      const originalCryptoDescriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "crypto"
+      );
+      const randomSpy = spyOn(Math, "random").mockReturnValue(0);
+
+      Object.defineProperty(globalThis, "crypto", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+
+      try {
+        const clientId = generateSafeYjsClientId();
+        expect(clientId).toBe(1);
+        expect(randomSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        randomSpy.mockRestore();
+        if (originalCryptoDescriptor) {
+          Object.defineProperty(globalThis, "crypto", originalCryptoDescriptor);
+        }
+      }
     });
   });
 });

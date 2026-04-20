@@ -1,4 +1,4 @@
-const WEB_VERSION = "1.0.95";
+const WEB_VERSION = "1.0.96";
 
 export async function register() {
   // Only initialize OTEL on the Node.js runtime (not Edge)
