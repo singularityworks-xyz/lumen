@@ -178,7 +178,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.53",
+      "version": "1.0.54",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.11",

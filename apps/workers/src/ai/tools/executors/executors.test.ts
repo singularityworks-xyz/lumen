@@ -729,18 +729,16 @@ describe("executeBulkDeleteTasks", () => {
     expect((result.data as { deletedCount: number }).deletedCount).toBe(1);
   });
 
-    it("fails when workspace not loaded", async () => {
-      mockState.returnNull = true;
-      const result = await executeBulkDeleteTasks(
-        { taskIds: ["task-1"] },
-        baseCtx
-      );
-      expect(result.success).toBe(false);
-    });
+  it("fails when workspace not loaded", async () => {
+    mockState.returnNull = true;
+    const result = await executeBulkDeleteTasks(
+      { taskIds: ["task-1"] },
+      baseCtx
+    );
+    expect(result.success).toBe(false);
   });
 });
 
 afterAll(() => {
   mock.restore();
-});
 });

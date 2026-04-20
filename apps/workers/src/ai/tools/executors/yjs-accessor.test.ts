@@ -1,6 +1,7 @@
 process.env.DATABASE_URL = "postgres://dummy";
 
 import {
+  afterAll,
   afterEach,
   beforeAll,
   beforeEach,
