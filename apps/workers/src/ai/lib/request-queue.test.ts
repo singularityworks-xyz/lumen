@@ -1,5 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
+// Set environment variables BEFORE any imports to ensure Upstash is used
+process.env.UPSTASH_REDIS_REST_URL = "http://localhost:6379";
+process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+
 const mockLoggerInfo = mock(() => {
   // intentionally empty mock
 });
@@ -22,6 +26,12 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
+mock.module("@upstash/redis", () => ({
+  Redis: class {},
+}));
+
+// Mock must be set up before importing request-queue
+// This mock ensures rate limit always allows requests
 mock.module("@upstash/ratelimit", () => ({
   Ratelimit: class {
     limit = mock(() =>
@@ -34,11 +44,8 @@ mock.module("@upstash/ratelimit", () => ({
   },
 }));
 
-mock.module("@upstash/redis", () => ({
-  Redis: class {},
-}));
-
 import {
+  _resetInMemoryLimiter,
   aiRequestQueue,
   getQueueStats,
   getQueueStatus,
@@ -50,6 +57,8 @@ beforeEach(() => {
   mockLoggerWarn.mockClear();
   mockLoggerError.mockClear();
   mockLoggerDebug.mockClear();
+  // Reset the in-memory rate limiter state before each test to prevent rate limiting
+  _resetInMemoryLimiter();
 });
 
 describe("RateLimitedQueue - immediate execution", () => {

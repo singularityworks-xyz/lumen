@@ -12,6 +12,7 @@ process.env.CEREBRAS_API_KEY = "test-cerebras-api-key";
 
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
+// Mock logger before any imports that use it
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
     info: mock(),
@@ -76,8 +77,11 @@ mock.module("ai", () => ({
   ModelMessage: {},
 }));
 
-import { streamWithFallback } from "./streaming";
+// Import types statically (they don't have side effects)
 import type { StreamOptions, StreamResult } from "./types";
+
+// Dynamically import the module under test
+const { streamWithFallback } = await import("./streaming");
 
 function makeOpts(overrides: Partial<StreamOptions> = {}): StreamOptions {
   return {

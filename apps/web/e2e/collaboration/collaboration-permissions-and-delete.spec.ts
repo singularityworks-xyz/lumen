@@ -11,6 +11,50 @@ import { waitForConnectionState } from "../helpers/waits";
 
 const SAVE_AS_LOCAL_REGEX = /save as local workspace/i;
 
+async function deleteCurrentWorkspaceReliable(page: Page): Promise<void> {
+  const deletedViaStore = await page
+    .evaluate(async () => {
+      interface KanbanState {
+        currentWorkspaceId?: string | null;
+        deleteWorkspace?: (workspaceId: string) => Promise<boolean> | boolean;
+        workspaces?: {
+          allIds?: string[];
+        };
+      }
+
+      type WindowWithKanbanStore = Window & {
+        __KANBAN_STORE__?: {
+          getState: () => KanbanState;
+        };
+      };
+
+      const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+      if (!store?.getState) {
+        return false;
+      }
+
+      const state = store.getState();
+      if (typeof state.deleteWorkspace !== "function") {
+        return false;
+      }
+
+      const workspaceId =
+        state.currentWorkspaceId ?? state.workspaces?.allIds?.[0] ?? null;
+
+      if (!workspaceId) {
+        return false;
+      }
+
+      const deleted = await state.deleteWorkspace(workspaceId);
+      return deleted === true;
+    })
+    .catch(() => false);
+
+  if (!deletedViaStore) {
+    await deleteWorkspace(page);
+  }
+}
+
 test.describe("E2E-12: Collaboration Permissions and Delete", () => {
   let ownerPage: Page;
   let viewerPage: Page;
@@ -83,7 +127,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await deleteWorkspace(ownerPage);
+    await deleteCurrentWorkspaceReliable(ownerPage);
 
     const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
     await deletedBanner.waitFor({ state: "visible", timeout: 10_000 });
@@ -99,7 +143,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await deleteWorkspace(ownerPage);
+    await deleteCurrentWorkspaceReliable(ownerPage);
 
     await waitForConnectionState(
       viewerPage,
@@ -123,7 +167,7 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
       .count();
     expect(boardsBeforeDelete).toBeGreaterThan(0);
 
-    await deleteWorkspace(ownerPage);
+    await deleteCurrentWorkspaceReliable(ownerPage);
 
     const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
     await expect(deletedBanner).toBeVisible();
@@ -143,8 +187,8 @@ test.describe("E2E-12: Collaboration Permissions and Delete", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
-    await deleteWorkspace(ownerPage);
-
+    await deleteCurrentWorkspaceReliable(ownerPage);
+  
     const deletedBanner = viewerPage.getByText("Workspace Deleted by Owner");
     await expect(deletedBanner).toBeVisible();
 

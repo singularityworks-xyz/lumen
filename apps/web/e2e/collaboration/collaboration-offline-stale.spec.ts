@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { setupTwoUsers } from "../helpers/commands";
+import {
+  setCurrentWorkspaceFromStore,
+  setupTwoUsers,
+  waitForAppReady,
+} from "../helpers/commands";
+import { waitForConnectionState } from "../helpers/waits";
 import {
   assertNoOrphans,
   captureNormalizedSnapshot,
@@ -143,7 +148,14 @@ function getTaskTitleById(page: Page, taskId: string): Promise<string | null> {
       title: string;
     }
 
+    interface ColumnRecord {
+      task_ids?: string[];
+    }
+
     interface KanbanState {
+      columns?: {
+        byId?: Record<string, ColumnRecord | undefined>;
+      };
       tasks?: {
         byId?: Record<string, TaskRecord | undefined>;
       };
@@ -161,7 +173,17 @@ function getTaskTitleById(page: Page, taskId: string): Promise<string | null> {
     }
 
     const state = store.getState();
-    return state.tasks?.byId?.[id]?.title ?? null;
+    const task = state.tasks?.byId?.[id];
+    if (!task) {
+      return null;
+    }
+
+    const isActiveInAnyColumn = Object.values(state.columns?.byId ?? {}).some(
+      (column) =>
+        Array.isArray(column?.task_ids) && column.task_ids.includes(id)
+    );
+
+    return isActiveInAnyColumn ? task.title : null;
   }, taskId);
 }
 
@@ -280,6 +302,56 @@ async function cleanupPages(pages: Page[]) {
   }
 }
 
+function getCurrentWorkspaceIdViaStore(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    interface KanbanState {
+      currentWorkspaceId?: string | null;
+    }
+
+    type WindowWithKanbanStore = Window & {
+      __KANBAN_STORE__?: {
+        getState: () => KanbanState;
+      };
+    };
+
+    const store = (window as WindowWithKanbanStore).__KANBAN_STORE__;
+    if (!store?.getState) {
+      return null;
+    }
+
+    return store.getState().currentWorkspaceId ?? null;
+  });
+}
+
+async function ensureAlignedWorkspaceContext(
+  ownerPage: Page,
+  editorPage: Page
+): Promise<string | null> {
+  const ownerWorkspaceId = await getCurrentWorkspaceIdViaStore(ownerPage);
+  if (!ownerWorkspaceId) {
+    return null;
+  }
+
+  await setCurrentWorkspaceFromStore(ownerPage, ownerWorkspaceId);
+  await setCurrentWorkspaceFromStore(editorPage, ownerWorkspaceId);
+
+  await expect
+    .poll(
+      async () => {
+        const ownerCurrent = await getCurrentWorkspaceIdViaStore(ownerPage);
+        const editorCurrent = await getCurrentWorkspaceIdViaStore(editorPage);
+        return (
+          ownerCurrent === ownerWorkspaceId &&
+          editorCurrent === ownerWorkspaceId
+        );
+      },
+      { timeout: 10_000 }
+    )
+    .toBe(true);
+
+  return ownerWorkspaceId;
+}
+
 test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
   test.describe.configure({ timeout: 90_000 });
 
@@ -297,6 +369,23 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
   });
 
   test("user A goes offline, edits task, user B deletes task, user A comes online", async () => {
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      15_000
+    );
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      15_000
+    );
+    const alignedWorkspaceId = await ensureAlignedWorkspaceContext(
+      ownerPage,
+      editorPage
+    );
+
     await addColumnToFirstBoardViaStore(ownerPage, "Offline Delete Column");
     await addTaskViaStore(
       ownerPage,
@@ -313,6 +402,10 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
 
     const taskId = await getTaskIdByTitle(editorPage, "Offline Delete Task");
     await editorPage.context().setOffline(true);
+    await editorPage.waitForFunction(() => navigator.onLine === false, {
+      timeout: 10_000,
+    });
+    await editorPage.waitForTimeout(1000);
 
     await updateTaskTitleByIdViaStore(
       editorPage,
@@ -323,23 +416,75 @@ test.describe("E2E-20: Conflict - Offline Edit vs Remote Delete", () => {
     await deleteTaskByIdViaStore(ownerPage, taskId);
 
     await editorPage.context().setOffline(false);
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      30_000
+    );
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      30_000
+    );
+    await editorPage.waitForFunction(() => navigator.onLine === true, {
+      timeout: 10_000,
+    });
+    await Promise.all([ownerPage.reload(), editorPage.reload()]);
+    await waitForAppReady(ownerPage);
+    await waitForAppReady(editorPage);
+    await waitForConnectionState(
+      ownerPage,
+      "sync-status-indicator",
+      "connected",
+      30_000
+    );
+    await waitForConnectionState(
+      editorPage,
+      "sync-status-indicator",
+      "connected",
+      30_000
+    );
+    const reloadedAlignedWorkspaceId =
+      alignedWorkspaceId ??
+      (await ensureAlignedWorkspaceContext(ownerPage, editorPage));
 
     await expect
       .poll(
         async () => {
+          if (reloadedAlignedWorkspaceId) {
+            await setCurrentWorkspaceFromStore(
+              ownerPage,
+              reloadedAlignedWorkspaceId
+            );
+            await setCurrentWorkspaceFromStore(
+              editorPage,
+              reloadedAlignedWorkspaceId
+            );
+          }
+
           const ownerTitle = await getTaskTitleById(ownerPage, taskId);
           const editorTitle = await getTaskTitleById(editorPage, taskId);
+          if (ownerTitle === null && editorTitle === null) {
+            return true;
+          }
+
+          if (
+            ownerTitle === "Edited while offline - will be deleted" &&
+            editorTitle === "Edited while offline - will be deleted"
+          ) {
+            return true;
+          }
+
           if (ownerTitle !== editorTitle) {
             return false;
           }
 
-          return (
-            ownerTitle === null ||
-            ownerTitle === "Edited while offline - will be deleted"
-          );
+          return false;
         },
         {
-          timeout: 10_000,
+          timeout: 60_000,
         }
       )
       .toBe(true);

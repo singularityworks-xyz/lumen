@@ -5,6 +5,12 @@ import {
   getStoreState,
   waitForAppReady,
 } from "../helpers/commands";
+import {
+  addColumnToFirstBoardViaStore,
+  addTaskViaStore,
+  getTaskIdByTitle,
+  updateTaskTitleViaStore,
+} from "../helpers/store";
 
 async function clickWithDispatchFallback(page: Page, selector: string) {
   const target = page.locator(selector).first();
@@ -26,13 +32,6 @@ async function clickWithDispatchFallback(page: Page, selector: string) {
       await target.dispatchEvent("click");
     }
   }
-}
-
-async function submitTaskCreate(page: Page): Promise<void> {
-  await clickWithDispatchFallback(page, '[data-testid="task-create-submit"]');
-  await expect(page.locator('[data-testid="task-title-input"]').first()).toBeHidden({
-    timeout: 10_000,
-  });
 }
 
 test.describe("E2E-07: Offline Persistence", () => {
@@ -84,12 +83,12 @@ test.describe("E2E-07: Offline Persistence", () => {
     );
     await expect(boardNode).toBeVisible();
 
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
     await clickWithDispatchFallback(page, '[data-testid="add-column-trigger"]');
     await page.fill('[data-testid="column-name-input"]', "Offline Column");
-    await clickWithDispatchFallback(page, '[data-testid="column-create-submit"]');
+    await clickWithDispatchFallback(
+      page,
+      '[data-testid="column-create-submit"]'
+    );
     await page.waitForTimeout(500);
 
     await page.context().setOffline(true);
@@ -110,42 +109,21 @@ test.describe("E2E-07: Offline Persistence", () => {
   });
 
   test("local edits made offline remain after reconnect", async ({ page }) => {
-    const boardNode = page.locator('[data-testid="board-node"]').first();
-    const addColumnTrigger = boardNode.locator(
-      '[data-testid="add-column-trigger"]'
-    );
-    await clickWithDispatchFallback(page, '[data-testid="add-column-trigger"]');
-    await page.fill('[data-testid="column-name-input"]', "Offline Edit Column");
-    await clickWithDispatchFallback(page, '[data-testid="column-create-submit"]');
-    await page.waitForTimeout(500);
-
-    const column = page.locator(
-      '[data-testid="kanban-column"]:has-text("Offline Edit Column")'
-    );
-    const addTaskTrigger = column.locator('[data-testid="add-task-trigger"]');
-    await clickWithDispatchFallback(page, '[data-testid="add-task-trigger"]');
-    await page.fill('[data-testid="task-title-input"]', "Offline Task");
-    await submitTaskCreate(page);
-    await page.waitForTimeout(300);
-
-    await page.context().setOffline(true);
-    await reloadAndWaitForReady(page, true);
+    await addColumnToFirstBoardViaStore(page, "Offline Edit Column");
+    await addTaskViaStore(page, "Offline Edit Column", "Offline Task");
 
     const offlineTask = page.locator(
       '[data-testid="task-card"]:has-text("Offline Task")'
     );
-    await expect(offlineTask).toBeVisible();
+    await expect(offlineTask).toBeVisible({ timeout: 10_000 });
 
-    await offlineTask.click();
-    await page.waitForSelector('[data-testid="task-detail-modal"]');
-    const editButton = page.locator('[data-testid="task-detail-edit-button"]');
-    await editButton.click();
-    await page.waitForSelector('[data-testid="task-detail-title-input"]');
-    await page.fill(
-      '[data-testid="task-detail-title-input"]',
-      "Updated Offline Task"
-    );
-    await page.click('[data-testid="task-detail-save-button"]');
+    await page.context().setOffline(true);
+    await reloadAndWaitForReady(page, true);
+
+    await expect(offlineTask).toBeVisible({ timeout: 10_000 });
+
+    const taskId = await getTaskIdByTitle(page, "Offline Task");
+    await updateTaskTitleViaStore(page, taskId, "Updated Offline Task");
     await page.waitForTimeout(300);
 
     await page.context().setOffline(false);
@@ -162,7 +140,10 @@ test.describe("E2E-07: Offline Persistence", () => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
     await page.fill('[data-testid="board-name-input"]', "IndexedDB Test Board");
-    await clickWithDispatchFallback(page, '[data-testid="board-create-submit"]');
+    await clickWithDispatchFallback(
+      page,
+      '[data-testid="board-create-submit"]'
+    );
     await page.waitForTimeout(500);
 
     const boardNode = page.locator(

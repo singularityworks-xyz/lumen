@@ -752,9 +752,7 @@ interface ReactFlowViewport {
 
 export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
   return page.evaluate(() => {
-    const matrixRegex = /matrix\(([^)]+)\)/;
-    const translateScaleRegex =
-      /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/;
+    const defaultViewport: ReactFlowViewport = { x: 0, y: 0, zoom: 1 };
 
     const rf = (
       window as Window & {
@@ -770,7 +768,7 @@ export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
       ".react-flow__viewport"
     ) as HTMLElement | null;
     if (!viewportEl) {
-      return { x: 0, y: 0, zoom: 1 };
+      return defaultViewport;
     }
 
     const transform =
@@ -778,48 +776,56 @@ export function getReactFlowViewport(page: Page): Promise<ReactFlowViewport> {
       window.getComputedStyle(viewportEl).transform ||
       "";
 
-    const matrixMatch = transform.match(matrixRegex);
-    if (matrixMatch?.[1]) {
-      const parts = matrixMatch[1]
-        .split(",")
-        .map((value) => Number.parseFloat(value.trim()));
-
-      const toNumber = (value: number | undefined): number | null =>
-        typeof value === "number" && Number.isFinite(value) ? value : null;
-
-      if (parts.length >= 6 && parts.every((value) => Number.isFinite(value))) {
-        const zoom = toNumber(parts[0]);
-        const x = toNumber(parts[4]);
-        const y = toNumber(parts[5]);
-
-        if (zoom !== null && x !== null && y !== null) {
-          return { x, y, zoom };
-        }
-
-        return {
-          x: 0,
-          y: 0,
-          zoom: 1,
-        };
-      }
+    if (!transform || transform === "none") {
+      return defaultViewport;
     }
 
-    const translateScaleMatch = transform.match(translateScaleRegex);
-    if (
-      translateScaleMatch?.[1] &&
-      translateScaleMatch?.[2] &&
-      translateScaleMatch?.[3]
-    ) {
-      const x = Number.parseFloat(translateScaleMatch[1]);
-      const y = Number.parseFloat(translateScaleMatch[2]);
-      const zoom = Number.parseFloat(translateScaleMatch[3]);
+    interface MatrixLike {
+      a?: number;
+      e?: number;
+      f?: number;
+      m41?: number;
+      m42?: number;
+    }
 
-      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(zoom)) {
+    type MatrixCtor = new (init?: string) => MatrixLike;
+
+    const matrixApi = window as Window & {
+      DOMMatrixReadOnly?: MatrixCtor;
+      DOMMatrix?: MatrixCtor;
+      WebKitCSSMatrix?: MatrixCtor;
+    };
+
+    const MatrixCtor =
+      matrixApi.DOMMatrixReadOnly ??
+      matrixApi.DOMMatrix ??
+      matrixApi.WebKitCSSMatrix;
+
+    if (!MatrixCtor) {
+      return defaultViewport;
+    }
+
+    try {
+      const matrix = new MatrixCtor(transform);
+      const zoom = matrix.a;
+      const x = matrix.m41 ?? matrix.e;
+      const y = matrix.m42 ?? matrix.f;
+
+      if (
+        typeof zoom === "number" &&
+        Number.isFinite(zoom) &&
+        typeof x === "number" &&
+        Number.isFinite(x) &&
+        typeof y === "number" &&
+        Number.isFinite(y)
+      ) {
         return { x, y, zoom };
       }
+    } catch {
+      return defaultViewport;
     }
 
-    return { x: 0, y: 0, zoom: 1 };
+    return defaultViewport;
   });
 }
 

@@ -8,6 +8,7 @@ process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
 process.env.GITHUB_CLIENT_ID = "test-github-client-id";
 process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+process.env.AI_ENCRYPTION_KEY = "dGVzdC1rZXktMzItYnl0ZXMtZm9yLWVuY3J5cHRpb24=";
 
 import {
   afterAll,
