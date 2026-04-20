@@ -16,12 +16,13 @@ defmodule PresenceWeb.TelemetryTest do
     test "returns list of metrics" do
       metrics = Telemetry.metrics()
       assert is_list(metrics)
-      assert length(metrics) > 0
+      assert metrics != []
     end
 
     test "includes Phoenix and VM metrics" do
       metrics = Telemetry.metrics()
-      assert length(metrics) > 10
+      # Pattern match to check there are more than 10 metrics
+      assert match?([_, _, _, _, _, _, _, _, _, _, _ | _], metrics)
     end
   end
 
