@@ -17,6 +17,7 @@ declare module "k6/ws" {
   export interface Socket {
     close(): void;
     on(event: string, callback: (...args: unknown[]) => void): void;
+    ping(): void;
     send(data: string): void;
     sendBinary(data: ArrayBuffer | ArrayBufferLike): void;
     setInterval(callback: () => void, interval: number): void;
@@ -42,6 +43,8 @@ declare module "k6/ws" {
     callback: (socket: Socket) => void
   ): Response;
 }
+
+declare function open(filePath: string, mode?: "b"): string | ArrayBuffer;
 
 declare module "k6/websockets" {
   export interface WebSocketParams {

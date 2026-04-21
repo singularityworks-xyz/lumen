@@ -1,4 +1,5 @@
 import { sleep } from "k6";
+import encoding from "k6/encoding";
 import { Counter, Rate, Trend } from "k6/metrics";
 import ws from "k6/ws";
 
@@ -19,7 +20,31 @@ const SYNC_STEP2 = 1;
 const SYNC_UPDATE = 2;
 
 const CONNECT_TIMEOUT_SECONDS = 5;
-const SESSION_LIFETIME_SECONDS = 2;
+const DEFAULT_SESSION_LIFETIME_SECONDS = 2;
+
+interface FixturePayloads {
+  small?: {
+    syncUpdates?: Record<string, string>;
+  };
+}
+
+function loadSyncUpdateFixtures(): Uint8Array[] {
+  try {
+    const raw = open("load/k6/fixtures/collab-payloads.json") as string;
+    const parsed = JSON.parse(raw) as FixturePayloads;
+    const encoded = Object.values(parsed.small?.syncUpdates ?? {});
+
+    if (encoded.length === 0) {
+      return [];
+    }
+
+    return encoded.map((entry) => new Uint8Array(encoding.b64decode(entry)));
+  } catch {
+    return [];
+  }
+}
+
+const SYNC_UPDATE_FIXTURES = loadSyncUpdateFixtures();
 
 declare global {
   const __ENV: {
@@ -188,6 +213,33 @@ function generateFakeYjsUpdate(seed: number): Uint8Array {
   return encoder.toUint8Array();
 }
 
+function extractSocketErrorMessage(event: unknown): string | null {
+  if (!(typeof event === "object" && event !== null)) {
+    return null;
+  }
+
+  if (!("error" in event)) {
+    return null;
+  }
+
+  const errorValue = (event as { error: unknown }).error;
+
+  if (typeof errorValue === "function") {
+    try {
+      const value = errorValue();
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof errorValue === "string") {
+    return errorValue;
+  }
+
+  return null;
+}
+
 export interface CollabSession {
   connectStart: number;
   disconnect: () => void;
@@ -238,7 +290,7 @@ export function connectCollabSession(
 
   const connectStart = Date.now();
   const sessionLifetimeSeconds = Number.parseInt(
-    __ENV.K6_SESSION_LIFETIME_SECONDS || `${SESSION_LIFETIME_SECONDS}`,
+    __ENV.K6_SESSION_LIFETIME_SECONDS || `${DEFAULT_SESSION_LIFETIME_SECONDS}`,
     10
   );
 
@@ -263,6 +315,7 @@ export function connectCollabSession(
 
   const resp = ws.connect(fullUrl, wsConnectOptions, (socket) => {
     session.established = true;
+    let isSocketOpen = true;
 
     if (!session.__connectMetricsRecorded) {
       const connectEnd = Date.now();
@@ -276,20 +329,22 @@ export function connectCollabSession(
     wsSyncMessagesSent.add(1);
 
     socket.setInterval(() => {
-      const pingEncoder = new BinaryEncoder();
-      pingEncoder.writeVarUint(MESSAGE_SYNC);
-      pingEncoder.writeVarUint(0);
-      const pingData = pingEncoder.toUint8Array();
-      socket.sendBinary(pingData.buffer);
-    }, 30_000);
-
-    socket.setTimeout(() => {
       try {
-        socket.close();
+        socket.ping();
       } catch {
         wsMessageFailures.add(1);
       }
-    }, Math.max(1, sessionLifetimeSeconds) * 1000);
+    }, 30_000);
+
+    if (sessionLifetimeSeconds > 0) {
+      socket.setTimeout(() => {
+        try {
+          socket.close();
+        } catch {
+          wsMessageFailures.add(1);
+        }
+      }, sessionLifetimeSeconds * 1000);
+    }
 
     socket.on("binaryMessage", (data: ArrayBuffer) => {
       const msg = decodeServerMessage(new Uint8Array(data));
@@ -311,16 +366,32 @@ export function connectCollabSession(
     });
 
     socket.on("close", () => {
+      isSocketOpen = false;
       wsDisconnectCount.add(1);
     });
 
-    socket.on("error", () => {
+    socket.on("error", (event: unknown) => {
+      const errorMessage = extractSocketErrorMessage(event);
+      if (errorMessage === "websocket: close sent") {
+        return;
+      }
       wsMessageFailures.add(1);
     });
 
     session.sendSyncUpdate = (updateSeed: number): boolean => {
+      if (!isSocketOpen) {
+        return false;
+      }
+
       try {
-        const update = generateFakeYjsUpdate(updateSeed);
+        const generatedUpdate = generateFakeYjsUpdate(updateSeed);
+        const fixtureUpdate =
+          SYNC_UPDATE_FIXTURES.length > 0
+            ? SYNC_UPDATE_FIXTURES[
+                Math.abs(updateSeed) % SYNC_UPDATE_FIXTURES.length
+              ]
+            : null;
+        const update = fixtureUpdate ?? generatedUpdate;
         const msg = encodeSyncUpdate(update);
         socket.sendBinary(msg.buffer);
         wsSyncMessagesSent.add(1);
@@ -328,7 +399,9 @@ export function connectCollabSession(
         session.lastMessageTime = Date.now();
         return true;
       } catch {
-        wsMessageFailures.add(1);
+        if (isSocketOpen) {
+          wsMessageFailures.add(1);
+        }
         return false;
       }
     };
@@ -338,6 +411,10 @@ export function connectCollabSession(
       y: number;
       user: string;
     }): boolean => {
+      if (!isSocketOpen) {
+        return false;
+      }
+
       try {
         const state = {
           user: { name: cursor.user, color: `hsl(${__VU * 37}, 70%, 50%)` },
@@ -350,7 +427,9 @@ export function connectCollabSession(
         session.lastMessageTime = Date.now();
         return true;
       } catch {
-        wsMessageFailures.add(1);
+        if (isSocketOpen) {
+          wsMessageFailures.add(1);
+        }
         return false;
       }
     };
