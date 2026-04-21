@@ -1,0 +1,323 @@
+{
+  "awareness_fanout_count": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "rate": 2.3640160931988894,
+      "count": 20
+    }
+  },
+  "iterations": {
+    "values": {
+      "count": 20,
+      "rate": 2.3640160931988894
+    },
+    "type": "counter",
+    "contains": "default"
+  },
+  "convergence_pass": {
+    "thresholds": {
+      "rate>0.95": {
+        "ok": true
+      }
+    },
+    "type": "rate",
+    "contains": "default",
+    "values": {
+      "passes": 20,
+      "fails": 0,
+      "rate": 1
+    }
+  },
+  "iteration_duration": {
+    "type": "trend",
+    "contains": "time",
+    "values": {
+      "avg": 8449.396138950002,
+      "min": 8436.088722,
+      "med": 8450.9615695,
+      "max": 8459.850987,
+      "p(90)": 8456.9928576,
+      "p(95)": 8459.755455
+    }
+  },
+  "state_vector_matches": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 40,
+      "rate": 4.728032186397779
+    },
+    "thresholds": {
+      "count>0": {
+        "ok": true
+      }
+    }
+  },
+  "vus": {
+    "type": "gauge",
+    "contains": "default",
+    "values": {
+      "value": 20,
+      "min": 20,
+      "max": 20
+    }
+  },
+  "ws_sync_messages_received": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 80,
+      "rate": 9.456064372795558
+    },
+    "thresholds": {
+      "count>0": {
+        "ok": true
+      }
+    }
+  },
+  "ws_connecting": {
+    "type": "trend",
+    "contains": "time",
+    "values": {
+      "avg": 20.873190275,
+      "min": 5.777405,
+      "med": 19.426076000000002,
+      "max": 33.214559,
+      "p(90)": 31.8677816,
+      "p(95)": 32.3722667
+    }
+  },
+  "ws_sync_messages_sent": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 40,
+      "rate": 4.728032186397779
+    }
+  },
+  "ws_connect_duration": {
+    "type": "trend",
+    "contains": "default",
+    "values": {
+      "med": 19,
+      "max": 33,
+      "p(90)": 32,
+      "p(95)": 32.05,
+      "avg": 20.85,
+      "min": 6
+    },
+    "thresholds": {
+      "p(95)<2000": {
+        "ok": true
+      }
+    }
+  },
+  "checks": {
+    "contains": "default",
+    "values": {
+      "rate": 1,
+      "passes": 100,
+      "fails": 0
+    },
+    "type": "rate"
+  },
+  "ws_msgs_sent": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "rate": 4.728032186397779,
+      "count": 40
+    }
+  },
+  "ws_connect_success": {
+    "type": "rate",
+    "contains": "default",
+    "values": {
+      "rate": 1,
+      "passes": 40,
+      "fails": 0
+    },
+    "thresholds": {
+      "rate>0.99": {
+        "ok": true
+      }
+    }
+  },
+  "document_hash_matches": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 20,
+      "rate": 2.3640160931988894
+    },
+    "thresholds": {
+      "count>0": {
+        "ok": true
+      }
+    }
+  },
+  "vus_max": {
+    "type": "gauge",
+    "contains": "default",
+    "values": {
+      "value": 20,
+      "min": 20,
+      "max": 20
+    }
+  },
+  "data_received": {
+    "type": "counter",
+    "contains": "data",
+    "values": {
+      "count": 25040,
+      "rate": 2959.7481486850093
+    }
+  },
+  "message_ordering_valid": {
+    "values": {
+      "passes": 20,
+      "fails": 0,
+      "rate": 1
+    },
+    "thresholds": {
+      "rate>0.90": {
+        "ok": true
+      }
+    },
+    "type": "rate",
+    "contains": "default"
+  },
+  "data_sent": {
+    "values": {
+      "count": 11000,
+      "rate": 1300.2088512593891
+    },
+    "type": "counter",
+    "contains": "data"
+  },
+  "reconnect_success": {
+    "type": "rate",
+    "contains": "default",
+    "values": {
+      "fails": 0,
+      "rate": 1,
+      "passes": 20
+    }
+  },
+  "ws_awareness_received": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "rate": 56.73638623677334,
+      "count": 480
+    }
+  },
+  "update_propagation_latency": {
+    "type": "trend",
+    "contains": "default",
+    "values": {
+      "max": 102,
+      "p(90)": 101,
+      "p(95)": 101,
+      "avg": 100.65,
+      "min": 100,
+      "med": 101
+    }
+  },
+  "exact_coordinate_agreement": {
+    "contains": "default",
+    "values": {
+      "count": 20,
+      "rate": 2.3640160931988894
+    },
+    "thresholds": {
+      "count>0": {
+        "ok": true
+      }
+    },
+    "type": "counter"
+  },
+  "state_convergence_time_ms": {
+    "type": "trend",
+    "contains": "default",
+    "values": {
+      "max": 904,
+      "p(90)": 904,
+      "p(95)": 904,
+      "avg": 903.35,
+      "min": 902,
+      "med": 903.5
+    }
+  },
+  "room_cleanup_success": {
+    "values": {
+      "rate": 1,
+      "passes": 20,
+      "fails": 0
+    },
+    "thresholds": {
+      "rate>0.95": {
+        "ok": true
+      }
+    },
+    "type": "rate",
+    "contains": "default"
+  },
+  "ws_msgs_received": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 560,
+      "rate": 66.1924506095689
+    }
+  },
+  "ws_session_duration": {
+    "values": {
+      "avg": 2021.6868959500002,
+      "min": 2006.617642,
+      "med": 2020.2243345000002,
+      "max": 2034.391167,
+      "p(90)": 2032.3090326000001,
+      "p(95)": 2033.2750773
+    },
+    "type": "trend",
+    "contains": "time"
+  },
+  "ws_sessions": {
+    "contains": "default",
+    "values": {
+      "count": 40,
+      "rate": 4.728032186397779
+    },
+    "type": "counter"
+  },
+  "convergence_latency": {
+    "type": "trend",
+    "contains": "default",
+    "values": {
+      "avg": 903.35,
+      "min": 902,
+      "med": 903.5,
+      "max": 904,
+      "p(90)": 904,
+      "p(95)": 904
+    }
+  },
+  "ws_message_failures": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 80,
+      "rate": 9.456064372795558
+    }
+  },
+  "ws_disconnect_count": {
+    "type": "counter",
+    "contains": "default",
+    "values": {
+      "count": 40,
+      "rate": 4.728032186397779
+    }
+  }
+}

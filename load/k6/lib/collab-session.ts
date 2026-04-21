@@ -19,6 +19,7 @@ const SYNC_STEP2 = 1;
 const SYNC_UPDATE = 2;
 
 const CONNECT_TIMEOUT_SECONDS = 5;
+const SESSION_LIFETIME_SECONDS = 2;
 
 declare global {
   const __ENV: {
@@ -32,6 +33,7 @@ declare global {
     COHORT_SIZE?: string;
     ROUNDS?: string;
     RECONNECT_DELAY?: string;
+    K6_SESSION_LIFETIME_SECONDS?: string;
   };
   const __VU: number;
 }
@@ -235,6 +237,10 @@ export function connectCollabSession(
   }
 
   const connectStart = Date.now();
+  const sessionLifetimeSeconds = Number.parseInt(
+    __ENV.K6_SESSION_LIFETIME_SECONDS || `${SESSION_LIFETIME_SECONDS}`,
+    10
+  );
 
   const session: InternalCollabSession = {
     response: null,
@@ -256,20 +262,18 @@ export function connectCollabSession(
   };
 
   const resp = ws.connect(fullUrl, wsConnectOptions, (socket) => {
-    socket.on("open", () => {
-      session.established = true;
+    session.established = true;
 
-      if (!session.__connectMetricsRecorded) {
-        const connectEnd = Date.now();
-        wsConnectDuration.add(connectEnd - connectStart);
-        wsConnectSuccess.add(true);
-        session.__connectMetricsRecorded = true;
-      }
+    if (!session.__connectMetricsRecorded) {
+      const connectEnd = Date.now();
+      wsConnectDuration.add(connectEnd - connectStart);
+      wsConnectSuccess.add(true);
+      session.__connectMetricsRecorded = true;
+    }
 
-      const syncStep1 = encodeSyncStep1();
-      socket.sendBinary(syncStep1.buffer);
-      wsSyncMessagesSent.add(1);
-    });
+    const syncStep1 = encodeSyncStep1();
+    socket.sendBinary(syncStep1.buffer);
+    wsSyncMessagesSent.add(1);
 
     socket.setInterval(() => {
       const pingEncoder = new BinaryEncoder();
@@ -278,6 +282,14 @@ export function connectCollabSession(
       const pingData = pingEncoder.toUint8Array();
       socket.sendBinary(pingData.buffer);
     }, 30_000);
+
+    socket.setTimeout(() => {
+      try {
+        socket.close();
+      } catch {
+        wsMessageFailures.add(1);
+      }
+    }, Math.max(1, sessionLifetimeSeconds) * 1000);
 
     socket.on("binaryMessage", (data: ArrayBuffer) => {
       const msg = decodeServerMessage(new Uint8Array(data));

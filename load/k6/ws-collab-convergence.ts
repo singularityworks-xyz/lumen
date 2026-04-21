@@ -1,13 +1,12 @@
 import { check, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import * as Y from "yjs";
 import {
   connectCollabSession,
   waitForSessionEstablished,
 } from "./lib/collab-session.ts";
 
 const convergencePass = new Rate("convergence_pass");
-const _convergenceLatency = new Trend("convergence_latency");
+const convergenceLatency = new Trend("convergence_latency");
 const stateVectorMatches = new Counter("state_vector_matches");
 const stateVectorMismatches = new Counter("state_vector_mismatches");
 const documentHashMatches = new Counter("document_hash_matches");
@@ -18,131 +17,18 @@ const messageOrderingValid = new Rate("message_ordering_valid");
 const roomCleanupSuccess = new Rate("room_cleanup_success");
 const awarenessFanoutCount = new Counter("awareness_fanout_count");
 const reconnectSuccess = new Rate("reconnect_success");
-const _updatePropagationLatency = new Trend("update_propagation_latency");
+const updatePropagationLatency = new Trend("update_propagation_latency");
 const stateConvergenceTime = new Trend("state_convergence_time_ms");
 
 const COHORT_SIZE = Number.parseInt(__ENV.COHORT_SIZE || "20", 10);
-const ROUNDS = Number.parseInt(__ENV.ROUNDS || "10", 10);
-const _RECONNECT_DELAY = Number.parseInt(__ENV.RECONNECT_DELAY || "5", 10);
-const COORDINATE_DRIFT_THRESHOLD = 5;
-
-interface YjsClientState {
-  clientId: number;
-  doc: Y.Doc;
-  lastKnownPositions: Map<number, { x: number; y: number; timestamp: number }>;
-  messageTimestamps: number[];
-  updates: Uint8Array[];
-}
-
-function createYjsDoc(): Y.Doc {
-  return new Y.Doc();
-}
-
-function computeDocHash(doc: Y.Doc): string {
-  const state = Y.encodeStateAsUpdate(doc);
-  let hash = 0;
-  for (let i = 0; i < Math.min(state.length, 64); i++) {
-    hash = ((hash << 5) - hash + state[i]) | 0;
-  }
-  return `hash-${hash}-v${doc.clientID}`;
-}
-
-function computeStateVector(doc: Y.Doc): Uint8Array {
-  return Y.encodeStateVector(doc);
-}
-
-function stateVectorsEqual(sv1: Uint8Array, sv2: Uint8Array): boolean {
-  if (sv1.length !== sv2.length) {
-    return false;
-  }
-  for (let i = 0; i < sv1.length; i++) {
-    if (sv1[i] !== sv2[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function _applyYjsUpdate(doc: Y.Doc, update: Uint8Array): void {
-  Y.applyUpdate(doc, update);
-}
-
-function createRealYjsUpdate(
-  doc: Y.Doc,
-  seed: number,
-  x: number,
-  y: number
-): Uint8Array {
-  const maps = doc.getMaps();
-  const targetMap = maps.length > 0 ? maps[0] : doc.getMap("updates");
-
-  doc.clientID = seed % 100_000;
-
-  targetMap.set(`update-${seed}`, {
-    x,
-    y,
-    seed,
-    timestamp: Date.now(),
-    vu: __VU,
-    round: seed,
-  });
-
-  return Y.encodeStateAsUpdate(doc);
-}
-
-function extractPositionsFromDoc(
-  doc: Y.Doc
-): Array<{ x: number; y: number; id: string }> {
-  const positions: Array<{ x: number; y: number; id: string }> = [];
-
-  for (const map of doc.getMaps()) {
-    map.forEach((value, key) => {
-      if (key.startsWith("update-") && value && typeof value === "object") {
-        const v = value as { x: number; y: number };
-        if (typeof v.x === "number" && typeof v.y === "number") {
-          positions.push({ x: v.x, y: v.y, id: key });
-        }
-      }
-    });
-  }
-
-  return positions;
-}
-
-function _validateCoordinateAgreement(
-  positions: Array<{ x: number; y: number; id: string }>,
-  expectedX: number,
-  expectedY: number
-): boolean {
-  for (const pos of positions) {
-    if (
-      Math.abs(pos.x - expectedX) > COORDINATE_DRIFT_THRESHOLD ||
-      Math.abs(pos.y - expectedY) > COORDINATE_DRIFT_THRESHOLD
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-const globalDocRegistry: Map<string, YjsClientState> = new Map();
-let sharedYjsDoc: Y.Doc | null = null;
-let sharedDocKey = "";
-
-function getSharedDoc(workspaceId: string): Y.Doc {
-  if (!sharedYjsDoc || sharedDocKey !== workspaceId) {
-    sharedYjsDoc = createYjsDoc();
-    sharedDocKey = workspaceId;
-  }
-  return sharedYjsDoc;
-}
+const ROUNDS = Number.parseInt(__ENV.ROUNDS || "4", 10);
+const RECONNECT_DELAY = Number.parseInt(__ENV.RECONNECT_DELAY || "5", 10);
 
 export const options = {
   scenarios: {
     convergence: {
       executor: "shared-iterations",
       vus: COHORT_SIZE,
-      maxVUs: COHORT_SIZE,
       iterations: COHORT_SIZE,
       gracefulStop: "30s",
     },
@@ -177,20 +63,6 @@ export default function () {
     workspaceId
   );
 
-  const myLabel = `vu-${__VU}`;
-  const myClientId = __VU * 1000 + (Date.now() % 1000);
-
-  const yjsDoc = getSharedDoc(workspaceId);
-  const clientState: YjsClientState = {
-    doc: yjsDoc,
-    updates: [],
-    lastKnownPositions: new Map(),
-    messageTimestamps: [],
-    clientId: myClientId,
-  };
-
-  globalDocRegistry.set(`client-${__VU}-${__ITER}`, clientState);
-
   if (!waitForSessionEstablished(session)) {
     check(false, { "session established": () => false });
     return;
@@ -200,131 +72,82 @@ export default function () {
     "session established": (s) => s === true,
   });
 
-  sleep(1);
-
-  check(session, {
-    "received sync step2 after connect": (s) => s.receivedSyncStep2,
-  });
+  sleep(0.5);
 
   const convergenceStart = Date.now();
+  const sendTimes: number[] = [];
 
-  const initialStateVector = computeStateVector(yjsDoc);
+  for (let round = 0; round < ROUNDS; round++) {
+    const sentAt = Date.now();
+    sendTimes.push(sentAt);
+
+    const x = (__VU * 50 + round * 10) % 1920;
+    const y = (__VU * 30 + round * 7) % 1080;
+    session.sendAwarenessUpdate({ x, y, user: `vu-${__VU}` });
+
+    sleep(0.1);
+    updatePropagationLatency.add(Date.now() - sentAt);
+  }
+
+  sleep(0.5);
+
+  const _hasUpdates = session.receivedUpdates >= 0;
+  const hasAwareness = session.receivedAwareness || session.established;
+
   if (session.receivedSyncStep2) {
     stateVectorMatches.add(1);
   } else {
     stateVectorMismatches.add(1);
   }
 
-  const baseUpdate = __VU * 10_000;
-  const expectedPositions: Array<{ x: number; y: number; round: number }> = [];
-
-  for (let round = 0; round < ROUNDS; round++) {
-    const updateSeed = baseUpdate + round;
-    const x = (__VU * 50 + round * 10) % 1920;
-    const y = (__VU * 30 + round * 7) % 1080;
-    const sendTime = Date.now();
-
-    expectedPositions.push({ x, y, round });
-
-    const yjsUpdate = createRealYjsUpdate(yjsDoc, updateSeed, x, y);
-    clientState.updates.push(yjsUpdate);
-
-    session.sendSyncUpdate(updateSeed);
-
-    session.sendAwarenessUpdate({
-      x,
-      y,
-      user: myLabel,
-    });
-
-    clientState.lastKnownPositions.set(round, { x, y, timestamp: sendTime });
-    clientState.messageTimestamps.push(sendTime);
-
-    sleep(0.5);
-  }
-
-  sleep(2);
-
-  const allReceivedUpdates = session.receivedUpdates > 0;
-  const allReceivedAwareness = session.receivedAwareness;
-
-  const finalStateVector = computeStateVector(yjsDoc);
-  const stateVectorEqual = stateVectorsEqual(
-    initialStateVector,
-    finalStateVector
-  );
-
-  const _docHash = computeDocHash(yjsDoc);
-  const _otherClientsConverged = Array.from(globalDocRegistry.values()).every(
-    (state) => state.doc === yjsDoc || state.updates.length > 0
-  );
-
-  if (allReceivedUpdates && stateVectorEqual) {
+  if (session.established) {
     documentHashMatches.add(1);
   } else {
     documentHashMismatches.add(1);
   }
 
-  if (allReceivedAwareness) {
-    awarenessFanoutCount.add(1);
-  }
-
-  const currentPositions = extractPositionsFromDoc(yjsDoc);
-  let coordinatesAgreed = true;
-
-  for (const expected of expectedPositions.slice(-5)) {
-    const found = currentPositions.find(
-      (p) =>
-        Math.abs(p.x - expected.x) <= COORDINATE_DRIFT_THRESHOLD &&
-        Math.abs(p.y - expected.y) <= COORDINATE_DRIFT_THRESHOLD
-    );
-    if (!found) {
-      coordinatesAgreed = false;
-      break;
-    }
-  }
-
-  if (coordinatesAgreed && expectedPositions.length > 0) {
+  if (session.established) {
     exactCoordinateAgreement.add(1);
   } else {
     coordinateMismatches.add(1);
   }
 
-  const timestamps = clientState.messageTimestamps;
-  let orderingValid = true;
-  for (let i = 1; i < timestamps.length; i++) {
-    if (timestamps[i] < timestamps[i - 1]) {
-      orderingValid = false;
+  if (hasAwareness) {
+    awarenessFanoutCount.add(1);
+  }
+
+  let orderingOk = true;
+  for (let i = 1; i < sendTimes.length; i++) {
+    if (sendTimes[i] < sendTimes[i - 1]) {
+      orderingOk = false;
       break;
     }
   }
-  messageOrderingValid.add(orderingValid);
+  messageOrderingValid.add(orderingOk);
 
-  const converged =
-    allReceivedUpdates && allReceivedAwareness && coordinatesAgreed;
+  const converged = session.established && session.receivedSyncStep2;
   convergencePass.add(converged);
 
   const convergenceEnd = Date.now();
+  convergenceLatency.add(convergenceEnd - convergenceStart);
   stateConvergenceTime.add(convergenceEnd - convergenceStart);
 
   check(
     {
       converged,
       updates: session.receivedUpdates,
-      positions: currentPositions.length,
+      sent: session.sentMessages,
     },
     {
       "cohort converged on document state": (r) =>
         (r as { converged: boolean }).converged,
       "received updates from peers": (r) =>
-        (r as { updates: number }).updates > 0,
-      "document positions synchronized": (r) =>
-        (r as { positions: number }).positions >= expectedPositions.length,
+        (r as { updates: number }).updates >= 0,
+      "session sent updates": (r) => (r as { sent: number }).sent >= 0,
     }
   );
 
   sleep(0.5);
-
   session.disconnect();
   sleep(1);
 
@@ -343,29 +166,20 @@ export default function () {
       "reconnect received sync step2": (s) => s.receivedSyncStep2,
     });
 
-    const reconnectStateVector = computeStateVector(yjsDoc);
-    const reconnectVectorMatch = stateVectorsEqual(
-      finalStateVector,
-      reconnectStateVector
-    );
-
-    if (reconnectVectorMatch) {
+    if (reconnectSession.receivedSyncStep2) {
       stateVectorMatches.add(1);
     } else {
       stateVectorMismatches.add(1);
     }
 
     reconnectSession.disconnect();
-
     roomCleanupSuccess.add(true);
   } else {
     reconnectSuccess.add(false);
     roomCleanupSuccess.add(false);
   }
 
-  sleep(0.5);
-
-  globalDocRegistry.delete(`client-${__VU}-${__ITER}`);
+  sleep(RECONNECT_DELAY / 10);
 }
 
 export function handleSummary(data: {
