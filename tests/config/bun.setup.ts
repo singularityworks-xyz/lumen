@@ -14,6 +14,14 @@ beforeEach(() => {
   crypto.randomUUID = mock(
     () => `00000000-0000-4000-8000-${String(++uuidCounter).padStart(12, "0")}`
   ) as typeof crypto.randomUUID;
+
+  const runtime = globalThis as typeof globalThis & {
+    Bun?: {
+      gc?: (force?: boolean) => void;
+    };
+  };
+
+  runtime.Bun?.gc?.(true);
 });
 
 afterEach(() => {
