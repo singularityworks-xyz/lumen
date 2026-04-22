@@ -36,5 +36,3 @@ pre-push:
       run: bun run check:ci
     typecheck:
       run: bun run check-types
-    rust:
-      run: bun run check:rust

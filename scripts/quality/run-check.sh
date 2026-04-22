@@ -15,3 +15,7 @@ cd "${repo_root}/apps/presence"
 mix format
 mix compile --warnings-as-errors
 mix credo --strict
+
+cd "${repo_root}/apps/native/src-tauri"
+cargo fmt --all --check
+cargo clippy --all-targets --all-features -- -D warnings
