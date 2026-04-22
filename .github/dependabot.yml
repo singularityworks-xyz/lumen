@@ -1,0 +1,66 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/apps/native"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: cargo
+    directory: "/apps/native/src-tauri"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/apps/web"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/apps/workers"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/apps/presence"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: mix
+    directory: "/apps/presence"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/apps/landing"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/yjs-shared"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/native-bridge"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/logger"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/db"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/ai"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/packages/configs"
+    schedule:
+      interval: weekly
