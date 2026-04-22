@@ -51,7 +51,7 @@ defmodule Presence.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
-      {:dotenvy, "~> 0.8"},
+      {:dotenvy, "~> 1.1"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:opentelemetry, "~> 1.3"},
       {:opentelemetry_api, "~> 1.4"},
