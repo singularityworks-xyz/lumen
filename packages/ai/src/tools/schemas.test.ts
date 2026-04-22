@@ -17,7 +17,7 @@ import {
   taskStatusSchema,
   updateBoardSchema,
   updateTaskSchema,
-} from "./tools/schemas";
+} from "./schemas";
 
 describe("prioritySchema", () => {
   it("accepts all valid priority values", () => {

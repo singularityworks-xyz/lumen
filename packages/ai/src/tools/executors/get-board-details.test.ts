@@ -1,9 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import {
-  type ExecutorContext,
-  executeGetBoardDetails,
-  type WorkspaceSnapshot,
-} from "./tools/executors";
+import { executeGetBoardDetails } from "./get-board-details";
+import type { ExecutorContext, WorkspaceSnapshot } from "./types";
 
 function makeSnapshot(): WorkspaceSnapshot {
   return {

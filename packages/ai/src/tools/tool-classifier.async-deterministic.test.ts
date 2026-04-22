@@ -63,10 +63,7 @@ mock.module("ai", () => {
   };
 });
 
-import {
-  classifyToolIntent,
-  getClassifierQueueStats,
-} from "./tools/tool-classifier";
+import { classifyToolIntent, getClassifierQueueStats } from "./tool-classifier";
 
 describe("ClassifierQueue deterministic async tests", () => {
   beforeEach(() => {

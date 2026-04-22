@@ -6,7 +6,7 @@ import {
   getSuggestionsForContext,
   TASK_SUGGESTIONS,
   WORKSPACE_SUGGESTIONS,
-} from "./types/suggestions";
+} from "./suggestions";
 
 function assertSuggestionShape(s: ContextualSuggestion) {
   expect(typeof s.id).toBe("string");

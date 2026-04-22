@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { actionTools, allTools, queryTools } from "./tools/definitions";
-import {
-  detectToolIntent,
-  getToolsForMessage,
-  needsTools,
-} from "./tools/router";
+import { actionTools, allTools, queryTools } from "./definitions";
+import { detectToolIntent, getToolsForMessage, needsTools } from "./router";
 
 describe("detectToolIntent column entities", () => {
   it("detects column as entity keyword", () => {

@@ -3,7 +3,7 @@ import { Counter, Rate, Trend } from "k6/metrics";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const convergencePass = new Rate("convergence_pass");
 const convergenceLatency = new Trend("convergence_latency");

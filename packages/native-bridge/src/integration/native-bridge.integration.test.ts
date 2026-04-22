@@ -57,8 +57,8 @@ describe("native-bridge integration", () => {
   describe("platform + auth interop", () => {
     it("shouldUseNativeAuth returns true in Tauri context", async () => {
       setTauriContext();
-      const { getPlatform } = await import("../../src/platform");
-      const { shouldUseNativeAuth } = await import("../../src/auth");
+      const { getPlatform } = await import("../platform");
+      const { shouldUseNativeAuth } = await import("../auth");
 
       expect(getPlatform()).toBe("tauri");
       expect(shouldUseNativeAuth()).toBe(true);
@@ -66,8 +66,8 @@ describe("native-bridge integration", () => {
 
     it("shouldUseNativeAuth returns false in web context", async () => {
       setMockWindow({});
-      const { getPlatform } = await import("../../src/platform");
-      const { shouldUseNativeAuth } = await import("../../src/auth");
+      const { getPlatform } = await import("../platform");
+      const { shouldUseNativeAuth } = await import("../auth");
 
       expect(getPlatform()).toBe("web");
       expect(shouldUseNativeAuth()).toBe(false);
@@ -76,7 +76,7 @@ describe("native-bridge integration", () => {
     it("initializeNativeAuth + onAuthDeepLink flow works end-to-end", async () => {
       setTauriContext();
       const { initializeNativeAuth, onAuthDeepLink, getOAuthCallbackUrl } =
-        await import("../../src/auth");
+        await import("../auth");
 
       await initializeNativeAuth();
 
@@ -99,7 +99,7 @@ describe("native-bridge integration", () => {
     it("OAuth flow resolves with params via deep link callback", async () => {
       setTauriContext();
       const { initiateOAuthFlow, initializeNativeAuth } = await import(
-        "../../src/auth"
+        "../auth"
       );
 
       await initializeNativeAuth();
@@ -114,8 +114,8 @@ describe("native-bridge integration", () => {
 
     it("platform detection is consistent across calls", async () => {
       setTauriContext();
-      const platform1 = await import("../../src/platform");
-      const platform2 = await import("../../src/platform");
+      const platform1 = await import("../platform");
+      const platform2 = await import("../platform");
 
       expect(platform1.isTauri()).toBe(platform2.isTauri());
       expect(platform1.getPlatform()).toBe(platform2.getPlatform());
@@ -125,14 +125,14 @@ describe("native-bridge integration", () => {
   describe("window + platform interop", () => {
     it("window operations are no-ops in web context", async () => {
       setMockWindow({});
-      const { isTauri } = await import("../../src/platform");
+      const { isTauri } = await import("../platform");
       const {
         minimizeWindow,
         toggleMaximize,
         closeWindow,
         startDragging,
         isMaximized,
-      } = await import("../../src/window");
+      } = await import("../window");
 
       expect(isTauri()).toBe(false);
       await expect(minimizeWindow()).resolves.toBeUndefined();
@@ -150,7 +150,7 @@ describe("native-bridge integration", () => {
         closeWindow,
         startDragging,
         isMaximized,
-      } = await import("../../src/window");
+      } = await import("../window");
 
       await expect(minimizeWindow()).resolves.toBeUndefined();
       await expect(toggleMaximize()).resolves.toBeUndefined();
@@ -163,8 +163,8 @@ describe("native-bridge integration", () => {
   describe("websocket + platform interop", () => {
     it("creates browser WebSocket in web context", async () => {
       setMockWindow({});
-      const { isTauri } = await import("../../src/platform");
-      const { connectWebSocket } = await import("../../src/websocket");
+      const { isTauri } = await import("../platform");
+      const { connectWebSocket } = await import("../websocket");
 
       expect(isTauri()).toBe(false);
       const ws = await connectWebSocket("ws://localhost:9999");
@@ -174,8 +174,8 @@ describe("native-bridge integration", () => {
 
     it("falls back to browser WebSocket in Tauri context", async () => {
       setTauriContext();
-      const { isTauri } = await import("../../src/platform");
-      const { connectWebSocket } = await import("../../src/websocket");
+      const { isTauri } = await import("../platform");
+      const { connectWebSocket } = await import("../websocket");
 
       expect(isTauri()).toBe(true);
       // In Tauri context, native WebSocket plugin may be used (mocked from other tests)
@@ -197,8 +197,8 @@ describe("native-bridge integration", () => {
     it("auth deep link and window operations coexist in Tauri context", async () => {
       setTauriContext();
       const { initializeNativeAuth, onAuthDeepLink, cancelOAuthFlow } =
-        await import("../../src/auth");
-      const { isMaximized } = await import("../../src/window");
+        await import("../auth");
+      const { isMaximized } = await import("../window");
 
       await initializeNativeAuth();
 

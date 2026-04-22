@@ -3,7 +3,7 @@ import { Counter, Trend } from "k6/metrics";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const presenceFanoutCount = new Counter("presence_fanout_count");
 const cursorMovementCount = new Counter("cursor_movement_count");

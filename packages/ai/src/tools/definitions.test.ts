@@ -7,7 +7,7 @@ import {
   queryTools,
   requiresConfirmation,
   toolMetadata,
-} from "./tools/definitions";
+} from "./definitions";
 
 describe("toolMetadata", () => {
   const allMetadataEntries = Object.entries(toolMetadata);

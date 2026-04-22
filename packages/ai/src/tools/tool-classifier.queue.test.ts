@@ -41,10 +41,7 @@ mock.module("ai", () => {
   };
 });
 
-import {
-  classifyToolIntent,
-  getClassifierQueueStats,
-} from "./tools/tool-classifier";
+import { classifyToolIntent, getClassifierQueueStats } from "./tool-classifier";
 
 describe("ClassifierQueue concurrent behavior", () => {
   it("queue stats reflect concurrent request state", async () => {

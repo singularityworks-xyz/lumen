@@ -57,7 +57,7 @@ mock.module("@lumen/logger/server", () => ({
   }),
 }));
 
-mock.module("../../src/collab/metrics", () => ({
+mock.module("../collab/metrics", () => ({
   recordWsRoomJoinDuration: mock(),
   incrementActiveConnections: mock(),
   decrementActiveConnections: mock(),
@@ -103,7 +103,7 @@ mock.module("@lumen/yjs-shared", () => ({
 }));
 
 // Import roomManager AFTER all mocks are set up
-const { roomManager } = await import("../../src/collab/room-manager");
+const { roomManager } = await import("../collab/room-manager");
 
 const createMockWs = () => {
   const sent: Uint8Array[] = [];

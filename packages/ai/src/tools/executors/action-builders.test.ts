@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-  type BulkUpdateTasksInstruction,
   buildActionInstruction,
   buildBulkDeleteTasksInstruction,
   buildBulkUpdateTasksInstruction,
@@ -12,13 +11,16 @@ import {
   buildMoveTaskInstruction,
   buildUpdateBoardInstruction,
   buildUpdateTaskInstruction,
-  type CreateBoardInstruction,
-  type CreateColumnInstruction,
-  type CreateTaskInstruction,
-  type MoveTaskInstruction,
-  type UpdateBoardInstruction,
-  type UpdateTaskInstruction,
-} from "./tools/executors";
+} from "./action-builders";
+import type {
+  BulkUpdateTasksInstruction,
+  CreateBoardInstruction,
+  CreateColumnInstruction,
+  CreateTaskInstruction,
+  MoveTaskInstruction,
+  UpdateBoardInstruction,
+  UpdateTaskInstruction,
+} from "./action-instructions";
 
 describe("buildCreateTaskInstruction", () => {
   it("builds a createTask instruction with required fields", () => {

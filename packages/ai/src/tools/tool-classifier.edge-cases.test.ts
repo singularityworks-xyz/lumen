@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   classifyToolIntentSync,
   getClassifierQueueStats,
-} from "./tools/tool-classifier";
+} from "./tool-classifier";
 
 describe("classifyToolIntentSync edge cases", () => {
   it("handles empty string", () => {

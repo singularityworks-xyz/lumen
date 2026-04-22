@@ -28,7 +28,7 @@ import {
   validateEntity,
   WorkspaceSchema,
   YJS_MAP_NAMES,
-} from "../../src/index";
+} from "../index";
 
 describe("yjs-shared integration", () => {
   describe("full workspace creation flow", () => {

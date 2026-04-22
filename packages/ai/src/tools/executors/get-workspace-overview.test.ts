@@ -1,9 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import {
-  type ExecutorContext,
-  executeGetWorkspaceOverview,
-  type WorkspaceSnapshot,
-} from "./tools/executors";
+import { executeGetWorkspaceOverview } from "./get-workspace-overview";
+import type { ExecutorContext, WorkspaceSnapshot } from "./types";
 
 function makeSnapshot(
   overrides: Partial<WorkspaceSnapshot> = {}

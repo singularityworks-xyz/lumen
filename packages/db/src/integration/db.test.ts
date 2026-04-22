@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { prisma } from "../../src/index";
+import { prisma } from "../index";
 
 describe("db integration", () => {
   beforeAll(async () => {

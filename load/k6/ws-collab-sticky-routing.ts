@@ -3,7 +3,7 @@ import { Counter, Rate, Trend } from "k6/metrics";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const stickyRoutingSuccess = new Rate("sticky_routing_success");
 const sameWorkerReconnectCount = new Counter("same_worker_reconnect_count");
@@ -49,6 +49,7 @@ interface RoutingMetrics {
 }
 
 interface StickyUserState {
+  lastUpdateSeed?: number;
   lastWorkerId: string | null;
   sessionTokens: Map<string, string>;
   userId: string;

@@ -1,10 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import {
-  type ExecutorContext,
-  executeSearchTasks,
-  type WorkspaceSnapshot,
-} from "./tools/executors";
-import type { SearchTasksParams } from "./tools/schemas";
+import type { SearchTasksParams } from "../schemas";
+import { executeSearchTasks } from "./search-tasks";
+import type { ExecutorContext, WorkspaceSnapshot } from "./types";
 
 function makeSnapshot(): WorkspaceSnapshot {
   return {

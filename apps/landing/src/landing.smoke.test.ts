@@ -2,15 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const LANDING_DIR = join(
-  import.meta.dir,
-  "..",
-  "..",
-  "..",
-  "apps",
-  "landing",
-  "src"
-);
+const LANDING_DIR = import.meta.dir;
 
 function readSource(path: string): string {
   return readFileSync(join(LANDING_DIR, path), "utf-8");
@@ -94,30 +86,14 @@ describe("Landing App Smoke Tests", () => {
 
   describe("Build Configuration", () => {
     it("has valid package.json", () => {
-      const pkgPath = join(
-        import.meta.dir,
-        "..",
-        "..",
-        "..",
-        "apps",
-        "landing",
-        "package.json"
-      );
+      const pkgPath = join(import.meta.dir, "..", "package.json");
       const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
       expect(pkg.name).toBe("@lumen/landing");
       expect(pkg.scripts.build).toBeDefined();
     });
 
     it("has vite configuration", () => {
-      const viteConfigPath = join(
-        import.meta.dir,
-        "..",
-        "..",
-        "..",
-        "apps",
-        "landing",
-        "vite.config.ts"
-      );
+      const viteConfigPath = join(import.meta.dir, "..", "vite.config.ts");
       expect(() => readFileSync(viteConfigPath, "utf-8")).not.toThrow();
     });
   });

@@ -52,7 +52,14 @@ declare global {
     AUTH_TOKEN?: string;
     E2E_BYPASS?: string;
     E2E_BYPASS_USER_ID?: string;
+    BASE_URL?: string;
+    BROWSER_VUS?: string;
+    CURSOR_ROUNDS?: string;
+    ITERATIONS?: string;
+    JOIN_LEAVE_ROUNDS?: string;
+    RECONNECT_STORM_DELAY?: string;
     SOAK_DURATION_MINUTES?: string;
+    STICKINESS_ROUNDS?: string;
     WORKSPACE_ID?: string;
     AI_BASE_URL?: string;
     COHORT_SIZE?: string;
@@ -61,6 +68,7 @@ declare global {
     K6_SESSION_LIFETIME_SECONDS?: string;
   };
   const __VU: number;
+  const __ITER: number;
 }
 
 class BinaryEncoder {

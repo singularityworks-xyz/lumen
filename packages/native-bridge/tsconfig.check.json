@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["node", "bun-types"]
   },
-  "include": ["src", "test", "index.ts", "*.ts"]
+  "include": ["src", "index.ts", "*.ts"]
 }

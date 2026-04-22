@@ -150,7 +150,7 @@ mock.module("@lumen/logger/tracer", () => ({
   recordSpanError: mock(),
 }));
 
-mock.module("../../src/collab/metrics", () => ({
+mock.module("../collab/metrics", () => ({
   recordWsRoomJoinDuration: mock(),
   incrementActiveConnections: mock(),
   decrementActiveConnections: mock(),
@@ -160,7 +160,7 @@ mock.module("../../src/collab/metrics", () => ({
 }));
 
 // Mock the AI barrel file to prevent cascading real imports
-mock.module("../../src/ai/index", () => {
+mock.module("../ai/index", () => {
   const routes = new Elysia({ name: "ai-routes" })
     .get("/api/ai/health", () => ({
       enabled: false,
@@ -238,7 +238,7 @@ mock.module("@lumen/yjs-shared", () => ({
 }));
 
 // Mock the auth config module to avoid Better Auth initialization
-mock.module("../../src/auth/config/auth", () => ({
+mock.module("../auth/config/auth", () => ({
   auth: {
     api: {
       getSession: mockGetSession,
@@ -248,7 +248,7 @@ mock.module("../../src/auth/config/auth", () => ({
 }));
 
 // Mock the auth macro to use our mocked session
-mock.module("../../src/auth/middleware/auth-macro", () => {
+mock.module("../auth/middleware/auth-macro", () => {
   const macroElysia = new Elysia({ name: "auth-macro" }).derive(
     { as: "global" },
     () => ({
@@ -267,7 +267,7 @@ mock.module("../../src/auth/middleware/auth-macro", () => {
 });
 
 // Import after mocking
-const { createApp } = await import("../../src/app");
+const { createApp } = await import("../app");
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;

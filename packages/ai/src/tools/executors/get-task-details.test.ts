@@ -1,9 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import {
-  type ExecutorContext,
-  executeGetTaskDetails,
-  type WorkspaceSnapshot,
-} from "./tools/executors";
+import { executeGetTaskDetails } from "./get-task-details";
+import type { ExecutorContext, WorkspaceSnapshot } from "./types";
 
 function makeSnapshot(): WorkspaceSnapshot {
   return {

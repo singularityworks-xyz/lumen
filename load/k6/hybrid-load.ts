@@ -5,7 +5,7 @@ import * as Y from "yjs";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const wsConnectSuccess = new Rate("hybrid_ws_connect_success");
 const wsUpdateLatency = new Trend("hybrid_ws_update_latency_ms");

@@ -2,7 +2,7 @@ import { check, sleep } from "k6";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 export const options = {
   scenarios: {

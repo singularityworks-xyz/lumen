@@ -26,7 +26,7 @@ import * as Y from "yjs";
 
 // Room manager imports - loaded dynamically after mock setup
 let MESSAGE_WORKSPACE_DELETED: number;
-let roomManager: typeof import("../../src/collab/room-manager").roomManager;
+let roomManager: typeof import("../collab/room-manager").roomManager;
 
 const _MESSAGE_SYNC = 0;
 const LOCAL_MESSAGE_AWARENESS = 1;
@@ -130,7 +130,7 @@ mock.module("@lumen/logger/server", () => ({
   }),
 }));
 
-mock.module("../../src/collab/metrics", () => ({
+mock.module("../collab/metrics", () => ({
   recordWsRoomJoinDuration: mock(),
   incrementActiveConnections: mock(),
   decrementActiveConnections: mock(),
@@ -177,7 +177,7 @@ mock.module("@lumen/yjs-shared", () => ({
 
 // Load room manager dynamically after mocks are set up
 beforeAll(async () => {
-  const roomManagerModule = await import("../../src/collab/room-manager");
+  const roomManagerModule = await import("../collab/room-manager");
   MESSAGE_WORKSPACE_DELETED = roomManagerModule.MESSAGE_WORKSPACE_DELETED;
   roomManager = roomManagerModule.roomManager;
 });

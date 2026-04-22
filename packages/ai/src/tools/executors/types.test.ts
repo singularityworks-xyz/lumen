@@ -4,7 +4,7 @@ import {
   getWorkspaceFromSnapshot,
   mapPriority,
   type WorkspaceSnapshot,
-} from "./tools/executors/types";
+} from "./types";
 
 function makeSnapshot(): WorkspaceSnapshot {
   return {

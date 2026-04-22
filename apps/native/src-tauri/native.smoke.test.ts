@@ -2,15 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const NATIVE_DIR = join(
-  import.meta.dir,
-  "..",
-  "..",
-  "..",
-  "apps",
-  "native",
-  "src-tauri"
-);
+const NATIVE_DIR = import.meta.dir;
 
 const configPath = join(NATIVE_DIR, "tauri.conf.json");
 const config = JSON.parse(readFileSync(configPath, "utf-8"));
@@ -102,15 +94,7 @@ describe("Native App Smoke Tests", () => {
 
   describe("Release Build", () => {
     it("package.json has tauri script for building", () => {
-      const pkgPath = join(
-        import.meta.dir,
-        "..",
-        "..",
-        "..",
-        "apps",
-        "native",
-        "package.json"
-      );
+      const pkgPath = join(import.meta.dir, "..", "package.json");
       const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 
       expect(pkg.scripts).toBeDefined();
