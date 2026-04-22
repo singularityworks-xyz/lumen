@@ -1,18 +1,47 @@
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+try {
+  GlobalRegistrator.register();
+} catch {
+  /* ignore */
+}
+
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { act, renderHook, waitFor } from "@testing-library/react";
+
+import type { PresenceUser } from "../types";
+
+const mockGetCurrentUser = mock((): Promise<null> => Promise.resolve(null));
+const mockSignInSocial = mock((): Promise<void> => Promise.resolve());
+const mockSignOut = mock((): Promise<void> => Promise.resolve());
+const mockUseSession = mock(() => ({
+  data: null,
+  isPending: false,
+  isRefetching: false,
+  error: null,
+  refetch: mock((): Promise<void> => Promise.resolve()),
+}));
+
+interface PresenceManagerOptions {
+  onConnectionChange?: (isConnected: boolean) => void;
+  onPresenceUpdate: (users: PresenceUser[]) => void;
+  token: string;
+  userAvatar?: string;
+  userId: string;
+  userName: string;
+  workspaceId: string;
+}
 
 interface MockPresenceManagerInstance {
   disconnect: ReturnType<typeof mock>;
-  opts: unknown;
+  opts: PresenceManagerOptions;
 }
 
 const instances: MockPresenceManagerInstance[] = [];
-const disconnectCalls: MockPresenceManagerInstance[] = [];
 
-const MockPresenceManagerCtor = mock((opts: unknown) => {
+const MockPresenceManagerCtor = mock((opts: PresenceManagerOptions) => {
   const instance: MockPresenceManagerInstance = {
-    disconnect: mock(() => {
-      disconnectCalls.push(instance);
-    }),
+    disconnect: mock(() => undefined),
     opts,
   };
   instances.push(instance);
@@ -23,29 +52,32 @@ mock.module("../presence-manager", () => ({
   PresenceManager: MockPresenceManagerCtor,
 }));
 
-let _jwtTokenResolver: ((token: string | null) => void) | null = null;
-
+const tokenResolvers: Array<(token: string | null) => void> = [];
 const mockGetJwtToken = mock(
   () =>
     new Promise<string | null>((resolve) => {
-      _jwtTokenResolver = resolve;
+      tokenResolvers.push(resolve);
     })
 );
 
 mock.module("@/src/lib/auth-client", () => ({
+  getCurrentUser: mockGetCurrentUser,
   getJwtToken: mockGetJwtToken,
+  signIn: { social: mockSignInSocial },
+  signOut: mockSignOut,
+  useSession: mockUseSession,
 }));
 
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
-    info: mock(),
-    warn: mock(),
-    debug: mock(),
-    error: mock(),
+    info: mock(() => undefined),
+    warn: mock(() => undefined),
+    debug: mock(() => undefined),
+    error: mock(() => undefined),
   }),
 }));
 
-const _DEFAULT_PROPS = {
+const DEFAULT_PROPS = {
   userId: "user-1",
   userName: "Test User",
   userAvatar: "https://example.com/avatar.png",
@@ -53,109 +85,213 @@ const _DEFAULT_PROPS = {
   enabled: true,
 };
 
-async function _flushMicrotasks() {
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
+function resolveNextToken(token: string | null) {
+  const resolve = tokenResolvers.shift();
+  if (!resolve) {
+    throw new Error("No pending token resolver available");
+  }
+  resolve(token);
+}
+
+async function getUsePresence() {
+  const mod = await import("./use-presence");
+  return mod.usePresence;
 }
 
 describe("usePresence", () => {
   beforeEach(() => {
+    tokenResolvers.length = 0;
+    instances.length = 0;
+
     mockGetJwtToken.mockReset();
+    mockGetCurrentUser.mockReset();
+    mockSignInSocial.mockReset();
+    mockSignOut.mockReset();
+    mockUseSession.mockReset();
     mockGetJwtToken.mockImplementation(
       () =>
         new Promise<string | null>((resolve) => {
-          _jwtTokenResolver = resolve;
+          tokenResolvers.push(resolve);
         })
     );
+    mockGetCurrentUser.mockImplementation(() => Promise.resolve(null));
+    mockSignInSocial.mockImplementation(() => Promise.resolve());
+    mockSignOut.mockImplementation(() => Promise.resolve());
+    mockUseSession.mockImplementation(() => ({
+      data: null,
+      isPending: false,
+      isRefetching: false,
+      error: null,
+      refetch: mock((): Promise<void> => Promise.resolve()),
+    }));
     MockPresenceManagerCtor.mockClear();
-    instances.length = 0;
-    disconnectCalls.length = 0;
-    _jwtTokenResolver = null;
   });
 
   afterEach(() => {
-    _jwtTokenResolver = null;
+    tokenResolvers.length = 0;
     instances.length = 0;
-    disconnectCalls.length = 0;
   });
 
-  // Note: These tests are skipped because they require a proper DOM environment
-  // setup with happy-dom that conflicts with React's hook resolution when
-  // running with bun test. The tests verify the hook logic but need
-  // infrastructure changes to run properly.
-  describe("enabled=false", () => {
-    it.skip("short-circuits and does not create a PresenceManager", async () => {
-      // Test skipped - requires proper React DOM environment setup
+  it("returns a fallback currentUser and skips connection when disabled", async () => {
+    const usePresence = await getUsePresence();
+    const { result } = renderHook(() =>
+      usePresence({
+        ...DEFAULT_PROPS,
+        enabled: false,
+      })
+    );
+
+    expect(result.current.currentUser).toEqual({
+      id: "user-1",
+      name: "Test User",
+      avatar: "https://example.com/avatar.png",
+      status: "online",
+      joinedAt: expect.any(Number),
     });
-    it.skip("returns constructed currentUser even when disabled", async () => {
-      // Test skipped - requires proper React DOM environment setup
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.users).toEqual([]);
+    expect(mockGetJwtToken).not.toHaveBeenCalled();
+    expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
+  });
+
+  it("skips connection when the workspaceId is missing", async () => {
+    const usePresence = await getUsePresence();
+    renderHook(() =>
+      usePresence({
+        ...DEFAULT_PROPS,
+        workspaceId: "",
+      })
+    );
+
+    expect(mockGetJwtToken).not.toHaveBeenCalled();
+    expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
+  });
+
+  it("creates a PresenceManager after the JWT token resolves", async () => {
+    const usePresence = await getUsePresence();
+    renderHook(() => usePresence(DEFAULT_PROPS));
+
+    expect(mockGetJwtToken).toHaveBeenCalledTimes(1);
+    expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
+
+    act(() => {
+      resolveNextToken("jwt-1");
+    });
+
+    await waitFor(() => {
+      expect(MockPresenceManagerCtor).toHaveBeenCalledTimes(1);
+    });
+
+    expect(instances[0]?.opts).toEqual(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        userName: "Test User",
+        userAvatar: "https://example.com/avatar.png",
+        token: "jwt-1",
+      })
+    );
+  });
+
+  it("does not create a PresenceManager when the JWT token is null", async () => {
+    const usePresence = await getUsePresence();
+    renderHook(() => usePresence(DEFAULT_PROPS));
+
+    await act(async () => {
+      resolveNextToken(null);
+      await Promise.resolve();
+    });
+
+    expect(MockPresenceManagerCtor).not.toHaveBeenCalled();
+  });
+
+  it("updates users and connection state from PresenceManager callbacks", async () => {
+    const usePresence = await getUsePresence();
+    const { result } = renderHook(() => usePresence(DEFAULT_PROPS));
+
+    act(() => {
+      resolveNextToken("jwt-2");
+    });
+
+    await waitFor(() => {
+      expect(instances).toHaveLength(1);
+    });
+
+    const collaborator: PresenceUser = {
+      id: "user-2",
+      name: "Pair User",
+      avatar: undefined,
+      status: "online",
+      joinedAt: 123,
+    };
+
+    act(() => {
+      instances[0]?.opts.onPresenceUpdate([collaborator]);
+      instances[0]?.opts.onConnectionChange?.(true);
+    });
+
+    expect(result.current.users).toEqual([collaborator]);
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.currentUser).toEqual({
+      id: "user-1",
+      name: "Test User",
+      avatar: "https://example.com/avatar.png",
+      status: "online",
+      joinedAt: expect.any(Number),
     });
   });
 
-  describe("missing required props", () => {
-    it.skip("short-circuits when workspaceId is missing", async () => {
-      // Test skipped - requires proper React DOM environment setup
+  it("disconnects the manager on unmount", async () => {
+    const usePresence = await getUsePresence();
+    const { unmount } = renderHook(() => usePresence(DEFAULT_PROPS));
+
+    act(() => {
+      resolveNextToken("jwt-3");
     });
-    it.skip("short-circuits when userId is missing", async () => {
-      // Test skipped - requires proper React DOM environment setup
+
+    await waitFor(() => {
+      expect(instances).toHaveLength(1);
     });
+
+    unmount();
+
+    expect(instances[0]?.disconnect).toHaveBeenCalledTimes(1);
   });
 
-  describe("JWT token flow", () => {
-    it.skip("creates PresenceManager after JWT token is resolved", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-    it.skip("does not create PresenceManager if JWT returns null", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-    it.skip("passes token to PresenceManager", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-  });
+  it("disconnects the previous manager and reconnects when the workspace changes", async () => {
+    const usePresence = await getUsePresence();
+    const { rerender } = renderHook(
+      (props: typeof DEFAULT_PROPS) => usePresence(props),
+      {
+        initialProps: DEFAULT_PROPS,
+      }
+    );
 
-  describe("callback wiring", () => {
-    it.skip("passes onPresenceUpdate and onConnectionChange to PresenceManager", async () => {
-      // Test skipped - requires proper React DOM environment setup
+    act(() => {
+      resolveNextToken("jwt-4");
     });
-    it.skip("updates users state when onPresenceUpdate is called", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-    it.skip("updates isConnected state when onConnectionChange is called", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-  });
 
-  describe("currentUser derivation", () => {
-    it.skip("returns current user from users list if present", async () => {
-      // Test skipped - requires proper React DOM environment setup
+    await waitFor(() => {
+      expect(instances).toHaveLength(1);
     });
-    it.skip("falls back to constructed user when not in users list", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-  });
 
-  describe("cleanup", () => {
-    it.skip("disconnects PresenceManager on unmount", async () => {
-      // Test skipped - requires proper React DOM environment setup
-    });
-  });
+    const firstInstance = instances[0];
 
-  describe("re-creation on prop changes", () => {
-    it.skip("disconnects old manager when workspaceId changes", async () => {
-      // Test skipped - requires proper React DOM environment setup
+    rerender({
+      ...DEFAULT_PROPS,
+      workspaceId: "ws-2",
     });
-    it.skip("disconnects old manager when userId changes", async () => {
-      // Test skipped - requires proper React DOM environment setup
+
+    expect(firstInstance?.disconnect).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      resolveNextToken("jwt-5");
     });
-  });
 
-  // Verify mocks are set up correctly
-  it("has mock PresenceManager constructor", () => {
-    expect(MockPresenceManagerCtor).toBeDefined();
-  });
+    await waitFor(() => {
+      expect(instances).toHaveLength(2);
+    });
 
-  it("has mock getJwtToken function", () => {
-    expect(mockGetJwtToken).toBeDefined();
+    expect(instances[1]?.opts.workspaceId).toBe("ws-2");
   });
 });

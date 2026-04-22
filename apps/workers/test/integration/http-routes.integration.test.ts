@@ -12,6 +12,8 @@ process.env.LOG_LEVEL = "error";
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Elysia } from "elysia";
 
+const ONE_TIME_TOKEN_REGEX = /^[a-f0-9]{64}$/;
+
 const mockSession = {
   user: {
     id: "user-1",
@@ -29,7 +31,11 @@ const mockSession = {
   },
 };
 
-const mockGetSession = mock(() => Promise.resolve(mockSession));
+type MockSession = typeof mockSession | null;
+
+const mockGetSession = mock<() => Promise<MockSession>>(() =>
+  Promise.resolve(mockSession)
+);
 
 const mockPrisma: Record<string, any> = {
   workspace: {
@@ -292,6 +298,14 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
     mockPrisma.workspaceShare.create.mockReset();
     mockPrisma.workspaceState.findUnique.mockReset();
     mockPrisma.workspaceState.upsert.mockReset();
+    mockPrisma.oneTimeAuthToken.create.mockReset();
+    mockPrisma.oneTimeAuthToken.create.mockResolvedValue({});
+    mockPrisma.oneTimeAuthToken.delete.mockReset();
+    mockPrisma.oneTimeAuthToken.delete.mockRejectedValue(
+      new Error("Record not found")
+    );
+    mockPrisma.oneTimeAuthToken.deleteMany.mockReset();
+    mockPrisma.oneTimeAuthToken.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   describe("root and health endpoints", () => {
@@ -309,6 +323,160 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
       const body = await res.json();
       expect(body.status).toBe("healthy");
       expect(body.timestamp).toBeDefined();
+    });
+  });
+
+  describe("auth routes", () => {
+    it("GET /api/auth/get-session returns the active session", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/get-session")
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.user.id).toBe("user-1");
+      expect(body.session.id).toBe("session-1");
+    });
+
+    it("GET /api/auth/get-session returns an empty body when no session exists", async () => {
+      mockGetSession.mockResolvedValueOnce(null);
+
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/get-session")
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("");
+    });
+
+    it("POST /api/auth/native/generate-token returns 401 without a session", async () => {
+      mockGetSession.mockResolvedValueOnce(null);
+
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/generate-token", {
+          method: "POST",
+        })
+      );
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({
+        error: "Unauthorized",
+        message: "No active session",
+      });
+    });
+
+    it("POST /api/auth/native/generate-token returns 401 when the session cookie is missing", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/generate-token", {
+          method: "POST",
+          headers: {
+            cookie: "other=value",
+          },
+        })
+      );
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({
+        error: "Unauthorized",
+        message: "No session token found",
+      });
+      expect(mockPrisma.oneTimeAuthToken.create).not.toHaveBeenCalled();
+    });
+
+    it("POST /api/auth/native/generate-token persists and returns a one-time token", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/generate-token", {
+          method: "POST",
+          headers: {
+            cookie: "better-auth.session_token=session-cookie-value",
+          },
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.token).toMatch(ONE_TIME_TOKEN_REGEX);
+      expect(mockPrisma.oneTimeAuthToken.create).toHaveBeenCalledWith({
+        data: {
+          token: body.token,
+          sessionToken: "session-cookie-value",
+          expiresAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("POST /api/auth/native/exchange-token sets the session cookie when the token is valid", async () => {
+      mockPrisma.oneTimeAuthToken.delete.mockResolvedValueOnce({
+        sessionToken: "session-cookie-value",
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/exchange-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: "native-token",
+          }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ success: true });
+      expect(res.headers.get("set-cookie")).toContain(
+        "better-auth.session_token=session-cookie-value"
+      );
+    });
+
+    it("POST /api/auth/native/exchange-token returns 401 for reused or invalid tokens", async () => {
+      const notFoundError = Object.assign(new Error("Record not found"), {
+        code: "P2025",
+      });
+      mockPrisma.oneTimeAuthToken.delete.mockRejectedValueOnce(notFoundError);
+
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/exchange-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: "used-token",
+          }),
+        })
+      );
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({
+        error: "Unauthorized",
+        message: "Invalid or expired token",
+      });
+    });
+
+    it("POST /api/auth/native/exchange-token returns 401 for expired tokens", async () => {
+      mockPrisma.oneTimeAuthToken.delete.mockResolvedValueOnce({
+        sessionToken: "expired-session-cookie",
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      const res = await app.handle(
+        new Request("http://localhost/api/auth/native/exchange-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: "expired-token",
+          }),
+        })
+      );
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({
+        error: "Unauthorized",
+        message: "Token has expired",
+      });
     });
   });
 

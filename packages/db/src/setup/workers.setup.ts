@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, mock } from "bun:test";
+import { afterAll, afterEach, beforeEach, mock } from "bun:test";
+import { createConnection } from "node:net";
 
 const originalEnv: Record<string, string | undefined> = {
   DATABASE_URL: process.env.DATABASE_URL,
@@ -17,7 +18,8 @@ const TEST_ENV: Record<string, string> = {
   DATABASE_URL: "postgresql://test:test@localhost:5432/lumen_test",
   JWKS_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  AI_ENCRYPTION_KEY: "test-encryption-key-32-bytes!!",
+  AI_ENCRYPTION_KEY:
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   CEREBRAS_API_KEY: "test-cerebras-api-key",
   LOG_LEVEL: "error",
   OTEL_ENABLED: "false",
@@ -52,7 +54,53 @@ async function getPrisma() {
   return prisma;
 }
 
+async function isDatabaseReachable(): Promise<boolean> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return false;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(databaseUrl);
+  } catch {
+    return false;
+  }
+
+  const hostname = parsedUrl.hostname;
+  const connectHost = hostname === "localhost" ? "127.0.0.1" : hostname;
+  const port = Number.parseInt(parsedUrl.port || "5432", 10);
+
+  if (!(connectHost && Number.isFinite(port) && port > 0)) {
+    return false;
+  }
+
+  return await new Promise<boolean>((resolve) => {
+    const socket = createConnection({ host: connectHost, port, family: 4 });
+    let settled = false;
+
+    const finish = (result: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(100);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
+}
+
 async function checkPrismaAvailable(): Promise<boolean> {
+  const databaseReachable = await isDatabaseReachable();
+  if (!databaseReachable) {
+    return false;
+  }
+
   try {
     const prisma = await getPrisma();
     await prisma.$queryRaw`SELECT 1`;
@@ -95,6 +143,10 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  mock.restore();
+});
+
+afterAll(() => {
   for (const [key, originalValue] of Object.entries(originalEnv)) {
     if (originalValue === undefined) {
       delete process.env[key];
@@ -102,5 +154,4 @@ afterEach(() => {
       process.env[key] = originalValue;
     }
   }
-  mock.restore();
 });
