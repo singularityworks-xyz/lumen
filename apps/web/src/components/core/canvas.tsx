@@ -11,15 +11,16 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
+  applyEdgeChanges,
+  applyNodeChanges,
   Background,
   BackgroundVariant,
+  type EdgeChange,
   type EdgeTypes,
   MiniMap,
   type OnNodesChange,
   ReactFlow,
   SelectionMode,
-  useEdgesState,
-  useNodesState,
   useReactFlow,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,7 +48,6 @@ import { WorkspaceSelector } from "@/src/features/workspace/components/workspace
 import { useCanvasEdges } from "./helpers/canvas-edges";
 import {
   useColumnDragHandlers,
-  useEdgeHandlers,
   useKeyboardHandlers,
   useNodeDragHandlers,
   useSelectionHandlers,
@@ -63,12 +63,12 @@ import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 import { TaskConnectionLayer } from "./task-connection-layer";
 
-const DRAG_ATTACH_PADDING = 20;
+const TARGET_HANDLE_SUFFIX = /-target$/;
+const SOURCE_HANDLE_SUFFIX = /-source$/;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore((s) => s.currentWorkspaceId);
   const boards = useKanbanStore((s) => s.boards);
-  const boardPositions = useKanbanStore((s) => s.boardPositions);
   const workspaces = useKanbanStore((s) => s.workspaces);
   const showMiniMap = useKanbanStore((s) => s.showMiniMap);
   const interactionMode = useKanbanStore((s) => s.interactionMode);
@@ -76,19 +76,10 @@ export function KanbanCanvas() {
   const clearBoardSelection = useKanbanStore((s) => s.clearBoardSelection);
   const canvas = useKanbanStore((s) => s.canvas);
   const setViewport = useKanbanStore((s) => s.setViewport);
-  const updateBoardPosition = useKanbanStore((s) => s.updateBoardPosition);
-  const areas = useKanbanStore((s) => s.areas);
-  const areaPositions = useKanbanStore((s) => s.areaPositions);
-  const updateAreaPosition = useKanbanStore((s) => s.updateAreaPosition);
+  const _updateBoardPosition = useKanbanStore((s) => s.updateBoardPosition);
   const updateAreaDimensions = useKanbanStore((s) => s.updateAreaDimensions);
   const finalizeAreaDrag = useKanbanStore((s) => s.finalizeAreaDrag);
   const finalizeBoardDrag = useKanbanStore((s) => s.finalizeBoardDrag);
-  const attachBoardToArea = useKanbanStore((s) => s.attachBoardToArea);
-  const detachBoardFromArea = useKanbanStore((s) => s.detachBoardFromArea);
-  const updateModalPosition = useKanbanStore((s) => s.updateModalPosition);
-  const updateTaskDetailModalPosition = useKanbanStore(
-    (s) => s.updateTaskDetailModalPosition
-  );
   const updateComments = useKanbanStore((s) => s.updateComments);
   const finalizeCommentsDrag = useKanbanStore((s) => s.finalizeCommentsDrag);
   const moveColumn = useKanbanStore((s) => s.moveColumn);
@@ -96,27 +87,6 @@ export function KanbanCanvas() {
   const columns = useKanbanStore((s) => s.columns);
   const addConnection = useKanbanStore((s) => s.addConnection);
   const removeConnection = useKanbanStore((s) => s.removeConnection);
-  const updateBoardQuickActionsPosition = useKanbanStore(
-    (s) => s.updateBoardQuickActionsPosition
-  );
-  const updateBoardDialogPosition = useKanbanStore(
-    (s) => s.updateBoardDialogPosition
-  );
-  const updateConnectionDialogPosition = useKanbanStore(
-    (s) => s.updateConnectionDialogPosition
-  );
-  const updateColumnDialogPosition = useKanbanStore(
-    (s) => s.updateColumnDialogPosition
-  );
-  const updateColumnQuickActionsPosition = useKanbanStore(
-    (s) => s.updateColumnQuickActionsPosition
-  );
-  const updateTaskQuickActionsPosition = useKanbanStore(
-    (s) => s.updateTaskQuickActionsPosition
-  );
-  const updateAreaDialogPosition = useKanbanStore(
-    (s) => s.updateAreaDialogPosition
-  );
   const focusedBoardId = useKanbanStore((s) => s.canvas.focusedBoardId);
   const setFocusedBoard = useKanbanStore((s) => s.setFocusedBoard);
   const showWelcomeScreen = useShowWelcomeScreen();
@@ -135,7 +105,7 @@ export function KanbanCanvas() {
     updateOpenDialogs,
   } = useCollaboration();
 
-  const { nodes, commentClusters } = useCanvasNodes();
+  const { nodes: storeNodes, commentClusters } = useCanvasNodes();
   const edges = useCanvasEdges();
 
   const {
@@ -156,19 +126,32 @@ export function KanbanCanvas() {
     onSelectionEndWrapper,
   } = useSelectionHandlers(screenToFlowPosition);
 
-  const { handleMoveEnd } = useViewportHandlers(setViewport);
-  const { handleNodeDrag, handleNodeDragStop } = useNodeDragHandlers({
-    isCollaborating,
-    screenToFlowPosition,
-    updateCursor,
-    finalizeAreaDrag,
-    finalizeBoardDrag,
-    finalizeCommentsDrag,
-    commentClusters,
-  });
+  // Refs for zero-store-update drag strategy:
+  // pendingPositionsRef accumulates node positions during drag.
+  // isDraggingRef tracks active drag state to gate store sync.
+  const pendingPositionsRef = useRef<Map<string, { x: number; y: number }>>(
+    new Map()
+  );
+  const isDraggingRef = useRef(false);
 
-  const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
-  const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
+  const { handleMoveEnd } = useViewportHandlers(setViewport);
+  const { handleNodeDragStart, handleNodeDrag, handleNodeDragStop } =
+    useNodeDragHandlers({
+      isCollaborating,
+      screenToFlowPosition,
+      updateCursor,
+      finalizeAreaDrag,
+      finalizeBoardDrag,
+      finalizeCommentsDrag,
+      commentClusters,
+      pendingPositionsRef,
+      isDraggingRef,
+    });
+
+  // Local state for smooth React Flow interactions during drag/resize.
+  // Sync with store nodes only when structural changes happen.
+  const [localNodes, setLocalNodes] = useState<CanvasNode[]>(storeNodes);
+  const [localEdges, setLocalEdges] = useState<BoardEdge[]>(edges);
   const [edgeContextMenu, setEdgeContextMenu] = useState<{
     edgeId: string;
     x: number;
@@ -176,112 +159,63 @@ export function KanbanCanvas() {
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevWorkspaceIdRef = useRef(currentWorkspaceId);
-  const { handleEdgesChange, handleConnect } = useEdgeHandlers({
-    onEdgesChange,
-    addConnection,
-    removeConnection,
-  });
+  const prevNodeCountRef = useRef(storeNodes.length);
 
-  useKeyboardHandlers({
-    interactionMode,
-    setInteractionMode,
-    clearBoardSelection,
-    localEdges,
-    removeConnection,
-    showWelcomeScreen,
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const edgeTypes: EdgeTypes = useMemo(
-    () => ({ default: BoardEdgeComponent }),
-    []
-  );
-  const columnDragContextValue = useMemo(
-    () => ({ activeColumnData }),
-    [activeColumnData]
-  );
+  // Track the previous storeNodes reference to detect changes.
+  const prevStoreNodesRef = useRef(storeNodes);
 
   useEffect(() => {
-    const prevWorkspaceId = prevWorkspaceIdRef.current;
-    if (currentWorkspaceId === prevWorkspaceId) {
-      return;
-    }
-    prevWorkspaceIdRef.current = currentWorkspaceId;
-    if (!currentWorkspaceId || prevWorkspaceId === null) {
+    // Skip sync while dragging — React Flow handles visuals via localNodes
+    if (isDraggingRef.current) {
       return;
     }
 
-    const workspace = workspaces.byId[currentWorkspaceId];
-    if (!workspace) {
+    // storeNodes reference only changes when useCanvasNodes produces genuinely new data.
+    if (prevStoreNodesRef.current === storeNodes) {
       return;
     }
+    prevStoreNodesRef.current = storeNodes;
+    prevNodeCountRef.current = storeNodes.length;
 
-    if (workspace.lastViewport) {
-      setReactFlowViewport(workspace.lastViewport, { duration: 300 });
-    } else if (workspace.lastFocusedBoardId) {
-      const boardPos = boardPositions.byId[workspace.lastFocusedBoardId];
-      if (boardPos) {
-        setReactFlowViewport(
-          {
-            x:
-              -(boardPos.x + (boardPos.width ?? 400) / 2) +
-              window.innerWidth / 2,
-            y:
-              -(boardPos.y + (boardPos.height ?? 300) / 2) +
-              window.innerHeight / 2,
-            zoom: 1,
-          },
-          { duration: 300 }
-        );
+    // MERGE instead of replacing: preserve React Flow's local positions for
+    // existing nodes. storeNodes may have STALE positions from cached factories,
+    // but localNodes always has the correct positions (updated by
+    // applyNodeChanges during drag). Only new nodes use the store position.
+    setLocalNodes((prev) => {
+      // Fast path: empty → full replace (initial load or workspace switch)
+      if (prev.length === 0) {
+        return storeNodes;
       }
-    } else {
-      setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
-    }
-  }, [
-    currentWorkspaceId,
-    workspaces,
-    boardPositions,
-    setReactFlowViewport,
-    fitView,
-  ]);
 
-  useEffect(() => {
-    if (!focusedBoardId) {
-      return;
-    }
-    const timeoutId = setTimeout(() => {
-      const boardPos = boardPositions.byId[focusedBoardId];
-      if (boardPos) {
-        setReactFlowViewport(
-          {
-            x:
-              -(boardPos.x + (boardPos.width ?? 400) / 2) +
-              window.innerWidth / 2,
-            y:
-              -(boardPos.y + (boardPos.height ?? 300) / 2) +
-              window.innerHeight / 2,
-            zoom: 1,
-          },
-          { duration: 800 }
-        );
+      // Build position lookup from current local state
+      const localPositions = new Map<string, { x: number; y: number }>();
+      for (const node of prev) {
+        localPositions.set(node.id, node.position);
       }
-      setFocusedBoard(null);
-    }, 50);
-    return () => clearTimeout(timeoutId);
-  }, [focusedBoardId, boardPositions, setReactFlowViewport, setFocusedBoard]);
 
-  useEffect(() => {
-    setLocalNodes(nodes);
-  }, [nodes, setLocalNodes]);
+      return storeNodes.map((storeNode) => {
+        const localPos = localPositions.get(storeNode.id);
+        if (localPos) {
+          // Existing node: use store data/structure but preserve local position
+          // (React Flow's position is authoritative — store positions may be stale)
+          if (
+            storeNode.position.x === localPos.x &&
+            storeNode.position.y === localPos.y
+          ) {
+            // Positions match — use store node as-is (avoids object spread)
+            return storeNode;
+          }
+          return { ...storeNode, position: localPos };
+        }
+        // New node: use store position
+        return storeNode;
+      });
+    });
+  }, [storeNodes]);
+
   useEffect(() => {
     setLocalEdges(edges);
-  }, [edges, setLocalEdges]);
+  }, [edges]);
 
   useEffect(() => {
     const handleWheel = (e: Event) => {
@@ -351,57 +285,20 @@ export function KanbanCanvas() {
     setPresenceSelectionBox,
   ]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: req
+  // During drag: accumulate positions in ref only, zero store writes.
+  // On drag stop: flush happens in handleNodeDragStop.
+  // React Flow handles smooth drag visuals via applyNodeChanges on local state.
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback(
     (changes) => {
-      onNodesChange(changes);
+      // Apply changes locally for smooth React Flow drag/resize visuals
+      setLocalNodes((nds) => applyNodeChanges(changes, nds) as CanvasNode[]);
 
       for (const change of changes) {
         if (change.type === "position" && change.position) {
           const id = change.id;
 
-          if (id.startsWith("area_")) {
-            updateAreaPosition(id, change.position);
-          } else if (id.startsWith("modal-")) {
-            updateModalPosition(id.replace("modal-", ""), change.position);
-          } else if (id.startsWith("task-detail-modal-")) {
-            updateTaskDetailModalPosition(
-              id.replace("task-detail-modal-", ""),
-              change.position
-            );
-          } else if (id.startsWith("task-quick-actions-")) {
-            updateTaskQuickActionsPosition(
-              id.replace("task-quick-actions-", ""),
-              change.position
-            );
-          } else if (id.startsWith("column-quick-actions-")) {
-            updateColumnQuickActionsPosition(
-              id.replace("column-quick-actions-", ""),
-              change.position
-            );
-          } else if (id.startsWith("quick-actions-")) {
-            updateBoardQuickActionsPosition(
-              id.replace("quick-actions-", ""),
-              change.position
-            );
-          } else if (id.startsWith("board-dialog-")) {
-            updateBoardDialogPosition(
-              id.replace("board-dialog-", ""),
-              change.position
-            );
-          } else if (id.startsWith("connection-dialog-")) {
-            updateConnectionDialogPosition(change.position);
-          } else if (id.startsWith("column-dialog-")) {
-            updateColumnDialogPosition(
-              id.replace("column-dialog-", ""),
-              change.position
-            );
-          } else if (id.startsWith("area-dialog-")) {
-            updateAreaDialogPosition(
-              id.replace("area-dialog-", ""),
-              change.position
-            );
-          } else if (id.startsWith("cluster-")) {
+          if (id.startsWith("cluster-")) {
+            // Comment clusters need immediate update for delta tracking
             const cluster = commentClusters.find((c) => c.id === id);
             if (cluster) {
               const deltaX = change.position.x - cluster.centroid.x;
@@ -414,76 +311,12 @@ export function KanbanCanvas() {
               );
             }
           } else {
-            // Board position - handle area parenting
-            let absPos = change.position;
-            const freshState = useKanbanStore.getState();
-            for (const areaId of freshState.areas.allIds) {
-              const area = freshState.areas.byId[areaId];
-              if (area?.board_ids?.includes(id)) {
-                const areaPos = freshState.areaPositions.byId[areaId];
-                if (areaPos) {
-                  absPos = {
-                    x: areaPos.x + change.position.x,
-                    y: areaPos.y + change.position.y,
-                  };
-                }
-                break;
-              }
-            }
-            updateBoardPosition(id, absPos);
-
-            // Area attach/detach logic for boards
-            if (id.startsWith("board_")) {
-              const boardPos = boardPositions.byId[id];
-              if (boardPos) {
-                const bw = boardPos.width ?? 300,
-                  bh = boardPos.height ?? 200;
-                const cx = absPos.x,
-                  cy = absPos.y;
-                const bcx = cx + bw / 2,
-                  bcy = cy + bh / 2;
-
-                let foundAreaId: string | null = null;
-                let closestDistance = Number.POSITIVE_INFINITY;
-                for (const areaId of areaPositions.allIds) {
-                  const ap = areaPositions.byId[areaId];
-                  if (
-                    ap &&
-                    bcx >= ap.x - DRAG_ATTACH_PADDING &&
-                    bcx <= ap.x + ap.width + DRAG_ATTACH_PADDING &&
-                    bcy >= ap.y - DRAG_ATTACH_PADDING &&
-                    bcy <= ap.y + ap.height + DRAG_ATTACH_PADDING
-                  ) {
-                    const areaCenterX = ap.x + ap.width / 2;
-                    const areaCenterY = ap.y + ap.height / 2;
-                    const distanceToAreaCenter = Math.hypot(
-                      bcx - areaCenterX,
-                      bcy - areaCenterY
-                    );
-
-                    if (distanceToAreaCenter < closestDistance) {
-                      closestDistance = distanceToAreaCenter;
-                      foundAreaId = areaId;
-                    }
-                  }
-                }
-                if (foundAreaId) {
-                  attachBoardToArea(foundAreaId, id);
-                } else {
-                  for (const areaId of areas.allIds) {
-                    if (areas.byId[areaId]?.board_ids?.includes(id)) {
-                      detachBoardFromArea(areaId, id);
-                    }
-                  }
-                }
-              }
-            }
+            // Accumulate in ref — NO store write during drag
+            pendingPositionsRef.current.set(id, change.position);
           }
         }
 
         if (change.type === "dimensions" && change.dimensions) {
-          // Handle mid-resize (resizing: true): skip entirely — React Flow's
-          // internal state already reflects these via onNodesChange above.
           const isMidResize = "resizing" in change && change.resizing === true;
           if (isMidResize) {
             continue;
@@ -492,19 +325,149 @@ export function KanbanCanvas() {
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
           } else if ("resizing" in change && change.resizing === false) {
-            // User resize ended — persist final dimensions to store.
             useKanbanStore
               .getState()
               .updateBoardDimensions(change.id, change.dimensions, true);
           }
-          // For initial measurements (no `resizing` property): skip to avoid
-          // polluting the zundo undo history. Board-node auto-resize effect
-          // keeps store in sync for content-driven dimension changes.
         }
       }
     },
-    [onNodesChange, commentClusters, areas, areaPositions, boardPositions]
+    [commentClusters, updateComments, updateAreaDimensions]
   );
+
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange<BoardEdge>[]) => {
+      setLocalEdges((eds) => applyEdgeChanges(changes, eds) as BoardEdge[]);
+      for (const change of changes) {
+        if (change.type === "remove") {
+          removeConnection(change.id);
+        }
+      }
+    },
+    [removeConnection]
+  );
+
+  const handleConnect = useCallback(
+    (connection: {
+      source: string | null;
+      target: string | null;
+      sourceHandle?: string | null;
+      targetHandle?: string | null;
+    }) => {
+      const { source, target, sourceHandle, targetHandle } = connection;
+      if (source && target) {
+        const normalizeHandlePosition = (
+          handle: string | null | undefined
+        ): "top" | "right" | "bottom" | "left" | undefined => {
+          if (!handle) {
+            return;
+          }
+          const normalized = handle
+            .replace(TARGET_HANDLE_SUFFIX, "")
+            .replace(SOURCE_HANDLE_SUFFIX, "");
+          if (
+            normalized === "top" ||
+            normalized === "right" ||
+            normalized === "bottom" ||
+            normalized === "left"
+          ) {
+            return normalized;
+          }
+          return;
+        };
+        addConnection(source, target, {
+          sourceHandle: normalizeHandlePosition(sourceHandle),
+          targetHandle: normalizeHandlePosition(targetHandle),
+        });
+      }
+    },
+    [addConnection]
+  );
+
+  useKeyboardHandlers({
+    interactionMode,
+    setInteractionMode,
+    clearBoardSelection,
+    localEdges,
+    removeConnection,
+    showWelcomeScreen,
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const edgeTypes: EdgeTypes = useMemo(
+    () => ({ default: BoardEdgeComponent }),
+    []
+  );
+  const columnDragContextValue = useMemo(
+    () => ({ activeColumnData }),
+    [activeColumnData]
+  );
+
+  useEffect(() => {
+    const prevWorkspaceId = prevWorkspaceIdRef.current;
+    if (currentWorkspaceId === prevWorkspaceId) {
+      return;
+    }
+    prevWorkspaceIdRef.current = currentWorkspaceId;
+    if (!currentWorkspaceId || prevWorkspaceId === null) {
+      return;
+    }
+
+    const workspace = workspaces.byId[currentWorkspaceId];
+    if (!workspace) {
+      return;
+    }
+
+    if (workspace.lastViewport) {
+      setReactFlowViewport(workspace.lastViewport, { duration: 300 });
+    } else if (workspace.lastFocusedBoardId) {
+      // Read boardPositions lazily to avoid subscribing to position changes
+      const bp =
+        useKanbanStore.getState().boardPositions.byId[
+          workspace.lastFocusedBoardId
+        ];
+      if (bp) {
+        setReactFlowViewport(
+          {
+            x: -(bp.x + (bp.width ?? 400) / 2) + window.innerWidth / 2,
+            y: -(bp.y + (bp.height ?? 300) / 2) + window.innerHeight / 2,
+            zoom: 1,
+          },
+          { duration: 300 }
+        );
+      }
+    } else {
+      setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
+    }
+  }, [currentWorkspaceId, workspaces, setReactFlowViewport, fitView]);
+
+  useEffect(() => {
+    if (!focusedBoardId) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      // Read boardPositions lazily to avoid subscribing to position changes
+      const bp = useKanbanStore.getState().boardPositions.byId[focusedBoardId];
+      if (bp) {
+        setReactFlowViewport(
+          {
+            x: -(bp.x + (bp.width ?? 400) / 2) + window.innerWidth / 2,
+            y: -(bp.y + (bp.height ?? 300) / 2) + window.innerHeight / 2,
+            zoom: 1,
+          },
+          { duration: 800 }
+        );
+      }
+      setFocusedBoard(null);
+    }, 50);
+    return () => clearTimeout(timeoutId);
+  }, [focusedBoardId, setReactFlowViewport, setFocusedBoard]);
 
   const handleEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: BoardEdge) => {
@@ -616,7 +579,7 @@ export function KanbanCanvas() {
             elementsSelectable={
               !showWelcomeScreen && interactionMode === "select"
             }
-            fitView={nodes.length === 0}
+            fitView={storeNodes.length === 0}
             maxZoom={3}
             minZoom={0.1}
             noDragClassName="nodrag"
@@ -629,8 +592,10 @@ export function KanbanCanvas() {
             onConnect={handleConnect}
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
+            onlyRenderVisibleElements
             onMoveEnd={handleMoveEnd}
             onNodeDrag={handleNodeDrag}
+            onNodeDragStart={handleNodeDragStart}
             onNodeDragStop={handleNodeDragStop}
             onNodesChange={handleNodesChange}
             onPaneClick={handlePaneClick}

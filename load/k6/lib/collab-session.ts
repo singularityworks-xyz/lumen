@@ -1,4 +1,5 @@
 import { sleep } from "k6";
+import encoding from "k6/encoding";
 import { Counter, Rate, Trend } from "k6/metrics";
 import ws from "k6/ws";
 
@@ -19,6 +20,31 @@ const SYNC_STEP2 = 1;
 const SYNC_UPDATE = 2;
 
 const CONNECT_TIMEOUT_SECONDS = 5;
+const DEFAULT_SESSION_LIFETIME_SECONDS = 2;
+
+interface FixturePayloads {
+  small?: {
+    syncUpdates?: Record<string, string>;
+  };
+}
+
+function loadSyncUpdateFixtures(): Uint8Array[] {
+  try {
+    const raw = open("load/k6/fixtures/collab-payloads.json") as string;
+    const parsed = JSON.parse(raw) as FixturePayloads;
+    const encoded = Object.values(parsed.small?.syncUpdates ?? {});
+
+    if (encoded.length === 0) {
+      return [];
+    }
+
+    return encoded.map((entry) => new Uint8Array(encoding.b64decode(entry)));
+  } catch {
+    return [];
+  }
+}
+
+const SYNC_UPDATE_FIXTURES = loadSyncUpdateFixtures();
 
 declare global {
   const __ENV: {
@@ -26,14 +52,23 @@ declare global {
     AUTH_TOKEN?: string;
     E2E_BYPASS?: string;
     E2E_BYPASS_USER_ID?: string;
+    BASE_URL?: string;
+    BROWSER_VUS?: string;
+    CURSOR_ROUNDS?: string;
+    ITERATIONS?: string;
+    JOIN_LEAVE_ROUNDS?: string;
+    RECONNECT_STORM_DELAY?: string;
     SOAK_DURATION_MINUTES?: string;
+    STICKINESS_ROUNDS?: string;
     WORKSPACE_ID?: string;
     AI_BASE_URL?: string;
     COHORT_SIZE?: string;
     ROUNDS?: string;
     RECONNECT_DELAY?: string;
+    K6_SESSION_LIFETIME_SECONDS?: string;
   };
   const __VU: number;
+  const __ITER: number;
 }
 
 class BinaryEncoder {
@@ -109,6 +144,16 @@ class BinaryDecoder {
   hasContent(): boolean {
     return this.pos < this.bytes.length;
   }
+
+  readVarUint8Array(): Uint8Array {
+    const length = this.readVarUint();
+    if (this.pos + length > this.bytes.length) {
+      throw new Error("BinaryDecoder: not enough data for varuint8array");
+    }
+    const result = this.bytes.subarray(this.pos, this.pos + length);
+    this.pos += length;
+    return result;
+  }
 }
 
 function encodeStateVector(): Uint8Array {
@@ -176,6 +221,49 @@ function decodeServerMessage(
   }
 }
 
+function decodeAwarenessPayloads(
+  data: Uint8Array
+): Array<{ clientId: number; state: Record<string, unknown> }> {
+  try {
+    const decoder = new BinaryDecoder(data);
+    const msgType = decoder.readVarUint();
+    if (msgType !== MESSAGE_AWARENESS) {
+      return [];
+    }
+
+    const innerBytes = decoder.readVarUint8Array?.();
+    if (!innerBytes) {
+      return [];
+    }
+
+    const inner = new BinaryDecoder(innerBytes);
+    const numUpdates = inner.readVarUint();
+    const payloads: Array<{
+      clientId: number;
+      state: Record<string, unknown>;
+    }> = [];
+
+    for (let i = 0; i < numUpdates; i++) {
+      const clientId = inner.readVarUint();
+      // skip clock
+      if (inner.hasContent()) {
+        inner.readVarUint();
+      }
+      const stateBytes = inner.readVarUint8Array?.();
+      if (!stateBytes) {
+        continue;
+      }
+      const stateStr = new TextDecoder().decode(stateBytes);
+      const state = JSON.parse(stateStr) as Record<string, unknown>;
+      payloads.push({ clientId, state });
+    }
+
+    return payloads;
+  } catch {
+    return [];
+  }
+}
+
 function generateFakeYjsUpdate(seed: number): Uint8Array {
   const encoder = new BinaryEncoder();
   encoder.writeVarUint(1);
@@ -186,11 +274,43 @@ function generateFakeYjsUpdate(seed: number): Uint8Array {
   return encoder.toUint8Array();
 }
 
+function extractSocketErrorMessage(event: unknown): string | null {
+  if (!(typeof event === "object" && event !== null)) {
+    return null;
+  }
+
+  if (!("error" in event)) {
+    return null;
+  }
+
+  const errorValue = (event as { error: unknown }).error;
+
+  if (typeof errorValue === "function") {
+    try {
+      const value = errorValue();
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof errorValue === "string") {
+    return errorValue;
+  }
+
+  return null;
+}
+
 export interface CollabSession {
+  awarenessStates: Map<number, Record<string, unknown>>;
   connectStart: number;
   disconnect: () => void;
   established: boolean;
   lastMessageTime: number;
+  onAwarenessPayload?: (
+    payloads: Array<{ clientId: number; state: Record<string, unknown> }>
+  ) => void;
+  onSyncUpdateReceived?: () => void;
   receivedAwareness: boolean;
   receivedSyncStep2: boolean;
   receivedUpdates: number;
@@ -199,6 +319,7 @@ export interface CollabSession {
     x: number;
     y: number;
     user: string;
+    [key: string]: unknown;
   }) => boolean;
   sendSyncUpdate: (updateSeed: number) => boolean;
   sentMessages: number;
@@ -235,8 +356,13 @@ export function connectCollabSession(
   }
 
   const connectStart = Date.now();
+  const sessionLifetimeSeconds = Number.parseInt(
+    __ENV.K6_SESSION_LIFETIME_SECONDS || `${DEFAULT_SESSION_LIFETIME_SECONDS}`,
+    10
+  );
 
   const session: InternalCollabSession = {
+    awarenessStates: new Map(),
     response: null,
     workspaceId,
     token,
@@ -256,28 +382,37 @@ export function connectCollabSession(
   };
 
   const resp = ws.connect(fullUrl, wsConnectOptions, (socket) => {
-    socket.on("open", () => {
-      session.established = true;
+    session.established = true;
+    let isSocketOpen = true;
 
-      if (!session.__connectMetricsRecorded) {
-        const connectEnd = Date.now();
-        wsConnectDuration.add(connectEnd - connectStart);
-        wsConnectSuccess.add(true);
-        session.__connectMetricsRecorded = true;
-      }
+    if (!session.__connectMetricsRecorded) {
+      const connectEnd = Date.now();
+      wsConnectDuration.add(connectEnd - connectStart);
+      wsConnectSuccess.add(true);
+      session.__connectMetricsRecorded = true;
+    }
 
-      const syncStep1 = encodeSyncStep1();
-      socket.sendBinary(syncStep1.buffer);
-      wsSyncMessagesSent.add(1);
-    });
+    const syncStep1 = encodeSyncStep1();
+    socket.sendBinary(syncStep1.buffer);
+    wsSyncMessagesSent.add(1);
 
     socket.setInterval(() => {
-      const pingEncoder = new BinaryEncoder();
-      pingEncoder.writeVarUint(MESSAGE_SYNC);
-      pingEncoder.writeVarUint(0);
-      const pingData = pingEncoder.toUint8Array();
-      socket.sendBinary(pingData.buffer);
+      try {
+        socket.ping();
+      } catch {
+        wsMessageFailures.add(1);
+      }
     }, 30_000);
+
+    if (sessionLifetimeSeconds > 0) {
+      socket.setTimeout(() => {
+        try {
+          socket.close();
+        } catch {
+          wsMessageFailures.add(1);
+        }
+      }, sessionLifetimeSeconds * 1000);
+    }
 
     socket.on("binaryMessage", (data: ArrayBuffer) => {
       const msg = decodeServerMessage(new Uint8Array(data));
@@ -291,24 +426,50 @@ export function connectCollabSession(
           session.receivedSyncStep2 = true;
         } else if (msg.syncType === SYNC_UPDATE) {
           session.receivedUpdates++;
+          if (session.onSyncUpdateReceived) {
+            session.onSyncUpdateReceived();
+          }
         }
       } else if (msg.type === MESSAGE_AWARENESS) {
         wsAwarenessReceived.add(1);
         session.receivedAwareness = true;
+        const payloads = decodeAwarenessPayloads(new Uint8Array(data));
+        for (const payload of payloads) {
+          session.awarenessStates.set(payload.clientId, payload.state);
+        }
+        if (session.onAwarenessPayload) {
+          session.onAwarenessPayload(payloads);
+        }
       }
     });
 
     socket.on("close", () => {
+      isSocketOpen = false;
       wsDisconnectCount.add(1);
     });
 
-    socket.on("error", () => {
+    socket.on("error", (event: unknown) => {
+      const errorMessage = extractSocketErrorMessage(event);
+      if (errorMessage === "websocket: close sent") {
+        return;
+      }
       wsMessageFailures.add(1);
     });
 
     session.sendSyncUpdate = (updateSeed: number): boolean => {
+      if (!isSocketOpen) {
+        return false;
+      }
+
       try {
-        const update = generateFakeYjsUpdate(updateSeed);
+        const generatedUpdate = generateFakeYjsUpdate(updateSeed);
+        const fixtureUpdate =
+          SYNC_UPDATE_FIXTURES.length > 0
+            ? SYNC_UPDATE_FIXTURES[
+                Math.abs(updateSeed) % SYNC_UPDATE_FIXTURES.length
+              ]
+            : null;
+        const update = fixtureUpdate ?? generatedUpdate;
         const msg = encodeSyncUpdate(update);
         socket.sendBinary(msg.buffer);
         wsSyncMessagesSent.add(1);
@@ -316,7 +477,9 @@ export function connectCollabSession(
         session.lastMessageTime = Date.now();
         return true;
       } catch {
-        wsMessageFailures.add(1);
+        if (isSocketOpen) {
+          wsMessageFailures.add(1);
+        }
         return false;
       }
     };
@@ -325,11 +488,18 @@ export function connectCollabSession(
       x: number;
       y: number;
       user: string;
+      [key: string]: unknown;
     }): boolean => {
+      if (!isSocketOpen) {
+        return false;
+      }
+
       try {
+        const { x, y, user, ...extra } = cursor;
         const state = {
-          user: { name: cursor.user, color: `hsl(${__VU * 37}, 70%, 50%)` },
-          cursor: { x: cursor.x, y: cursor.y },
+          user: { name: user, color: `hsl(${__VU * 37}, 70%, 50%)` },
+          cursor: { x, y },
+          ...extra,
         };
         const msg = encodeAwarenessUpdate(__VU, state);
         socket.sendBinary(msg.buffer);
@@ -338,7 +508,9 @@ export function connectCollabSession(
         session.lastMessageTime = Date.now();
         return true;
       } catch {
-        wsMessageFailures.add(1);
+        if (isSocketOpen) {
+          wsMessageFailures.add(1);
+        }
         return false;
       }
     };

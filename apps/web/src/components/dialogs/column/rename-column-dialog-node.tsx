@@ -1,23 +1,17 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { Columns, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Textarea } from "@/src/components/ui/textarea";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
@@ -42,8 +36,6 @@ const DIALOG_WIDTH = 320;
 
 export const RenameColumnDialogNodeComponent =
   memo<RenameColumnDialogNodeProps>(({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
     const [nameError, setNameError] = useState<string | null>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -62,10 +54,6 @@ export const RenameColumnDialogNodeComponent =
     const updateColumnDialogDescriptionValue = useKanbanStore(
       (state) => state.updateColumnDialogDescriptionValue
     );
-    const columnQuickActions = useKanbanStore(
-      (state) => state.columnQuickActions
-    );
-    const boardPositions = useKanbanStore((state) => state.boardPositions);
 
     const column = columnDialog ? columns.byId[columnDialog.columnId] : null;
 
@@ -76,38 +64,6 @@ export const RenameColumnDialogNodeComponent =
     );
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `rename-column-dialog-${data.dialogId}`;
-
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      const getTarget = () => document.getElementById("board-connector-layer");
-
-      // Try to get it immediately
-      const initialTarget = getTarget();
-      if (initialTarget) {
-        setPortalTarget(initialTarget);
-        return;
-      }
-
-      // Fallback to body comfortably so we at least render content
-      setPortalTarget(document.body);
-
-      // Watch for it appearing
-      const observer = new MutationObserver(() => {
-        const target = getTarget();
-        if (target) {
-          setPortalTarget(target);
-          observer.disconnect();
-        }
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-
-      return () => observer.disconnect();
-    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -127,54 +83,22 @@ export const RenameColumnDialogNodeComponent =
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, zIndexDialogId]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!columnDialog || columnDialog.columnId !== data.columnId) {
-        return null;
+    const sourceSelector = useMemo(() => {
+      const primary = `.react-flow__node[data-id="column-quick-actions-${data.columnId}"]`;
+      if (document.querySelector(primary)) {
+        return primary;
       }
+      return `.react-flow__node[data-id="${columnDialog?.boardId}"]`;
+    }, [data.columnId, columnDialog?.boardId]);
 
-      const myScreenPos = flowToScreenPosition({
-        x: columnDialog.position.x,
-        y: columnDialog.position.y,
-      });
-
-      const quickActions = columnQuickActions?.[data.columnId];
-      if (quickActions) {
-        const sourceScreenPos = flowToScreenPosition({
-          x: quickActions.position.x + 200,
-          y: quickActions.position.y + 20,
-        });
-        return {
-          start: sourceScreenPos,
-          end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-        };
-      }
-
-      const boardPos = boardPositions.byId[columnDialog.boardId];
-      if (!boardPos) {
-        return null;
-      }
-
-      const sourceScreenPos = flowToScreenPosition({
-        x: boardPos.x,
-        y: boardPos.y + 100,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-      };
-    }, [
-      columnDialog,
-      data.columnId,
-      columnQuickActions,
-      boardPositions,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: column?.accentColor,
+      endOffsetY: 20,
+      hideStartNode: true,
+      sourceSelector,
+      targetNodeId: `column-dialog-${data.dialogId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleSubmit = useCallback(
       (e: React.FormEvent) => {
@@ -262,22 +186,6 @@ export const RenameColumnDialogNodeComponent =
           }}
           role="dialog"
         >
-          {connectorState &&
-            portalTarget &&
-            createPortal(
-              <ConnectorEdge
-                color="primary"
-                customColor={column?.accentColor}
-                endX={connectorState.end.x}
-                endY={connectorState.end.y}
-                hideStartNode
-                startX={connectorState.start.x}
-                startY={connectorState.start.y}
-                zIndex={connectorZIndex}
-              />,
-              portalTarget
-            )}
-
           <div
             className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
             style={

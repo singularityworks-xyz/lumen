@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -18,10 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Slider } from "@/src/components/ui/slider";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import {
@@ -32,6 +25,7 @@ import {
   QuickIconPicker,
 } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface BoardPropertiesDialogNodeData {
@@ -71,15 +65,10 @@ function getProgressStyles(progress: number) {
 
 export const BoardPropertiesDialogNodeComponent =
   memo<BoardPropertiesDialogNodeProps>(({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const dialogId = data.dialogId;
     const dialog = useKanbanStore((state) => state.boardDialogs[dialogId]);
-    const boardQuickActions = useKanbanStore((state) =>
-      dialog ? state.boardQuickActions[dialog.boardId] : null
-    );
     const board = useKanbanStore((state) =>
       dialog ? state.boards.byId[dialog.boardId] : null
     );
@@ -125,11 +114,6 @@ export const BoardPropertiesDialogNodeComponent =
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `properties-board-dialog-${dialogId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -180,33 +164,14 @@ export const BoardPropertiesDialogNodeComponent =
       return values;
     }, [boardColumns, dialog?.columnProgressValues]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-      if (!(dialog?.position && boardQuickActions)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: dialog.position.x,
-        y: dialog.position.y,
-      });
-      const sourceScreenPos = flowToScreenPosition({
-        x: boardQuickActions.position.x + 220,
-        y: boardQuickActions.position.y + 24,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-      };
-    }, [
-      dialog?.position,
-      boardQuickActions,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: board?.accentColor,
+      endOffsetY: 20,
+      hideStartNode: true,
+      sourceSelector: `.react-flow__node[data-id="quick-actions-${dialog?.boardId}"]`,
+      targetNodeId: `board-dialog-${dialogId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleClose = useCallback(() => {
       closeBoardDialog(dialogId);
@@ -381,21 +346,6 @@ export const BoardPropertiesDialogNodeComponent =
         }}
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={board?.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              hideStartNode
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

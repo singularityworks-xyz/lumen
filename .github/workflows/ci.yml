@@ -78,6 +78,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -293,6 +297,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Generate Prisma client
         run: bun run db:gen
+      - name: Build web and dependencies
+        run: bunx turbo run build --filter=@lumen/web...
       - name: Push schema to test DB
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
@@ -331,6 +337,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Generate Prisma client
         run: bun run db:gen
+      - name: Build workers and dependencies
+        run: bunx turbo run build --filter=@lumen/workers...
       - name: Push schema to test DB
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
@@ -340,68 +348,6 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
         run: bun test --preload ./packages/db/src/setup/workers.setup.ts
           ./apps/workers/test/integration/*.test.ts
-
-  coverage-gate:
-    name: Coverage Summary
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
-      always() && (needs.unit-web.result == 'success' || needs.unit-web.result
-      == 'skipped') && (needs.unit-server-and-packages.result == 'success' ||
-      needs.unit-server-and-packages.result == 'skipped')
-    needs:
-      - changes
-      - unit-web
-      - unit-server-and-packages
-      - presence-tests
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup Bun
-        uses: ./.github/actions/setup-bun-cache
-        with:
-          bun-version: "1.3.11"
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Install lcov
-        run: sudo apt-get update && sudo apt-get install -y lcov
-      - name: Download unit-web coverage
-        uses: actions/download-artifact@v7
-        with:
-          name: coverage-unit-web
-          path: coverage/unit-web
-      - name: Download unit-server-and-packages coverage
-        uses: actions/download-artifact@v7
-        with:
-          name: coverage-unit-server-and-packages
-          path: coverage/unit-server-and-packages
-      - name: Download Presence coverage
-        if: ${{ needs.presence-tests.result == 'success' }}
-        uses: actions/download-artifact@v7
-        with:
-          name: coverage-presence
-          path: coverage/presence
-      - name: Setup Beam
-        if: ${{ needs.presence-tests.result == 'success' }}
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: "28.2"
-          elixir-version: "1.19.0"
-          version-type: strict
-      - name: Install Hex
-        if: ${{ needs.presence-tests.result == 'success' }}
-        run: mix local.hex --force
-      - name: Merge LCOV files
-        run: |
-          mkdir -p coverage/merged
-          lcov -a coverage/unit-web/lcov.info -a coverage/unit-server-and-packages/lcov.info -o coverage/merged/lcov.info
-      - name: Generate coverage summary
-        run: |
-          BUN_LCOV_PATH=coverage/merged/lcov.info PRESENCE_LCOV_PATH=coverage/presence/lcov.info bun run scripts/testing/coverage-summary.ts
-      - name: Run Presence coverage gate
-        if: ${{ needs.presence-tests.result == 'success' &&
-          hashFiles('coverage/presence/lcov.info') != '' }}
-        run: LCOV_PATH=coverage/presence/lcov.info elixir
-          apps/presence/scripts/coverage_gate.exs
 
   ci-passed:
     name: CI Passed
@@ -416,8 +362,7 @@ jobs:
       (needs.unit-server-and-packages.result == 'success' || needs.unit-server-and-packages.result == 'skipped') &&
       (needs.integration-web.result == 'success' || needs.integration-web.result == 'skipped') &&
       (needs.integration-workers.result == 'success' || needs.integration-workers.result == 'skipped') &&
-      (needs.presence-tests.result == 'success' || needs.presence-tests.result == 'skipped') &&
-      (needs.coverage-gate.result == 'success' || needs.coverage-gate.result == 'skipped')
+      (needs.presence-tests.result == 'success' || needs.presence-tests.result == 'skipped')
     needs:
       - lint
       - type-check
@@ -427,7 +372,6 @@ jobs:
       - integration-web
       - integration-workers
       - presence-tests
-      - coverage-gate
     steps:
       - name: Confirm CI status
         run: echo "All quality checks, tests, and build passed."

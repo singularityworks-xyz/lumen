@@ -462,12 +462,18 @@ interface CommentCluster {
   isSingle: boolean;
 }
 
+const DRAG_ATTACH_PADDING = 20;
+
 interface UseNodeDragHandlersProps {
   commentClusters: CommentCluster[];
   finalizeAreaDrag: (id: string) => void;
   finalizeBoardDrag: (id: string) => void;
   finalizeCommentsDrag: (ids: string[]) => void;
   isCollaborating: boolean;
+  isDraggingRef: React.MutableRefObject<boolean>;
+  pendingPositionsRef: React.MutableRefObject<
+    Map<string, { x: number; y: number }>
+  >;
   screenToFlowPosition: (pos: { x: number; y: number }) => {
     x: number;
     y: number;
@@ -483,7 +489,13 @@ export function useNodeDragHandlers({
   finalizeBoardDrag,
   finalizeCommentsDrag,
   commentClusters,
+  pendingPositionsRef,
+  isDraggingRef,
 }: UseNodeDragHandlersProps) {
+  const handleNodeDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+  }, [isDraggingRef]);
+
   const handleNodeDrag = useCallback(
     (event: React.MouseEvent) => {
       if (!isCollaborating) {
@@ -500,6 +512,125 @@ export function useNodeDragHandlers({
 
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: CanvasNode) => {
+      isDraggingRef.current = false;
+
+      // Flush all accumulated positions to the store in one go
+      const pending = new Map(pendingPositionsRef.current);
+      pendingPositionsRef.current.clear();
+
+      if (pending.size > 0) {
+        const state = useKanbanStore.getState();
+
+        for (const [nid, pos] of pending) {
+          if (nid.startsWith("area_")) {
+            state.updateAreaPosition(nid, pos);
+          } else if (nid.startsWith("modal-")) {
+            state.updateModalPosition(nid.replace("modal-", ""), pos);
+          } else if (nid.startsWith("task-detail-modal-")) {
+            state.updateTaskDetailModalPosition(
+              nid.replace("task-detail-modal-", ""),
+              pos
+            );
+          } else if (nid.startsWith("task-quick-actions-")) {
+            state.updateTaskQuickActionsPosition(
+              nid.replace("task-quick-actions-", ""),
+              pos
+            );
+          } else if (nid.startsWith("column-quick-actions-")) {
+            state.updateColumnQuickActionsPosition(
+              nid.replace("column-quick-actions-", ""),
+              pos
+            );
+          } else if (nid.startsWith("quick-actions-")) {
+            state.updateBoardQuickActionsPosition(
+              nid.replace("quick-actions-", ""),
+              pos
+            );
+          } else if (nid.startsWith("board-dialog-")) {
+            state.updateBoardDialogPosition(
+              nid.replace("board-dialog-", ""),
+              pos
+            );
+          } else if (nid.startsWith("connection-dialog-")) {
+            state.updateConnectionDialogPosition(pos);
+          } else if (nid.startsWith("column-dialog-")) {
+            state.updateColumnDialogPosition(
+              nid.replace("column-dialog-", ""),
+              pos
+            );
+          } else if (nid.startsWith("area-dialog-")) {
+            state.updateAreaDialogPosition(
+              nid.replace("area-dialog-", ""),
+              pos
+            );
+          } else if (nid.startsWith("cluster-")) {
+            // Comment clusters handled separately
+          } else {
+            // Board nodes: compute absolute position if inside area
+            let absPos = pos;
+            for (const areaId of state.areas.allIds) {
+              const area = state.areas.byId[areaId];
+              if (area?.board_ids?.includes(nid)) {
+                const areaPos = state.areaPositions.byId[areaId];
+                if (areaPos) {
+                  absPos = {
+                    x: areaPos.x + pos.x,
+                    y: areaPos.y + pos.y,
+                  };
+                }
+                break;
+              }
+            }
+            state.updateBoardPosition(nid, absPos);
+
+            // Area attach/detach logic for boards
+            if (nid.startsWith("board_")) {
+              const boardPos = state.boardPositions.byId[nid];
+              if (boardPos) {
+                const bw = boardPos.width ?? 300;
+                const bh = boardPos.height ?? 200;
+                const bcx = absPos.x + bw / 2;
+                const bcy = absPos.y + bh / 2;
+
+                let foundAreaId: string | null = null;
+                let closestDistance = Number.POSITIVE_INFINITY;
+                for (const areaId of state.areaPositions.allIds) {
+                  const ap = state.areaPositions.byId[areaId];
+                  if (
+                    ap &&
+                    bcx >= ap.x - DRAG_ATTACH_PADDING &&
+                    bcx <= ap.x + ap.width + DRAG_ATTACH_PADDING &&
+                    bcy >= ap.y - DRAG_ATTACH_PADDING &&
+                    bcy <= ap.y + ap.height + DRAG_ATTACH_PADDING
+                  ) {
+                    const areaCenterX = ap.x + ap.width / 2;
+                    const areaCenterY = ap.y + ap.height / 2;
+                    const distanceToAreaCenter = Math.hypot(
+                      bcx - areaCenterX,
+                      bcy - areaCenterY
+                    );
+                    if (distanceToAreaCenter < closestDistance) {
+                      closestDistance = distanceToAreaCenter;
+                      foundAreaId = areaId;
+                    }
+                  }
+                }
+                if (foundAreaId) {
+                  state.attachBoardToArea(foundAreaId, nid);
+                } else {
+                  for (const areaId of state.areas.allIds) {
+                    if (state.areas.byId[areaId]?.board_ids?.includes(nid)) {
+                      state.detachBoardFromArea(areaId, nid);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Call finalize methods for specific node types
       if (node.id.startsWith("area_")) {
         finalizeAreaDrag(node.id);
       } else if (node.id.startsWith("board_")) {
@@ -511,8 +642,15 @@ export function useNodeDragHandlers({
         }
       }
     },
-    [finalizeAreaDrag, finalizeBoardDrag, finalizeCommentsDrag, commentClusters]
+    [
+      finalizeAreaDrag,
+      finalizeBoardDrag,
+      finalizeCommentsDrag,
+      commentClusters,
+      pendingPositionsRef,
+      isDraggingRef,
+    ]
   );
 
-  return { handleNodeDrag, handleNodeDragStop };
+  return { handleNodeDragStart, handleNodeDrag, handleNodeDragStop };
 }

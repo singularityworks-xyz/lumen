@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { EllipsisVertical, GripHorizontal, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import {
   ScaledSelect,
@@ -18,8 +12,8 @@ import {
   ScaledSelectValue,
 } from "@/src/components/scaled-dropdown";
 import { CreateTaskForm } from "@/src/components/tasks/create-task-form";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../features/kanban/store/kanban-store";
 import { ICON_MAP } from "../../features/kanban/utils/color-icon-utils";
@@ -45,33 +39,14 @@ const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
   ({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
-    const [mounted, setMounted] = useState(false);
-
     const modalBoardId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.boardId
-    );
-    const sourceRect = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.sourceRect
     );
     const sourceType = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.sourceType
     );
-    const modalPosition = useKanbanStore(
-      (state) => state.createTaskModals[data.modalId]?.position
-    );
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[modalBoardId ?? ""]
-    );
-    const boardQuickActions = useKanbanStore((state) =>
-      modalBoardId ? state.boardQuickActions[modalBoardId] : null
-    );
     const modalColumnId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.columnId
-    );
-    const columnQuickActions = useKanbanStore(
-      (state) => state.columnQuickActions
     );
     const bringDialogToFront = useKanbanStore(
       (state) => state.bringDialogToFront
@@ -80,11 +55,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `task-modal-${data.modalId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -105,85 +75,18 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, zIndexDialogId]);
 
-    useEffect(() => {
-      setMounted(true);
-    }, []);
-
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!modalPosition) {
-        return null;
+    const sourceSelector = useMemo(() => {
+      if (sourceType === "board-menu" && modalBoardId) {
+        return `.react-flow__node[data-id="quick-actions-${modalBoardId}"]`;
       }
-
-      const myScreenPos = flowToScreenPosition({
-        x: modalPosition.x,
-        y: modalPosition.y,
-      });
-
-      if (sourceType === "board-menu" && boardQuickActions) {
-        const quickActionsWidth = 220;
-        const quickActionsScreenPos = flowToScreenPosition({
-          x: boardQuickActions.position.x + quickActionsWidth,
-          y: boardQuickActions.position.y + 80,
-        });
-        return {
-          start: quickActionsScreenPos,
-          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-        };
-      }
-
-      if (sourceRect) {
-        return {
-          start: {
-            x: sourceRect.right,
-            y: sourceRect.top + sourceRect.height / 2,
-          },
-          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-        };
-      }
-
       if (sourceType === "column-menu" && modalColumnId) {
-        const quickActions = columnQuickActions[modalColumnId];
-        if (quickActions) {
-          const quickActionsWidth = 200;
-          const quickActionsScreenPos = flowToScreenPosition({
-            x: quickActions.position.x + quickActionsWidth,
-            y: quickActions.position.y + 40,
-          });
-          return {
-            start: quickActionsScreenPos,
-            end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-          };
-        }
+        return `.react-flow__node[data-id="column-quick-actions-${modalColumnId}"]`;
       }
-
-      if (boardPosition) {
-        const boardWidth = boardPosition.width ?? 300;
-        const boardScreenPos = flowToScreenPosition({
-          x: boardPosition.x + boardWidth,
-          y: boardPosition.y + 20,
-        });
-
-        return {
-          start: boardScreenPos,
-          end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-        };
+      if (modalBoardId) {
+        return `.react-flow__node[data-id="${modalBoardId}"]`;
       }
-      return null;
-    }, [
-      modalPosition,
-      sourceType,
-      boardQuickActions,
-      flowToScreenPosition,
-      sourceRect,
-      vpX,
-      vpY,
-      vpZoom,
-      boardPosition,
-      modalColumnId,
-      columnQuickActions,
-    ]);
+      return;
+    }, [sourceType, modalBoardId, modalColumnId]);
 
     const modalFormData = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.formData
@@ -232,6 +135,18 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
         .filter((col): col is NonNullable<typeof col> => col !== undefined);
     }, [boards, columns, selectedBoardId]);
 
+    const selectedColumn = columns.byId[selectedColumnId];
+    const selectedBoard = boards.byId[selectedBoardId];
+    const accentColor =
+      selectedColumn?.accentColor ?? selectedBoard?.accentColor;
+
+    useImperativeConnector({
+      customColor: accentColor,
+      sourceSelector,
+      targetNodeId: `task-detail-modal-${data.modalId}`,
+      zIndex: connectorZIndex,
+    });
+
     const handleBoardChange = useCallback(
       (newBoardId: string) => {
         setSelectedBoardId(newBoardId);
@@ -278,10 +193,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       selectedColumnId,
     ]);
 
-    const selectedColumn = columns.byId[selectedColumnId];
-    const selectedBoard = boards.byId[selectedBoardId];
-    const accentColor =
-      selectedColumn?.accentColor ?? selectedBoard?.accentColor;
     const iconName = selectedColumn?.icon ?? selectedBoard?.icon;
 
     if (!updatedModalState) {
@@ -313,21 +224,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
           width: MODAL_WIDTH,
         }}
       >
-        {mounted &&
-          connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

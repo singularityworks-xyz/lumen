@@ -183,3 +183,79 @@
 .scrollbar-track-transparent::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted-foreground);
 }
+
+/* Performance optimizations for React Flow canvas */
+.react-flow__node {
+  /* Promote nodes to their own compositor layer during drag for smooth movement */
+  contain: layout style;
+}
+
+.react-flow__node.dragging {
+  contain: layout style paint;
+  will-change: transform;
+}
+
+.react-flow__node.selected {
+  contain: layout style paint;
+}
+
+/* Board node content containment to reduce layout recalculation scope */
+.react-flow__node-board {
+  contain-intrinsic-size: 400px 300px;
+  contain: layout style;
+  /* Let browser skip rendering entirely for off-screen board nodes */
+  content-visibility: auto;
+}
+
+/* Hardware acceleration for animated elements */
+.motion-icon {
+  will-change: transform;
+}
+
+/* Optimize dialog nodes */
+.react-flow__node[data-type="taskModal"],
+.react-flow__node[data-type="taskDetailModal"],
+.react-flow__node[data-type="boardPropertiesDialog"],
+.react-flow__node[data-type="boardRenameDialog"],
+.react-flow__node[data-type="boardDuplicateDialog"],
+.react-flow__node[data-type="boardDeleteDialog"],
+.react-flow__node[data-type="connectionDialog"],
+.react-flow__node[data-type="shareDialog"],
+.react-flow__node[data-type="columnRenameDialog"],
+.react-flow__node[data-type="columnDeleteDialog"],
+.react-flow__node[data-type="columnMoveDialog"],
+.react-flow__node[data-type="areaPropertiesDialog"] {
+  contain: layout style;
+}
+
+/* Reduce paint area for mini map */
+.react-flow__minimap {
+  contain: layout style paint;
+}
+
+/* Optimize background pattern rendering */
+.react-flow__background {
+  contain: strict;
+}
+
+/* Prevent layout thrashing on task cards during drag */
+[data-testid="task-card"] {
+  contain: layout style;
+}
+
+/* Optimize column rendering */
+[data-testid="kanban-column"] {
+  contain: layout style;
+}
+
+/* Promote viewport pane to compositor layer for smooth pan/zoom */
+.react-flow__viewport {
+  will-change: transform;
+}
+
+/* Area nodes also benefit from content-visibility since they can be large */
+.react-flow__node-area {
+  contain-intrinsic-size: 800px 600px;
+  contain: layout style;
+  content-visibility: auto;
+}

@@ -1,10 +1,8 @@
 "use client";
 
 import {
-  Handle,
   type Node,
   type NodeProps,
-  Position,
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
@@ -60,28 +58,55 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       (state) => state.openTaskDetailModal
     );
 
-    const boardData = useKanbanStore(
-      useShallow((state) => state.boards.byId[data.boardId] ?? null)
-    );
-    const columnsMap = useKanbanStore(
-      useShallow((state) => state.columns.byId)
-    );
-    const tasksMap = useKanbanStore(useShallow((state) => state.tasks.byId));
+    // Module-level cache for board denormalization to preserve stable references
+    // and prevent re-renders when unrelated store data changes.
+    const boardCacheRef = useRef<{
+      sig: string;
+      board: DenormalizedBoard | null;
+    } | null>(null);
 
-    const board = useMemo((): DenormalizedBoard | null => {
+    const board = useKanbanStore((state): DenormalizedBoard | null => {
+      const boardData = state.boards.byId[data.boardId];
       if (!boardData) {
+        boardCacheRef.current = null;
         return null;
+      }
+
+      // Build a lightweight content signature for fast comparison
+      const colSigs = boardData.column_ids
+        .map((colId) => {
+          const col = state.columns.byId[colId];
+          if (!col) {
+            return "";
+          }
+          const taskSigs = col.task_ids
+            .map((tid) => {
+              const t = state.tasks.byId[tid];
+              return t
+                ? `${t.id}:${t.title}:${t.status}:${t.position}:${t.priority}:${t.progress}:${t.due_date ?? ""}:${t.tags?.length ?? 0}`
+                : "";
+            })
+            .join(",");
+          return `${col.id}:${col.name}:${col.position}:${col.accentColor ?? ""}:${col.icon ?? ""}:${col.progressValue ?? ""}:${taskSigs}`;
+        })
+        .join("|");
+
+      const sig = `${boardData.name}|${boardData.description ?? ""}|${boardData.accentColor ?? ""}|${boardData.icon ?? ""}|${colSigs}`;
+
+      const cached = boardCacheRef.current;
+      if (cached && cached.sig === sig) {
+        return cached.board;
       }
 
       const denormalizedColumns: DenormalizedColumn[] = boardData.column_ids
         .map((colId) => {
-          const column = columnsMap[colId];
+          const column = state.columns.byId[colId];
           if (!column) {
             return null;
           }
 
           const columnTasks = column.task_ids
-            .map((taskId) => tasksMap[taskId])
+            .map((taskId) => state.tasks.byId[taskId])
             .filter((task): task is Task => task !== undefined)
             .sort((a, b) => a.position - b.position);
 
@@ -100,7 +125,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         .filter((col): col is DenormalizedColumn => col !== null)
         .sort((a, b) => a.position - b.position);
 
-      return {
+      const denormalizedBoard: DenormalizedBoard = {
         id: boardData.id,
         name: boardData.name,
         description: boardData.description,
@@ -111,7 +136,10 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         accentColor: boardData.accentColor,
         icon: boardData.icon,
       };
-    }, [boardData, columnsMap, tasksMap]);
+
+      boardCacheRef.current = { sig, board: denormalizedBoard };
+      return denormalizedBoard;
+    });
 
     const taskCounts = useMemo(() => {
       if (!board) {
@@ -244,8 +272,24 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
     const isMultiSelected = selectedBoardIds.includes(id);
     const [isResizing, setIsResizing] = useState(false);
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[boardId]
+
+    // Only subscribe to dimension-related fields, NOT x/y position.
+    // This prevents re-renders during drag (position is handled by React Flow).
+    // useShallow ensures stable references when values haven't changed.
+    const boardDimensions = useKanbanStore(
+      useShallow((state) => {
+        const bp = state.boardPositions.byId[boardId];
+        if (!bp) {
+          return null;
+        }
+        return {
+          width: bp.width,
+          height: bp.height,
+          userResized: bp.userResized,
+          lastUserWidth: bp.lastUserWidth,
+          lastUserHeight: bp.lastUserHeight,
+        };
+      })
     );
 
     // Get collaboration context for cursor tracking during resize
@@ -299,19 +343,19 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         return;
       }
 
-      // Use dimensions from synced store state (boardPosition), not React Flow node
+      // Use dimensions from synced store state, not React Flow node
       // This ensures consistent sizing across synced browsers
-      const currentWidth = boardPosition?.width || minDimensions.width;
-      const currentHeight = boardPosition?.height || minDimensions.height;
-      const userResized = boardPosition?.userResized ?? false;
+      const currentWidth = boardDimensions?.width || minDimensions.width;
+      const currentHeight = boardDimensions?.height || minDimensions.height;
+      const userResized = boardDimensions?.userResized ?? false;
 
       const { shouldResize, newDimensions } = shouldApplyResize(
         { width: currentWidth, height: currentHeight },
         contentDimensions,
         userResized,
         {
-          width: boardPosition?.lastUserWidth,
-          height: boardPosition?.lastUserHeight,
+          width: boardDimensions?.lastUserWidth,
+          height: boardDimensions?.lastUserHeight,
         }
       );
 
@@ -336,11 +380,11 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       contentDimensions,
       minDimensions,
       maxDimensions,
-      boardPosition?.width,
-      boardPosition?.height,
-      boardPosition?.userResized,
-      boardPosition?.lastUserWidth,
-      boardPosition?.lastUserHeight,
+      boardDimensions?.width,
+      boardDimensions?.height,
+      boardDimensions?.userResized,
+      boardDimensions?.lastUserWidth,
+      boardDimensions?.lastUserHeight,
       updateBoardDimensions,
     ]);
 
@@ -844,67 +888,6 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             />
           </div>
         </div>
-
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="top"
-          position={Position.Top}
-          style={{ top: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="top-target"
-          position={Position.Top}
-          style={{ top: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="right"
-          position={Position.Right}
-          style={{ right: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="right-target"
-          position={Position.Right}
-          style={{ right: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="bottom"
-          position={Position.Bottom}
-          style={{ bottom: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="bottom-target"
-          position={Position.Bottom}
-          style={{ bottom: -6 }}
-          type="target"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-70 transition-opacity hover:opacity-100"
-          data-testid="board-connection-handle"
-          id="left"
-          position={Position.Left}
-          style={{ left: -6 }}
-          type="source"
-        />
-        <Handle
-          className="h-3! w-3! rounded-full! border-2! border-primary! bg-background! opacity-0 transition-opacity hover:opacity-100"
-          id="left-target"
-          position={Position.Left}
-          style={{ left: -6 }}
-          type="target"
-        />
       </>
     );
   }

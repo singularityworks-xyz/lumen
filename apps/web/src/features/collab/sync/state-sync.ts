@@ -972,7 +972,7 @@ export function initializeYjsForWorkspace(
   const workspaceMap = doc.getMap(YJS_MAP_NAMES.WORKSPACE);
   if (workspaceMap.size === 0) {
     doc.transact(() => {
-      workspaceMap.set(workspaceId, workspace);
+      workspaceMap.set(workspaceId, JSON.parse(JSON.stringify(workspace)));
     });
     logger.debug("Initialized workspace in Yjs", { workspaceId });
   }
@@ -987,7 +987,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const board of workspaceBoards) {
         if (board) {
-          boardsMap.set(board.id, board);
+          boardsMap.set(board.id, JSON.parse(JSON.stringify(board)));
         }
       }
     });
@@ -1019,7 +1019,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const column of workspaceColumns) {
         if (column) {
-          columnsMap.set(column.id, column);
+          columnsMap.set(column.id, JSON.parse(JSON.stringify(column)));
         }
       }
     });
@@ -1038,7 +1038,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const task of workspaceTasks) {
         if (task) {
-          tasksMap.set(task.id, task);
+          tasksMap.set(task.id, JSON.parse(JSON.stringify(task)));
         }
       }
     });
@@ -1055,7 +1055,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const pos of workspaceBoardPositions) {
         if (pos) {
-          boardPositionsMap.set(pos.id, pos);
+          boardPositionsMap.set(pos.id, JSON.parse(JSON.stringify(pos)));
         }
       }
     });
@@ -1079,7 +1079,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const conn of workspaceBoardConnections) {
         if (conn) {
-          boardConnectionsMap.set(conn.id, conn);
+          boardConnectionsMap.set(conn.id, JSON.parse(JSON.stringify(conn)));
         }
       }
     });
@@ -1098,7 +1098,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const area of workspaceAreas) {
         if (area) {
-          areasMap.set(area.id, area);
+          areasMap.set(area.id, JSON.parse(JSON.stringify(area)));
         }
       }
     });
@@ -1118,7 +1118,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const pos of workspaceAreaPositions) {
         if (pos) {
-          areaPositionsMap.set(pos.id, pos);
+          areaPositionsMap.set(pos.id, JSON.parse(JSON.stringify(pos)));
         }
       }
     });
@@ -1136,7 +1136,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const comment of workspaceComments) {
         if (comment) {
-          commentsMap.set(comment.id, comment);
+          commentsMap.set(comment.id, JSON.parse(JSON.stringify(comment)));
         }
       }
     });
@@ -1155,7 +1155,7 @@ export function initializeYjsForWorkspace(
     doc.transact(() => {
       for (const msg of workspaceChatMessages) {
         if (msg) {
-          chatMessagesMap.set(msg.id, msg);
+          chatMessagesMap.set(msg.id, JSON.parse(JSON.stringify(msg)));
         }
       }
     });

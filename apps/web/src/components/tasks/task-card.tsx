@@ -38,13 +38,9 @@ export const TaskCard = memo(
     const openTaskQuickActions = useKanbanStore(
       (state) => state.openTaskQuickActions
     );
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[boardId]
-    );
-    const taskQuickActions = useKanbanStore((state) => state.taskQuickActions);
     const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
     const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
-    const { getViewport, setViewport, screenToFlowPosition } = useReactFlow();
+    const { getViewport, setViewport } = useReactFlow();
 
     const {
       getTaskDragCollaborator,
@@ -390,7 +386,6 @@ export const TaskCard = memo(
       toggleTaskSelection(task.id);
     };
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: TODO: i'll check later
     const handleContextMenu = useCallback(
       (e: React.MouseEvent) => {
         e.preventDefault();
@@ -399,6 +394,10 @@ export const TaskCard = memo(
         const SPACING = 20;
         const MENU_HEIGHT = 300;
         const STACK_GAP = 10;
+
+        const state = useKanbanStore.getState();
+        const boardPosition = state.boardPositions.byId[boardId];
+        const taskQuickActions = state.taskQuickActions;
 
         const boardWidth = boardPosition?.width ?? 400;
         const boardX = boardPosition?.x ?? 0;
@@ -426,9 +425,6 @@ export const TaskCard = memo(
         task.board_id,
         task.column_id,
         boardId,
-        boardPosition,
-        taskQuickActions,
-        screenToFlowPosition,
         openTaskQuickActions,
         ensureDialogVisible,
       ]

@@ -3,7 +3,7 @@ import { Counter, Gauge } from "k6/metrics";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const activeConnections = new Gauge("soak_active_connections");
 const sessionDuration = new Gauge("soak_session_duration_ms");

@@ -3,7 +3,7 @@ import { Counter, Rate, Trend } from "k6/metrics";
 import {
   connectCollabSession,
   waitForSessionEstablished,
-} from "./lib/collab-session.ts";
+} from "./lib/collab-session";
 
 const stateDivergenceCount = new Counter("state_divergence_count");
 const droppedAwarenessCount = new Counter("dropped_awareness_count");

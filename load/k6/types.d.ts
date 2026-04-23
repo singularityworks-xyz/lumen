@@ -16,7 +16,11 @@ declare module "k6" {
 declare module "k6/ws" {
   export interface Socket {
     close(): void;
+    on(event: "binaryMessage", callback: (data: ArrayBuffer) => void): void;
+    on(event: "close", callback: () => void): void;
+    on(event: "error", callback: (event: unknown) => void): void;
     on(event: string, callback: (...args: unknown[]) => void): void;
+    ping(): void;
     send(data: string): void;
     sendBinary(data: ArrayBuffer | ArrayBufferLike): void;
     setInterval(callback: () => void, interval: number): void;
@@ -42,6 +46,56 @@ declare module "k6/ws" {
     callback: (socket: Socket) => void
   ): Response;
 }
+
+declare module "k6/browser" {
+  export interface Mouse {
+    down(): Promise<void>;
+    move(x: number, y: number, options?: { steps?: number }): Promise<void>;
+    up(): Promise<void>;
+  }
+
+  export interface Keyboard {
+    press(key: string): Promise<void>;
+    type(text: string): Promise<void>;
+  }
+
+  export interface Page {
+    click(
+      selector: string,
+      options?: { position?: { x: number; y: number }; timeout?: number }
+    ): Promise<void>;
+    close(): Promise<void>;
+    fill(selector: string, value: string): Promise<void>;
+    goto(
+      url: string,
+      options?: { timeout?: number; waitUntil?: string }
+    ): Promise<void>;
+    keyboard: Keyboard;
+    mouse: Mouse;
+    waitForSelector(
+      selector: string,
+      options?: { timeout?: number }
+    ): Promise<void>;
+    waitForTimeout(timeout: number): Promise<void>;
+    waitForURL(matcher: string, options?: { timeout?: number }): Promise<void>;
+  }
+
+  export const browser: {
+    newPage(options?: {
+      viewport?: { height: number; width: number };
+    }): Promise<Page>;
+  };
+}
+
+declare module "k6/encoding" {
+  const encoding: {
+    b64decode(value: string): ArrayBuffer;
+  };
+
+  export default encoding;
+}
+
+declare function open(filePath: string, mode?: "b"): string | ArrayBuffer;
 
 declare module "k6/websockets" {
   export interface WebSocketParams {
@@ -171,8 +225,8 @@ declare module "yjs" {
   export class Doc {
     clientID: number;
     constructor();
-    getMap(name?: string): Map<unknown, unknown>;
-    getMaps(): Map<unknown, unknown>[];
+    getMap(name?: string): Map<string, unknown>;
+    getMaps(): Map<string, unknown>[];
     getArray(name?: string): unknown[];
     getText(name?: string): unknown;
     encodeStateAsUpdate(doc: Doc): Uint8Array;

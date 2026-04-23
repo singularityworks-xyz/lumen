@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
-    "module": "preserve",
+    "target": "ES2024",
+    "module": "esnext",
     "moduleResolution": "bundler",
     "types": ["node", "bun-types"],
     "strict": true,
@@ -10,6 +10,10 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
+    "noUncheckedSideEffectImports": true,
+    "libReplacement": false,
+    "stableTypeOrdering": true,
+    "rootDir": "./",
     "paths": {
       "@lumen/db": ["./packages/db/src/index.ts"],
       "@lumen/db/*": ["./packages/db/src/*"],
@@ -24,5 +28,9 @@
     "tests/**/*.tsx",
     "scripts/**/*.ts",
     "playwright/**/*.ts"
-  ]
+  ],
+  "tsgo": {
+    "checkers": 4,
+    "builders": 2
+  }
 }

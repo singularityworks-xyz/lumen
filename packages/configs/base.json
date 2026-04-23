@@ -6,14 +6,17 @@
     "esModuleInterop": true,
     "incremental": false,
     "isolatedModules": true,
-    "lib": ["es2022", "DOM", "DOM.Iterable"],
-    "module": "NodeNext",
+    "lib": ["es2024", "DOM", "DOM.Iterable"],
+    "module": "esnext",
     "moduleDetection": "force",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "bundler",
     "noUncheckedIndexedAccess": true,
+    "noUncheckedSideEffectImports": true,
+    "libReplacement": false,
+    "stableTypeOrdering": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2022"
+    "target": "ES2024"
   }
 }

@@ -22,14 +22,14 @@ export const SwitchButtons = memo(({ buttons }: SwitchButtonsProps) => {
   }
 
   return (
-    <div className="absolute top-1/2 left-0 flex -translate-x-full -translate-y-1/2 flex-col gap-2">
+    <div className="absolute top-1/2 left-0 flex -translate-x-full -translate-y-1/2 flex-col gap-1.5">
       {buttons.map((button, index) => (
         <motion.button
           animate={{ opacity: 1, x: 0 }}
           aria-label={`Switch to ${button.label}`}
           className={cn(
-            "flex flex-col items-center justify-center gap-1",
-            "w-9 rounded-l-xl py-3",
+            "flex flex-col items-center justify-center",
+            "w-9 rounded-l-xl py-2.5",
             "bg-card/95 backdrop-blur-md",
             "border-2 border-border/50 border-r-0",
             "shadow-[0_4px_16px_rgba(0,0,0,0.15),-4px_0_10px_rgba(0,0,0,0.08),inset_0_3px_10px_rgba(0,0,0,0.22),inset_0_-2px_6px_rgba(255,255,255,0.07),inset_1px_0_4px_rgba(0,0,0,0.12)]",
@@ -49,23 +49,23 @@ export const SwitchButtons = memo(({ buttons }: SwitchButtonsProps) => {
           }}
           type="button"
         >
-          <div className="relative">
+          <div className="relative flex h-5 items-center justify-center">
             {button.icon}
             {button.count !== undefined && button.count > 0 && (
               <span
                 className={cn(
-                  "absolute -top-1 -right-1",
-                  "h-3 min-w-3 px-0.5",
+                  "absolute -top-0.5 -right-1.5",
+                  "h-3.5 min-w-3.5 px-0.5",
                   "flex items-center justify-center",
                   "rounded-full bg-primary text-primary-foreground",
-                  "font-bold text-[7px]"
+                  "font-bold text-[8px] leading-none"
                 )}
               >
-                {button.count > 9 ? "9+" : button.count}
+                {button.count > 99 ? "99+" : button.count}
               </span>
             )}
           </div>
-          <span className="writing-mode-vertical font-medium text-[8px] text-muted-foreground transition-colors group-hover:text-foreground">
+          <span className="writing-mode-vertical mt-1.5 font-medium text-[8px] text-muted-foreground leading-tight transition-colors group-hover:text-foreground">
             {button.label}
           </span>
         </motion.button>
