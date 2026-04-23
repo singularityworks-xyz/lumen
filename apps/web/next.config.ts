@@ -1,9 +1,11 @@
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import withSerwistInit from "@serwist/next";
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
 const isTauriBuild = process.env.IS_TAURI_BUILD === "true";
+const turbopackRoot = fileURLToPath(new URL("../..", import.meta.url));
 const workersApiOriginRaw =
   process.env.NEXT_PUBLIC_API_URL ??
   process.env.E2E_WORKERS_URL ??
@@ -36,7 +38,9 @@ const nextConfig: NextConfig = {
   // Disable cacheComponents (PPR) for Tauri builds - not compatible with static export
   cacheComponents: !isTauriBuild,
   typedRoutes: false,
-  turbopack: {},
+  turbopack: {
+    root: turbopackRoot,
+  },
   // Enable static export for Tauri builds
   ...(isTauriBuild && {
     output: "export",

@@ -4,7 +4,7 @@ import {
   Check,
   ChevronDown,
   Copy,
-  Github,
+  GitBranchPlusIcon,
   Key,
   Link,
   Loader2,
@@ -582,7 +582,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                     </>
                   ) : (
                     <>
-                      <Github className="h-3.5 w-3.5" />
+                      <GitBranchPlusIcon className="h-3.5 w-3.5" />
                       Continue with GitHub
                     </>
                   )}

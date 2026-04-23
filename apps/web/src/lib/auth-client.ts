@@ -16,6 +16,11 @@ const authClient = createAuthClient({
   baseURL: normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL),
   credentials: "include",
   plugins: [jwtClient()],
+  sessionOptions: {
+    refetchInterval: 0,
+    refetchOnWindowFocus: false,
+    refetchWhenOffline: false,
+  },
 });
 
 export const { signIn, signOut, signUp, useSession } = authClient;

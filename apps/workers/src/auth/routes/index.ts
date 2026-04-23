@@ -14,6 +14,7 @@ import { auth } from "../config/auth";
 
 const logger = createLogger({ name: "auth:routes" });
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
+const SESSION_LOOKUP_PATH = "/api/auth/get-session";
 
 const parseCookieName = (cookieString: string): string => {
   // biome-ignore lint/performance/useTopLevelRegex: does not hurt here
@@ -61,7 +62,9 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   .onRequest(({ request }) => {
     const url = new URL(request.url);
     if (!url.pathname.includes("/token")) {
-      logger.info("Auth request received", {
+      const log =
+        url.pathname === SESSION_LOOKUP_PATH ? logger.debug : logger.info;
+      log("Auth request received", {
         method: request.method,
         path: url.pathname,
       });
@@ -70,7 +73,9 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   .onAfterHandle(({ request }) => {
     const url = new URL(request.url);
     if (!url.pathname.includes("/token")) {
-      logger.info("Auth response sent", {
+      const log =
+        url.pathname === SESSION_LOOKUP_PATH ? logger.debug : logger.info;
+      log("Auth response sent", {
         method: request.method,
         path: url.pathname,
       });

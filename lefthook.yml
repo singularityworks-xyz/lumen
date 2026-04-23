@@ -4,6 +4,17 @@ output:
   - failure
 
 pre-commit:
+  jobs:
+    - run: bun x ultracite fix
+      glob:
+        - "**/*.js"
+        - "**/*.jsx"
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.json"
+        - "**/*.jsonc"
+        - "**/*.css"
+      stage_fixed: true
   parallel: false
   commands:
     autobump:

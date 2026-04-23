@@ -1,9 +1,9 @@
 {
   "name": "@lumen/presence",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "private": true,
   "scripts": {
-    "dev": "set -a && source .env && set +a && mix phx.server",
+    "dev": "mix phx.server",
     "build": "mix compile",
     "check": "mix format && mix compile --warnings-as-errors && mix credo --strict",
     "deps": "mix deps.get"

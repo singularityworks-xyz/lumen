@@ -5,7 +5,8 @@
     "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node", "bun-types"]
+    "types": ["node", "bun-types"],
+    "strictNullChecks": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

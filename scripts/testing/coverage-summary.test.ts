@@ -7,6 +7,7 @@ import {
   buildCoverageSummary,
   parseLcov,
   renderCoverageSummary,
+  renderCoverageSummaryTerminal,
   summarizeCoverage,
 } from "./coverage-summary";
 
@@ -83,6 +84,7 @@ end_of_record
     );
 
     mkdirSync(join(rootDir, "apps", "web", "src"), { recursive: true });
+    mkdirSync(join(rootDir, "apps", "landing", "src"), { recursive: true });
     mkdirSync(join(rootDir, "apps", "web", "test", "integration"), {
       recursive: true,
     });
@@ -102,6 +104,10 @@ end_of_record
     });
 
     writeFileSync(join(rootDir, "apps", "web", "src", "app.test.ts"), "test");
+    writeFileSync(
+      join(rootDir, "apps", "landing", "src", "landing.smoke.test.ts"),
+      "test"
+    );
     writeFileSync(
       join(rootDir, "apps", "web", "test", "integration", "app.test.ts"),
       "test"
@@ -141,6 +147,7 @@ end_of_record
 
     const summary = buildCoverageSummary(rootDir);
     const web = summary.find((subject) => subject.id === "apps/web");
+    const landing = summary.find((subject) => subject.id === "apps/landing");
     const presence = summary.find((subject) => subject.id === "apps/presence");
     const native = summary.find((subject) => subject.id === "apps/native");
     const yjs = summary.find((subject) => subject.id === "packages/yjs-shared");
@@ -148,6 +155,8 @@ end_of_record
     expect(web?.coverage?.ratio).toBe(0.4);
     expect(web?.status).toBe("warn");
     expect(web?.layers.map((layer) => layer.count)).toEqual([1, 1, 1, 1]);
+
+    expect(landing?.status).toBe("info");
 
     expect(presence?.coverage).toBeNull();
     expect(presence?.status).toBe("info");
@@ -161,11 +170,21 @@ end_of_record
     expect(yjs?.status).toBe("warn");
 
     const markdown = renderCoverageSummary(summary);
+    const terminal = renderCoverageSummaryTerminal(summary);
 
     expect(markdown).toContain(
       "| apps/web | 40.0% unit lines (target 95.0%) |"
     );
     expect(markdown).toContain("apps/presence");
+    expect(markdown).toContain("apps/landing");
+    expect(markdown).toContain("| apps total |");
+    expect(markdown).toContain("| packages total |");
+    expect(markdown).not.toContain("packages/configs");
     expect(markdown).toContain("packages/yjs-shared");
+
+    expect(terminal).toContain("Coverage Summary");
+    expect(terminal).toContain("apps total");
+    expect(terminal).toContain("packages total");
+    expect(terminal).not.toContain("packages/configs");
   });
 });
