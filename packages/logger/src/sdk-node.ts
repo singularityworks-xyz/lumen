@@ -78,6 +78,19 @@ export function initOtel(
     url: `${config.endpoint}/v1/traces`,
     headers: config.headers,
   });
+
+  // Wrap exporter to suppress connection errors in development
+  const originalExport = traceExporter.export.bind(traceExporter);
+  traceExporter.export = (spans, resultCallback) => {
+    originalExport(spans, (result) => {
+      // Suppress ECONNREFUSED errors - collector may not be running
+      if (result.error && !result.error.message?.includes("ECONNREFUSED")) {
+        diag.warn("[OTEL] Trace export error:", result.error);
+      }
+      resultCallback(result);
+    });
+  };
+
   tracerProvider = new NodeTracerProvider({
     resource,
     sampler: new ParentBasedSampler({
