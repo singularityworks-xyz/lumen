@@ -1,6 +1,5 @@
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import withSerwistInit from "@serwist/next";
+import { withSerwist } from "@serwist/turbopack";
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
@@ -14,34 +13,13 @@ const workersApiOrigin = workersApiOriginRaw.endsWith("/")
   ? workersApiOriginRaw.slice(0, -1)
   : workersApiOriginRaw;
 
-const revision =
-  spawnSync("git", ["rev-parse", "HEAD"], {
-    encoding: "utf-8",
-  }).stdout?.trim() ?? crypto.randomUUID();
-
-// Only initialize Serwist for non-Tauri builds (PWA not needed in native app)
-const withSerwist = isTauriBuild
-  ? (config: NextConfig) => config
-  : withSerwistInit({
-      swSrc: "src/app/sw.ts",
-      swDest: "public/sw.js",
-      additionalPrecacheEntries: [{ url: "/~offline", revision }],
-      cacheOnNavigation: true,
-      reloadOnOnline: false,
-      register: true,
-      swUrl: "/sw.js",
-      scope: "/",
-    });
-
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  // Disable cacheComponents (PPR) for Tauri builds - not compatible with static export
   cacheComponents: !isTauriBuild,
   typedRoutes: false,
   turbopack: {
     root: turbopackRoot,
   },
-  // Enable static export for Tauri builds
   ...(isTauriBuild && {
     output: "export",
     distDir: "out",
@@ -59,7 +37,6 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    // Use unoptimized images for static export
     ...(isTauriBuild && { unoptimized: true }),
     remotePatterns: [
       {
@@ -77,4 +54,6 @@ const nextConfig: NextConfig = {
   ],
 };
 
-export default withBotId(withSerwist(nextConfig));
+export default isTauriBuild
+  ? withBotId(nextConfig)
+  : withBotId(withSerwist(nextConfig));

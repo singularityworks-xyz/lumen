@@ -1,5 +1,6 @@
 "use client";
 
+import { SerwistProvider } from "@serwist/turbopack/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -21,12 +22,23 @@ function ThemeIndicatorWrapper() {
 
 export function AppProviders({ children }: AppProvidersProps) {
   const [queryClient] = useState(() => new QueryClient());
+  const isTauriBuild = process.env.IS_TAURI_BUILD === "true";
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <CollaborationWrapper>{children}</CollaborationWrapper>
-        <ThemeIndicatorWrapper />
+        <CollaborationWrapper>
+          <SerwistProvider
+            cacheOnNavigation
+            disable={isTauriBuild}
+            register
+            reloadOnOnline={false}
+            swUrl="/serwist/sw.js"
+          >
+            {children}
+          </SerwistProvider>
+          <ThemeIndicatorWrapper />
+        </CollaborationWrapper>
       </ThemeProvider>
     </QueryClientProvider>
   );
