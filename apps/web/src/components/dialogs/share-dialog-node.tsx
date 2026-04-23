@@ -1,22 +1,16 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { GripHorizontal, Link2, Share2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { getJwtToken } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 
@@ -41,20 +35,12 @@ const DIALOG_WIDTH = 380;
 
 export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
   ({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const boardId = data.boardId;
     const shareDialog = useKanbanStore((state) => state.shareDialog);
-    const boardQuickActions = useKanbanStore((state) =>
-      boardId ? state.boardQuickActions[boardId] : null
-    );
     const board = useKanbanStore((state) =>
       boardId ? state.boards.byId[boardId] : null
-    );
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[boardId]
     );
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
@@ -73,16 +59,11 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const dialogId = `share-dialog-${boardId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [shareError, setShareError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -116,40 +97,12 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
       );
     }, [board?.icon, board?.name]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!(boardQuickActions && shareDialog?.position)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: shareDialog.position.x,
-        y: shareDialog.position.y,
-      });
-
-      const boardWidth = 300;
-      const boardX = boardPosition?.x ?? 0;
-      const boardY = boardPosition?.y ?? 0;
-      const boardScreenPos = flowToScreenPosition({
-        x: boardX + boardWidth,
-        y: boardY,
-      });
-
-      return {
-        start: boardScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-      };
-    }, [
-      boardQuickActions,
-      shareDialog?.position,
-      flowToScreenPosition,
-      boardPosition?.x,
-      boardPosition?.y,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: board?.accentColor,
+      sourceSelector: `.react-flow__node[data-id="${boardId}"]`,
+      targetNodeId: `share-dialog-${boardId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleClose = useCallback(() => {
       closeShareDialog();
@@ -252,20 +205,6 @@ export const ShareDialogNodeComponent = memo<ShareDialogNodeProps>(
         }}
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={board.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

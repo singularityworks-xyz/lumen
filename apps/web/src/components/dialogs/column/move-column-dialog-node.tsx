@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import {
   AlertTriangle,
   GripHorizontal,
@@ -15,7 +10,6 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import {
   ModalScaleProvider,
@@ -26,10 +20,10 @@ import {
   ScaledSelectValue,
 } from "@/src/components/scaled-dropdown";
 import { Button } from "@/src/components/ui/button";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface MoveColumnDialogNodeData {
@@ -44,8 +38,6 @@ const DIALOG_WIDTH = 320;
 
 export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
   ({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const [targetBoardId, setTargetBoardId] = useState<string>("");
@@ -61,10 +53,6 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
     );
     const boards = useKanbanStore((state) => state.boards);
     const columnsStore = useKanbanStore((state) => state.columns);
-    const columnQuickActions = useKanbanStore(
-      (state) => state.columnQuickActions
-    );
-    const boardPositions = useKanbanStore((state) => state.boardPositions);
 
     const registerDialog = useKanbanStore((state) => state.registerDialog);
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
@@ -73,12 +61,6 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
     );
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `move-column-dialog-${data.dialogId}`;
-
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -133,54 +115,22 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
         });
     }, [boards, columnDialog]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!columnDialog || columnDialog.columnId !== data.columnId) {
-        return null;
+    const sourceSelector = useMemo(() => {
+      const primary = `.react-flow__node[data-id="column-quick-actions-${data.columnId}"]`;
+      if (document.querySelector(primary)) {
+        return primary;
       }
+      return `.react-flow__node[data-id="${columnDialog?.boardId}"]`;
+    }, [data.columnId, columnDialog?.boardId]);
 
-      const myScreenPos = flowToScreenPosition({
-        x: columnDialog.position.x,
-        y: columnDialog.position.y,
-      });
-
-      const quickActions = columnQuickActions?.[data.columnId];
-      if (quickActions) {
-        const sourceScreenPos = flowToScreenPosition({
-          x: quickActions.position.x + 200,
-          y: quickActions.position.y + 20,
-        });
-        return {
-          start: sourceScreenPos,
-          end: { x: myScreenPos.x, y: myScreenPos.y + 30 },
-        };
-      }
-
-      const boardPos = boardPositions.byId[columnDialog.boardId];
-      if (!boardPos) {
-        return null;
-      }
-
-      const sourceScreenPos = flowToScreenPosition({
-        x: boardPos.x,
-        y: boardPos.y + 100,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 30 },
-      };
-    }, [
-      columnDialog,
-      data.columnId,
-      columnQuickActions,
-      boardPositions,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: column?.accentColor,
+      endOffsetY: 30,
+      hideStartNode: true,
+      sourceSelector,
+      targetNodeId: `column-dialog-${data.dialogId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleConfirm = useCallback(() => {
       if (columnDialog && columnDialog.type === "move" && targetBoardId) {
@@ -307,22 +257,6 @@ export const MoveColumnDialogNodeComponent = memo<MoveColumnDialogNodeProps>(
             }}
             role="dialog"
           >
-            {connectorState &&
-              portalTarget &&
-              createPortal(
-                <ConnectorEdge
-                  color="primary"
-                  customColor={column?.accentColor}
-                  endX={connectorState.end.x}
-                  endY={connectorState.end.y}
-                  hideStartNode
-                  startX={connectorState.start.x}
-                  startY={connectorState.start.y}
-                  zIndex={connectorZIndex}
-                />,
-                portalTarget
-              )}
-
             {conflictMode === "none" ? (
               <>
                 <div

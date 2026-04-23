@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { GripHorizontal, Palette, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { HexColorPicker } from "react-colorful";
-import { createPortal } from "react-dom";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import {
   ACCENT_COLORS,
@@ -19,6 +12,7 @@ import {
   incrementIconUsage,
   isValidHexColor,
 } from "@/src/features/kanban/utils/color-icon-utils";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface ColorIconPickerDialogNodeData {
@@ -37,8 +31,6 @@ const DIALOG_WIDTH = 300;
 
 export const ColorIconPickerDialogNodeComponent =
   memo<ColorIconPickerDialogNodeProps>(({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
     const [pickerColor, setPickerColor] = useState("#3b82f6");
 
@@ -46,9 +38,6 @@ export const ColorIconPickerDialogNodeComponent =
     const columnId = data.columnId;
     const sourceDialogId = data.sourceDialogId;
 
-    const sourceDialog = useKanbanStore(
-      (state) => state.boardDialogs[sourceDialogId]
-    );
     const column = useKanbanStore((state) =>
       columnId ? state.columns.byId[columnId] : null
     );
@@ -69,33 +58,14 @@ export const ColorIconPickerDialogNodeComponent =
 
     const customColors = workspace?.customColors ?? [];
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-      if (!(dialog?.position && sourceDialog?.position)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: dialog.position.x,
-        y: dialog.position.y,
-      });
-      const sourceScreenPos = flowToScreenPosition({
-        x: sourceDialog.position.x + 340,
-        y: sourceDialog.position.y + 60,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-      };
-    }, [
-      dialog?.position,
-      sourceDialog?.position,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      sourceSelector: `.react-flow__node[data-id="board-dialog-${sourceDialogId}"]`,
+      targetNodeId: `board-dialog-${dialogId}`,
+      customColor: board?.accentColor ?? column?.accentColor,
+      hideStartNode: true,
+      endOffsetY: 20,
+      portalTarget: document.body,
+    });
 
     const handleClose = useCallback(() => {
       closeBoardDialog(dialogId);
@@ -207,20 +177,6 @@ export const ColorIconPickerDialogNodeComponent =
         role="dialog"
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          createPortal(
-            <ConnectorEdge
-              color="primary"
-              customColor={currentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              hideStartNode
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-            />,
-            document.body
-          )}
-
         <div className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />

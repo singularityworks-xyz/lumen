@@ -1,21 +1,15 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import { GripHorizontal, Layout, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { Button } from "@/src/components/ui/button";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { Input } from "@/src/components/ui/input";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 const WORD_SPLIT_REGEX = /\s+/;
@@ -39,8 +33,6 @@ const DIALOG_WIDTH = 320;
 
 export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
   ({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
 
     const dialogId = data.dialogId;
@@ -49,9 +41,6 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
     const closeBoardDialog = useKanbanStore((state) => state.closeBoardDialog);
     const updateBoardDialogInputValue = useKanbanStore(
       (state) => state.updateBoardDialogInputValue
-    );
-    const boardQuickActions = useKanbanStore((state) =>
-      dialog?.boardId ? state.boardQuickActions[dialog.boardId] : null
     );
     const board = useKanbanStore((state) =>
       dialog?.boardId ? state.boards.byId[dialog.boardId] : null
@@ -63,11 +52,6 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `rename-board-dialog-${dialogId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(zIndexDialogId);
@@ -92,36 +76,14 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, zIndexDialogId]);
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!(boardQuickActions && dialog?.position)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: dialog.position.x,
-        y: dialog.position.y,
-      });
-
-      const sourceWidth = 220;
-      const sourceScreenPos = flowToScreenPosition({
-        x: boardQuickActions.position.x + sourceWidth,
-        y: boardQuickActions.position.y + 60,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 20 },
-      };
-    }, [
-      dialog?.position,
-      boardQuickActions,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: board?.accentColor,
+      endOffsetY: 20,
+      hideStartNode: true,
+      sourceSelector: `.react-flow__node[data-id="quick-actions-${dialog?.boardId}"]`,
+      targetNodeId: `board-dialog-${dialogId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleSubmit = useCallback(
       (e: React.FormEvent) => {
@@ -200,22 +162,6 @@ export const RenameBoardDialogNodeComponent = memo<RenameBoardDialogNodeProps>(
         }}
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              color="primary"
-              customColor={board?.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              hideStartNode
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

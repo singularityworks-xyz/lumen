@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import type { Node, NodeProps } from "@xyflow/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -16,11 +11,10 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 import { ConnectionConfigSection } from "./connection-config-section";
 
@@ -38,8 +32,6 @@ const DIALOG_WIDTH = 380;
 
 export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
   ({ data, selected }) => {
-    const { flowToScreenPosition } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
     const [isFocused, setIsFocused] = useState(false);
     const [showExistingConnections, setShowExistingConnections] =
       useState(true);
@@ -61,9 +53,6 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const removeConnection = useKanbanStore((state) => state.removeConnection);
     const updateConnection = useKanbanStore((state) => state.updateConnection);
     const boardConnections = useKanbanStore((state) => state.boardConnections);
-    const boardQuickActions = useKanbanStore(
-      (state) => state.boardQuickActions[boardId]
-    );
     const bringDialogToFront = useKanbanStore(
       (state) => state.bringDialogToFront
     );
@@ -71,7 +60,6 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const zIndexDialogId = `connection-dialog-${boardId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
     // Get config values from store (synced across collaborators)
     const searchQuery = connectionDialog?.searchQuery ?? "";
@@ -126,9 +114,6 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
       useDialogPresenceLifecycle(zIndexDialogId, "connection-dialog", boardId);
 
     useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
-    useEffect(() => {
       registerDialog(zIndexDialogId);
       return () => unregisterDialog(zIndexDialogId);
     }, [zIndexDialogId, registerDialog, unregisterDialog]);
@@ -170,36 +155,12 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
         return true;
       });
 
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!(boardQuickActions && connectionDialog?.position)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: connectionDialog.position.x,
-        y: connectionDialog.position.y,
-      });
-
-      const sourceWidth = 220;
-      const sourceScreenPos = flowToScreenPosition({
-        x: boardQuickActions.position.x + sourceWidth,
-        y: boardQuickActions.position.y + 120,
-      });
-
-      return {
-        start: sourceScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-      };
-    }, [
-      connectionDialog?.position,
-      boardQuickActions,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: sourceBoard?.accentColor,
+      sourceSelector: `.react-flow__node[data-id="quick-actions-${boardId}"]`,
+      targetNodeId: `connection-dialog-${boardId}`,
+      zIndex: connectorZIndex,
+    });
 
     const handleCreateConnection = useCallback(() => {
       if (!selectedTargetId) {
@@ -305,20 +266,6 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
         }}
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={sourceBoard?.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import { type Node, type NodeProps, useReactFlow } from "@xyflow/react";
 import {
   ArrowUpRight,
   Columns,
@@ -16,13 +11,11 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   type BlockingDialog,
   BlockingDialogsManager,
 } from "@/src/components/dialogs/blocking-dialogs-manager";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +25,7 @@ import {
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface ColumnQuickActionsNodeData {
@@ -45,9 +39,7 @@ const DIALOG_WIDTH = 200;
 
 export const ColumnQuickActionsNodeComponent =
   memo<ColumnQuickActionsNodeProps>(({ id, data, selected }) => {
-    const { getNode, flowToScreenPosition, getViewport, setViewport } =
-      useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    const { getNode, getViewport, setViewport } = useReactFlow();
     const [isFocused, setIsFocused] = useState(false);
 
     const columnId = data.columnId;
@@ -69,9 +61,6 @@ export const ColumnQuickActionsNodeComponent =
 
     const boardId = columnQuickActionsState?.boardId ?? column?.board_id ?? "";
     const board = useKanbanStore((state) => state.boards.byId[boardId]);
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[boardId]
-    );
 
     const availableTargetBoards = useMemo(() => {
       const sourceBoard = boards.byId[boardId];
@@ -166,11 +155,6 @@ export const ColumnQuickActionsNodeComponent =
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
 
     const dialogId = `column-quick-actions-${columnId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -190,66 +174,12 @@ export const ColumnQuickActionsNodeComponent =
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
-    const [sourceElement, setSourceElement] = useState<Element | null>(null);
-
-    useEffect(() => {
-      const idSelector = `#kanban-column-${columnId}`;
-      const find = () => {
-        const el = document.querySelector(idSelector);
-        if (el) {
-          setSourceElement(el);
-          return true;
-        }
-        return false;
-      };
-
-      if (find()) {
-        return;
-      }
-
-      const interval = setInterval(() => {
-        if (find()) {
-          clearInterval(interval);
-        }
-      }, 100);
-
-      const timeout = setTimeout(() => clearInterval(interval), 5000);
-
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
-    }, [columnId]);
-
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!(boardPosition && columnQuickActionsState && sourceElement)) {
-        return null;
-      }
-
-      const columnRect = sourceElement.getBoundingClientRect();
-      const myScreenPos = flowToScreenPosition({
-        x: columnQuickActionsState.position.x,
-        y: columnQuickActionsState.position.y,
-      });
-
-      return {
-        start: {
-          x: columnRect.right,
-          y: columnRect.top + 20,
-        },
-        end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-      };
-    }, [
-      boardPosition,
-      columnQuickActionsState,
-      sourceElement,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: column?.accentColor,
+      sourceSelector: `#kanban-column-${columnId}`,
+      targetNodeId: id,
+      zIndex: connectorZIndex,
+    });
 
     const handleClose = useCallback(() => {
       closeColumnQuickActions(columnId);
@@ -475,20 +405,6 @@ export const ColumnQuickActionsNodeComponent =
           }}
           role="dialog"
         >
-          {connectorState &&
-            portalTarget &&
-            createPortal(
-              <ConnectorEdge
-                customColor={column.accentColor}
-                endX={connectorState.end.x}
-                endY={connectorState.end.y}
-                startX={connectorState.start.x}
-                startY={connectorState.start.y}
-                zIndex={connectorZIndex}
-              />,
-              portalTarget
-            )}
-
           <div
             className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
             style={

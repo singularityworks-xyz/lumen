@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import { type Node, type NodeProps, useReactFlow } from "@xyflow/react";
 import {
   Copy,
   Edit2,
@@ -19,10 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { BlockingDialogsManager } from "@/src/components/dialogs/blocking-dialogs-manager";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +26,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface BoardQuickActionsNodeData {
@@ -47,14 +41,7 @@ const DIALOG_CENTER_OFFSET = 150;
 
 export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
   ({ id, data, selected }) => {
-    const {
-      getNode,
-      flowToScreenPosition,
-      setCenter,
-      getViewport,
-      setViewport,
-    } = useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    const { getNode, setCenter, getViewport, setViewport } = useReactFlow();
     const [isFocused, setIsFocused] = useState(false);
 
     const boardId = data.boardId;
@@ -95,15 +82,10 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
     const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
     const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
     const dialogId = `board-quick-actions-${boardId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
     // Dialog presence for collaboration - auto-registers on mount, auto-cleans on unmount
     const { dialogCollaborator, handleDialogPointerDown } =
       useDialogPresenceLifecycle(dialogId, "quick-actions", boardId);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -284,44 +266,6 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         ),
       [boardDialogs, boardId]
     );
-
-    const boardPosition = useKanbanStore(
-      (state) => state.boardPositions.byId[boardId]
-    );
-    const boardQuickActionsState = useKanbanStore(
-      (state) => state.boardQuickActions[boardId]
-    );
-
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!(boardPosition && boardQuickActionsState)) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: boardQuickActionsState.position.x,
-        y: boardQuickActionsState.position.y,
-      });
-
-      const boardWidth = boardPosition.width ?? 300;
-      const boardScreenPos = flowToScreenPosition({
-        x: boardPosition.x + boardWidth,
-        y: boardPosition.y + 20,
-      });
-
-      return {
-        start: boardScreenPos,
-        end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-      };
-    }, [
-      boardPosition,
-      boardQuickActionsState,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
 
     const handleClose = useCallback(() => {
       closeBoardQuickActions(boardId);
@@ -671,6 +615,14 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       shareDialog,
     ]);
 
+    useImperativeConnector({
+      sourceSelector: `.react-flow__node[data-id="${boardId}"]`,
+      targetNodeId: id,
+      customColor: board?.accentColor,
+      zIndex: connectorZIndex,
+      endOffsetY: 24,
+    });
+
     if (!board) {
       return null;
     }
@@ -698,20 +650,6 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
         }}
         style={{ width: DIALOG_WIDTH }}
       >
-        {connectorState &&
-          portalTarget &&
-          createPortal(
-            <ConnectorEdge
-              customColor={board.accentColor}
-              endX={connectorState.end.x}
-              endY={connectorState.end.y}
-              startX={connectorState.start.x}
-              startY={connectorState.start.y}
-              zIndex={connectorZIndex}
-            />,
-            portalTarget
-          )}
-
         {dialogCollaborator && (
           <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
         )}

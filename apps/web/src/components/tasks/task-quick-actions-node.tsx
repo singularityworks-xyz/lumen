@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useViewport,
-} from "@xyflow/react";
+import { type Node, type NodeProps, useReactFlow } from "@xyflow/react";
 import {
   Check,
   Copy,
@@ -16,13 +11,11 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   type BlockingDialog,
   BlockingDialogsManager,
 } from "@/src/components/dialogs/blocking-dialogs-manager";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
-import { ConnectorEdge } from "@/src/components/ui/connector-edge";
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +25,7 @@ import {
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface TaskQuickActionsNodeData {
@@ -45,16 +39,8 @@ const DIALOG_WIDTH = 200;
 
 export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
   ({ id, data, selected }) => {
-    const { flowToScreenPosition, getViewport, setViewport, getNode } =
-      useReactFlow();
-    const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
+    const { getViewport, setViewport, getNode } = useReactFlow();
     const [isFocused, setIsFocused] = useState(false);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-      const timer = setTimeout(() => setMounted(true), 100);
-      return () => clearTimeout(timer);
-    }, []);
 
     const taskId = data.taskId;
     const task = useKanbanStore((state) => state.tasks.byId[taskId]);
@@ -81,11 +67,6 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
     );
 
     const dialogId = `task-quick-actions-${taskId}`;
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-      setPortalTarget(document.getElementById("board-connector-layer"));
-    }, []);
 
     useEffect(() => {
       registerDialog(dialogId);
@@ -105,88 +86,34 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
       return Z_INDEX_BASE.QUICK_ACTIONS + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
-    const taskQuickActionsState = useKanbanStore(
-      (state) => state.taskQuickActions[taskId]
-    );
-
     const column = task ? columns.byId[task.column_id] : null;
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: TODO: check tis
-    const connectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
+    const taskDetailModalEntry = useMemo(
+      () =>
+        Object.entries(taskDetailModals).find(
+          ([_, modal]) => modal?.taskId === taskId
+        ),
+      [taskDetailModals, taskId]
+    );
 
-      if (!taskQuickActionsState) {
-        return null;
-      }
-      const sourceTaskElement = document.querySelector(
-        `[data-task-id="${taskId}"]`
-      );
+    const taskDetailModalId = taskDetailModalEntry?.[0];
 
-      if (!sourceTaskElement) {
-        return null;
-      }
+    useImperativeConnector({
+      customColor: column?.accentColor,
+      sourceSelector: `[data-task-id="${taskId}"]`,
+      targetNodeId: id,
+      zIndex: connectorZIndex,
+    });
 
-      const sourceRect = sourceTaskElement.getBoundingClientRect();
-      const myScreenPos = flowToScreenPosition({
-        x: taskQuickActionsState.position.x,
-        y: taskQuickActionsState.position.y,
-      });
-
-      return {
-        start: {
-          x: sourceRect.right,
-          y: sourceRect.top + sourceRect.height / 2,
-        },
-        end: { x: myScreenPos.x, y: myScreenPos.y + 24 },
-      };
-    }, [
-      taskQuickActionsState,
-      taskId,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-      mounted,
-    ]);
-
-    const taskDetailConnectorState = useMemo(() => {
-      const _vp = { vpX, vpY, vpZoom };
-
-      if (!taskQuickActionsState) {
-        return null;
-      }
-
-      const taskDetailModal = Object.values(taskDetailModals).find(
-        (modal) => modal?.taskId === taskId
-      );
-
-      if (!taskDetailModal) {
-        return null;
-      }
-
-      const myScreenPos = flowToScreenPosition({
-        x: taskQuickActionsState.position.x + DIALOG_WIDTH,
-        y: taskQuickActionsState.position.y + 60,
-      });
-
-      const dialogScreenPos = flowToScreenPosition({
-        x: taskDetailModal.position.x,
-        y: taskDetailModal.position.y + 20,
-      });
-
-      return {
-        start: myScreenPos,
-        end: dialogScreenPos,
-      };
-    }, [
-      taskQuickActionsState,
-      taskId,
-      taskDetailModals,
-      flowToScreenPosition,
-      vpX,
-      vpY,
-      vpZoom,
-    ]);
+    useImperativeConnector({
+      customColor: column?.accentColor,
+      endOffsetY: 20,
+      sourceSelector: `.react-flow__node[data-id="${id}"]`,
+      targetNodeId: taskDetailModalId
+        ? `task-detail-modal-${taskDetailModalId}`
+        : undefined,
+      zIndex: connectorZIndex,
+    });
 
     const blockingDialogs = useMemo(() => {
       const dialogs: BlockingDialog[] = [];
@@ -381,34 +308,6 @@ export const TaskQuickActionsNodeComponent = memo<TaskQuickActionsNodeProps>(
           }}
           role="dialog"
         >
-          {connectorState &&
-            portalTarget &&
-            createPortal(
-              <ConnectorEdge
-                customColor={column?.accentColor}
-                endX={connectorState.end.x}
-                endY={connectorState.end.y}
-                startX={connectorState.start.x}
-                startY={connectorState.start.y}
-                zIndex={connectorZIndex}
-              />,
-              portalTarget
-            )}
-
-          {taskDetailConnectorState &&
-            portalTarget &&
-            createPortal(
-              <ConnectorEdge
-                customColor={column?.accentColor}
-                endX={taskDetailConnectorState.end.x}
-                endY={taskDetailConnectorState.end.y}
-                startX={taskDetailConnectorState.start.x}
-                startY={taskDetailConnectorState.start.y}
-                zIndex={connectorZIndex}
-              />,
-              portalTarget
-            )}
-
           <div
             className="flex cursor-move select-none items-center justify-between border-b bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
             style={
