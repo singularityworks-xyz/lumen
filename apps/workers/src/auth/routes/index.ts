@@ -62,23 +62,33 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   .onRequest(({ request }) => {
     const url = new URL(request.url);
     if (!url.pathname.includes("/token")) {
-      const log =
-        url.pathname === SESSION_LOOKUP_PATH ? logger.debug : logger.info;
-      log("Auth request received", {
-        method: request.method,
-        path: url.pathname,
-      });
+      if (url.pathname === SESSION_LOOKUP_PATH) {
+        logger.debug("Auth request received", {
+          method: request.method,
+          path: url.pathname,
+        });
+      } else {
+        logger.info("Auth request received", {
+          method: request.method,
+          path: url.pathname,
+        });
+      }
     }
   })
   .onAfterHandle(({ request }) => {
     const url = new URL(request.url);
     if (!url.pathname.includes("/token")) {
-      const log =
-        url.pathname === SESSION_LOOKUP_PATH ? logger.debug : logger.info;
-      log("Auth response sent", {
-        method: request.method,
-        path: url.pathname,
-      });
+      if (url.pathname === SESSION_LOOKUP_PATH) {
+        logger.debug("Auth response sent", {
+          method: request.method,
+          path: url.pathname,
+        });
+      } else {
+        logger.info("Auth response sent", {
+          method: request.method,
+          path: url.pathname,
+        });
+      }
     }
   })
   .onError(({ error, request, set }) => {
