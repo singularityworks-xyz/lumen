@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Mock env
 mock.module("@/src/env", () => ({
@@ -15,65 +15,29 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
-// We cannot mock fetchEventSource easily, so we test the pure functions instead.
-// The streaming/SSE tests would require integration-level mocking.
+// Mutable mock state for the kanban store
+let mockKanbanState: Record<string, unknown> = {
+  workspaces: { byId: {}, allIds: [] },
+  boards: { byId: {}, allIds: [] },
+  columns: { byId: {}, allIds: [] },
+  tasks: { byId: {}, allIds: [] },
+  boardPositions: { byId: {}, allIds: [] },
+  boardConnections: { byId: {}, allIds: [] },
+  areas: { byId: {}, allIds: [] },
+  areaPositions: { byId: {}, allIds: [] },
+  comments: { byId: {}, allIds: [] },
+  chatMessages: { byId: {}, allIds: [] },
+};
 
+mock.module("@/src/features/kanban/store/kanban-store", () => ({
+  useKanbanStore: {
+    getState: () => mockKanbanState,
+  },
+}));
+
+// Import after all mocks
 import type { ChatStreamCallbacks } from "./api-client";
-
-// Test handleStreamEvent by re-implementing the switch-case matching
-function handleStreamEvent(
-  event: { type: string; [key: string]: unknown },
-  callbacks: ChatStreamCallbacks
-): void {
-  switch (event.type) {
-    case "message_start":
-      callbacks.onMessageStart?.(event.messageId as string);
-      break;
-    case "content_delta":
-      callbacks.onContentDelta?.(event.content as string);
-      break;
-    case "tool_call_start":
-      callbacks.onToolCallStart?.(
-        event.toolName as string,
-        event.toolCallId as string
-      );
-      break;
-    case "tool_call_result":
-      callbacks.onToolCallResult?.(event.toolCallId as string, event.result);
-      break;
-    case "action_instruction":
-      callbacks.onActionInstruction?.(
-        event.toolCallId as string,
-        event.instruction,
-        event.message as string
-      );
-      break;
-    case "confirmation_required":
-      callbacks.onConfirmationRequired?.(
-        event.messageId as string,
-        event.action
-      );
-      break;
-    case "message_complete":
-      callbacks.onMessageComplete?.(event.message as never);
-      break;
-    case "title_generated":
-      callbacks.onTitleGenerated?.(event.title as string);
-      break;
-    case "queue_status":
-      callbacks.onQueueStatus?.({
-        position: event.position as number,
-        estimatedWaitMs: event.estimatedWaitMs as number,
-        isQueued: event.isQueued as boolean,
-      });
-      break;
-    case "error":
-      callbacks.onError?.(event.error as string);
-      break;
-    default:
-      break;
-  }
-}
+import { buildWorkspaceSnapshot, handleStreamEvent } from "./api-client";
 
 describe("handleStreamEvent", () => {
   it("dispatches message_start event", () => {
@@ -152,12 +116,44 @@ describe("handleStreamEvent", () => {
       {
         type: "confirmation_required",
         messageId: "msg-1",
-        action: { type: "deleteTask" },
+        action: { tool: "deleteTask", params: {}, description: "Delete task" },
       },
       callbacks
     );
     expect(msgId).toBe("msg-1");
-    expect(action).toEqual({ type: "deleteTask" });
+    expect(action).toEqual({
+      tool: "deleteTask",
+      params: {},
+      description: "Delete task",
+    });
+  });
+
+  it("dispatches message_complete event", () => {
+    let receivedMessage: unknown = null;
+    const callbacks: ChatStreamCallbacks = {
+      onMessageComplete: (message) => {
+        receivedMessage = message;
+      },
+    };
+
+    handleStreamEvent(
+      {
+        type: "message_complete",
+        message: {
+          id: "msg-1",
+          content: "Done",
+          createdAt: "2024-01-01T00:00:00Z",
+          role: "assistant",
+        },
+      },
+      callbacks
+    );
+    expect(receivedMessage).toEqual({
+      id: "msg-1",
+      content: "Done",
+      createdAt: "2024-01-01T00:00:00Z",
+      role: "assistant",
+    });
   });
 
   it("dispatches title_generated event", () => {
@@ -240,7 +236,12 @@ describe("handleStreamEvent", () => {
   it("ignores unknown event types", () => {
     const callbacks: ChatStreamCallbacks = {};
     // Should not throw
-    handleStreamEvent({ type: "unknown_event" }, callbacks);
+    handleStreamEvent(
+      { type: "unknown_event" } as unknown as Parameters<
+        typeof handleStreamEvent
+      >[0],
+      callbacks
+    );
   });
 });
 
@@ -248,9 +249,23 @@ describe("handleStreamEvent", () => {
 // We test this by mocking the kanban store
 
 describe("buildWorkspaceSnapshot logic", () => {
+  beforeEach(() => {
+    mockKanbanState = {
+      workspaces: { byId: {}, allIds: [] },
+      boards: { byId: {}, allIds: [] },
+      columns: { byId: {}, allIds: [] },
+      tasks: { byId: {}, allIds: [] },
+      boardPositions: { byId: {}, allIds: [] },
+      boardConnections: { byId: {}, allIds: [] },
+      areas: { byId: {}, allIds: [] },
+      areaPositions: { byId: {}, allIds: [] },
+      comments: { byId: {}, allIds: [] },
+      chatMessages: { byId: {}, allIds: [] },
+    };
+  });
+
   it("builds correct snapshot structure from store state", () => {
-    // Simulate what buildWorkspaceSnapshot does
-    const state = {
+    mockKanbanState = {
       workspaces: {
         byId: {
           "ws-1": {
@@ -258,7 +273,8 @@ describe("buildWorkspaceSnapshot logic", () => {
             name: "Test Workspace",
             board_ids: ["board-1"],
           },
-        } as Record<string, { id: string; name: string; board_ids: string[] }>,
+        },
+        allIds: ["ws-1"],
       },
       boards: {
         byId: {
@@ -267,16 +283,12 @@ describe("buildWorkspaceSnapshot logic", () => {
             name: "Board One",
             description: "A board",
             column_ids: ["col-1"],
+            workspace_id: "ws-1",
+            accentColor: null,
+            icon: null,
           },
-        } as Record<
-          string,
-          {
-            id: string;
-            name: string;
-            description: string;
-            column_ids: string[];
-          }
-        >,
+        },
+        allIds: ["board-1"],
       },
       columns: {
         byId: {
@@ -285,11 +297,13 @@ describe("buildWorkspaceSnapshot logic", () => {
             name: "To Do",
             position: 0,
             task_ids: ["task-1"],
+            description: null,
+            accentColor: null,
+            icon: null,
+            board_id: "board-1",
           },
-        } as Record<
-          string,
-          { id: string; name: string; position: number; task_ids: string[] }
-        >,
+        },
+        allIds: ["col-1"],
       },
       tasks: {
         byId: {
@@ -302,186 +316,92 @@ describe("buildWorkspaceSnapshot logic", () => {
             progress: 50,
             position: 0,
             tags: ["bug"],
+            due_date: null,
+            assigned_to: null,
+            board_id: "board-1",
+            column_id: "col-1",
           },
-        } as Record<
-          string,
-          {
-            id: string;
-            title: string;
-            description: string;
-            priority: string;
-            status: string;
-            progress: number;
-            position: number;
-            tags: string[];
-          }
-        >,
+        },
+        allIds: ["task-1"],
       },
+      boardPositions: { byId: {}, allIds: [] },
+      boardConnections: { byId: {}, allIds: [] },
+      areas: { byId: {}, allIds: [] },
+      areaPositions: { byId: {}, allIds: [] },
+      comments: { byId: {}, allIds: [] },
+      chatMessages: { byId: {}, allIds: [] },
     };
 
-    const workspace = state.workspaces.byId["ws-1"];
-    expect(workspace).toBeDefined();
+    const snapshot = buildWorkspaceSnapshot("ws-1");
 
-    const boards: Array<{
-      id: string;
-      name: string;
-      description: string;
-      columns: Array<{
-        id: string;
-        name: string;
-        position: number;
-        tasks: Array<{
-          id: string;
-          title: string;
-          description: string;
-          priority: string;
-          status: string;
-          progress: number;
-          position: number;
-          tags: string[];
-        }>;
-      }>;
-    }> = [];
-    for (const boardId of workspace!.board_ids) {
-      const board = state.boards.byId[boardId];
-      if (!board) {
-        continue;
-      }
-
-      const columns: Array<{
-        id: string;
-        name: string;
-        position: number;
-        tasks: Array<{
-          id: string;
-          title: string;
-          description: string;
-          priority: string;
-          status: string;
-          progress: number;
-          position: number;
-          tags: string[];
-        }>;
-      }> = [];
-      for (const colId of board.column_ids) {
-        const col = state.columns.byId[colId];
-        if (!col) {
-          continue;
-        }
-
-        const tasks: Array<{
-          id: string;
-          title: string;
-          description: string;
-          priority: string;
-          status: string;
-          progress: number;
-          position: number;
-          tags: string[];
-        }> = [];
-        for (const taskId of col.task_ids) {
-          const task = state.tasks.byId[taskId];
-          if (!task) {
-            continue;
-          }
-          tasks.push({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            priority: task.priority,
-            status: task.status,
-            progress: task.progress,
-            position: task.position,
-            tags: task.tags,
-          });
-        }
-        tasks.sort((a, b) => a.position - b.position);
-
-        columns.push({
-          id: col.id,
-          name: col.name,
-          position: col.position,
-          tasks,
-        });
-      }
-      columns.sort((a, b) => a.position - b.position);
-
-      boards.push({
-        id: board.id,
-        name: board.name,
-        description: board.description,
-        columns,
-      });
-    }
-
-    const snapshot = {
-      name: workspace!.name,
-      boards,
-    };
-
-    expect(snapshot.name).toBe("Test Workspace");
-    expect(snapshot.boards).toHaveLength(1);
-    expect(snapshot.boards[0]!.name).toBe("Board One");
-    expect(snapshot.boards[0]!.columns).toHaveLength(1);
-    expect(snapshot.boards[0]!.columns[0]!.tasks).toHaveLength(1);
-    expect(snapshot.boards[0]!.columns[0]!.tasks[0]!.title).toBe("Test Task");
-    expect(snapshot.boards[0]!.columns[0]!.tasks[0]!.tags).toEqual(["bug"]);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.name).toBe("Test Workspace");
+    expect(snapshot!.boards).toHaveLength(1);
+    expect(snapshot!.boards[0]!.name).toBe("Board One");
+    expect(snapshot!.boards[0]!.columns).toHaveLength(1);
+    expect(snapshot!.boards[0]!.columns[0]!.tasks).toHaveLength(1);
+    expect(snapshot!.boards[0]!.columns[0]!.tasks[0]!.title).toBe("Test Task");
+    expect(snapshot!.boards[0]!.columns[0]!.tasks[0]!.tags).toEqual(["bug"]);
   });
 
   it("returns undefined for nonexistent workspace", () => {
-    const workspace = undefined;
-    expect(workspace).toBeUndefined();
+    mockKanbanState = {
+      workspaces: { byId: {}, allIds: [] },
+      boards: { byId: {}, allIds: [] },
+      columns: { byId: {}, allIds: [] },
+      tasks: { byId: {}, allIds: [] },
+      boardPositions: { byId: {}, allIds: [] },
+      boardConnections: { byId: {}, allIds: [] },
+      areas: { byId: {}, allIds: [] },
+      areaPositions: { byId: {}, allIds: [] },
+      comments: { byId: {}, allIds: [] },
+      chatMessages: { byId: {}, allIds: [] },
+    };
+
+    const snapshot = buildWorkspaceSnapshot("nonexistent");
+    expect(snapshot).toBeUndefined();
   });
 
   it("skips boards, columns, tasks that don't exist", () => {
-    const state = {
+    mockKanbanState = {
       workspaces: {
         byId: {
           "ws-1": {
+            id: "ws-1",
             name: "WS",
             board_ids: ["board-1", "board-ghost"],
           },
         },
+        allIds: ["ws-1"],
       },
       boards: {
         byId: {
           "board-1": {
             id: "board-1",
             name: "B",
+            description: null,
             column_ids: ["col-ghost"],
+            workspace_id: "ws-1",
+            accentColor: null,
+            icon: null,
           },
         },
+        allIds: ["board-1"],
       },
-      columns: { byId: {} },
-      tasks: { byId: {} },
+      columns: { byId: {}, allIds: [] },
+      tasks: { byId: {}, allIds: [] },
+      boardPositions: { byId: {}, allIds: [] },
+      boardConnections: { byId: {}, allIds: [] },
+      areas: { byId: {}, allIds: [] },
+      areaPositions: { byId: {}, allIds: [] },
+      comments: { byId: {}, allIds: [] },
+      chatMessages: { byId: {}, allIds: [] },
     };
 
-    const workspace = state.workspaces.byId["ws-1"]!;
-    const boards: Array<{
-      id: string;
-      name: string;
-      columns: Record<string, unknown>[];
-    }> = [];
-    for (const boardId of workspace.board_ids) {
-      const board =
-        state.boards.byId[boardId as keyof typeof state.boards.byId];
-      if (!board) {
-        continue;
-      }
-      const columns: Record<string, unknown>[] = [];
-      for (const colId of board.column_ids) {
-        const col =
-          state.columns.byId[colId as keyof typeof state.columns.byId];
-        if (!col) {
-          continue;
-        }
-        columns.push(col);
-      }
-      boards.push({ id: board.id, name: board.name, columns });
-    }
+    const snapshot = buildWorkspaceSnapshot("ws-1");
 
-    // board-ghost is skipped, col-ghost is skipped
-    expect(boards).toHaveLength(1);
-    expect(boards[0]!.columns).toHaveLength(0);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.boards).toHaveLength(1);
+    expect(snapshot!.boards[0]!.columns).toHaveLength(0);
   });
 });

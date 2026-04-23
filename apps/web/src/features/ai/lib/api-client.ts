@@ -282,7 +282,7 @@ export function streamChat(
   return controller;
 }
 
-function handleStreamEvent(
+export function handleStreamEvent(
   event: StreamEvent,
   callbacks: ChatStreamCallbacks
 ): void {

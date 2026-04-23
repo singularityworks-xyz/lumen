@@ -11,8 +11,8 @@ const stateVectorMatches = new Counter("state_vector_matches");
 const stateVectorMismatches = new Counter("state_vector_mismatches");
 const documentHashMatches = new Counter("document_hash_matches");
 const documentHashMismatches = new Counter("document_hash_mismatches");
-const exactCoordinateAgreement = new Counter("exact_coordinate_agreement");
-const coordinateMismatches = new Counter("coordinate_mismatches");
+const coordinatePayloadPresent = new Counter("coordinate_payload_present");
+const coordinatePayloadAbsent = new Counter("coordinate_payload_absent");
 const messageOrderingValid = new Rate("message_ordering_valid");
 const roomCleanupSuccess = new Rate("room_cleanup_success");
 const awarenessFanoutCount = new Counter("awareness_fanout_count");
@@ -40,7 +40,7 @@ export const options = {
     ws_sync_messages_received: ["count>0"],
     state_vector_matches: ["count>0"],
     document_hash_matches: ["count>0"],
-    exact_coordinate_agreement: ["count>0"],
+    coordinate_payload_present: ["count>0"],
     message_ordering_valid: ["rate>0.90"],
     room_cleanup_success: ["rate>0.95"],
   },
@@ -75,24 +75,56 @@ export default function () {
   sleep(0.5);
 
   const convergenceStart = Date.now();
-  const sendTimes: number[] = [];
+  const sendTimes: Record<number, number> = {};
+  const receiveTimes: number[] = [];
+
+  session.onAwarenessPayload = (payloads) => {
+    for (const payload of payloads) {
+      // Only measure propagation for awareness from other peers
+      if (payload.clientId === __VU) {
+        continue;
+      }
+      const state = payload.state;
+      if (typeof state.sentAt === "number" && typeof state.seq === "number") {
+        const latency = Date.now() - state.sentAt;
+        updatePropagationLatency.add(latency);
+      }
+      // Track coordinate payload presence
+      if (
+        state.cursor &&
+        typeof (state.cursor as Record<string, unknown>).x === "number" &&
+        typeof (state.cursor as Record<string, unknown>).y === "number"
+      ) {
+        coordinatePayloadPresent.add(1);
+      } else {
+        coordinatePayloadAbsent.add(1);
+      }
+    }
+  };
+
+  session.onSyncUpdateReceived = () => {
+    receiveTimes.push(Date.now());
+  };
 
   for (let round = 0; round < ROUNDS; round++) {
     const sentAt = Date.now();
-    sendTimes.push(sentAt);
+    const seq = round;
+    sendTimes[seq] = sentAt;
 
     const x = (__VU * 50 + round * 10) % 1920;
     const y = (__VU * 30 + round * 7) % 1080;
-    session.sendAwarenessUpdate({ x, y, user: `vu-${__VU}` });
+    session.sendAwarenessUpdate({
+      x,
+      y,
+      user: `vu-${__VU}`,
+      seq,
+      sentAt,
+    });
 
     sleep(0.1);
-    updatePropagationLatency.add(Date.now() - sentAt);
   }
 
   sleep(0.5);
-
-  const _hasUpdates = session.receivedUpdates >= 0;
-  const hasAwareness = session.receivedAwareness || session.established;
 
   if (session.receivedSyncStep2) {
     stateVectorMatches.add(1);
@@ -106,24 +138,38 @@ export default function () {
     documentHashMismatches.add(1);
   }
 
-  if (session.established) {
-    exactCoordinateAgreement.add(1);
-  } else {
-    coordinateMismatches.add(1);
-  }
-
-  if (hasAwareness) {
+  // Awareness fanout should depend on actually receiving awareness payloads
+  if (session.receivedAwareness) {
     awarenessFanoutCount.add(1);
   }
 
-  let orderingOk = true;
-  for (let i = 1; i < sendTimes.length; i++) {
-    if (sendTimes[i] < sendTimes[i - 1]) {
-      orderingOk = false;
+  // Validate local send ordering
+  let sendOrderingOk = true;
+  const sendTimeValues = Object.values(sendTimes).sort((a, b) => a - b);
+  for (let i = 1; i < sendTimeValues.length; i++) {
+    if (sendTimeValues[i] < sendTimeValues[i - 1]) {
+      sendOrderingOk = false;
       break;
     }
   }
-  messageOrderingValid.add(orderingOk);
+
+  // Validate receive ordering using tracked receive times
+  let receiveOrderingOk = true;
+  for (let i = 1; i < receiveTimes.length; i++) {
+    if (receiveTimes[i] < receiveTimes[i - 1]) {
+      receiveOrderingOk = false;
+      break;
+    }
+  }
+
+  // Also validate that at least some updates were received after being sent
+  const anyReceiveAfterSend =
+    receiveTimes.length > 0 &&
+    receiveTimes.some((rt) => rt > Math.min(...sendTimeValues));
+
+  messageOrderingValid.add(
+    sendOrderingOk && receiveOrderingOk && anyReceiveAfterSend
+  );
 
   const converged = session.established && session.receivedSyncStep2;
   convergencePass.add(converged);
@@ -142,8 +188,8 @@ export default function () {
       "cohort converged on document state": (r) =>
         (r as { converged: boolean }).converged,
       "received updates from peers": (r) =>
-        (r as { updates: number }).updates >= 0,
-      "session sent updates": (r) => (r as { sent: number }).sent >= 0,
+        (r as { updates: number }).updates > 0,
+      "session sent updates": (r) => (r as { sent: number }).sent > 0,
     }
   );
 

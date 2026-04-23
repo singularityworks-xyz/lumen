@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Mock crypto.randomUUID for deterministic test IDs
 // We use a module-scoped counter and bind it in beforeEach.
@@ -7,6 +7,11 @@ let uuidCounter = 0;
 const _originalRandomUUID = crypto.randomUUID.bind(crypto);
 crypto.randomUUID = (): `${string}-${string}-${string}-${string}-${string}` =>
   `test-uuid-${++uuidCounter}` as `${string}-${string}-${string}-${string}-${string}`;
+
+afterAll(() => {
+  crypto.randomUUID = _originalRandomUUID;
+  uuidCounter = 0;
+});
 
 // Mock logger and tracer to no-op
 mock.module("@lumen/logger", () => ({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 // ──────────────────────────────────────────────────────────────
-// Integration test: Share permission enforcement
+// Unit test: Share permission enforcement
 //
 // Tests the role-based access control logic for shared workspaces.
 // Verifies that viewer/editor/owner roles are correctly enforced
@@ -55,7 +55,7 @@ function canRevokeShareLink(collab: Collaborator | null): boolean {
 
 function canChangeRole(
   actor: Collaborator | null,
-  _target: Collaborator,
+  target: Collaborator,
   _newRole: Role
 ): boolean {
   if (!actor) {
@@ -66,7 +66,7 @@ function canChangeRole(
     return false;
   }
   // Can't change own role (prevents accidental de-owner)
-  if (actor.userId === _target.userId) {
+  if (actor.userId === target.userId) {
     return false;
   }
   return true;

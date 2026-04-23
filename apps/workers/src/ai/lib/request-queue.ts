@@ -151,6 +151,16 @@ if (!isUpstashConfigured && LOCAL_REDIS_URL) {
       logLocalRedisFallback(error);
     });
 
+    client.on("ready", () => {
+      localRedisReady = true;
+      loggedLocalRedisFallback = false;
+      logger.info("Local Redis rate limiter ready", {
+        rateLimit: RATE_LIMIT_PER_MINUTE,
+        url: LOCAL_REDIS_URL,
+        windowSize: "60s",
+      });
+    });
+
     localRedisClient = client;
     localRedisConnectPromise = client
       .connect()

@@ -5,6 +5,7 @@ node_modules
 .pnp
 .pnp.js
 .codex
+trace/
 
 # Local env files
 .env

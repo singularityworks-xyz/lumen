@@ -1,5 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
+const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const originalNodeEnv = process.env.NODE_ENV;
+const originalRedisUrl = process.env.REDIS_URL;
+
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.NODE_ENV = "development";
@@ -103,6 +108,9 @@ describe("RateLimitedQueue - local redis backend", () => {
 });
 
 afterAll(() => {
-  delete process.env.REDIS_URL;
+  process.env.UPSTASH_REDIS_REST_URL = originalUpstashUrl;
+  process.env.UPSTASH_REDIS_REST_TOKEN = originalUpstashToken;
+  process.env.NODE_ENV = originalNodeEnv;
+  process.env.REDIS_URL = originalRedisUrl;
   mock.restore();
 });

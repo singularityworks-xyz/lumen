@@ -1,47 +1,27 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
+
+// Set environment variables BEFORE importing env.ts so createEnv doesn't throw
+process.env.BETTER_AUTH_URL = "http://localhost:3000";
+process.env.BETTER_AUTH_SECRET = "test-secret-must-be-21-chars-long!!";
+process.env.GITHUB_CLIENT_ID = "test-github-client-id";
+process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
+process.env.DATABASE_URL = "postgres://dummy";
+process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
+
+const {
+  ALLOWED_ORIGINS_SCHEMA,
+  BETTER_AUTH_TRUSTED_ORIGINS_SCHEMA,
+  OTEL_ENABLED_SCHEMA,
+  PORT_SCHEMA,
+  NODE_ENV_SCHEMA,
+  LOG_LEVEL_SCHEMA,
+  BETTER_AUTH_SECRET_SCHEMA,
+  AI_ENCRYPTION_KEY_SCHEMA,
+} = await import("./env");
 
 // ──────────────────────────────────────────────────────────────
-// We test the Zod schema transforms used in workers/src/env.ts
-// in isolation, since `createEnv` reads process.env at module
-// load time and would pollute the process for other tests.
+// We test the Zod schemas used in workers/src/env.ts directly.
 // ──────────────────────────────────────────────────────────────
-
-// Schemas extracted from env.ts
-
-const ALLOWED_ORIGINS_SCHEMA = z
-  .string()
-  .transform((v) =>
-    v
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  )
-  .optional();
-
-const BETTER_AUTH_TRUSTED_ORIGINS_SCHEMA = z
-  .string()
-  .transform((v) => v.split(","))
-  .optional();
-
-const OTEL_ENABLED_SCHEMA = z
-  .string()
-  .transform((v) => v === "true")
-  .default(false);
-
-const PORT_SCHEMA = z.coerce.number().default(3002);
-
-const NODE_ENV_SCHEMA = z
-  .enum(["development", "production", "test"])
-  .default("development");
-
-const LOG_LEVEL_SCHEMA = z
-  .enum(["debug", "info", "warn", "error"])
-  .default("info");
-
-const BETTER_AUTH_SECRET_SCHEMA = z.string().min(21);
-
-const AI_ENCRYPTION_KEY_SCHEMA = z.string().min(32).optional();
 
 // ─── ALLOWED_ORIGINS transform ─────────────────────────────────
 

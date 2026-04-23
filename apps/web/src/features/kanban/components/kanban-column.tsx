@@ -56,17 +56,10 @@ export const KanbanColumn = memo(
     const openColumnDialog = useKanbanStore((state) => state.openColumnDialog);
     const columnHeaderRef = useRef<HTMLDivElement>(null);
     const columnBodyRef = useRef<HTMLElement>(null);
-    const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
-    const tasksStore = useKanbanStore((state) => state.tasks);
+    const _draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
     const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
     const moveTask = useKanbanStore((state) => state.moveTask);
     const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
-    const boards = useKanbanStore((state) => state.boards);
-    const boardPositions = useKanbanStore((state) => state.boardPositions);
-    const allColumnQuickActions = useKanbanStore(
-      (state) => state.columnQuickActions
-    );
-    const draggedTask = draggedTaskId ? tasksStore.byId[draggedTaskId] : null;
     const { getViewport, setViewport, screenToFlowPosition, getNode } =
       useReactFlow();
 
@@ -78,11 +71,12 @@ export const KanbanColumn = memo(
       (c) => c.draggingColumn?.columnId === column.id
     );
 
-    const availableTargetBoards = useMemo(() => {
-      const sourceBoard = boards.byId[boardId];
+    const getAvailableTargetBoards = useCallback(() => {
+      const state = useKanbanStore.getState();
+      const sourceBoard = state.boards.byId[boardId];
       const workspaceId = sourceBoard?.workspace_id;
-      return boards.allIds
-        .map((id) => boards.byId[id])
+      return state.boards.allIds
+        .map((id) => state.boards.byId[id])
         .filter((board): board is NonNullable<typeof board> => {
           if (!board || board.id === boardId) {
             return false;
@@ -92,7 +86,7 @@ export const KanbanColumn = memo(
           }
           return board.workspace_id === workspaceId;
         });
-    }, [boards, boardId]);
+    }, [boardId]);
 
     const {
       attributes,
@@ -162,21 +156,32 @@ export const KanbanColumn = memo(
         e.preventDefault();
         setIsDragOver(false);
 
-        if (draggedTask && draggedTask.column_id !== column.id) {
-          moveTask(draggedTask.id, draggedTask.column_id, column.id, boardId);
+        const state = useKanbanStore.getState();
+        const currentDraggedTaskId = state.draggedTaskId;
+        const currentDraggedTask = currentDraggedTaskId
+          ? state.tasks.byId[currentDraggedTaskId]
+          : null;
+        if (currentDraggedTask && currentDraggedTask.column_id !== column.id) {
+          moveTask(
+            currentDraggedTask.id,
+            currentDraggedTask.column_id,
+            column.id,
+            boardId
+          );
         }
         setDraggedTask(null);
         stopDragging();
       },
-      [draggedTask, column.id, boardId, moveTask, setDraggedTask, stopDragging]
+      [column.id, boardId, moveTask, setDraggedTask, stopDragging]
     );
 
     const calculateQuickActionsPosition = useCallback(() => {
       const QUICK_ACTIONS_HEIGHT = 200;
       const SPACING = 20;
 
+      const state = useKanbanStore.getState();
       const boardNode = getNode(boardId);
-      const boardPos = boardPositions.byId[boardId];
+      const boardPos = state.boardPositions.byId[boardId];
 
       if (!(boardNode && boardPos)) {
         const rect = columnHeaderRef.current?.getBoundingClientRect();
@@ -193,9 +198,9 @@ export const KanbanColumn = memo(
       const baseX = boardPos.x + boardWidth + SPACING;
       const baseY = boardPos.y;
 
-      const existingMenus = Object.values(allColumnQuickActions ?? {}).filter(
-        (qa) => qa?.boardId === boardId && qa?.columnId !== column.id
-      );
+      const existingMenus = Object.values(
+        state.columnQuickActions ?? {}
+      ).filter((qa) => qa?.boardId === boardId && qa?.columnId !== column.id);
 
       const yOffset = existingMenus.length * (QUICK_ACTIONS_HEIGHT + SPACING);
 
@@ -203,14 +208,7 @@ export const KanbanColumn = memo(
         x: baseX,
         y: baseY + yOffset,
       };
-    }, [
-      boardId,
-      boardPositions.byId,
-      getNode,
-      screenToFlowPosition,
-      allColumnQuickActions,
-      column.id,
-    ]);
+    }, [boardId, getNode, screenToFlowPosition, column.id]);
 
     const DIALOG_WIDTH = 320;
     const DIALOG_HEIGHT = 180;
@@ -299,13 +297,14 @@ export const KanbanColumn = memo(
       const renameDialogX = quickActionsPos.x + QA_WIDTH + RENAME_DIALOG_OFFSET;
       const renameDialogY = quickActionsPos.y;
 
+      const state = useKanbanStore.getState();
       openColumnDialog({
         type: "rename",
         columnId: column.id,
         columnName: column.name,
         columnDescription: column.description,
         boardId,
-        boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+        boardName: state.boards.byId[boardId]?.name ?? "Unknown Board",
         inputValue: column.name,
         descriptionValue: column.description,
         position: { x: renameDialogX, y: renameDialogY },
@@ -317,7 +316,6 @@ export const KanbanColumn = memo(
       column.name,
       column.description,
       boardId,
-      boards.byId,
       calculateQuickActionsPosition,
       openColumnQuickActions,
       openColumnDialog,
@@ -325,7 +323,7 @@ export const KanbanColumn = memo(
     ]);
 
     const handleDirectMoveToBoard = useCallback(() => {
-      if (availableTargetBoards.length === 0) {
+      if (getAvailableTargetBoards().length === 0) {
         return;
       }
 
@@ -338,24 +336,24 @@ export const KanbanColumn = memo(
       const moveDialogX = quickActionsPos.x + QA_WIDTH + MOVE_DIALOG_OFFSET;
       const moveDialogY = quickActionsPos.y + 130;
 
+      const state = useKanbanStore.getState();
       openColumnDialog({
         type: "move",
         columnId: column.id,
         columnName: column.name,
         boardId,
-        boardName: boards.byId[boardId]?.name ?? "Unknown Board",
+        boardName: state.boards.byId[boardId]?.name ?? "Unknown Board",
         position: { x: moveDialogX, y: moveDialogY },
       });
 
       setTimeout(() => ensureDialogVisible(moveDialogX, moveDialogY), 100);
     }, [
-      availableTargetBoards.length,
+      getAvailableTargetBoards,
       calculateQuickActionsPosition,
       openColumnQuickActions,
       column.id,
       column.name,
       boardId,
-      boards.byId,
       openColumnDialog,
       ensureDialogVisible,
     ]);

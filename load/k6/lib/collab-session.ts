@@ -144,6 +144,16 @@ class BinaryDecoder {
   hasContent(): boolean {
     return this.pos < this.bytes.length;
   }
+
+  readVarUint8Array(): Uint8Array {
+    const length = this.readVarUint();
+    if (this.pos + length > this.bytes.length) {
+      throw new Error("BinaryDecoder: not enough data for varuint8array");
+    }
+    const result = this.bytes.subarray(this.pos, this.pos + length);
+    this.pos += length;
+    return result;
+  }
 }
 
 function encodeStateVector(): Uint8Array {
@@ -211,6 +221,49 @@ function decodeServerMessage(
   }
 }
 
+function decodeAwarenessPayloads(
+  data: Uint8Array
+): Array<{ clientId: number; state: Record<string, unknown> }> {
+  try {
+    const decoder = new BinaryDecoder(data);
+    const msgType = decoder.readVarUint();
+    if (msgType !== MESSAGE_AWARENESS) {
+      return [];
+    }
+
+    const innerBytes = decoder.readVarUint8Array?.();
+    if (!innerBytes) {
+      return [];
+    }
+
+    const inner = new BinaryDecoder(innerBytes);
+    const numUpdates = inner.readVarUint();
+    const payloads: Array<{
+      clientId: number;
+      state: Record<string, unknown>;
+    }> = [];
+
+    for (let i = 0; i < numUpdates; i++) {
+      const clientId = inner.readVarUint();
+      // skip clock
+      if (inner.hasContent()) {
+        inner.readVarUint();
+      }
+      const stateBytes = inner.readVarUint8Array?.();
+      if (!stateBytes) {
+        continue;
+      }
+      const stateStr = new TextDecoder().decode(stateBytes);
+      const state = JSON.parse(stateStr) as Record<string, unknown>;
+      payloads.push({ clientId, state });
+    }
+
+    return payloads;
+  } catch {
+    return [];
+  }
+}
+
 function generateFakeYjsUpdate(seed: number): Uint8Array {
   const encoder = new BinaryEncoder();
   encoder.writeVarUint(1);
@@ -249,10 +302,15 @@ function extractSocketErrorMessage(event: unknown): string | null {
 }
 
 export interface CollabSession {
+  awarenessStates: Map<number, Record<string, unknown>>;
   connectStart: number;
   disconnect: () => void;
   established: boolean;
   lastMessageTime: number;
+  onAwarenessPayload?: (
+    payloads: Array<{ clientId: number; state: Record<string, unknown> }>
+  ) => void;
+  onSyncUpdateReceived?: () => void;
   receivedAwareness: boolean;
   receivedSyncStep2: boolean;
   receivedUpdates: number;
@@ -261,6 +319,7 @@ export interface CollabSession {
     x: number;
     y: number;
     user: string;
+    [key: string]: unknown;
   }) => boolean;
   sendSyncUpdate: (updateSeed: number) => boolean;
   sentMessages: number;
@@ -303,6 +362,7 @@ export function connectCollabSession(
   );
 
   const session: InternalCollabSession = {
+    awarenessStates: new Map(),
     response: null,
     workspaceId,
     token,
@@ -366,10 +426,20 @@ export function connectCollabSession(
           session.receivedSyncStep2 = true;
         } else if (msg.syncType === SYNC_UPDATE) {
           session.receivedUpdates++;
+          if (session.onSyncUpdateReceived) {
+            session.onSyncUpdateReceived();
+          }
         }
       } else if (msg.type === MESSAGE_AWARENESS) {
         wsAwarenessReceived.add(1);
         session.receivedAwareness = true;
+        const payloads = decodeAwarenessPayloads(new Uint8Array(data));
+        for (const payload of payloads) {
+          session.awarenessStates.set(payload.clientId, payload.state);
+        }
+        if (session.onAwarenessPayload) {
+          session.onAwarenessPayload(payloads);
+        }
       }
     });
 
@@ -418,15 +488,18 @@ export function connectCollabSession(
       x: number;
       y: number;
       user: string;
+      [key: string]: unknown;
     }): boolean => {
       if (!isSocketOpen) {
         return false;
       }
 
       try {
+        const { x, y, user, ...extra } = cursor;
         const state = {
-          user: { name: cursor.user, color: `hsl(${__VU * 37}, 70%, 50%)` },
-          cursor: { x: cursor.x, y: cursor.y },
+          user: { name: user, color: `hsl(${__VU * 37}, 70%, 50%)` },
+          cursor: { x, y },
+          ...extra,
         };
         const msg = encodeAwarenessUpdate(__VU, state);
         socket.sendBinary(msg.buffer);

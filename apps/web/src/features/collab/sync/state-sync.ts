@@ -984,18 +984,13 @@ export function initializeYjsForWorkspace(
 
   const boardsMap = doc.getMap(YJS_MAP_NAMES.BOARDS);
   if (boardsMap.size === 0 && workspaceBoards.length > 0) {
-    try {
-      doc.transact(() => {
-        for (const board of workspaceBoards) {
-          if (board) {
-            boardsMap.set(board.id, JSON.parse(JSON.stringify(board)));
-          }
+    doc.transact(() => {
+      for (const board of workspaceBoards) {
+        if (board) {
+          boardsMap.set(board.id, JSON.parse(JSON.stringify(board)));
         }
-      });
-    } catch (e) {
-      console.error("CRASH IN BOARDSMAP.SET", e, "BOARDS:", workspaceBoards);
-      throw e;
-    }
+      }
+    });
     logger.debug("Initialized boards in Yjs", {
       count: workspaceBoards.length,
     });

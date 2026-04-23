@@ -41,6 +41,8 @@ run_suite() {
     coverage_flags+=("--coverage-threshold=${coverage_threshold}")
   fi
 
+  rm -f "${bun_lcov_path}"
+
   local suite_exit_code=0
 
   if [[ -n "${preload}" ]]; then

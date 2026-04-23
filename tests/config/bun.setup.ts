@@ -21,7 +21,9 @@ beforeEach(() => {
     };
   };
 
-  runtime.Bun?.gc?.(true);
+  if (process.env.TEST_FORCE_GC === "1") {
+    runtime.Bun?.gc?.(true);
+  }
 });
 
 afterEach(() => {
