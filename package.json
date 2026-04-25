@@ -72,7 +72,7 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.13",
+  "version": "0.6.15",
   "workspaces": [
     "apps/*",
     "packages/*"
