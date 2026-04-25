@@ -32,7 +32,13 @@ mock.module("../env", () => ({
   },
 }));
 
+// Import the real url module so we can re-export everything from the mock.
+// This prevents "export not found" errors in other test files that import
+// from ./url after this mock is active.
+import * as urlModule from "./url";
+
 mock.module("./url", () => ({
+  ...urlModule,
   normalizeApiUrlForCurrentHost: mock((url: string) => url),
 }));
 

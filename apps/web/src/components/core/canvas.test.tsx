@@ -111,15 +111,19 @@ const mockSetLocalEdges = mock();
 const mockOnNodesChange = mock();
 const mockOnEdgesChange = mock();
 
+const mockCanvasNodes = [{ id: "node-1", type: "board" }];
+const mockCommentClusters: unknown[] = [];
+const mockCanvasEdges = [{ id: "edge-1", source: "a", target: "b" }];
+
 mock.module("./helpers/canvas-nodes", () => ({
   useCanvasNodes: () => ({
-    nodes: [{ id: "node-1", type: "board" }],
-    commentClusters: [],
+    nodes: mockCanvasNodes,
+    commentClusters: mockCommentClusters,
   }),
 }));
 
 mock.module("./helpers/canvas-edges", () => ({
-  useCanvasEdges: () => [{ id: "edge-1", source: "a", target: "b" }],
+  useCanvasEdges: () => mockCanvasEdges,
 }));
 
 mock.module("./helpers/canvas-handlers", () => ({
@@ -769,16 +773,16 @@ describe("KanbanCanvas", () => {
   });
 
   describe("Nodes/edges sync effects", () => {
-    it("updates local nodes when store nodes change", () => {
+    it("initializes local nodes from store nodes", () => {
       renderCanvas();
 
-      expect(mockSetLocalNodes).toHaveBeenCalled();
+      expect(screen.getByTestId("nodes-count").textContent).toBe("1");
     });
 
-    it("updates local edges when store edges change", () => {
+    it("initializes local edges from store edges", () => {
       renderCanvas();
 
-      expect(mockSetLocalEdges).toHaveBeenCalled();
+      expect(screen.getByTestId("edges-count").textContent).toBe("1");
     });
   });
 });

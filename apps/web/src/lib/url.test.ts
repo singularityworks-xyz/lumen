@@ -19,11 +19,15 @@ function removeWindow() {
   });
 }
 
-// Import after setting up global state
-import {
-  normalizeApiOriginForCurrentHost,
-  normalizeApiUrlForCurrentHost,
-} from "./url";
+// Use dynamic import to avoid mock.module pollution from other test files
+// that may mock ./url before this file is parsed.
+async function importUrlModule() {
+  const mod = await import(`./url?test=${Date.now()}`);
+  return mod as {
+    normalizeApiOriginForCurrentHost: (rawApiUrl: string) => URL;
+    normalizeApiUrlForCurrentHost: (rawApiUrl: string) => string;
+  };
+}
 
 describe("normalizeApiOriginForCurrentHost", () => {
   afterEach(() => {
@@ -35,38 +39,44 @@ describe("normalizeApiOriginForCurrentHost", () => {
     });
   });
 
-  it("returns URL unchanged when window is undefined (SSR)", () => {
+  it("returns URL unchanged when window is undefined (SSR)", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     removeWindow();
     const url = normalizeApiOriginForCurrentHost("http://localhost:3002");
     expect(url.hostname).toBe("localhost");
   });
 
-  it("rewrites localhost to 127.0.0.1 when both are loopback", () => {
+  it("rewrites localhost to 127.0.0.1 when both are loopback", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     setWindowLocation("127.0.0.1");
     const url = normalizeApiOriginForCurrentHost("http://localhost:3002");
     expect(url.hostname).toBe("127.0.0.1");
     expect(url.port).toBe("3002");
   });
 
-  it("rewrites 127.0.0.1 to localhost when both are loopback", () => {
+  it("rewrites 127.0.0.1 to localhost when both are loopback", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     setWindowLocation("localhost");
     const url = normalizeApiOriginForCurrentHost("http://127.0.0.1:3002");
     expect(url.hostname).toBe("localhost");
   });
 
-  it("does not rewrite when API is not loopback", () => {
+  it("does not rewrite when API is not loopback", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     setWindowLocation("localhost");
     const url = normalizeApiOriginForCurrentHost("http://api.example.com:3002");
     expect(url.hostname).toBe("api.example.com");
   });
 
-  it("does not rewrite when current host is not loopback", () => {
+  it("does not rewrite when current host is not loopback", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     setWindowLocation("myapp.local");
     const url = normalizeApiOriginForCurrentHost("http://localhost:3002");
     expect(url.hostname).toBe("localhost");
   });
 
-  it("preserves path and query params", () => {
+  it("preserves path and query params", async () => {
+    const { normalizeApiOriginForCurrentHost } = await importUrlModule();
     setWindowLocation("127.0.0.1");
     const url = normalizeApiOriginForCurrentHost(
       "http://localhost:3002/api/v1?key=value"
@@ -85,20 +95,23 @@ describe("normalizeApiUrlForCurrentHost", () => {
     });
   });
 
-  it("strips trailing slash for origin-only URL without trailing slash", () => {
+  it("strips trailing slash for origin-only URL without trailing slash", async () => {
+    const { normalizeApiUrlForCurrentHost } = await importUrlModule();
     removeWindow();
     const result = normalizeApiUrlForCurrentHost("http://localhost:3002");
     expect(result).toBe("http://localhost:3002");
     expect(result.endsWith("/")).toBe(false);
   });
 
-  it("preserves trailing slash when input has one", () => {
+  it("preserves trailing slash when input has one", async () => {
+    const { normalizeApiUrlForCurrentHost } = await importUrlModule();
     removeWindow();
     const result = normalizeApiUrlForCurrentHost("http://localhost:3002/");
     expect(result).toBe("http://localhost:3002/");
   });
 
-  it("preserves path without trailing slash", () => {
+  it("preserves path without trailing slash", async () => {
+    const { normalizeApiUrlForCurrentHost } = await importUrlModule();
     removeWindow();
     const result = normalizeApiUrlForCurrentHost(
       "http://localhost:3002/api/health"
@@ -106,7 +119,8 @@ describe("normalizeApiUrlForCurrentHost", () => {
     expect(result).toBe("http://localhost:3002/api/health");
   });
 
-  it("preserves query params", () => {
+  it("preserves query params", async () => {
+    const { normalizeApiUrlForCurrentHost } = await importUrlModule();
     removeWindow();
     const result = normalizeApiUrlForCurrentHost(
       "http://localhost:3002/api?key=val"

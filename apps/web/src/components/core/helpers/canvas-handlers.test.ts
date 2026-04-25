@@ -1294,6 +1294,10 @@ describe("useNodeDragHandlers", () => {
         isSingle: false,
       },
     ];
+    const isDraggingRef = { current: false };
+    const pendingPositionsRef = {
+      current: new Map<string, { x: number; y: number }>(),
+    };
 
     const { result } = renderHook(() => {
       const {
@@ -1307,6 +1311,8 @@ describe("useNodeDragHandlers", () => {
         finalizeBoardDrag,
         finalizeCommentsDrag,
         commentClusters,
+        isDraggingRef,
+        pendingPositionsRef,
       });
     });
 
