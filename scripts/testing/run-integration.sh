@@ -23,6 +23,21 @@ run_suite() {
   fi
 
   echo "Running ${label} (${#files[@]} files)..."
+
+  # Run web integration tests individually to avoid mock.module
+  # cross-contamination between test files.
+  if [[ "${label}" == "web integration tests" ]]; then
+    local file_exit_code=0
+    for file in "${files[@]}"; do
+      if [[ -n "${preload}" ]]; then
+        (cd "${repo_root}" && bun test --preload "${preload}" "${file}") || file_exit_code=$?
+      else
+        (cd "${repo_root}" && bun test "${file}") || file_exit_code=$?
+      fi
+    done
+    return ${file_exit_code}
+  fi
+
   if [[ -n "${preload}" ]]; then
     (cd "${repo_root}" && bun test --preload "${preload}" "${files[@]}")
   else
