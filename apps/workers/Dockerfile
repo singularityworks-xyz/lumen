@@ -1,4 +1,4 @@
-FROM oven/bun:alpine AS builder
+FROM oven/bun:1.3.11-alpine AS builder
 WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY scripts/install/prepare.ts ./scripts/install/
@@ -20,7 +20,7 @@ COPY apps/workers ./apps/workers
 WORKDIR /app/apps/workers
 RUN bun build src/index.ts --outdir=dist --target=bun --minify
 
-FROM oven/bun:alpine
+FROM oven/bun:1.3.11-alpine
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
