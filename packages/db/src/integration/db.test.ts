@@ -11,17 +11,23 @@ const prismaPromise = import("../index").then((m) => m.prisma);
 let prisma: Awaited<typeof prismaPromise>;
 let dbAvailable = false;
 
+// Probe the database once at module load time so we know whether to skip tests.
+const dbProbePromise = prismaPromise
+  .then(async (p) => {
+    await p.$queryRaw`SELECT 1`;
+    return true;
+  })
+  .catch(() => false);
+
 describe("db integration", () => {
   beforeAll(async () => {
-    try {
-      prisma = await prismaPromise;
-      // Verify the database is actually reachable
-      await prisma.$queryRaw`SELECT 1`;
-      dbAvailable = true;
-    } catch {
-      dbAvailable = false;
+    dbAvailable = await dbProbePromise;
+
+    if (!dbAvailable) {
       return;
     }
+
+    prisma = await prismaPromise;
 
     // Clean up test data if any exists
     await prisma.user
@@ -45,7 +51,10 @@ describe("db integration", () => {
     await prisma.$disconnect();
   });
 
-  it.skipIf(!dbAvailable)("can perform basic CRUD operations", async () => {
+  it("can perform basic CRUD operations", async () => {
+    if (!dbAvailable) {
+      return;
+    }
     // 1. Create
     const user = await prisma.user.create({
       data: {
@@ -83,108 +92,109 @@ describe("db integration", () => {
     expect(missing).toBeNull();
   });
 
-  it.skipIf(!dbAvailable)(
-    "transparently encrypts and decrypts JWKS private keys",
-    async () => {
-      // Save previous state for cleanup
-      const previousEnv = process.env.JWKS_ENCRYPTION_KEY;
-      const mockDateNow = Date.now;
+  it("transparently encrypts and decrypts JWKS private keys", async () => {
+    if (!dbAvailable) {
+      return;
+    }
+    // Save previous state for cleanup
+    const previousEnv = process.env.JWKS_ENCRYPTION_KEY;
+    const mockDateNow = Date.now;
 
-      // Needs a valid JWKS_ENCRYPTION_KEY env var
-      process.env.JWKS_ENCRYPTION_KEY = "test-encryption-key-for-integration";
+    // Needs a valid JWKS_ENCRYPTION_KEY env var
+    process.env.JWKS_ENCRYPTION_KEY = "test-encryption-key-for-integration";
 
-      // Disable mocked Date.now just for this key gen to be completely safe
-      Date.now = () => mockDateNow() + 1;
+    // Disable mocked Date.now just for this key gen to be completely safe
+    Date.now = () => mockDateNow() + 1;
 
-      let jwksId: string | undefined;
+    let jwksId: string | undefined;
 
-      try {
-        const keyData = {
-          publicKey: `pub-${Math.random()}`,
-          privateKey: "super-secret-private-key-data",
-        };
+    try {
+      const keyData = {
+        publicKey: `pub-${Math.random()}`,
+        privateKey: "super-secret-private-key-data",
+      };
 
-        // 1. Create - Should encrypt under the hood
-        const jwks = await prisma.jwks.create({
-          data: keyData,
-        });
-        jwksId = jwks.id;
+      // 1. Create - Should encrypt under the hood
+      const jwks = await prisma.jwks.create({
+        data: keyData,
+      });
+      jwksId = jwks.id;
 
-        // We can't easily see the encrypted data directly through Prisma because
-        // the middleware decrypts it on read, but we can verify it round-trips correctly.
-        expect(jwks.id).toBeDefined();
-        expect(jwks.privateKey).toBe(keyData.privateKey);
+      // We can't easily see the encrypted data directly through Prisma because
+      // the middleware decrypts it on read, but we can verify it round-trips correctly.
+      expect(jwks.id).toBeDefined();
+      expect(jwks.privateKey).toBe(keyData.privateKey);
 
-        // 2. Read - Should decrypt under the hood
-        const fetched = await prisma.jwks.findUnique({
-          where: { id: jwks.id },
-        });
+      // 2. Read - Should decrypt under the hood
+      const fetched = await prisma.jwks.findUnique({
+        where: { id: jwks.id },
+      });
 
-        expect(fetched?.privateKey).toBe(keyData.privateKey);
+      expect(fetched?.privateKey).toBe(keyData.privateKey);
 
-        // 3. Verify it's actually encrypted in the DB using a raw query
-        // This bypasses the middleware
-        const raw: any[] =
-          await prisma.$queryRaw`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
-        expect(raw[0].privateKey).toBeDefined();
-        expect(raw[0].privateKey).not.toBe(keyData.privateKey);
-        // Our encryption format is base64 string
-        expect(() => Buffer.from(raw[0].privateKey, "base64")).not.toThrow();
-      } finally {
-        // Restore global state
-        if (previousEnv === undefined) {
-          Reflect.deleteProperty(process.env, "JWKS_ENCRYPTION_KEY");
-        } else {
-          process.env.JWKS_ENCRYPTION_KEY = previousEnv;
-        }
-        Date.now = mockDateNow;
+      // 3. Verify it's actually encrypted in the DB using a raw query
+      // This bypasses the middleware
+      const raw = await prisma.$queryRaw<
+        { privateKey: string }[]
+      >`SELECT "privateKey" FROM "jwks" WHERE "id" = ${jwks.id}`;
+      expect(raw[0].privateKey).toBeDefined();
+      expect(raw[0].privateKey).not.toBe(keyData.privateKey);
+      // Our encryption format is base64 string
+      expect(() => Buffer.from(raw[0].privateKey, "base64")).not.toThrow();
+    } finally {
+      // Restore global state
+      if (previousEnv === undefined) {
+        Reflect.deleteProperty(process.env, "JWKS_ENCRYPTION_KEY");
+      } else {
+        process.env.JWKS_ENCRYPTION_KEY = previousEnv;
+      }
+      Date.now = mockDateNow;
 
-        // Cleanup DB row if it was created
-        if (jwksId) {
-          await prisma.jwks
-            .delete({ where: { id: jwksId } })
-            .catch(() => undefined);
-        }
+      // Cleanup DB row if it was created
+      if (jwksId) {
+        await prisma.jwks
+          .delete({ where: { id: jwksId } })
+          .catch(() => undefined);
       }
     }
-  );
+  });
 
-  it.skipIf(!dbAvailable)(
-    "handles relational data creation and querying",
-    async () => {
-      const email = `relation-${Date.now()}@test.local`;
+  it("handles relational data creation and querying", async () => {
+    if (!dbAvailable) {
+      return;
+    }
+    const email = `relation-${Date.now()}@test.local`;
 
-      const user = await prisma.user.create({
-        data: {
-          email,
-          name: "Workspace Owner",
-          workspaces: {
-            create: {
-              name: "Test Workspace",
-              description: "A workspace for testing relations",
-            },
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: "Workspace Owner",
+        workspaces: {
+          create: {
+            name: "Test Workspace",
+            description: "A workspace for testing relations",
           },
         },
-        include: {
-          workspaces: true,
-        },
-      });
+      },
+      include: {
+        workspaces: true,
+      },
+    });
 
-      expect(user.workspaces).toHaveLength(1);
-      expect(user.workspaces[0].name).toBe("Test Workspace");
+    expect(user.workspaces).toHaveLength(1);
+    expect(user.workspaces[0].name).toBe("Test Workspace");
 
-      const workspaceId = user.workspaces[0].id;
+    const workspaceId = user.workspaces[0].id;
 
-      // Test cascading deletes
-      await prisma.user.delete({
-        where: { id: user.id },
-      });
+    // Test cascading deletes
+    await prisma.user.delete({
+      where: { id: user.id },
+    });
 
-      const deletedWorkspace = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-      });
+    const deletedWorkspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
 
-      expect(deletedWorkspace).toBeNull();
-    }
-  );
+    expect(deletedWorkspace).toBeNull();
+  });
 });

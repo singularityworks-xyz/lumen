@@ -24,9 +24,9 @@ run_suite() {
 
   echo "Running ${label} (${#files[@]} files)..."
 
-  # Run web integration tests individually to avoid mock.module
+  # Run web and workers integration tests individually to avoid mock.module
   # cross-contamination between test files.
-  if [[ "${label}" == "web integration tests" ]]; then
+  if [[ "${label}" == "web integration tests" || "${label}" == "workers integration tests" ]]; then
     local file_exit_code=0
     for file in "${files[@]}"; do
       if [[ -n "${preload}" ]]; then

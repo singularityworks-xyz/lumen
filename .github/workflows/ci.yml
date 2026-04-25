@@ -167,8 +167,19 @@ jobs:
       - name: Generate Prisma client
         run: bun run db:gen
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts
-          --coverage
+        run: |
+          set -euo pipefail
+          mkdir -p junit_parts coverage_parts
+          mapfile -t files < <(find apps/web/src -name '*.test.ts' -o -name '*.test.tsx' | grep -v '/integration/' | grep -vE '\.(integration|smoke)\.test\.(ts|tsx)$' | sort)
+          for file in "${files[@]}"; do
+            name="$(basename "${file}")"
+            bun test --preload ./tests/config/web.setup.ts "${file}" \
+              --reporter=junit --reporter-outfile="junit_parts/${name}.xml" \
+              --coverage --coverage-dir="coverage_parts/${name}"
+          done
+          bash scripts/testing/merge-junit.sh junit.xml junit_parts/*.xml
+          mkdir -p coverage/bun
+          bun run scripts/testing/merge-lcov.ts --output coverage/bun/lcov.info coverage_parts/*/lcov.info
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -200,16 +211,31 @@ jobs:
       - name: Generate Prisma client
         run: bun run db:gen
       - name: Run worker unit tests
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
-          ./apps/workers/src/**/*.test.ts --coverage
+        run: |
+          set -euo pipefail
+          mkdir -p junit_parts coverage_parts
+          mapfile -t files < <(find apps/workers/src -name '*.test.ts' | grep -v '/integration/' | grep -vE '\.integration\.test\.ts$' | sort)
+          for file in "${files[@]}"; do
+            name="$(basename "${file}")"
+            bun test --preload ./packages/db/src/setup/workers.setup.ts "${file}" \
+              --reporter=junit --reporter-outfile="junit_parts/${name}.xml" \
+              --coverage --coverage-dir="coverage_parts/${name}"
+          done
       - name: Run package unit tests
         run: |
-          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
+          set -euo pipefail
+          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-ai.xml
+          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-db.xml
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-logger-sdk-node.xml
+          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-logger.xml
+          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-native-bridge.xml
+          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-yjs-shared.xml
+      - name: Merge artifacts
+        run: |
+          set -euo pipefail
+          bash scripts/testing/merge-junit.sh junit.xml junit_parts/*.xml
+          mkdir -p coverage/bun
+          bun run scripts/testing/merge-lcov.ts --output coverage/bun/lcov.info coverage_parts/*/lcov.info
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -306,8 +332,14 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/web.setup.ts
-          ./apps/web/test/integration/*.test.ts
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find apps/web/src/integration -name '*.test.ts' -o -name '*.test.tsx' | sort)
+          exit_code=0
+          for file in "${files[@]}"; do
+            bun test --preload ./tests/config/web.setup.ts "${file}" || exit_code=$?
+          done
+          exit ${exit_code}
 
   integration-workers:
     name: Integration Workers
@@ -346,8 +378,14 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
-          ./apps/workers/test/integration/*.test.ts
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find apps/workers/src/integration -name '*.test.ts' | sort)
+          exit_code=0
+          for file in "${files[@]}"; do
+            bun test --preload ./packages/db/src/setup/workers.setup.ts "${file}" || exit_code=$?
+          done
+          exit ${exit_code}
 
   ci-passed:
     name: CI Passed

@@ -1323,6 +1323,8 @@ describe("useNodeDragHandlers", () => {
       finalizeAreaDrag,
       finalizeBoardDrag,
       finalizeCommentsDrag,
+      isDraggingRef,
+      pendingPositionsRef,
     };
   }
 
@@ -1359,6 +1361,8 @@ describe("useNodeDragHandlers", () => {
       finalizeAreaDrag,
       finalizeBoardDrag,
       finalizeCommentsDrag,
+      isDraggingRef,
+      pendingPositionsRef,
     } = setup();
 
     const node = { id: "area_123" } as CanvasNode;
@@ -1371,6 +1375,8 @@ describe("useNodeDragHandlers", () => {
     expect(finalizeAreaDrag).toHaveBeenCalledWith("area_123");
     expect(finalizeBoardDrag).not.toHaveBeenCalled();
     expect(finalizeCommentsDrag).not.toHaveBeenCalled();
+    expect(isDraggingRef.current).toBe(false);
+    expect(pendingPositionsRef.current.size).toBe(0);
   });
 
   it("finalizes board drag on stop for board_ prefixed nodes", () => {
@@ -1379,6 +1385,8 @@ describe("useNodeDragHandlers", () => {
       finalizeAreaDrag,
       finalizeBoardDrag,
       finalizeCommentsDrag,
+      isDraggingRef,
+      pendingPositionsRef,
     } = setup();
 
     const node = { id: "board_456" } as CanvasNode;
@@ -1391,6 +1399,8 @@ describe("useNodeDragHandlers", () => {
     expect(finalizeBoardDrag).toHaveBeenCalledWith("board_456");
     expect(finalizeAreaDrag).not.toHaveBeenCalled();
     expect(finalizeCommentsDrag).not.toHaveBeenCalled();
+    expect(isDraggingRef.current).toBe(false);
+    expect(pendingPositionsRef.current.size).toBe(0);
   });
 
   it("finalizes comments drag on stop for cluster- prefixed nodes", () => {
@@ -1399,6 +1409,8 @@ describe("useNodeDragHandlers", () => {
       finalizeAreaDrag,
       finalizeBoardDrag,
       finalizeCommentsDrag,
+      isDraggingRef,
+      pendingPositionsRef,
     } = setup();
 
     const node = { id: "cluster-1" } as CanvasNode;
@@ -1414,6 +1426,8 @@ describe("useNodeDragHandlers", () => {
     ]);
     expect(finalizeAreaDrag).not.toHaveBeenCalled();
     expect(finalizeBoardDrag).not.toHaveBeenCalled();
+    expect(isDraggingRef.current).toBe(false);
+    expect(pendingPositionsRef.current.size).toBe(0);
   });
 
   it("does nothing on drag stop for unrecognized node id prefix", () => {
@@ -1422,6 +1436,8 @@ describe("useNodeDragHandlers", () => {
       finalizeAreaDrag,
       finalizeBoardDrag,
       finalizeCommentsDrag,
+      isDraggingRef,
+      pendingPositionsRef,
     } = setup();
 
     const node = { id: "task_789" } as CanvasNode;
@@ -1434,10 +1450,13 @@ describe("useNodeDragHandlers", () => {
     expect(finalizeAreaDrag).not.toHaveBeenCalled();
     expect(finalizeBoardDrag).not.toHaveBeenCalled();
     expect(finalizeCommentsDrag).not.toHaveBeenCalled();
+    expect(isDraggingRef.current).toBe(false);
+    expect(pendingPositionsRef.current.size).toBe(0);
   });
 
   it("does nothing on drag stop for cluster node not found in clusters", () => {
-    const { result, finalizeCommentsDrag } = setup();
+    const { result, finalizeCommentsDrag, isDraggingRef, pendingPositionsRef } =
+      setup();
 
     const node = { id: "cluster-999" } as CanvasNode;
     const event = {} as unknown as React.MouseEvent;
@@ -1447,5 +1466,7 @@ describe("useNodeDragHandlers", () => {
     });
 
     expect(finalizeCommentsDrag).not.toHaveBeenCalled();
+    expect(isDraggingRef.current).toBe(false);
+    expect(pendingPositionsRef.current.size).toBe(0);
   });
 });

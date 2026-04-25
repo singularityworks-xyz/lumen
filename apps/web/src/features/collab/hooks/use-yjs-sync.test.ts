@@ -959,25 +959,29 @@ describe("useYjsSync", () => {
 
       const timeouts: Array<() => void> = [];
       const origSetTimeout = globalThis.setTimeout;
-      globalThis.setTimeout = ((fn: () => void) => {
-        timeouts.push(fn);
-        return 0 as unknown as ReturnType<typeof setTimeout>;
-      }) as typeof setTimeout;
 
-      useYjsSync(doc, true, "ws-1");
+      try {
+        globalThis.setTimeout = ((fn: () => void) => {
+          timeouts.push(fn);
+          return 0 as unknown as ReturnType<typeof setTimeout>;
+        }) as typeof setTimeout;
 
-      // Execute the scheduled timeout callback
-      for (const fn of timeouts) {
-        fn();
+        // biome-ignore lint/correctness/useHookAtTopLevel: test file intentionally calls hook inside try/finally to temporarily stub setTimeout
+        useYjsSync(doc, true, "ws-1");
+
+        // Execute the scheduled timeout callback
+        for (const fn of timeouts) {
+          fn();
+        }
+
+        expect(mockInitializeYjsForWorkspace).toHaveBeenCalledWith(
+          doc,
+          localState,
+          "ws-1"
+        );
+      } finally {
+        globalThis.setTimeout = origSetTimeout;
       }
-
-      expect(mockInitializeYjsForWorkspace).toHaveBeenCalledWith(
-        doc,
-        localState,
-        "ws-1"
-      );
-
-      globalThis.setTimeout = origSetTimeout;
     });
 
     it("calls applyYjsToStateWithRepair when boardsMap has data", () => {

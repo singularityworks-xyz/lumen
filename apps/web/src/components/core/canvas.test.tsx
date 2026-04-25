@@ -772,7 +772,7 @@ describe("KanbanCanvas", () => {
     });
   });
 
-  describe("Nodes/edges sync effects", () => {
+  describe("Nodes/edges initial render", () => {
     it("initializes local nodes from store nodes", () => {
       renderCanvas();
 

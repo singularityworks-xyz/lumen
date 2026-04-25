@@ -4,6 +4,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+junit_parts="${repo_root}/junit_parts"
+coverage_parts="${repo_root}/coverage_parts"
+merged_junit="${repo_root}/junit.xml"
+merged_lcov="${repo_root}/coverage/bun/lcov.info"
+
 list_test_files() {
   local root="$1"
   shift
@@ -37,21 +42,48 @@ run_suite() {
   if [[ "${label}" == "web unit tests" || "${label}" == "workers unit tests" ]]; then
     local file_exit_code=0
     for file in "${files[@]}"; do
+      local base_name
+      base_name="$(basename "${file}")"
+      local junit_out="${junit_parts}/${base_name}.xml"
+      local cov_dir="${coverage_parts}/${base_name}"
+      mkdir -p "${cov_dir}"
+
+      local -a bun_args=(
+        --reporter=junit
+        --reporter-outfile="${junit_out}"
+        --coverage
+        --coverage-dir="${cov_dir}"
+      )
+
       if [[ -n "${preload}" ]]; then
-        (cd "${repo_root}" && bun test --preload "${preload}" "${file}") || file_exit_code=$?
+        (cd "${repo_root}" && bun test --preload "${preload}" "${file}" "${bun_args[@]}") || file_exit_code=$?
       else
-        (cd "${repo_root}" && bun test "${file}") || file_exit_code=$?
+        (cd "${repo_root}" && bun test "${file}" "${bun_args[@]}") || file_exit_code=$?
       fi
     done
     return ${file_exit_code}
   fi
 
+  local suite_name="${label// /_}"
+  local junit_out="${junit_parts}/${suite_name}.xml"
+  mkdir -p "${coverage_parts}/${suite_name}"
+
+  local -a bun_args=(
+    --reporter=junit
+    --reporter-outfile="${junit_out}"
+    --coverage
+    --coverage-dir="${coverage_parts}/${suite_name}"
+  )
+
   if [[ -n "${preload}" ]]; then
-    (cd "${repo_root}" && bun test --preload "${preload}" "${files[@]}")
+    (cd "${repo_root}" && bun test --preload "${preload}" "${files[@]}" "${bun_args[@]}")
   else
-    (cd "${repo_root}" && bun test "${files[@]}")
+    (cd "${repo_root}" && bun test "${files[@]}" "${bun_args[@]}")
   fi
 }
+
+mkdir -p "${junit_parts}" "${coverage_parts}"
+rm -f "${junit_parts}"/*.xml "${merged_junit}" "${merged_lcov}"
 
 mapfile -t web_unit_files < <(
   list_unit_files "apps/web/src" -g '*.test.ts' -g '*.test.tsx'
@@ -74,5 +106,24 @@ exit_code=0
 run_suite "web unit tests" "./tests/config/web.setup.ts" "${web_unit_files[@]}" || exit_code=$?
 run_suite "workers unit tests" "./packages/db/src/setup/workers.setup.ts" "${workers_unit_files[@]}" || exit_code=$?
 run_suite "package unit tests" "./tests/config/bun.setup.ts" "${package_unit_files[@]}" || exit_code=$?
+
+# Merge JUnit artifacts
+shopt -s nullglob
+junit_files=("${junit_parts}"/*.xml)
+shopt -u nullglob
+
+if ((${#junit_files[@]} > 0)); then
+  bash "${repo_root}/scripts/testing/merge-junit.sh" "${merged_junit}" "${junit_files[@]}"
+fi
+
+# Merge coverage artifacts
+shopt -s nullglob
+lcov_files=("${coverage_parts}"/*/lcov.info)
+shopt -u nullglob
+
+if ((${#lcov_files[@]} > 0)); then
+  mkdir -p "$(dirname "${merged_lcov}")"
+  (cd "${repo_root}" && bun run scripts/testing/merge-lcov.ts --output "${merged_lcov}" "${lcov_files[@]}") || exit_code=$?
+fi
 
 exit "${exit_code}"

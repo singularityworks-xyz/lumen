@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
+// Import the real url module at the top level so we can spread its exports
+// into the mock. This prevents "export not found" errors in other test files
+// that import from ./url after this mock is active.
+import * as urlModule from "./url";
+
 const mockUseSession = mock(() => ({
   data: null,
   isPending: false,
@@ -31,11 +36,6 @@ mock.module("../env", () => ({
     NEXT_PUBLIC_API_URL: "http://localhost:3002",
   },
 }));
-
-// Import the real url module so we can re-export everything from the mock.
-// This prevents "export not found" errors in other test files that import
-// from ./url after this mock is active.
-import * as urlModule from "./url";
 
 mock.module("./url", () => ({
   ...urlModule,

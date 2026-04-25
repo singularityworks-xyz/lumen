@@ -20,13 +20,24 @@ function removeWindow() {
 }
 
 // Use dynamic import to avoid mock.module pollution from other test files
-// that may mock ./url before this file is parsed.
+// that may mock ./url before this file is parsed. Cache the module so
+// subsequent tests in this file reuse the same instance.
+let urlModuleCache: {
+  normalizeApiOriginForCurrentHost: (rawApiUrl: string) => URL;
+  normalizeApiUrlForCurrentHost: (rawApiUrl: string) => string;
+} | null = null;
+
 async function importUrlModule() {
+  if (urlModuleCache) {
+    return urlModuleCache;
+  }
+
   const mod = await import(`./url?test=${Date.now()}`);
-  return mod as {
+  urlModuleCache = mod as {
     normalizeApiOriginForCurrentHost: (rawApiUrl: string) => URL;
     normalizeApiUrlForCurrentHost: (rawApiUrl: string) => string;
   };
+  return urlModuleCache;
 }
 
 describe("normalizeApiOriginForCurrentHost", () => {
