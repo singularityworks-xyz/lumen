@@ -699,11 +699,17 @@ describe("useYjsSync", () => {
         workspace_id: "ws-1",
       };
 
-      mockDiffEntityMaps.mockReturnValueOnce({
-        added: [board],
-        changed: [],
-        removed: [],
-      } as DiffResult<typeof board>);
+      mockDiffEntityMaps
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [board],
+          changed: [],
+          removed: [],
+        } as DiffResult<typeof board>);
 
       triggerStoreStateChange({
         boards: {
@@ -734,11 +740,17 @@ describe("useYjsSync", () => {
 
       useYjsSync(doc, true, "ws-1");
 
-      mockDiffEntityMaps.mockReturnValueOnce({
-        added: [],
-        changed: [],
-        removed: ["board-1"],
-      } as DiffResult<typeof board>);
+      mockDiffEntityMaps
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: ["board-1"],
+        } as DiffResult<typeof board>);
 
       triggerStoreStateChange({
         boards: { byId: {}, allIds: [] },
@@ -770,6 +782,11 @@ describe("useYjsSync", () => {
       };
 
       mockDiffEntityMaps
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
         .mockReturnValueOnce({
           added: [],
           changed: [],
@@ -824,6 +841,11 @@ describe("useYjsSync", () => {
       useYjsSync(doc, true, "ws-1");
 
       mockDiffEntityMaps
+        .mockReturnValueOnce({
+          added: [],
+          changed: [],
+          removed: [],
+        } as DiffResult<unknown>)
         .mockReturnValueOnce({
           added: [],
           changed: [],
@@ -935,13 +957,31 @@ describe("useYjsSync", () => {
       storeState = localState;
       mockUseKanbanStore.getState.mockReturnValue(localState);
 
-      useYjsSync(doc, true, "ws-1");
+      const timeouts: Array<() => void> = [];
+      const origSetTimeout = globalThis.setTimeout;
 
-      expect(mockInitializeYjsForWorkspace).toHaveBeenCalledWith(
-        doc,
-        localState,
-        "ws-1"
-      );
+      try {
+        globalThis.setTimeout = ((fn: () => void) => {
+          timeouts.push(fn);
+          return 0 as unknown as ReturnType<typeof setTimeout>;
+        }) as typeof setTimeout;
+
+        // biome-ignore lint/correctness/useHookAtTopLevel: test file intentionally calls hook inside try/finally to temporarily stub setTimeout
+        useYjsSync(doc, true, "ws-1");
+
+        // Execute the scheduled timeout callback
+        for (const fn of timeouts) {
+          fn();
+        }
+
+        expect(mockInitializeYjsForWorkspace).toHaveBeenCalledWith(
+          doc,
+          localState,
+          "ws-1"
+        );
+      } finally {
+        globalThis.setTimeout = origSetTimeout;
+      }
     });
 
     it("calls applyYjsToStateWithRepair when boardsMap has data", () => {
@@ -970,6 +1010,11 @@ describe("useYjsSync", () => {
   describe("Re-entrancy protection", () => {
     it("does not sync to Yjs when isUpdatingFromYjsRef is true", () => {
       const doc = createTestDoc();
+      doc.getMap("boards").set("board-1", {
+        id: "board-1",
+        name: "Board",
+        workspace_id: "ws-1",
+      });
       const state = createDefaultState({ currentWorkspaceId: "ws-1" });
       storeState = state;
       mockUseKanbanStore.getState.mockReturnValue(state);

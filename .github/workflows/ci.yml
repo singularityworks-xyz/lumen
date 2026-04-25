@@ -167,8 +167,7 @@ jobs:
       - name: Generate Prisma client
         run: bun run db:gen
       - name: Run unit tests
-        run: bun test --preload ./tests/config/web.setup.ts ./apps/web/src/**/*.test.ts
-          --coverage
+        run: bash scripts/testing/run-unit.sh web
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -199,17 +198,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Generate Prisma client
         run: bun run db:gen
-      - name: Run worker unit tests
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
-          ./apps/workers/src/**/*.test.ts --coverage
-      - name: Run package unit tests
-        run: |
-          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage
-          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage
+      - name: Run unit tests
+        run: bash scripts/testing/run-unit.sh workers packages
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -306,8 +296,14 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./tests/config/web.setup.ts
-          ./apps/web/test/integration/*.test.ts
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find apps/web/src/integration -name '*.test.ts' -o -name '*.test.tsx' | sort)
+          exit_code=0
+          for file in "${files[@]}"; do
+            bun test --preload ./tests/config/web.setup.ts "${file}" || exit_code=$?
+          done
+          exit ${exit_code}
 
   integration-workers:
     name: Integration Workers
@@ -346,8 +342,14 @@ jobs:
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/lumen_test
-        run: bun test --preload ./packages/db/src/setup/workers.setup.ts
-          ./apps/workers/test/integration/*.test.ts
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find apps/workers/src/integration -name '*.test.ts' | sort)
+          exit_code=0
+          for file in "${files[@]}"; do
+            bun test --preload ./packages/db/src/setup/workers.setup.ts "${file}" || exit_code=$?
+          done
+          exit ${exit_code}
 
   ci-passed:
     name: CI Passed

@@ -184,7 +184,9 @@ mock.module("@opentelemetry/exporter-metrics-otlp-http", () => {
 
 mock.module("@opentelemetry/exporter-trace-otlp-http", () => {
   function OTLPTraceExporter() {
-    /* mock */
+    return {
+      export: mock((_items: unknown, _resultCallback: unknown) => undefined),
+    };
   }
   return { OTLPTraceExporter };
 });
