@@ -9,6 +9,24 @@ coverage_parts="${repo_root}/coverage_parts"
 merged_junit="${repo_root}/junit.xml"
 merged_lcov="${repo_root}/coverage/bun/lcov.info"
 
+# Optional scope filters (space-separated): "web", "workers", "packages"
+scopes="${*:-}"
+
+should_run() {
+  local label="$1"
+  if [[ -z "${scopes}" ]]; then
+    return 0
+  fi
+  for scope in ${scopes}; do
+    case "${scope}" in
+      web) [[ "${label}" == "web unit tests" ]] && return 0 ;;
+      workers) [[ "${label}" == "workers unit tests" ]] && return 0 ;;
+      packages) [[ "${label}" == "package unit tests" ]] && return 0 ;;
+    esac
+  done
+  return 1
+}
+
 list_test_files() {
   local root="$1"
   shift
@@ -23,11 +41,25 @@ list_unit_files() {
   list_test_files "${root}" "$@" | rg -v '(^|/)integration/|(^|/)(integration|smoke)\.test\.(ts|tsx)$|\.integration\.test\.(ts|tsx)$|\.smoke\.test\.(ts|tsx)$' || true
 }
 
+# Generate a unique key from a relative file path.
+# Replaces path separators with underscores and strips the test extension.
+make_key() {
+  local path="$1"
+  local key="${path//\//_}"
+  key="${key%.test.ts}"
+  key="${key%.test.tsx}"
+  echo "${key}"
+}
+
 run_suite() {
   local label="$1"
   local preload="$2"
   shift 2
   local -a files=("$@")
+
+  if ! should_run "${label}"; then
+    return 0
+  fi
 
   if ((${#files[@]} == 0)); then
     echo "No ${label} found."
@@ -42,10 +74,10 @@ run_suite() {
   if [[ "${label}" == "web unit tests" || "${label}" == "workers unit tests" ]]; then
     local file_exit_code=0
     for file in "${files[@]}"; do
-      local base_name
-      base_name="$(basename "${file}")"
-      local junit_out="${junit_parts}/${base_name}.xml"
-      local cov_dir="${coverage_parts}/${base_name}"
+      local key
+      key="$(make_key "${file}")"
+      local junit_out="${junit_parts}/${key}.xml"
+      local cov_dir="${coverage_parts}/${key}"
       mkdir -p "${cov_dir}"
 
       local -a bun_args=(
@@ -82,7 +114,10 @@ run_suite() {
   fi
 }
 
-mkdir -p "${junit_parts}" "${coverage_parts}"
+# Clean up old artifacts before starting.
+mkdir -p "${junit_parts}"
+rm -rf "${coverage_parts}"
+mkdir -p "${coverage_parts}"
 rm -f "${junit_parts}"/*.xml "${merged_junit}" "${merged_lcov}"
 
 mapfile -t web_unit_files < <(
@@ -113,7 +148,7 @@ junit_files=("${junit_parts}"/*.xml)
 shopt -u nullglob
 
 if ((${#junit_files[@]} > 0)); then
-  bash "${repo_root}/scripts/testing/merge-junit.sh" "${merged_junit}" "${junit_files[@]}"
+  (cd "${repo_root}" && bun run scripts/testing/merge-junit.ts "${merged_junit}" "${junit_files[@]}") || exit_code=$?
 fi
 
 # Merge coverage artifacts

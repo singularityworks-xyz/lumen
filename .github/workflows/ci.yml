@@ -167,19 +167,7 @@ jobs:
       - name: Generate Prisma client
         run: bun run db:gen
       - name: Run unit tests
-        run: |
-          set -euo pipefail
-          mkdir -p junit_parts coverage_parts
-          mapfile -t files < <(find apps/web/src -name '*.test.ts' -o -name '*.test.tsx' | grep -v '/integration/' | grep -vE '\.(integration|smoke)\.test\.(ts|tsx)$' | sort)
-          for file in "${files[@]}"; do
-            name="$(basename "${file}")"
-            bun test --preload ./tests/config/web.setup.ts "${file}" \
-              --reporter=junit --reporter-outfile="junit_parts/${name}.xml" \
-              --coverage --coverage-dir="coverage_parts/${name}"
-          done
-          bash scripts/testing/merge-junit.sh junit.xml junit_parts/*.xml
-          mkdir -p coverage/bun
-          bun run scripts/testing/merge-lcov.ts --output coverage/bun/lcov.info coverage_parts/*/lcov.info
+        run: bash scripts/testing/run-unit.sh web
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -210,32 +198,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Generate Prisma client
         run: bun run db:gen
-      - name: Run worker unit tests
-        run: |
-          set -euo pipefail
-          mkdir -p junit_parts coverage_parts
-          mapfile -t files < <(find apps/workers/src -name '*.test.ts' | grep -v '/integration/' | grep -vE '\.integration\.test\.ts$' | sort)
-          for file in "${files[@]}"; do
-            name="$(basename "${file}")"
-            bun test --preload ./packages/db/src/setup/workers.setup.ts "${file}" \
-              --reporter=junit --reporter-outfile="junit_parts/${name}.xml" \
-              --coverage --coverage-dir="coverage_parts/${name}"
-          done
-      - name: Run package unit tests
-        run: |
-          set -euo pipefail
-          bun test --preload ./tests/config/bun.setup.ts ./packages/ai/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-ai.xml
-          bun test --preload ./tests/config/bun.setup.ts ./packages/db/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-db.xml
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/sdk-node.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-logger-sdk-node.xml
-          bun test --preload ./tests/config/bun.setup.ts ./packages/logger/src/config.test.ts ./packages/logger/src/logger.test.ts ./packages/logger/src/tracer.test.ts ./packages/logger/src/metrics.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-logger.xml
-          bun test --preload ./tests/config/bun.setup.ts ./packages/native-bridge/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-native-bridge.xml
-          bun test --preload ./tests/config/bun.setup.ts ./packages/yjs-shared/src/*.test.ts --coverage --reporter=junit --reporter-outfile=junit_parts/packages-yjs-shared.xml
-      - name: Merge artifacts
-        run: |
-          set -euo pipefail
-          bash scripts/testing/merge-junit.sh junit.xml junit_parts/*.xml
-          mkdir -p coverage/bun
-          bun run scripts/testing/merge-lcov.ts --output coverage/bun/lcov.info coverage_parts/*/lcov.info
+      - name: Run unit tests
+        run: bash scripts/testing/run-unit.sh workers packages
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
