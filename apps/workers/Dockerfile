@@ -31,7 +31,7 @@ COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/node_modul
 COPY --from=builder --chown=appuser:appgroup /app/packages/db/prisma ./packages/db/prisma
 COPY --from=builder --chown=appuser:appgroup /app/packages/logger/src ./packages/logger/src
 COPY --from=builder --chown=appuser:appgroup /app/packages/ai/src ./packages/ai/src
-COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/index.ts ./packages/yjs-shared/
+COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/src ./packages/yjs-shared/src
 COPY --from=builder --chown=appuser:appgroup /app/apps/workers/dist ./apps/workers/dist
 COPY --from=builder --chown=appuser:appgroup /app/apps/workers/package.json ./apps/workers/
 WORKDIR /app/apps/workers
