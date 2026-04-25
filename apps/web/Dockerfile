@@ -21,7 +21,7 @@ COPY packages/configs ./packages/configs
 COPY apps/web ./apps/web
 
 WORKDIR /app/apps/web
-RUN npx next build
+RUN bun run build
 FROM oven/bun:alpine
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 
@@ -38,7 +38,7 @@ COPY --from=builder --chown=appuser:appgroup /app/packages/ai/package.json ./pac
 COPY --from=builder --chown=appuser:appgroup /app/packages/logger/src ./packages/logger/src
 COPY --from=builder --chown=appuser:appgroup /app/packages/logger/package.json ./packages/logger/
 COPY --from=builder --chown=appuser:appgroup /app/packages/native-bridge ./packages/native-bridge
-COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/index.ts ./packages/yjs-shared/
+COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/src ./packages/yjs-shared/src
 COPY --from=builder --chown=appuser:appgroup /app/packages/yjs-shared/package.json ./packages/yjs-shared/
 COPY --from=builder --chown=appuser:appgroup /app/packages/db ./packages/db
 COPY --from=builder --chown=appuser:appgroup /app/packages/configs ./packages/configs
