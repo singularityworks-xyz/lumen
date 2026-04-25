@@ -7,8 +7,32 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 list_test_files() {
   local root="$1"
   shift
+  local -a patterns=()
 
-  (cd "${repo_root}" && { rg --files "${root}" "$@" || true; } | sort)
+  while (("$#" > 0)); do
+    case "$1" in
+      -g) patterns+=("$2"); shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if ((${#patterns[@]} == 0)); then
+    find "${repo_root}/${root}" -type f | sed "s|^${repo_root}/||" | sort
+    return
+  fi
+
+  local -a find_args=()
+  local first=true
+  for pattern in "${patterns[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      find_args+=(-o)
+    fi
+    find_args+=(-name "${pattern}")
+  done
+
+  find "${repo_root}/${root}" -type f \( "${find_args[@]}" \) -print | sed "s|^${repo_root}/||" | sort
 }
 
 run_suite() {

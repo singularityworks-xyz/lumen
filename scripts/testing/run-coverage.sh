@@ -14,8 +14,32 @@ merged_lcov_path="${merged_dir}/lcov.info"
 list_test_files() {
   local root="$1"
   shift
+  local -a patterns=()
 
-  (cd "${repo_root}" && { rg --files "${root}" "$@" || true; } | sort)
+  while (("$#" > 0)); do
+    case "$1" in
+      -g) patterns+=("$2"); shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if ((${#patterns[@]} == 0)); then
+    find "${repo_root}/${root}" -type f | sed "s|^${repo_root}/||" | sort
+    return
+  fi
+
+  local -a find_args=()
+  local first=true
+  for pattern in "${patterns[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      find_args+=(-o)
+    fi
+    find_args+=(-name "${pattern}")
+  done
+
+  find "${repo_root}/${root}" -type f \( "${find_args[@]}" \) -print | sed "s|^${repo_root}/||" | sort
 }
 
 run_suite() {
@@ -95,8 +119,8 @@ mapfile -t package_coverage_files < <(
     list_test_files "packages/logger/src" -g 'logger.test.ts'
     list_test_files "packages/logger/src" -g 'tracer.test.ts'
     list_test_files "packages/logger/src" -g 'metrics.test.ts'
-    list_test_files "packages/native-bridge/src" -g '*.test.ts' | rg -v '/integration/' || true
-    list_test_files "packages/yjs-shared/src" -g '*.test.ts' | rg -v '/integration/' || true
+    list_test_files "packages/native-bridge/src" -g '*.test.ts' | grep -v '/integration/' || true
+    list_test_files "packages/yjs-shared/src" -g '*.test.ts' | grep -v '/integration/' || true
   } | sort
 )
 

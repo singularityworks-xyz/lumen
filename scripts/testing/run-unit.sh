@@ -30,15 +30,39 @@ should_run() {
 list_test_files() {
   local root="$1"
   shift
+  local -a patterns=()
 
-  (cd "${repo_root}" && { rg --files "${root}" "$@" || true; } | sort)
+  while (("$#" > 0)); do
+    case "$1" in
+      -g) patterns+=("$2"); shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if ((${#patterns[@]} == 0)); then
+    find "${repo_root}/${root}" -type f | sed "s|^${repo_root}/||" | sort
+    return
+  fi
+
+  local -a find_args=()
+  local first=true
+  for pattern in "${patterns[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      find_args+=(-o)
+    fi
+    find_args+=(-name "${pattern}")
+  done
+
+  find "${repo_root}/${root}" -type f \( "${find_args[@]}" \) -print | sed "s|^${repo_root}/||" | sort
 }
 
 list_unit_files() {
   local root="$1"
   shift
 
-  list_test_files "${root}" "$@" | rg -v '(^|/)integration/|(^|/)(integration|smoke)\.test\.(ts|tsx)$|\.integration\.test\.(ts|tsx)$|\.smoke\.test\.(ts|tsx)$' || true
+  list_test_files "${root}" "$@" | grep -vE '(^|/)integration/|(^|/)(integration|smoke)\.test\.(ts|tsx)$|\.integration\.test\.(ts|tsx)$|\.smoke\.test\.(ts|tsx)$' || true
 }
 
 # Generate a unique key from a relative file path.

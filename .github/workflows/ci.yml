@@ -51,22 +51,22 @@ jobs:
           else
             git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > changed-files.txt
           fi
-          if rg -q '^(apps/web/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/native-bridge/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/web-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/web/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/native-bridge/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/web-deploy\.yml$)' changed-files.txt; then
             echo "web=true" >> "$GITHUB_OUTPUT"
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
           fi
-          if rg -q '^(apps/workers/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/workers-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/workers/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/workers-deploy\.yml$)' changed-files.txt; then
             echo "workers=true" >> "$GITHUB_OUTPUT"
           else
             echo "workers=false" >> "$GITHUB_OUTPUT"
           fi
-          if rg -q '^(apps/presence/|package\.json$|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/presence/|package\.json$|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
             echo "presence=true" >> "$GITHUB_OUTPUT"
           else
             echo "presence=false" >> "$GITHUB_OUTPUT"
           fi
-          if rg -q '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
