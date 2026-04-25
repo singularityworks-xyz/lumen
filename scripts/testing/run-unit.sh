@@ -92,10 +92,10 @@ run_suite() {
 
   echo "Running ${label} (${#files[@]} files)..."
 
-  # Run web and worker tests individually to avoid mock.module cross-
-  # contamination between test files (Bun does not isolate mock.module
-  # across files when multiple test files are loaded in the same process).
-  if [[ "${label}" == "web unit tests" || "${label}" == "workers unit tests" ]]; then
+  # Run all tests individually to avoid mock.module cross-contamination
+  # between test files (Bun does not isolate mock.module across files when
+  # multiple test files are loaded in the same process).
+  if [[ "${label}" == "web unit tests" || "${label}" == "workers unit tests" || "${label}" == "package unit tests" ]]; then
     local file_exit_code=0
     for file in "${files[@]}"; do
       local key
