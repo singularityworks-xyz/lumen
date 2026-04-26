@@ -21,6 +21,7 @@ COPY packages/configs ./packages/configs
 COPY apps/web ./apps/web
 
 WORKDIR /app/apps/web
+ENV NODE_ENV=production
 RUN bun run build
 FROM oven/bun:1.3.11-alpine
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
