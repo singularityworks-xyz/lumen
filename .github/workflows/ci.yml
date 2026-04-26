@@ -223,6 +223,9 @@ jobs:
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.presence == 'true'
     runs-on: ubuntu-latest
+    env:
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:5354
+      UPSTASH_REDIS_REST_TOKEN: local-test-token
     steps:
       - name: Checkout
         uses: actions/checkout@v6
