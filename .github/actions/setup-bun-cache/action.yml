@@ -15,7 +15,7 @@ runs:
         bun-version: ${{ inputs.bun-version }}
 
     - name: Restore Bun global cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.bun/install/cache
         key: ${{ runner.os }}-bun-cache-${{ inputs.bun-version }}-${{ hashFiles('bun.lock') }}

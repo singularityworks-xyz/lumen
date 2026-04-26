@@ -18,6 +18,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   changes:
     name: Detect Deploy Targets
@@ -230,7 +233,7 @@ jobs:
           elixir-version: "1.19.0"
           version-type: strict
       - name: Cache Elixir/Mix dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.hex
