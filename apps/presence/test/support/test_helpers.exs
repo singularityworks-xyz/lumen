@@ -103,10 +103,10 @@ defmodule Presence.Test.Helpers do
         :telemetry.attach(
           {__MODULE__, ref},
           event_name,
-          fn _event, measurements, metadata, pid ->
-            send(pid, {:telemetry, event_name, measurements, metadata})
+          fn _event, measurements, metadata, _config ->
+            send(self(), {:telemetry, ref, event_name, measurements, metadata})
           end,
-          self()
+          nil
         )
 
         {event_name, ref}
@@ -115,19 +115,22 @@ defmodule Presence.Test.Helpers do
     fun.()
 
     events =
-      Enum.reduce(refs, [], fn {event_name, ref}, acc ->
-        receive do
-          {:telemetry, ^event_name, measurements, metadata} ->
-            :telemetry.detach({__MODULE__, ref})
-            [{event_name, measurements, metadata} | acc]
-        after
-          100 ->
-            :telemetry.detach({__MODULE__, ref})
-            acc
-        end
+      Enum.flat_map(refs, fn {_event_name, ref} ->
+        do_collect_telemetry(ref, [])
       end)
 
     Enum.reverse(events)
+  end
+
+  defp do_collect_telemetry(ref, acc) do
+    receive do
+      {:telemetry, ^ref, event_name, measurements, metadata} ->
+        do_collect_telemetry(ref, [{event_name, measurements, metadata} | acc])
+    after
+      100 ->
+        :telemetry.detach({__MODULE__, ref})
+        acc
+    end
   end
 
   @doc """
