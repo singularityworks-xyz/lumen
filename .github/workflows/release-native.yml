@@ -11,6 +11,7 @@ concurrency:
 env:
   NEXT_PUBLIC_API_URL: https://lumkers.itssingularity.com
   IS_TAURI_BUILD: "true"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # Build and release Tauri app for all platforms
