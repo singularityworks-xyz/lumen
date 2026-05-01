@@ -20,7 +20,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.215.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.215.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.216.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
     "@opentelemetry/host-metrics": "^0.38.3",
