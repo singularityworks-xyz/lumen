@@ -23,7 +23,7 @@
     "@lumen/native-bridge": "workspace:^",
     "@lumen/yjs-shared": "workspace:^",
     "@microsoft/fetch-event-source": "^2.0.1",
-    "@paper-design/shaders-react": "^0.0.76",
+    "@paper-design/shaders-react": "^0.0.78",
     "@prisma/instrumentation": "^7.8.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
