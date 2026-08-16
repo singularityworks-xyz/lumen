@@ -31,58 +31,21 @@ services:
       timeout: 5s
       retries: 20
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: lumen-otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./monitoring/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: lumen-openobserve
+    environment:
+      ZO_DATA_DIR: /data
+      ZO_ROOT_USER_EMAIL: root@lumen.dev
+      ZO_ROOT_USER_PASSWORD: lumen
+      ZO_HTTP_PORT: "5080"
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "8889:8889"
-    depends_on:
-      - tempo
-      - loki
-      - prometheus
-
-  tempo:
-    image: grafana/tempo:latest
-    container_name: lumen-tempo
-    command: ["-config.file=/etc/tempo.yaml"]
-    user: "0:0"
+      - "5080:5080"
+      - "5081:5081"
     volumes:
-      - ./monitoring/tempo-config.yaml:/etc/tempo.yaml
-      - tempo-data:/var/tempo
-    ports:
-      - "3200:3200"
-      - "4417:4317"
-
-  loki:
-    image: grafana/loki:latest
-    container_name: lumen-loki
-    command: ["-config.file=/etc/loki/local-config.yaml"]
-    ports:
-      - "3100:3100"
-    volumes:
-      - loki-data:/loki
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: lumen-prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.enable-remote-write-receiver"
-    volumes:
-      - ./monitoring/prometheus-config.yaml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    ports:
-      - "9099:9090"
+      - openobserve-data:/data
 
 volumes:
   lumendb-data:
   lumencache-data:
-  tempo-data:
-  loki-data:
-  prometheus-data:
+  openobserve-data:

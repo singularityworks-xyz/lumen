@@ -131,7 +131,7 @@ const envMock = {
     return _otelEnabled;
   },
   get OTEL_EXPORTER_OTLP_ENDPOINT() {
-    return _otelEnabled ? "http://localhost:4318" : "";
+    return _otelEnabled ? "http://localhost:5080/api/default" : "";
   },
   OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
 };
@@ -214,7 +214,7 @@ describe("logger integration", () => {
       expect(config.enabled).toBe(true);
       expect(config.serviceName).toBe("integration-test");
       expect(config.headers.Authorization).toBe("Bearer test");
-      expect(config.endpoint).toBe("http://localhost:4318");
+      expect(config.endpoint).toBe("http://localhost:5080/api/default");
     });
 
     it("logger creates and logs with correct config-derived environment", () => {

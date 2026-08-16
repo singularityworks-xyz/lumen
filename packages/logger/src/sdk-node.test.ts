@@ -59,7 +59,9 @@ mock.module("./env", () => ({
       get OTEL_ENABLED() {
         return otelEnabled;
       },
-      OTEL_EXPORTER_OTLP_ENDPOINT: otelEnabled ? "http://localhost:4318" : "",
+      OTEL_EXPORTER_OTLP_ENDPOINT: otelEnabled
+        ? "http://localhost:5080/api/default"
+        : "",
       OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
     };
   },
@@ -69,7 +71,9 @@ mock.module("./env", () => ({
 mock.module("./config", () => ({
   getOtelConfig: (serviceName: string) => {
     const currentOtelEnabled = otelEnabled;
-    const endpoint = currentOtelEnabled ? "http://localhost:4318" : "";
+    const endpoint = currentOtelEnabled
+      ? "http://localhost:5080/api/default"
+      : "";
     return {
       enabled: currentOtelEnabled && !!endpoint,
       endpoint,

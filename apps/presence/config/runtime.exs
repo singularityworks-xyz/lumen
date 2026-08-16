@@ -75,7 +75,7 @@ if config_env() == :prod and otel_enabled do
   # Logs are output as JSON to stdout with trace_id/span_id for correlation.
   config :opentelemetry_exporter,
     otlp_protocol: :http_protobuf,
-    otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
+    otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5080/api/default"),
     otlp_headers: parse_otel_headers.(System.get_env("OTEL_EXPORTER_OTLP_HEADERS", ""))
 
   # Configure OpenTelemetry with batch processor and OTLP exporter
@@ -97,7 +97,8 @@ if config_env() == :prod and otel_enabled do
   if System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
     config :opentelemetry_experimental,
       metrics_exporter: :otlp,
-      otlp_metrics_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") <> "/v1/metrics"
+      otlp_metrics_endpoint:
+        System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5080/api/default") <> "/v1/metrics"
   end
 else
   config :opentelemetry,

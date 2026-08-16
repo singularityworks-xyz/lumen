@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 const envState: Record<string, unknown> = {
   NODE_ENV: "test",
   OTEL_ENABLED: true,
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:5080/api/default",
   OTEL_EXPORTER_OTLP_HEADERS:
     "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue",
 };
@@ -36,7 +36,7 @@ describe("getOtelConfig", () => {
     originalWindow = globalThis.window;
     envState.NODE_ENV = "test";
     envState.OTEL_ENABLED = true;
-    envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
+    envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:5080/api/default";
     envState.OTEL_EXPORTER_OTLP_HEADERS =
       "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue";
   });
@@ -92,7 +92,7 @@ describe("getOtelConfig", () => {
       const config = getOtelConfig("test-service");
 
       expect(config.enabled).toBe(true);
-      expect(config.endpoint).toBe("http://localhost:4318");
+      expect(config.endpoint).toBe("http://localhost:5080/api/default");
       expect(config.environment).toBe("test");
       expect(config.serviceName).toBe("test-service");
     });
@@ -202,7 +202,8 @@ describe("getOtelConfig", () => {
 
     it("enabled when OTEL_ENABLED=true and endpoint is set", () => {
       envState.OTEL_ENABLED = true;
-      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
+      envState.OTEL_EXPORTER_OTLP_ENDPOINT =
+        "http://localhost:5080/api/default";
 
       const config = getOtelConfig("svc");
 
@@ -211,7 +212,8 @@ describe("getOtelConfig", () => {
 
     it("disabled when OTEL_ENABLED=false", () => {
       envState.OTEL_ENABLED = false;
-      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
+      envState.OTEL_EXPORTER_OTLP_ENDPOINT =
+        "http://localhost:5080/api/default";
 
       const config = getOtelConfig("svc");
 
