@@ -33,7 +33,7 @@ jobs:
       workers: ${{ steps.filter.outputs.workers }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect changed files
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -228,7 +228,7 @@ jobs:
       UPSTASH_REDIS_REST_TOKEN: local-test-token
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Beam
         uses: erlef/setup-beam@v1
         with:
@@ -236,7 +236,7 @@ jobs:
           elixir-version: "1.19.0"
           version-type: strict
       - name: Cache Elixir/Mix dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.hex
@@ -284,7 +284,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -330,7 +330,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:

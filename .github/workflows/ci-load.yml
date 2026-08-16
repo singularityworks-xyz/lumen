@@ -37,10 +37,11 @@ jobs:
   ramp:
     name: Load Ramp
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'ramp'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'ramp'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
@@ -60,10 +61,11 @@ jobs:
   spike:
     name: Load Spike
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'spike'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'spike'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
@@ -83,10 +85,11 @@ jobs:
   soak:
     name: Load Soak
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'soak')
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch'
+      && github.event.inputs.scenario == 'soak')
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
@@ -106,10 +109,11 @@ jobs:
   convergence:
     name: Load Convergence
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'convergence'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'convergence'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
@@ -129,7 +133,8 @@ jobs:
   hybrid:
     name: Hybrid Load
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'hybrid'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'hybrid'
     environment:
       name: load-test
       url: ${{ github.event.inputs.ws_url }}
@@ -140,7 +145,7 @@ jobs:
       COHORT_SIZE: "50"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
