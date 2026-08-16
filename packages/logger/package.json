@@ -1,10 +1,10 @@
 {
   "name": "@lumen/logger",
-  "version": "0.0.35",
+  "version": "0.0.36",
   "private": true,
   "type": "module",
   "scripts": {
-    "check-types": "tsgo --noEmit -p tsconfig.check.json"
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "exports": {
     ".": "./src/index.ts",

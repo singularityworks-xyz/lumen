@@ -1,6 +1,6 @@
 {
   "name": "@lumen/db",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -11,7 +11,7 @@
     "./setup/*": "./src/setup/*"
   },
   "scripts": {
-    "check-types": "tsgo --noEmit -p tsconfig.check.json",
+    "check-types": "tsc --noEmit -p tsconfig.check.json",
     "generate": "prisma generate",
     "push": " prisma db push --config ./prisma.config.ts",
     "studio": "prisma studio --config ./prisma.config.ts"

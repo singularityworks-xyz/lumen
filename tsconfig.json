@@ -28,9 +28,5 @@
     "tests/**/*.tsx",
     "scripts/**/*.ts",
     "playwright/**/*.ts"
-  ],
-  "tsgo": {
-    "checkers": 4,
-    "builders": 2
-  }
+  ]
 }

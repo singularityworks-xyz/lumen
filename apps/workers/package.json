@@ -1,6 +1,6 @@
 {
   "name": "@lumen/workers",
-  "version": "1.0.67",
+  "version": "1.0.68",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
     "start": "cross-env NODE_ENV=production bun run dist/index.js",
     "start:test": "cross-env NODE_ENV=test bun run dist/index.js",
-    "check-types": "tsgo --noEmit"
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
