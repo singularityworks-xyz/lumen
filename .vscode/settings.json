@@ -60,5 +60,8 @@
   },
   "[yaml]": {
     "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[nix]": {
+    "editor.defaultFormatter": "jnoortheen.nix-ide"
   }
 }

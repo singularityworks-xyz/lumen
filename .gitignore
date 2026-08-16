@@ -6,6 +6,9 @@ node_modules
 .pnp.js
 .codex
 trace/
+.devenv
+.direnv
+erl_crash.dump
 
 # Local env files
 .env
