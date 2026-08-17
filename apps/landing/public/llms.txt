@@ -1,0 +1,36 @@
+# Lumen
+
+> Work, illuminated. Lumen is the local-first spatial project-management canvas from Singularity Works — real-time kanban boards, live presence, offline-first storage, and Larity, an AI assistant that remembers your workspace.
+
+## What is Lumen
+
+Lumen is a project-management tool built around an unbounded spatial canvas. Instead of forcing work into rigid tabs and lists, boards live anywhere on the canvas and connect to each other with relationship edges. It is local-first: every write commits instantly to your device and syncs conflict-free when the network returns, so it works offline, stays private, and never loses work.
+
+## Core features
+
+- [Kanban boards](https://lumen.itssingularity.com/#canvas): real boards rendered exactly as the app renders them — muted column headers, engraved task cards, priority rules, progress telemetry, checklists and due dates.
+- [Boards drawer & live rings](https://lumen.itssingularity.com/#sidebar): every board one glance away, with live completion rings, task counts and connection counts.
+- [Workspace switching & share links](https://lumen.itssingularity.com/#workspace): switch between your workspaces and shared boards, and share any board with a link.
+- [Spatial canvas](https://lumen.itssingularity.com/): place boards on an infinite 2D surface and draw connectors between them. Zoom from galaxy view to task detail.
+- [Live presence](https://lumen.itssingularity.com/): see teammates' cursors, drag ghosting and off-screen radar in real time.
+- [Offline-first engine](https://lumen.itssingularity.com/): local SQLite + IndexedDB writes in under a millisecond, reconciled with Yjs CRDTs when the network returns.
+- [Larity AI](https://lumen.itssingularity.com/#larity): long-term memory, RAG over your workspace, semantic retrieval, canvas context, speech-to-text and text-to-speech.
+- [GitHub issue tracking](https://lumen.itssingularity.com/#workspace): track issues and link boards to GitHub (roadmap).
+
+## How it works
+
+- Local-first storage: every write commits to IndexedDB/SQLite locally before anything else.
+- CRDT synchronization: Yjs state vectors produce sub-10ms peer sync over WebSockets.
+- Ephemeral broadcast: Phoenix channels carry cursors, drag ghosting and presence at 60 fps.
+- AI: Larity grounds answers in retrieval over your actual boards and docs.
+
+## Links
+
+- [Website](https://lumen.itssingularity.com/)
+- [App](https://canvas.itssingularity.com)
+- [Source code](https://github.com/singularityworks-xyz/lumen)
+- [Singularity Works](https://itssingularity.com/)
+
+## Contact
+
+- Email: work@singularityworks.xyz

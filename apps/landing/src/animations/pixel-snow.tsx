@@ -112,14 +112,22 @@ export default function PixelSnow({
 
     const scene = new Scene();
     const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const renderer = new WebGLRenderer({
-      antialias: false,
-      alpha: true,
-      premultipliedAlpha: false,
-      powerPreference: "high-performance",
-      stencil: false,
-      depth: false,
-    });
+
+    // Degrade gracefully when WebGL is unavailable (headless test
+    // environments, GPU-blocked contexts) instead of crashing the page.
+    let renderer: WebGLRenderer;
+    try {
+      renderer = new WebGLRenderer({
+        antialias: false,
+        alpha: true,
+        premultipliedAlpha: false,
+        powerPreference: "high-performance",
+        stencil: false,
+        depth: false,
+      });
+    } catch {
+      return;
+    }
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.offsetWidth, container.offsetHeight);

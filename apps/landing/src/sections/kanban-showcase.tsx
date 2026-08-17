@@ -6,23 +6,21 @@ import {
   Check,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
+  ChevronRight,
   Circle,
   GripVertical,
-  Move,
+  ListTodo,
   Plus,
   Sliders,
-  Sparkles,
+  Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import AnimatedGradientBackground from "../animations/animated-gradient-bg";
+import { CurvedArrowDown } from "../components/hero-arrows";
 
 interface MockTask {
   checklist: { completed: number; total: number };
-  collaborator?: {
-    action: string;
-    avatar: string;
-    color: string;
-    name: string;
-  };
   description: string;
   dueDate?: string;
   id: string;
@@ -32,18 +30,20 @@ interface MockTask {
   title: string;
 }
 
-const mockColumns: {
+interface MockColumn {
   accent: string;
   icon: typeof Circle;
   id: string;
   name: string;
   tasks: MockTask[];
-}[] = [
+}
+
+const mockColumns: MockColumn[] = [
   {
     id: "col-todo",
     name: "To Do",
     icon: Circle,
-    accent: "#64748b",
+    accent: "#71717a",
     tasks: [
       {
         id: "task-1",
@@ -60,7 +60,7 @@ const mockColumns: {
         id: "task-2",
         title: "Multi-touch Pinch & Inertial Pan",
         description:
-          "High-precision trackpad and touch gesture routing on the unbounded 2D WebGL viewport.",
+          "High-precision trackpad and touch gesture routing on the unbounded 2D viewport.",
         priority: "medium",
         progress: 10,
         checklist: { completed: 0, total: 2 },
@@ -73,7 +73,7 @@ const mockColumns: {
     id: "col-progress",
     name: "In Progress",
     icon: ArrowUpRight,
-    accent: "#f59e0b",
+    accent: "#a16207",
     tasks: [
       {
         id: "task-3",
@@ -85,12 +85,6 @@ const mockColumns: {
         checklist: { completed: 3, total: 4 },
         dueDate: "Tomorrow",
         tags: ["multiplayer", "presence"],
-        collaborator: {
-          name: "Sarah (Product)",
-          color: "#10b981",
-          avatar: "S",
-          action: "Dragging across columns",
-        },
       },
       {
         id: "task-4",
@@ -108,7 +102,7 @@ const mockColumns: {
     id: "col-done",
     name: "Done",
     icon: CheckCircle2,
-    accent: "#10b981",
+    accent: "#15803d",
     tasks: [
       {
         id: "task-5",
@@ -137,104 +131,333 @@ const mockColumns: {
 ];
 
 const priorityConfig = {
-  high: {
-    bg: "bg-red-500/15 border-red-500/30 text-red-400",
-    label: "High",
-  },
-  medium: {
-    bg: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400",
-    label: "Medium",
-  },
-  low: {
-    bg: "bg-blue-500/15 border-blue-500/30 text-blue-400",
-    label: "Low",
-  },
-};
+  high: "bg-red-500/15 border-red-500/30 text-red-400",
+  medium: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400",
+  low: "bg-blue-500/15 border-blue-500/30 text-blue-400",
+} as const;
 
-const oldStyleCards = [
+const featureRows = [
   {
-    id: "capture",
-    label: "Capture",
-    title: "Instant Spatial Capture",
-    desc: "No rigid constraints. Drop boards, tasks, and ideas onto an unbounded 2D canvas with arbitrary coordinate placement.",
+    id: "local",
+    label: "Local-first engine",
+    title: "Works offline. Syncs when you are back.",
+    desc: "Every write commits to IndexedDB in under a millisecond. Yjs CRDTs reconcile the diff when the network returns, with no lost work.",
     icon: (
       <svg
         aria-hidden="true"
-        className="h-6 w-6 text-primary"
+        className="h-4 w-4 text-foreground"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.5"
         viewBox="0 0 24 24"
       >
-        <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M20 11a4 4 0 00-3.6-3.97A6 6 0 004.5 9.1 4.5 4.5 0 005 18h13a3 3 0 001-5.83L19 12"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M9 15l2 2 4-5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
-    id: "organize",
-    label: "Organize",
-    title: "Deep Rules & Metadata",
-    desc: "Drag cards into columns. Nest checklists, progress telemetry, priority levels, and tags. Lumen adapts to how you think.",
+    id: "presence",
+    label: "Live presence",
+    title: "See teammates move cards, not stale lists.",
+    desc: "Peer cursors, off-screen radar and drag ghosting ride on Phoenix channels at 60 fps, so collaboration feels like a shared desk.",
     icon: (
       <svg
         aria-hidden="true"
-        className="h-6 w-6 text-primary"
+        className="h-4 w-4 text-foreground"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.5"
         viewBox="0 0 24 24"
       >
         <path
-          d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-          strokeLinecap="round"
+          d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 01.35-.15h6.87c.48 0 .72-.58.38-.92L5.94 2.39a.5.5 0 00-.44.82z"
           strokeLinejoin="round"
         />
       </svg>
     ),
   },
   {
-    id: "collaborate",
-    label: "Collaborate",
-    title: "Multiplayer Drag Presence",
-    desc: "Real-time cursors and live card drag presence across Phoenix channels. Watch teammates move tasks without locking.",
+    id: "spatial",
+    label: "Spatial canvas",
+    title: "Boards live anywhere, connected by edges.",
+    desc: "Place boards on an infinite 2D surface and draw relationship connectors between them. Zoom from galaxy view to task detail.",
     icon: (
       <svg
         aria-hidden="true"
-        className="h-6 w-6 text-primary"
+        className="h-4 w-4 text-foreground"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.5"
         viewBox="0 0 24 24"
       >
-        <path
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <circle cx="6" cy="6" r="2.5" />
+        <circle cx="18" cy="18" r="2.5" />
+        <path d="M8.5 8.5L15.5 15.5" strokeLinecap="round" />
+        <path d="M4 12H2M12 4V2M20 12h2M12 20v2" strokeLinecap="round" />
       </svg>
     ),
   },
-  {
-    id: "speed",
-    label: "Speed",
-    title: "Offline-First & Local Fast",
-    desc: "Instant sub-millisecond local commits via IndexedDB. Zero-latency UI response with deterministic Yjs CRDT auto-merge.",
-    icon: (
-      <svg
-        aria-hidden="true"
-        className="h-6 w-6 text-primary"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-      >
-        <path
-          d="M13 10V3L4 14h7v7l9-11h-7z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+];
+
+const NEW_TASK_TITLES = [
+  "Battery-Aware Background Sync Scheduling",
+  "Keyboard Shortcut Command Palette",
+  "Collision-Aware Edge Label Routing",
+  "Snapshot Archive & Point-in-Time Restore",
+  "Radial Menu for Board Quick Actions",
+];
+
+const NEW_TASK_DESCRIPTIONS = {
+  default:
+    "Scheduled background reconciliation that pauses below 20% battery and resumes on power.",
+  palette:
+    "Fuzzy-match command palette for board navigation, task search, and workspace switching.",
+  routing:
+    "Route edge labels around overlapping paths with deterministic tie-breaking.",
+  snapshot:
+    "Automated canvas snapshots with one-click restore to any prior state.",
+  radial: "A radial quick-actions menu pinned to the pointer for power users.",
+} as const;
+
+let newTaskCounter = 0;
+
+interface MiniTask {
+  done?: boolean;
+  title: string;
+}
+
+interface MiniBoardData {
+  accent: string;
+  className: string;
+  columns: { name: string; tasks: MiniTask[] }[];
+  id: string;
+  name: string;
+}
+
+// A compact real kanban, rendered as a neighbor board on the spatial canvas.
+// Each carries its own columns, tasks and accent, so the hover reveal reads as
+// distinct boards rather than decorative duplicates.
+function MiniKanban({ accent, className, columns, name }: MiniBoardData) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute z-0 hidden w-64 scale-90 flex-col overflow-hidden rounded-xl border border-border/50 bg-card/95 opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-500 ease-out group-hover:scale-100 group-hover:opacity-100 sm:flex ${className}`}
+    >
+      <div className="flex items-center gap-2 border-border/40 border-b bg-muted/30 px-3.5 py-2.5">
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-sm"
+          style={{ backgroundColor: accent }}
         />
-      </svg>
-    ),
+        <span className="truncate font-semibold text-foreground text-xs">
+          {name}
+        </span>
+        <span className="ml-auto shrink-0 rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[8px] text-muted-foreground">
+          live
+        </span>
+      </div>
+      <div className="flex gap-2.5 p-2.5">
+        {columns.map((col) => (
+          <div
+            className="min-w-0 flex-1 rounded-lg bg-muted/20 p-2"
+            key={col.name}
+          >
+            <div className="mb-2 flex items-center gap-1">
+              <span
+                className="h-1 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: accent }}
+              />
+              <span className="truncate font-medium text-[10px] text-muted-foreground">
+                {col.name}
+              </span>
+              <span className="ml-auto text-[8px] text-muted-foreground/60">
+                {col.tasks.length}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {col.tasks.map((task) => (
+                <div
+                  className="rounded-md border border-border/30 bg-card/80 px-2 py-1.5"
+                  key={task.title}
+                >
+                  <p
+                    className={`truncate text-[10px] leading-tight ${task.done ? "text-muted-foreground line-through" : "text-foreground/90"}`}
+                  >
+                    {task.title}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-border/40 border-t bg-muted/20 px-3.5 py-1.5 font-mono text-[8px] text-muted-foreground">
+        <span>
+          {columns.reduce((sum, col) => sum + col.tasks.length, 0)} TASKS
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-1 w-1 rounded-full bg-emerald-400" />
+          SYNCED
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const miniBoards: MiniBoardData[] = [
+  {
+    id: "roadmap",
+    name: "Product Roadmap",
+    accent: "#1d4ed8",
+    className:
+      "-top-10 -left-12 rotate-[-3deg] translate-x-3 translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:rotate-[-2deg]",
+    columns: [
+      {
+        name: "Now",
+        tasks: [
+          { title: "Ship WebGL viewport" },
+          { title: "SQLite engine" },
+          { title: "Share links" },
+        ],
+      },
+      {
+        name: "Next",
+        tasks: [
+          { title: "Command palette" },
+          { title: "Snapshot restore" },
+          { title: "Offline drafts" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "bugs",
+    name: "Bug Triage",
+    accent: "#a16207",
+    className:
+      "-top-10 -right-12 rotate-[2.5deg] -translate-x-3 translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:rotate-[2deg]",
+    columns: [
+      {
+        name: "Open",
+        tasks: [
+          { title: "Pinch drift" },
+          { title: "Ghost cursors" },
+          { title: "Connector jitter" },
+        ],
+      },
+      {
+        name: "Fixed",
+        tasks: [
+          { title: "Radar jitter", done: true },
+          { title: "Zoom jank", done: true },
+          { title: "Drag lag", done: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs",
+    name: "Docs & Specs",
+    accent: "#0e7490",
+    className:
+      "top-1/2 -left-16 -translate-y-1/2 rotate-[-2deg] translate-x-3 group-hover:translate-x-0 group-hover:rotate-[-1deg]",
+    columns: [
+      {
+        name: "Specs",
+        tasks: [
+          { title: "Sync protocol" },
+          { title: "CRDT design" },
+          { title: "Auth flows" },
+        ],
+      },
+      {
+        name: "Notes",
+        tasks: [
+          { title: "ADR-042" },
+          { title: "Runbooks" },
+          { title: "Changelog" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "ideas",
+    name: "Ideas & Backlog",
+    accent: "#7c3aed",
+    className:
+      "top-1/2 -right-16 -translate-y-1/2 rotate-[2deg] -translate-x-3 group-hover:translate-x-0 group-hover:rotate-[1deg]",
+    columns: [
+      {
+        name: "Ideas",
+        tasks: [
+          { title: "Radial menu" },
+          { title: "Voice notes" },
+          { title: "Board templates" },
+        ],
+      },
+      {
+        name: "Backlog",
+        tasks: [
+          { title: "Mobile app" },
+          { title: "Public API" },
+          { title: "Webhooks" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "design",
+    name: "Design System",
+    accent: "#71717a",
+    className:
+      "-bottom-10 -left-12 rotate-[2deg] translate-x-3 -translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:rotate-[1.5deg]",
+    columns: [
+      {
+        name: "Tokens",
+        tasks: [
+          { title: "Engraved shadows" },
+          { title: "oklch palette" },
+          { title: "Type scale" },
+        ],
+      },
+      {
+        name: "Components",
+        tasks: [
+          { title: "Drawer motion" },
+          { title: "Card density" },
+          { title: "Empty states" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "sprint",
+    name: "Sprint 24",
+    accent: "#15803d",
+    className:
+      "-bottom-10 -right-12 rotate-[-2.5deg] -translate-x-3 -translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:rotate-[-2deg]",
+    columns: [
+      {
+        name: "Shipped",
+        tasks: [
+          { title: "CRDT compaction", done: true },
+          { title: "Relay pool", done: true },
+          { title: "Presence radar", done: true },
+        ],
+      },
+      {
+        name: "Blocked",
+        tasks: [
+          { title: "WebGL culling" },
+          { title: "Keyboard insets" },
+          { title: "iOS share sheet" },
+        ],
+      },
+    ],
   },
 ];
 
@@ -245,6 +468,11 @@ export function KanbanShowcase() {
     "task-5": true,
     "task-6": true,
   });
+  const [columns, setColumns] = useState<MockColumn[]>(mockColumns);
+  // Mobile starts in compact view (no descriptions) so the board stays
+  // scannable; the toggle still lets users expand cards on any screen.
+  const [compactView, setCompactView] = useState(() => window.innerWidth < 640);
+  const [finishedExpanded, setFinishedExpanded] = useState(true);
 
   const toggleTaskCompletion = (taskId: string) => {
     setCompletedTaskMap((prev) => ({
@@ -253,312 +481,433 @@ export function KanbanShowcase() {
     }));
   };
 
-  const totalTasks = mockColumns.reduce(
-    (acc, col) => acc + col.tasks.length,
-    0
-  );
+  const addTask = (columnId: string) => {
+    const title = NEW_TASK_TITLES[newTaskCounter % NEW_TASK_TITLES.length];
+    newTaskCounter += 1;
+    const description =
+      NEW_TASK_DESCRIPTIONS[
+        title.toLowerCase().includes("palette")
+          ? "palette"
+          : title.toLowerCase().includes("routing")
+            ? "routing"
+            : title.toLowerCase().includes("snapshot")
+              ? "snapshot"
+              : title.toLowerCase().includes("radial")
+                ? "radial"
+                : "default"
+      ];
+    setColumns((prev) =>
+      prev.map((col) =>
+        col.id === columnId
+          ? {
+              ...col,
+              tasks: [
+                ...col.tasks,
+                {
+                  id: `task-new-${newTaskCounter}`,
+                  title,
+                  description,
+                  priority: "medium",
+                  progress: 0,
+                  checklist: { completed: 0, total: 1 },
+                  tags: ["new"],
+                },
+              ],
+            }
+          : col
+      )
+    );
+  };
+
+  const totalTasks = columns.reduce((acc, col) => acc + col.tasks.length, 0);
   const doneTasks = Object.values(completedTaskMap).filter(Boolean).length;
   const progressPercent = Math.round((doneTasks / totalTasks) * 100);
 
-  return (
-    <section
-      className="relative z-10 mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
-      id="canvas"
-    >
-      <div className="mx-auto max-w-3xl text-center">
-        <span className="font-mono text-primary/70 text-xs uppercase tracking-[0.25em]">
-          Spatial Kanban Engine
-        </span>
-        <h2
-          className="mt-3 font-bold text-3xl text-foreground sm:text-5xl lg:text-6xl"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          A real board built for how visual thinkers work.
-        </h2>
-        <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-          No rigid constraints. Place boards anywhere on an infinite canvas.
-          Every card carries deep metadata, checklists, and real-time
-          multiplayer drag presence.
-        </p>
-      </div>
+  const openTasks = useMemo(
+    () =>
+      columns
+        .filter((col) => col.id !== "col-done")
+        .flatMap((col) => col.tasks),
+    [columns]
+  );
 
-      <div className="relative mt-12">
-        <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-primary/50 bg-linear-to-b from-card via-background to-card/95 shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.12),inset_0_-2px_6px_rgba(0,0,0,0.5)] ring-1 ring-primary/20 backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-border/60 border-b bg-muted/30 px-4 py-3 sm:px-6">
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">
-                <Sparkles className="h-4 w-4" />
+  const isTaskDone = (taskId: string) => !!completedTaskMap[taskId];
+
+  return (
+    <section className="relative w-full" id="canvas">
+      {/* The hero's animated gradient, mirrored: the color bloom sits at
+          the top of the section instead of the bottom. No page-load
+          entrance animation here. */}{" "}
+      <div aria-hidden="true" className="absolute inset-0">
+        <AnimatedGradientBackground
+          animateIn={false}
+          Breathing={true}
+          containerStyle={{ transform: "scaleY(-1)" }}
+        />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="group relative">
+          {/* Hover shrinks the active board and reveals the neighbor boards
+            around it, each carrying its own columns and tasks */}
+          {miniBoards.map((board) => (
+            <MiniKanban {...board} key={board.id} />
+          ))}
+          <div className="relative z-10 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_8px_32px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out sm:group-hover:scale-[0.92]">
+            {/* Board header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-border/60 border-b bg-muted/30 px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate font-semibold text-foreground text-sm sm:text-base">
+                      Core Engine & Architecture
+                    </h3>
+                    <span className="hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-block">
+                      v2.4-active
+                    </span>
+                  </div>
+                  <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
+                    Spatial execution pipeline synced over Phoenix Yjs channels
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate font-semibold text-foreground text-sm sm:text-base">
-                    Core Engine & Architecture
-                  </h3>
-                  <span className="hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-block">
-                    v2.4-active
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 font-mono text-[11px] text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span>
+                    {doneTasks}/{totalTasks} ({progressPercent}%)
                   </span>
                 </div>
-                <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
-                  Spatial execution pipeline synced over Phoenix Yjs channels
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1 font-mono text-emerald-300 text-xs shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-                <div
-                  className="absolute inset-y-0 left-0 bg-emerald-500/20 transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
-                />
-                <span className="relative flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="font-semibold text-emerald-400">
-                    {doneTasks}/{totalTasks}
-                  </span>
-                  <span className="opacity-80">({progressPercent}%)</span>
-                </span>
-              </div>
-
-              <button
-                className="hidden items-center gap-1 rounded-lg border border-border/50 bg-card/60 px-2.5 py-1 text-muted-foreground text-xs shadow-xs transition-colors hover:border-border hover:bg-card hover:text-foreground sm:flex"
-                type="button"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Task</span>
-              </button>
-
-              <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-card/40 p-0.5 text-muted-foreground">
                 <button
-                  aria-label="View settings"
-                  className="cursor-pointer rounded p-1 hover:bg-secondary/60 hover:text-foreground"
+                  className="hidden cursor-pointer items-center gap-1 rounded-lg border border-border/50 bg-card/60 px-2.5 py-1 text-muted-foreground text-xs transition-colors hover:border-border hover:bg-card hover:text-foreground sm:flex"
+                  onClick={() => addTask("col-todo")}
                   type="button"
                 >
-                  <Sliders className="h-3.5 w-3.5" />
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Task</span>
                 </button>
+
+                <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-card/40 p-0.5 text-muted-foreground">
+                  <button
+                    aria-label={
+                      compactView ? "Show full cards" : "Compact cards"
+                    }
+                    className="cursor-pointer rounded p-1 transition-colors hover:bg-secondary/60 hover:text-foreground"
+                    onClick={() => setCompactView((compact) => !compact)}
+                    type="button"
+                  >
+                    <Sliders className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3 md:gap-5 md:p-6">
-            {mockColumns.map((col) => {
-              const ColIcon = col.icon;
-              return (
-                <div
-                  className="flex flex-col rounded-xl border border-border/40 bg-secondary/15 p-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]"
-                  key={col.id}
-                >
-                  <div className="mb-3 flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                      <ColIcon
-                        className="h-3.5 w-3.5"
-                        style={{ color: col.accent }}
-                      />
-                      <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider">
-                        {col.name}
-                      </h4>
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-secondary font-mono text-[10px] text-muted-foreground">
-                        {col.tasks.length}
-                      </span>
-                    </div>
-
-                    <button
-                      aria-label={`Add task to ${col.name}`}
-                      className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
-                      type="button"
+            {/* Columns: a swipeable row on mobile, a 3-column grid on desktop */}
+            <div className="relative">
+              <div className="flex gap-3 overflow-x-auto p-4 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:p-6">
+                {columns.map((col) => {
+                  const ColIcon = col.icon;
+                  return (
+                    <div
+                      className="flex w-72 shrink-0 flex-col rounded-xl border border-border/50 bg-muted/20 p-2.5 md:w-auto"
+                      key={col.id}
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {col.tasks.map((task) => {
-                      const isCompleted = !!completedTaskMap[task.id];
-                      const isDragTarget = !!task.collaborator;
-
-                      return (
-                        <div
-                          className={`group relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
-                            isDragTarget
-                              ? "border-emerald-500/70 bg-card/95 shadow-[0_0_20px_rgba(16,185,129,0.2),inset_0_1px_2px_rgba(255,255,255,0.15)] ring-1 ring-emerald-500/40"
-                              : isCompleted
-                                ? "border-border/30 bg-muted/20 opacity-75 hover:opacity-100"
-                                : "border-border/50 bg-card/90 shadow-[0_4px_12px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(255,255,255,0.08)] hover:border-border/90 hover:shadow-[0_6px_16px_rgba(0,0,0,0.3)]"
-                          }`}
-                          key={task.id}
-                        >
-                          {task.collaborator && (
-                            <div className="mb-2 flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 font-bold text-[9px] text-white">
-                                  {task.collaborator.avatar}
-                                </span>
-                                <span className="font-medium text-[10px] text-emerald-300">
-                                  {task.collaborator.name}
-                                </span>
-                              </div>
-                              <span className="font-mono text-[9px] text-emerald-400/80">
-                                Moving card
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex items-start justify-between gap-2">
-                            <h5
-                              className={`font-semibold text-card-foreground text-xs leading-snug sm:text-sm ${
-                                isCompleted
-                                  ? "text-muted-foreground line-through"
-                                  : ""
-                              }`}
-                            >
-                              {task.title}
-                            </h5>
-
-                            <button
-                              aria-label={
-                                isCompleted
-                                  ? "Mark incomplete"
-                                  : "Mark complete"
-                              }
-                              className={`shrink-0 cursor-pointer rounded-md p-1 transition-all ${
-                                isCompleted
-                                  ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                              }`}
-                              onClick={() => toggleTaskCompletion(task.id)}
-                              type="button"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
+                      <div className="mb-2.5 flex items-center justify-between rounded-lg bg-muted/80 px-2.5 py-2 dark:bg-secondary/90">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                            style={{ backgroundColor: `${col.accent}25` }}
+                          >
+                            <ColIcon
+                              className="h-3 w-3"
+                              style={{ color: col.accent }}
+                            />
+                          </span>
+                          <div className="min-w-0">
+                            <h4 className="truncate font-semibold text-card-foreground text-xs">
+                              {col.name}
+                            </h4>
+                            <p className="line-clamp-1 hidden text-[10px] text-foreground sm:block">
+                              {`This is ${col.name} column`}
+                            </p>
                           </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            aria-label={`Add task to ${col.name}`}
+                            className="cursor-pointer rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => addTask(col.id)}
+                            type="button"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                          <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {col.tasks.length}
+                          </span>
+                        </div>
+                      </div>
 
-                          <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                            {task.description}
-                          </p>
+                      <div className="flex-1 space-y-2">
+                        {col.tasks.map((task) => {
+                          const isCompleted = isTaskDone(task.id);
+                          return (
+                            <div
+                              className={`group relative rounded-lg border p-2.5 transition-all ${
+                                isCompleted
+                                  ? "border-border/40 bg-muted/20 opacity-75"
+                                  : "border-border/50 bg-card shadow-[0_1px_0_rgba(255,255,255,0.05)_inset,0_2px_8px_rgba(0,0,0,0.25)] hover:border-border/80"
+                              }`}
+                              key={task.id}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <h5
+                                  className={`font-medium text-card-foreground text-xs leading-snug ${
+                                    isCompleted
+                                      ? "text-muted-foreground line-through"
+                                      : ""
+                                  }`}
+                                >
+                                  {task.title}
+                                </h5>
 
-                          {task.progress > 0 && (
-                            <div className="mt-2.5 space-y-1">
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="text-muted-foreground/80">
-                                  Sub-tasks Progress
-                                </span>
-                                <span className="font-medium font-mono text-foreground/80">
-                                  {task.progress}%
-                                </span>
+                                <button
+                                  aria-label={
+                                    isCompleted
+                                      ? "Mark incomplete"
+                                      : "Mark complete"
+                                  }
+                                  className={`shrink-0 cursor-pointer rounded-md p-1 transition-all ${
+                                    isCompleted
+                                      ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                  }`}
+                                  onClick={() => toggleTaskCompletion(task.id)}
+                                  type="button"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
                               </div>
-                              <div className="h-1 w-full overflow-hidden rounded-full bg-secondary/70">
-                                <div
-                                  className="h-full bg-primary/80 transition-all duration-300"
-                                  style={{ width: `${task.progress}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
 
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-border/20 border-t pt-2 text-[10px]">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`rounded border px-1.5 py-0.5 font-medium font-mono ${
-                                  priorityConfig[task.priority].bg
-                                }`}
-                              >
-                                {priorityConfig[task.priority].label}
-                              </span>
+                              {!compactView && (
+                                <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                                  {task.description}
+                                </p>
+                              )}
 
-                              {task.checklist.total > 0 && (
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <CheckSquare className="h-3 w-3" />
-                                  <span className="font-mono">
-                                    {task.checklist.completed}/
-                                    {task.checklist.total}
+                              {task.progress > 0 && (
+                                <div className="mt-2.5 space-y-1">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-muted-foreground/80">
+                                      Progress
+                                    </span>
+                                    <span className="font-medium text-foreground/80">
+                                      {task.progress}%
+                                    </span>
+                                  </div>
+                                  <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+                                    <div
+                                      className="h-full bg-primary/80 transition-all duration-300"
+                                      style={{ width: `${task.progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-border/20 border-t pt-2 text-[10px]">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`rounded border px-1.5 py-0.5 font-medium ${
+                                      priorityConfig[task.priority]
+                                    }`}
+                                  >
+                                    {task.priority}
                                   </span>
+                                  {task.checklist.total > 0 && (
+                                    <div className="flex items-center gap-1 text-muted-foreground">
+                                      <CheckSquare className="h-3 w-3" />
+                                      <span>
+                                        {task.checklist.completed}/
+                                        {task.checklist.total}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {task.dueDate && (
+                                  <div
+                                    className={`flex items-center gap-1 ${
+                                      task.dueDate === "Tomorrow"
+                                        ? "text-amber-400"
+                                        : task.dueDate === "Completed"
+                                          ? "text-emerald-400"
+                                          : "text-muted-foreground"
+                                    }`}
+                                  >
+                                    <Calendar className="h-3 w-3" />
+                                    <span>{task.dueDate}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {task.tags.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {task.tags.map((tag) => (
+                                    <span
+                                      className="rounded bg-secondary/50 px-1.5 py-0.5 text-[9px] text-muted-foreground"
+                                      key={tag}
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
                                 </div>
                               )}
                             </div>
+                          );
+                        })}
 
-                            {task.dueDate && (
-                              <div
-                                className={`flex items-center gap-1 font-mono ${
-                                  task.dueDate === "Tomorrow"
-                                    ? "text-amber-400"
-                                    : task.dueDate === "Completed"
-                                      ? "text-emerald-400"
-                                      : "text-muted-foreground"
-                                }`}
+                        {col.id === "col-done" && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1 pt-1">
+                              <button
+                                aria-label={
+                                  finishedExpanded
+                                    ? "Hide finished"
+                                    : "Show finished"
+                                }
+                                className="flex cursor-pointer items-center justify-center rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                                onClick={() =>
+                                  setFinishedExpanded((expanded) => !expanded)
+                                }
+                                type="button"
                               >
-                                <Calendar className="h-3 w-3" />
-                                <span>{task.dueDate}</span>
+                                {finishedExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                              <span className="flex items-center gap-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
+                                <Check className="h-2.5 w-2.5" />
+                                <span>Finished</span>
+                                <span className="text-muted-foreground/70">
+                                  {col.tasks.length}
+                                </span>
+                              </span>
+                              <span className="text-muted-foreground/30">
+                                |
+                              </span>
+                              <span className="flex items-center gap-1 font-medium text-[10px] text-muted-foreground/60 uppercase tracking-wider">
+                                <Trash2 className="h-2.5 w-2.5" />
+                                <span>Trash</span>
+                                <span className="text-muted-foreground/70">
+                                  0
+                                </span>
+                              </span>
+                              <div className="relative ml-2 flex-1">
+                                <div className="h-px w-full bg-border/40" />
+                              </div>
+                            </div>
+
+                            {finishedExpanded ? (
+                              <div className="rounded-lg border border-border/30 bg-muted/10 p-2.5 text-center">
+                                <p className="text-[10px] text-muted-foreground/50 italic">
+                                  Empty finished
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-border/30 bg-muted/10 p-2.5 text-center">
+                                <p className="text-[10px] text-muted-foreground/50 italic">
+                                  {col.tasks.length} completed, hidden
+                                </p>
                               </div>
                             )}
                           </div>
-
-                          {task.tags.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {task.tags.map((tag) => (
-                                <span
-                                  className="rounded bg-secondary/50 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground"
-                                  key={tag}
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between border-border/40 border-t bg-muted/20 px-4 py-2 text-muted-foreground">
-            <div className="flex items-center gap-2 font-mono text-[10px]">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
-              <span>SPATIAL SNAP: 16px GRID</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Right-edge fade hints that more columns are swipeable */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-10 bg-linear-to-l from-[#0A0A0A]/70 to-transparent md:hidden" />
             </div>
 
-            <div className="flex items-center gap-1.5 font-mono text-[10px]">
-              <span>840 × 520 px</span>
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-primary">
-                <Move className="h-3 w-3" />
+            {/* Board footer */}
+            <div className="flex items-center justify-between border-border/40 border-t bg-muted/20 px-4 py-2 text-muted-foreground">
+              <div className="flex items-center gap-2 font-mono text-[10px]">
+                <ListTodo className="h-3 w-3" />
+                <span>
+                  {totalTasks} TASKS · {progressPercent}% COMPLETE
+                </span>
+                <span className="flex items-center gap-0.5 text-muted-foreground/60 md:hidden">
+                  SWIPE
+                  <ChevronRight className="h-3 w-3" />
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                <span>{openTasks.length} OPEN</span>
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-primary">
+                  <ChevronRight className="h-3 w-3" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-linear-to-b from-primary/10 via-transparent to-primary/5 opacity-40 blur-2xl" />
-      </div>
+        <div className="mt-12 flex justify-center">
+          <CurvedArrowDown className="h-14 w-7 text-primary/50" />
+        </div>
 
-      <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
-        {oldStyleCards.map((card) => (
-          <div className="group relative" key={card.id}>
-            <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-7 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[inset_0_2px_20px_rgba(255,255,255,0.15),inset_0_-2px_15px_rgba(0,0,0,0.5),0_16px_48px_rgba(0,0,0,0.5)] sm:p-8">
-              <div className="absolute inset-0 rounded-3xl bg-linear-to-br from-primary/5 via-transparent to-primary/10 opacity-50 transition-opacity group-hover:opacity-75" />
+        <div className="mx-auto mt-10 max-w-3xl text-center">
+          <h2
+            className="font-bold text-3xl text-foreground sm:text-5xl"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            A real board, rendered like the real app.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-foreground/80 text-sm leading-relaxed sm:text-base">
+            This is the actual kanban component from the application: muted
+            column headers, engraved task cards, priority rules, progress
+            telemetry, checklists and due dates. No mockup, no placeholder.
+          </p>
+        </div>
+
+        {/* Feature rows, styled as quiet data rows */}
+        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+          {featureRows.map((row) => (
+            <div
+              className="relative flex flex-col rounded-2xl border border-border/30 bg-linear-to-br from-background via-background to-muted p-5 shadow-[0_0_24px_rgba(255,255,255,0.05),inset_0_2px_10px_rgba(255,255,255,0.08),inset_0_-2px_10px_rgba(0,0,0,0.35)]"
+              key={row.id}
+            >
+              <div className="pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-br from-primary/5 via-transparent to-primary/10 opacity-30" />
               <div className="relative">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">
-                    {card.icon}
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/60">
+                    {row.icon}
                   </div>
-                  <span className="font-mono text-primary/70 text-xs uppercase tracking-wider sm:text-sm">
-                    {card.label}
+                  <span className="font-medium text-muted-foreground text-xs">
+                    {row.label}
                   </span>
                 </div>
                 <h3
-                  className="mb-3 font-semibold text-2xl text-foreground sm:text-3xl"
+                  className="mb-2 font-semibold text-foreground text-xl"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {card.title}
+                  {row.title}
                 </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed sm:text-base">
-                  {card.desc}
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {row.desc}
                 </p>
               </div>
             </div>
-            <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-linear-to-br from-primary/15 via-transparent to-primary/10 opacity-40 blur-xl transition-opacity group-hover:opacity-70" />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );

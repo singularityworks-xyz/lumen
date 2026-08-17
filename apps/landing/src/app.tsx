@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { Logo } from "./components/logo";
 import { VideoModal } from "./components/video-modal";
+import { AiCapabilitiesSection } from "./sections/ai-capabilities";
 import { ArchitectureConceptsSection } from "./sections/architecture-concepts";
 import { ColophonSection } from "./sections/colophon";
 import { ConnectedCardsSection } from "./sections/connected-cards";
 import { KanbanShowcase } from "./sections/kanban-showcase";
 import { MinimalHero } from "./sections/minimal-hero";
+import { TestimonialsSection } from "./sections/testimonials";
+import { WorkspaceFeaturesSection } from "./sections/workspace-features";
 
 export default function App() {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -28,9 +31,19 @@ export default function App() {
       onClick: handleWatchDemo,
       isButton: true,
     },
-    { label: "Kanban", href: "#canvas" },
-    { label: "Connectors", href: "#connectors" },
-    { label: "Architecture", href: "#architecture" },
+    { label: "Board", href: "#canvas" },
+    { label: "Sidebar", href: "#sidebar" },
+    { label: "Workspace", href: "#workspace" },
+    { label: "Larity", href: "#larity" },
+    {
+      label: "Github",
+      href: "https://github.com/singularityworks-xyz/lumen",
+    },
+  ];
+
+  // Mobile keeps the nav minimal: visit the app or open the repo
+  const mobileNavItems = [
+    { label: "Visit", href: "https://canvas.itssingularity.com" },
     {
       label: "Github",
       href: "https://github.com/singularityworks-xyz/lumen",
@@ -39,8 +52,7 @@ export default function App() {
 
   return (
     <main className="relative min-h-screen">
-      <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-background text-zinc-300 selection:bg-white selection:text-neutral-900">
-        <div aria-hidden="true" className="grid-bg fixed inset-0 opacity-30" />
+      <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-[#0A0A0A] text-zinc-300 selection:bg-white selection:text-neutral-900">
         <nav className="fixed top-0 z-50 w-full">
           <div className="mx-auto px-4 py-4 sm:px-8">
             <div className="relative flex items-center justify-between">
@@ -75,26 +87,15 @@ export default function App() {
               </div>
 
               <div className="absolute top-1/2 right-4 flex -translate-y-1/2 items-center gap-4 md:hidden">
-                {navItems.map((item) =>
-                  item.isButton ? (
-                    <button
-                      className="cursor-pointer text-muted-foreground text-xs transition-all hover:text-foreground"
-                      key={item.label}
-                      onClick={item.onClick}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
-                  ) : (
-                    <a
-                      className="cursor-pointer text-muted-foreground text-xs transition-all hover:text-foreground"
-                      href={item.href}
-                      key={item.label}
-                    >
-                      {item.label}
-                    </a>
-                  )
-                )}
+                {mobileNavItems.map((item) => (
+                  <a
+                    className="cursor-pointer text-muted-foreground text-xs transition-all hover:text-foreground"
+                    href={item.href}
+                    key={item.label}
+                  >
+                    {item.label}
+                  </a>
+                ))}
               </div>
 
               <div className="flex items-center gap-4">
@@ -107,11 +108,13 @@ export default function App() {
         </nav>
 
         <div className="relative z-10">
-          <div aria-hidden="true" className="noise-overlay" />
           <MinimalHero onWatchDemo={handleWatchDemo} />
           <KanbanShowcase />
           <ConnectedCardsSection />
+          <WorkspaceFeaturesSection />
           <ArchitectureConceptsSection />
+          <AiCapabilitiesSection />
+          <TestimonialsSection />
           <ColophonSection />
         </div>
       </div>
