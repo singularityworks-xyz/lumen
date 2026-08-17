@@ -4,7 +4,7 @@ defmodule Presence.MixProject do
   def project do
     [
       app: :presence,
-      version: "1.0.36",
+      version: "1.0.37",
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -25,7 +25,7 @@ defmodule Presence.MixProject do
   def application do
     [
       mod: {Presence.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :inets, :ssl]
     ]
   end
 
