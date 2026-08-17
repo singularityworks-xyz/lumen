@@ -239,14 +239,18 @@ describe("logger integration", () => {
     });
 
     it("config without endpoint is consistent with logger behavior", () => {
-      _otelEndpoint = "";
-      const config = getOtelConfig("svc");
-      expect(config.enabled).toBe(false);
-      // Logger still works even when no endpoint is configured
-      const l = createLogger({ level: "info", pretty: false });
-      l.info("works without otel");
-      expect(consoleLogMock).toHaveBeenCalled();
-      _otelEndpoint = "http://localhost:5080"; // restore
+      const originalEndpoint = _otelEndpoint;
+      try {
+        _otelEndpoint = "";
+        const config = getOtelConfig("svc");
+        expect(config.enabled).toBe(false);
+        // Logger still works even when no endpoint is configured
+        const l = createLogger({ level: "info", pretty: false });
+        l.info("works without otel");
+        expect(consoleLogMock).toHaveBeenCalled();
+      } finally {
+        _otelEndpoint = originalEndpoint;
+      }
     });
   });
 

@@ -219,15 +219,6 @@ defmodule Presence.Integration.PresenceFlowTest do
       assert result == :ok
     end
 
-    @tag skip: "Redis is now mandatory - application will fail to start without it"
-    test "lifecycle works when Redis is not configured", %{
-      user_id: user_id,
-      workspace_id: workspace_id
-    } do
-      # This test is no longer relevant since Redis is mandatory
-      # The application will fail to start if Redis is not configured
-    end
-
     test "presence state is maintained throughout lifecycle", %{
       user_id: _user_id,
       workspace_id: _workspace_id

@@ -2,6 +2,7 @@
 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Database, Network, Share2, Zap } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -22,7 +23,7 @@ export function ColophonSection() {
     const ctx = gsap.context(() => {
       if (headerRef.current) {
         gsap.from(headerRef.current, {
-          x: -60,
+          x: -40,
           opacity: 0,
           duration: 1,
           ease: "power3.out",
@@ -37,7 +38,7 @@ export function ColophonSection() {
       if (gridRef.current) {
         const columns = gridRef.current.querySelectorAll(":scope > div");
         gsap.from(columns, {
-          y: 40,
+          y: 30,
           opacity: 0,
           duration: 0.8,
           stagger: 0.1,
@@ -70,7 +71,7 @@ export function ColophonSection() {
 
   return (
     <section
-      className="relative border-border/30 border-t px-6 py-32 md:px-12"
+      className="relative border-border/30 border-t px-6 py-28 md:px-12 lg:py-36"
       id="colophon"
       ref={sectionRef}
     >
@@ -100,7 +101,7 @@ export function ColophonSection() {
             Real-time sync through CRDTs proven at scale, ensuring consistency
             without central locks. Persistence is local, observability is built
             in, and the system is designed to survive network failure,
-            concurrency, and production load without degrading the user’s mental
+            concurrency, and production load without degrading the user's mental
             model.
           </p>
 
@@ -121,232 +122,134 @@ export function ColophonSection() {
 
             <div>
               <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
+                Runtime
+              </h4>
+              <ul className="space-y-1">
+                <li className="font-mono text-foreground/80 text-xs">
+                  Local-First CRDT
+                </li>
+                <li className="font-mono text-foreground/80 text-xs">
+                  WebGL 2D Canvas
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
                 Year
               </h4>
               <ul className="space-y-1">
-                <li className="font-mono text-foreground/80 text-xs">2025</li>
+                <li className="font-mono text-foreground/80 text-xs">2026</li>
                 <li className="font-mono text-foreground/80 text-xs">
-                  Ongoing
+                  Continuous
                 </li>
               </ul>
             </div>
           </div>
         </div>
 
-        <div className="lg:w-3/5" id="pricing">
+        <div className="lg:w-3/5">
           <h4 className="mb-6 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-            Pricing
+            Technical Principles
           </h4>
-          <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
-              {/* Subtle SVG decoration */}
-              <div className="absolute -top-4 -right-4 opacity-12">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="100"
-                  viewBox="0 0 100 100"
-                  width="100"
-                >
-                  <path
-                    d="M50 10 L80 40 L50 70 L20 40 Z"
-                    fill="currentColor"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M60 30 L85 55 L60 80 L35 55 Z"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    fill="currentColor"
-                    opacity="0.1"
-                    r="15"
-                  />
-                </svg>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/40 p-6 shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Database className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-mono text-[9px] text-emerald-400 uppercase tracking-wider">
+                    01 / Storage
+                  </span>
+                  <h5 className="font-semibold text-foreground text-sm">
+                    Local-First SQLite & IndexedDB
+                  </h5>
+                </div>
               </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Offline
-              </p>
-              <p className="mt-2 font-bold text-2xl text-foreground">Free</p>
-              <p className="font-mono text-[10px] text-muted-foreground">
-                permanently
-              </p>
-              <p className="mt-3 text-[10px] text-foreground/60 leading-relaxed">
-                1 workspace
-                <br />
-                Shareable
+              <p className="mt-3 text-[11px] text-foreground/70 leading-relaxed">
+                Your data lives on your device first. Reads and writes complete
+                in 0.2ms with zero dependency on internet connectivity.
               </p>
             </div>
 
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-primary/30 bg-primary/5 p-5 backdrop-blur-sm">
-              {/* Subtle SVG decoration */}
-              <div className="absolute -right-5 -bottom-5 opacity-10">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="120"
-                  viewBox="0 0 120 120"
-                  width="120"
-                >
-                  <rect
-                    fill="currentColor"
-                    height="60"
-                    opacity="0.2"
-                    rx="8"
-                    width="60"
-                    x="30"
-                    y="30"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="30"
-                    opacity="0.15"
-                    rx="4"
-                    width="30"
-                    x="45"
-                    y="45"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    fill="currentColor"
-                    opacity="0.1"
-                    r="12"
-                  />
-                  <path
-                    d="M20 20 L40 20 L30 40 Z"
-                    fill="currentColor"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M80 80 L100 80 L90 100 Z"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                </svg>
+            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/40 p-6 shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
+                  <Zap className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-mono text-[9px] text-purple-400 uppercase tracking-wider">
+                    02 / Replication
+                  </span>
+                  <h5 className="font-semibold text-foreground text-sm">
+                    Yjs CRDT Synchronization
+                  </h5>
+                </div>
               </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Individual
-              </p>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-muted-foreground text-sm line-through">
-                  $12
-                </span>
-                <span className="font-bold text-2xl text-foreground">$8</span>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  /mo
-                </span>
-              </div>
-              <p className="mt-3 text-[10px] text-foreground/60 leading-relaxed">
-                Unlimited workspaces
-                <br />
-                All shareable
+              <p className="mt-3 text-[11px] text-foreground/70 leading-relaxed">
+                Mathematical conflict-free state resolution ensures multiple
+                teammates can edit simultaneously without data loss.
               </p>
             </div>
 
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
-              <div className="absolute top-0 right-0 rounded-bl-lg bg-primary/80 px-2 py-0.5">
-                <span className="font-mono text-[8px] text-primary-foreground uppercase">
-                  Limited
-                </span>
+            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/40 p-6 shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                  <Share2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-mono text-[9px] text-blue-400 uppercase tracking-wider">
+                    03 / Presence
+                  </span>
+                  <h5 className="font-semibold text-foreground text-sm">
+                    Phoenix Ephemeral Broadcast
+                  </h5>
+                </div>
               </div>
-              {/* Subtle SVG decoration */}
-              <div className="absolute top-1/4 -right-6 opacity-8">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="140"
-                  viewBox="0 0 140 140"
-                  width="140"
-                >
-                  <polygon
-                    fill="currentColor"
-                    opacity="0.18"
-                    points="70,20 110,50 90,90 50,90 30,50"
-                  />
-                  <polygon
-                    fill="currentColor"
-                    opacity="0.12"
-                    points="80,40 100,60 90,80 70,80 60,60"
-                  />
-                  <circle
-                    cx="80"
-                    cy="60"
-                    fill="currentColor"
-                    opacity="0.08"
-                    r="18"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="20"
-                    opacity="0.2"
-                    rx="3"
-                    width="20"
-                    x="25"
-                    y="25"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="15"
-                    opacity="0.15"
-                    rx="2"
-                    width="15"
-                    x="95"
-                    y="95"
-                  />
-                </svg>
-              </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Permanent
+              <p className="mt-3 text-[11px] text-foreground/70 leading-relaxed">
+                High-throughput channels for live cursor interpolation, drag
+                ghosting, and in-situ threaded discussions on canvas.
               </p>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-muted-foreground text-sm line-through">
-                  $320
-                </span>
-                <span className="font-bold text-2xl text-foreground">$220</span>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/40 p-6 shadow-[inset_0_1px_3px_rgba(255,255,255,0.08)] backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+                  <Network className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-mono text-[9px] text-amber-400 uppercase tracking-wider">
+                    04 / Architecture
+                  </span>
+                  <h5 className="font-semibold text-foreground text-sm">
+                    Spatial Graph Navigation
+                  </h5>
+                </div>
               </div>
-              <p className="font-mono text-[10px] text-muted-foreground">
-                one-time
-              </p>
-              <p className="mt-2 text-[10px] text-foreground/60 leading-relaxed">
-                Lifetime access
+              <p className="mt-3 text-[11px] text-foreground/70 leading-relaxed">
+                Draw Bezier relationship connectors between boards to track
+                upstream dependencies and map non-linear workflows.
               </p>
             </div>
           </div>
 
           <div className="mt-8">
             <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-              How it Works
+              Built For High-Velocity Teams
             </h4>
             <p className="text-foreground/70 text-sm leading-relaxed">
-              Zoom, pan, and place boards anywhere on an infinite canvas with no
-              limits. Watch teammates' cursors move in real-time as you
-              collaborate. Work offline seamlessly — your changes sync
-              automatically when you reconnect. Drop comment clusters anywhere
-              for contextual discussions, and connect related boards with visual
-              links to see the big picture at a glance.
-            </p>
-          </div>
-
-          <div className="mt-6">
-            <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-              Built For
-            </h4>
-            <p className="text-foreground/70 text-sm leading-relaxed">
-              Visual thinkers who sketch ideas before typing them. Remote teams
-              who want to collaborate as if they're in the same room. Complex
-              projects with multiple interconnected boards. Privacy-conscious
-              users who want data to stay local until they choose to sync.
+              Designed for visual thinkers, software architects, and product
+              engineers who need to see how entire systems connect. Zoom, pan,
+              and shape workflows with zero friction.
             </p>
           </div>
         </div>
       </div>
 
       <div
-        className="mt-24 flex flex-col gap-4 border-border/20 border-t pt-8 md:flex-row md:items-center md:justify-between"
+        className="mt-20 flex flex-col gap-4 border-border/20 border-t pt-8 md:flex-row md:items-center md:justify-between"
         ref={footerRef}
       >
         <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">

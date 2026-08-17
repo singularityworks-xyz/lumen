@@ -1,10 +1,12 @@
-/** biome-ignore-all lint/a11y/useButtonType: It's a VITE project */
-/** biome-ignore-all lint/a11y/useValidAnchor: SOON */
+"use client";
 
 import { useState } from "react";
 import { Logo } from "./components/logo";
 import { VideoModal } from "./components/video-modal";
+import { ArchitectureConceptsSection } from "./sections/architecture-concepts";
 import { ColophonSection } from "./sections/colophon";
+import { ConnectedCardsSection } from "./sections/connected-cards";
+import { KanbanShowcase } from "./sections/kanban-showcase";
 import { MinimalHero } from "./sections/minimal-hero";
 
 export default function App() {
@@ -20,6 +22,21 @@ export default function App() {
     setIsVideoModalOpen(true);
   };
 
+  const navItems = [
+    {
+      label: "Demo",
+      onClick: handleWatchDemo,
+      isButton: true,
+    },
+    { label: "Kanban", href: "#canvas" },
+    { label: "Connectors", href: "#connectors" },
+    { label: "Architecture", href: "#architecture" },
+    {
+      label: "Github",
+      href: "https://github.com/singularityworks-xyz/lumen",
+    },
+  ];
+
   return (
     <main className="relative min-h-screen">
       <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-background text-zinc-300 selection:bg-white selection:text-neutral-900">
@@ -33,21 +50,10 @@ export default function App() {
                 <div className="relative flex items-center gap-1 rounded-2xl border border-border/30 bg-linear-to-br from-background via-background to-muted p-1 shadow-[inset_0_1px_10px_rgba(255,255,255,0.08),inset_0_-1px_10px_rgba(0,0,0,0.3)]">
                   <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-primary/5 via-transparent to-primary/10 opacity-40" />
                   <div className="relative z-10 flex items-center gap-1">
-                    {[
-                      {
-                        label: "Demo",
-                        onClick: handleWatchDemo,
-                        isButton: true,
-                      },
-                      { label: "Pricing", href: "#pricing" },
-                      {
-                        label: "Github",
-                        href: "https://github.com/singularityworks-xyz/lumen",
-                      },
-                    ].map((item) =>
+                    {navItems.map((item) =>
                       item.isButton ? (
                         <button
-                          className="rounded-lg px-4 py-2 text-muted-foreground text-sm transition-all hover:text-foreground hover:underline"
+                          className="cursor-pointer rounded-lg px-3.5 py-1.5 text-muted-foreground text-xs transition-all hover:text-foreground"
                           key={item.label}
                           onClick={item.onClick}
                           type="button"
@@ -56,7 +62,7 @@ export default function App() {
                         </button>
                       ) : (
                         <a
-                          className="rounded-lg px-4 py-2 text-muted-foreground text-sm transition-all hover:text-foreground hover:underline"
+                          className="cursor-pointer rounded-lg px-3.5 py-1.5 text-muted-foreground text-xs transition-all hover:text-foreground"
                           href={item.href}
                           key={item.label}
                         >
@@ -68,22 +74,11 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="absolute top-1/2 right-4 flex -translate-y-1/2 items-center gap-6 md:hidden">
-                {[
-                  {
-                    label: "Demo",
-                    onClick: handleWatchDemo,
-                    isButton: true,
-                  },
-                  { label: "Pricing", href: "#pricing" },
-                  {
-                    label: "Github",
-                    href: "https://github.com/singularityworks-xyz/lumen",
-                  },
-                ].map((item) =>
+              <div className="absolute top-1/2 right-4 flex -translate-y-1/2 items-center gap-4 md:hidden">
+                {navItems.map((item) =>
                   item.isButton ? (
                     <button
-                      className="text-muted-foreground text-sm transition-all hover:text-foreground hover:underline"
+                      className="cursor-pointer text-muted-foreground text-xs transition-all hover:text-foreground"
                       key={item.label}
                       onClick={item.onClick}
                       type="button"
@@ -92,7 +87,7 @@ export default function App() {
                     </button>
                   ) : (
                     <a
-                      className="text-muted-foreground text-sm transition-all hover:text-foreground hover:underline"
+                      className="cursor-pointer text-muted-foreground text-xs transition-all hover:text-foreground"
                       href={item.href}
                       key={item.label}
                     >
@@ -114,6 +109,9 @@ export default function App() {
         <div className="relative z-10">
           <div aria-hidden="true" className="noise-overlay" />
           <MinimalHero onWatchDemo={handleWatchDemo} />
+          <KanbanShowcase />
+          <ConnectedCardsSection />
+          <ArchitectureConceptsSection />
           <ColophonSection />
         </div>
       </div>

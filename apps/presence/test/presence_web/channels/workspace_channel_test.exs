@@ -433,12 +433,4 @@ defmodule PresenceWeb.WorkspaceChannelTest do
       {:noreply, _} = WorkspaceChannel.handle_in("activity_ping", %{}, idle_socket)
     end
   end
-
-  describe "Redis broadcast error handling" do
-    @tag skip: "Redis is now mandatory - application will fail to start without it"
-    test "handles Redis broadcast errors gracefully" do
-      # This test is no longer relevant since Redis is mandatory
-      # The application will fail to start if Redis is not configured
-    end
-  end
 end

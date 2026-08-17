@@ -282,6 +282,8 @@ jobs:
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    env:
+      REDIS_URL: redis://127.0.0.1:16379
     services:
       postgres:
         image: postgres:18-alpine
@@ -336,6 +338,8 @@ jobs:
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
+    env:
+      REDIS_URL: redis://127.0.0.1:16379
     services:
       postgres:
         image: postgres:18-alpine

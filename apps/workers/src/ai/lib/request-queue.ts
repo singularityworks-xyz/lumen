@@ -95,7 +95,6 @@ try {
     redisReady = false;
     logger.error("Redis rate limiter error", {
       error: error instanceof Error ? error.message : "Unknown",
-      url: REDIS_URL,
     });
   });
 
@@ -103,7 +102,6 @@ try {
     redisReady = true;
     logger.info("Redis rate limiter ready", {
       rateLimit: RATE_LIMIT_PER_MINUTE,
-      url: REDIS_URL,
       windowSize: "60s",
     });
   });
@@ -115,7 +113,6 @@ try {
       redisReady = true;
       logger.info("Redis rate limiter initialized", {
         rateLimit: RATE_LIMIT_PER_MINUTE,
-        url: REDIS_URL,
         windowSize: "60s",
       });
     })
@@ -124,14 +121,12 @@ try {
       redisReady = false;
       logger.error("Failed to connect to Redis", {
         error: error instanceof Error ? error.message : "Unknown",
-        url: REDIS_URL,
       });
       throw new Error("Redis connection failed");
     });
 } catch (error) {
   logger.error("Failed to initialize Redis client", {
     error: error instanceof Error ? error.message : "Unknown",
-    url: REDIS_URL,
   });
   throw new Error("Redis initialization failed");
 }
@@ -226,7 +221,7 @@ class RateLimitedQueue {
       activeRequests: this.activeRequests,
       isProcessing: this.processing,
       remaining: lastKnownRemaining,
-      usingRedis: true,
+      usingRedis: isRedisEnabled(),
     };
   }
 
@@ -347,11 +342,27 @@ class RateLimitedQueue {
 
     try {
       while (this.queue.length > 0) {
-        await this.waitForSlot();
-
         const request = this.queue.shift();
         if (!request) {
           continue;
+        }
+
+        try {
+          await this.waitForSlot();
+        } catch (error) {
+          // Reject current request and all remaining on rate limit failure
+          const queueError =
+            error instanceof Error
+              ? error
+              : new Error("Unknown rate limit error");
+          request.reject(queueError);
+          while (this.queue.length > 0) {
+            const remainingRequest = this.queue.shift();
+            if (remainingRequest) {
+              remainingRequest.reject(queueError);
+            }
+          }
+          return;
         }
 
         const waitTime = Date.now() - request.addedAt;
