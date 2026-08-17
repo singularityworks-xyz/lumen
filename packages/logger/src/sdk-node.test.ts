@@ -57,7 +57,8 @@ mock.module("./env", () => ({
     return {
       NODE_ENV: otelEnvironment,
       OTEL_EXPORTER_OTLP_ENDPOINT: otelEndpoint,
-      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+      OPENOBSERVE_USER: "testuser",
+      OPENOBSERVE_PASSWORD: "testpass",
       OPENOBSERVE_ORG: "default",
       OPENOBSERVE_LOG_STREAM: "lumen_logs",
       OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
@@ -77,7 +78,11 @@ mock.module("./config", () => ({
       logStream: "lumen_logs",
       metricStream: "lumen_metrics",
       traceStream: "lumen_traces",
-      headers: { Authorization: "Bearer test" },
+      headers: {
+        Authorization: `Basic ${Buffer.from("testuser:testpass").toString(
+          "base64"
+        )}`,
+      },
       serviceName,
       environment: otelEnvironment,
     };

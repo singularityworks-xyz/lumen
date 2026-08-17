@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 const envState: Record<string, unknown> = {
   NODE_ENV: "test",
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:5080",
-  OTEL_EXPORTER_OTLP_HEADERS:
-    "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue",
   OPENOBSERVE_ORG: "default",
   OPENOBSERVE_LOG_STREAM: "lumen_logs",
   OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
@@ -49,8 +47,8 @@ describe("getOtelConfig", () => {
     originalWindow = globalThis.window;
     envState.NODE_ENV = "test";
     envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:5080";
-    envState.OTEL_EXPORTER_OTLP_HEADERS =
-      "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue";
+    envState.OPENOBSERVE_USER = undefined;
+    envState.OPENOBSERVE_PASSWORD = undefined;
     envState.OPENOBSERVE_ORG = "default";
     envState.OPENOBSERVE_LOG_STREAM = "lumen_logs";
     envState.OPENOBSERVE_METRIC_STREAM = "lumen_metrics";
@@ -148,83 +146,41 @@ describe("getOtelConfig", () => {
     });
   });
 
-  describe("OTEL header parsing", () => {
+  describe("OpenObserve Basic auth headers", () => {
     beforeEach(() => {
       // @ts-expect-error
       globalThis.window = undefined;
+      envState.OPENOBSERVE_USER = undefined;
+      envState.OPENOBSERVE_PASSWORD = undefined;
     });
 
-    it("decodes URL-encoded values and ignores malformed pairs", () => {
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({
-        Authorization: "Bearer Token123",
-        ValidKey: "ValidValue",
-      });
-    });
-
-    it("returns empty headers when OTEL_EXPORTER_OTLP_HEADERS is undefined", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = undefined;
+    it("builds Basic auth from OPENOBSERVE_USER and OPENOBSERVE_PASSWORD", () => {
+      envState.OPENOBSERVE_USER = "testuser";
+      envState.OPENOBSERVE_PASSWORD = "testpass";
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({});
+      expect(config.headers.Authorization).toBe(
+        `Basic ${Buffer.from("testuser:testpass").toString("base64")}`
+      );
     });
 
-    it("returns empty headers when OTEL_EXPORTER_OTLP_HEADERS is empty string", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "";
+    it("does not add an Authorization header when credentials are missing", () => {
+      envState.OPENOBSERVE_USER = undefined;
+      envState.OPENOBSERVE_PASSWORD = undefined;
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({});
+      expect(config.headers.Authorization).toBeUndefined();
     });
 
-    it("ignores pairs without equals sign", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "NoEquals,Key=Value";
+    it("does not add an Authorization header when only one credential is set", () => {
+      envState.OPENOBSERVE_USER = "testuser";
+      envState.OPENOBSERVE_PASSWORD = undefined;
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({ Key: "Value" });
-    });
-
-    it("ignores pairs where equals is at position 0", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "=ValueAtStart,Key=Value";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key: "Value" });
-    });
-
-    it("handles key=value where value contains equals sign", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "Token=abc=def";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Token: "abc=def" });
-    });
-
-    it("decodes percent-encoded values", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "Key=hello%20world";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key: "hello world" });
-    });
-
-    it("trims whitespace around keys and values", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = " Key1 = Value1 , Key2 = Value2 ";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key1: "Value1", Key2: "Value2" });
-    });
-
-    it("handles multiple comma-separated headers", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "A=1,B=2,C=3";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ A: "1", B: "2", C: "3" });
+      expect(config.headers.Authorization).toBeUndefined();
     });
   });
 

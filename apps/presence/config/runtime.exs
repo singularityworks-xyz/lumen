@@ -7,23 +7,6 @@ if config_env() in [:dev, :test] do
   Dotenvy.source([".env.#{env_suffix}", System.get_env()], side_effect: &System.put_env/1)
 end
 
-# Parse OTEL headers from comma-separated key=value format
-parse_otel_headers = fn headers_str ->
-  if headers_str == "" do
-    []
-  else
-    headers_str
-    |> String.split(",")
-    |> Enum.map(fn part ->
-      case String.split(part, "=", parts: 2) do
-        [key, value] -> {String.trim(key), URI.decode(String.trim(value))}
-        _ -> nil
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
-  end
-end
-
 parse_boolean_env = fn name, default ->
   case System.get_env(name, default) do
     value when value in ["1", "true", "TRUE"] -> true
@@ -71,7 +54,18 @@ otel_org = System.get_env("OPENOBSERVE_ORG", "default")
 otel_metric_stream = System.get_env("OPENOBSERVE_METRIC_STREAM", "lumen_presence_metrics")
 otel_trace_stream = System.get_env("OPENOBSERVE_TRACE_STREAM", "lumen_presence_traces")
 otel_api_base = otel_endpoint <> "/api/" <> otel_org
-otel_headers = parse_otel_headers.(System.get_env("OTEL_EXPORTER_OTLP_HEADERS", ""))
+
+# OpenObserve auth: Basic auth is derived from OPENOBSERVE_USER/PASSWORD.
+otel_user = System.get_env("OPENOBSERVE_USER")
+otel_password = System.get_env("OPENOBSERVE_PASSWORD")
+
+otel_headers =
+  if is_binary(otel_user) and otel_user != "" and is_binary(otel_password) and
+       otel_password != "" do
+    [{"Authorization", "Basic " <> Base.encode64(otel_user <> ":" <> otel_password)}]
+  else
+    []
+  end
 
 if config_env() != :test do
   config :presence, env: config_env()

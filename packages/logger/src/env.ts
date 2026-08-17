@@ -9,7 +9,9 @@ export const env = createEnv({
     // OpenTelemetry is mandatory: no OTEL_ENABLED opt-out. Exporting is only
     // skipped when no OTLP endpoint is configured.
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    // OpenObserve auth: Basic auth is derived from user + password
+    OPENOBSERVE_USER: z.string().optional(),
+    OPENOBSERVE_PASSWORD: z.string().optional(),
     // OpenObserve routing: org + per-signal stream names, so multiple apps can
     // share one OpenObserve instance without mixing telemetry.
     OPENOBSERVE_ORG: z.string().default("default"),
@@ -20,7 +22,8 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+    OPENOBSERVE_USER: process.env.OPENOBSERVE_USER,
+    OPENOBSERVE_PASSWORD: process.env.OPENOBSERVE_PASSWORD,
     OPENOBSERVE_ORG: process.env.OPENOBSERVE_ORG,
     OPENOBSERVE_LOG_STREAM: process.env.OPENOBSERVE_LOG_STREAM,
     OPENOBSERVE_METRIC_STREAM: process.env.OPENOBSERVE_METRIC_STREAM,

@@ -18,24 +18,26 @@ function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
-function parseHeaders(headersStr: string | undefined): Record<string, string> {
-  if (!headersStr) {
+function base64Encode(value: string): string {
+  // Node.js runtime (the only place this code path runs)
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(value).toString("base64");
+  }
+  // Browser fallback keeps bundlers happy; never executed in practice.
+  return btoa(value);
+}
+
+// OpenObserve's OTLP endpoints require Basic auth; derive it from
+// OPENOBSERVE_USER / OPENOBSERVE_PASSWORD like the other apps using
+// OpenObserve directly.
+function buildBasicAuthHeader(
+  user: string | undefined,
+  password: string | undefined
+): Record<string, string> {
+  if (!(user && password)) {
     return {};
   }
-
-  const headers: Record<string, string> = {};
-  const parts = headersStr.split(",");
-
-  for (const part of parts) {
-    const eqIndex = part.indexOf("=");
-    if (eqIndex > 0) {
-      const key = part.slice(0, eqIndex).trim();
-      const value = part.slice(eqIndex + 1).trim();
-      headers[key] = decodeURIComponent(value);
-    }
-  }
-
-  return headers;
+  return { Authorization: `Basic ${base64Encode(`${user}:${password}`)}` };
 }
 
 export function getOtelConfig(defaultServiceName: string): OtelConfig {
@@ -55,7 +57,11 @@ export function getOtelConfig(defaultServiceName: string): OtelConfig {
 
   const environment = env.NODE_ENV;
   const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT || "";
-  const headers = parseHeaders(env.OTEL_EXPORTER_OTLP_HEADERS);
+  // Basic auth derived from OPENOBSERVE_USER/PASSWORD
+  const headers = buildBasicAuthHeader(
+    env.OPENOBSERVE_USER,
+    env.OPENOBSERVE_PASSWORD
+  );
   const serviceName = defaultServiceName;
 
   return {

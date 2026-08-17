@@ -1,4 +1,4 @@
-const WEB_VERSION = "1.1.14";
+const WEB_VERSION = "1.1.15";
 
 export async function register() {
   // Only initialize OTEL on the Node.js runtime (not Edge)
@@ -15,7 +15,10 @@ export async function register() {
       logger.info("[instrumentation] OpenTelemetry initialized:", {
         initialized,
         endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ? "set" : "not set",
-        headers: process.env.OTEL_EXPORTER_OTLP_HEADERS ? "set" : "not set",
+        auth:
+          process.env.OPENOBSERVE_USER && process.env.OPENOBSERVE_PASSWORD
+            ? "basic-auth set"
+            : "not set",
         org: process.env.OPENOBSERVE_ORG ?? "default",
         logStream: process.env.OPENOBSERVE_LOG_STREAM ?? "lumen_web_logs",
         metricStream:

@@ -15,7 +15,9 @@ export const env = createEnv({
     BETTER_AUTH_TELEMETRY: z.string().default("0"),
     // OTEL - mandatory, no opt-out flag
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    // OpenObserve auth: Basic auth derived from user + password
+    OPENOBSERVE_USER: z.string().optional(),
+    OPENOBSERVE_PASSWORD: z.string().optional(),
     // OpenObserve routing: org + per-signal stream names
     OPENOBSERVE_ORG: z.string().default("default"),
     OPENOBSERVE_LOG_STREAM: z.string().default("lumen_web_logs"),
@@ -33,7 +35,8 @@ export const env = createEnv({
     TURBO_TELEMETRY_DISABLED: process.env.TURBO_TELEMETRY_DISABLED ?? "1",
     BETTER_AUTH_TELEMETRY: process.env.BETTER_AUTH_TELEMETRY ?? "0",
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+    OPENOBSERVE_USER: process.env.OPENOBSERVE_USER,
+    OPENOBSERVE_PASSWORD: process.env.OPENOBSERVE_PASSWORD,
     OPENOBSERVE_ORG: process.env.OPENOBSERVE_ORG,
     OPENOBSERVE_LOG_STREAM: process.env.OPENOBSERVE_LOG_STREAM,
     OPENOBSERVE_METRIC_STREAM: process.env.OPENOBSERVE_METRIC_STREAM,

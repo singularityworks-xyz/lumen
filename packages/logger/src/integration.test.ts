@@ -130,7 +130,8 @@ const envMock = {
   get OTEL_EXPORTER_OTLP_ENDPOINT() {
     return _otelEndpoint;
   },
-  OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+  OPENOBSERVE_USER: "testuser",
+  OPENOBSERVE_PASSWORD: "testpass",
   OPENOBSERVE_ORG: "default",
   OPENOBSERVE_LOG_STREAM: "lumen_logs",
   OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
@@ -168,22 +169,14 @@ mock.module("./config", () => ({
       logStream: currentEnv.OPENOBSERVE_LOG_STREAM,
       metricStream: currentEnv.OPENOBSERVE_METRIC_STREAM,
       traceStream: currentEnv.OPENOBSERVE_TRACE_STREAM,
-      headers: (() => {
-        const headersStr = currentEnv.OTEL_EXPORTER_OTLP_HEADERS;
-        if (!headersStr) {
-          return {};
-        }
-        const headers: Record<string, string> = {};
-        for (const part of headersStr.split(",")) {
-          const eqIndex = part.indexOf("=");
-          if (eqIndex > 0) {
-            const key = part.slice(0, eqIndex).trim();
-            const value = part.slice(eqIndex + 1).trim();
-            headers[key] = decodeURIComponent(value);
-          }
-        }
-        return headers;
-      })(),
+      headers: (() =>
+        currentEnv.OPENOBSERVE_USER && currentEnv.OPENOBSERVE_PASSWORD
+          ? {
+              Authorization: `Basic ${Buffer.from(
+                `${currentEnv.OPENOBSERVE_USER}:${currentEnv.OPENOBSERVE_PASSWORD}`
+              ).toString("base64")}`,
+            }
+          : {})(),
       serviceName,
       environment: currentEnv.NODE_ENV,
     };
@@ -225,7 +218,9 @@ describe("logger integration", () => {
       const config = getOtelConfig("integration-test");
       expect(config.enabled).toBe(true);
       expect(config.serviceName).toBe("integration-test");
-      expect(config.headers.Authorization).toBe("Bearer test");
+      expect(config.headers.Authorization).toBe(
+        `Basic ${Buffer.from("testuser:testpass").toString("base64")}`
+      );
       expect(config.endpoint).toBe("http://localhost:5080");
       expect(config.org).toBe("default");
       expect(config.traceStream).toBe("lumen_traces");
