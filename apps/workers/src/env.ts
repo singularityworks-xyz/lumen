@@ -16,11 +16,6 @@ export const BETTER_AUTH_TRUSTED_ORIGINS_SCHEMA = z
   .transform((v) => v.split(","))
   .optional();
 
-export const OTEL_ENABLED_SCHEMA = z
-  .string()
-  .transform((v) => v === "true")
-  .default(false);
-
 export const PORT_SCHEMA = z.coerce.number().default(3002);
 
 export const NODE_ENV_SCHEMA = z
@@ -47,14 +42,18 @@ export const env = createEnv({
     GITHUB_CLIENT_ID: z.string(),
     GITHUB_CLIENT_SECRET: z.string(),
     LOG_LEVEL: LOG_LEVEL_SCHEMA,
-    OTEL_ENABLED: OTEL_ENABLED_SCHEMA,
+    // OTEL - mandatory, no opt-out flag
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    // OpenObserve routing: org + per-signal stream names
+    OPENOBSERVE_ORG: z.string().default("default"),
+    OPENOBSERVE_LOG_STREAM: z.string().default("lumen_workers_logs"),
+    OPENOBSERVE_METRIC_STREAM: z.string().default("lumen_workers_metrics"),
+    OPENOBSERVE_TRACE_STREAM: z.string().default("lumen_workers_traces"),
     DATABASE_URL: z.url(),
-    REDIS_URL: z.url().optional(),
+    REDIS_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),
     CEREBRAS_API_KEY: z.string().optional(),
-    UPSTASH_REDIS_REST_URL: z.url().optional(),
-    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
     AI_ENCRYPTION_KEY: AI_ENCRYPTION_KEY_SCHEMA,
   },
   runtimeEnv: {
@@ -68,14 +67,16 @@ export const env = createEnv({
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     LOG_LEVEL: process.env.LOG_LEVEL,
-    OTEL_ENABLED: process.env.OTEL_ENABLED,
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+    OPENOBSERVE_ORG: process.env.OPENOBSERVE_ORG,
+    OPENOBSERVE_LOG_STREAM: process.env.OPENOBSERVE_LOG_STREAM,
+    OPENOBSERVE_METRIC_STREAM: process.env.OPENOBSERVE_METRIC_STREAM,
+    OPENOBSERVE_TRACE_STREAM: process.env.OPENOBSERVE_TRACE_STREAM,
     DATABASE_URL: process.env.DATABASE_URL,
     REDIS_URL: process.env.REDIS_URL,
     JWKS_ENCRYPTION_KEY: process.env.JWKS_ENCRYPTION_KEY,
     CEREBRAS_API_KEY: process.env.CEREBRAS_API_KEY,
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     AI_ENCRYPTION_KEY: process.env.AI_ENCRYPTION_KEY,
   },
   onValidationError: (error) => {

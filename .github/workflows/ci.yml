@@ -124,8 +124,10 @@ jobs:
 
   build:
     name: Build
-    needs: [ type-check ]
-    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    needs: [ changes, type-check ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      (needs.changes.outputs.web == 'true' || needs.changes.outputs.workers == 'true' ||
+       needs.changes.outputs.presence == 'true' || needs.changes.outputs.native == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -155,8 +157,9 @@ jobs:
 
   unit-web:
     name: Unit Web
-    needs: [ type-check ]
-    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    needs: [ changes, type-check ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -187,8 +190,9 @@ jobs:
 
   unit-server-and-packages:
     name: Unit Server & Packages
-    needs: [ type-check ]
-    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    needs: [ changes, type-check ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -224,8 +228,15 @@ jobs:
       needs.changes.outputs.presence == 'true'
     runs-on: ubuntu-latest
     env:
-      UPSTASH_REDIS_REST_URL: http://127.0.0.1:5354
-      UPSTASH_REDIS_REST_TOKEN: local-test-token
+      REDIS_URL: redis://127.0.0.1:16379
+    services:
+      redis:
+        image: redis:8.6.2
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -267,8 +278,9 @@ jobs:
 
   integration-web:
     name: Integration Web
-    needs: [ unit-web ]
-    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    needs: [ changes, unit-web ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -281,6 +293,13 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8.6.2
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout
@@ -313,8 +332,9 @@ jobs:
 
   integration-workers:
     name: Integration Workers
-    needs: [ unit-server-and-packages ]
-    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
+    needs: [ changes, unit-server-and-packages ]
+    if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
+      needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -327,6 +347,13 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8.6.2
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout

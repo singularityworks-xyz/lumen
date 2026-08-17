@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: lumen
       POSTGRES_PASSWORD: lumen
     ports:
-      - "5154:5432"
+      - "15432:5432"
     volumes:
       - lumendb-data:/var/lib/postgresql
     healthcheck:
@@ -22,7 +22,7 @@ services:
     container_name: lumencache
     restart: unless-stopped
     ports:
-      - "5354:6379"
+      - "16379:6379"
     volumes:
       - lumencache-data:/data
     healthcheck:
@@ -32,16 +32,16 @@ services:
       retries: 20
 
   openobserve:
-    image: public.ecr.aws/zinclabs/openobserve:latest
+    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.40.27
     container_name: lumen-openobserve
     environment:
       ZO_DATA_DIR: /data
       ZO_ROOT_USER_EMAIL: root@lumen.dev
       ZO_ROOT_USER_PASSWORD: lumen
-      ZO_HTTP_PORT: "5080"
+      ZO_HTTP_PORT: "15080"
     ports:
-      - "5080:5080"
-      - "5081:5081"
+      - "127.0.0.1:15080:15080"
+      - "127.0.0.1:15081:15081"
     volumes:
       - openobserve-data:/data
 

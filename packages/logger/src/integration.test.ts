@@ -124,16 +124,17 @@ mock.module("@opentelemetry/otlp-exporter-base", () => ({
 
 // Track the current state of env mock - use a dynamic getter to allow changes
 // This variable is exported so other test files can control it
-let _otelEnabled = true;
+let _otelEndpoint = "http://localhost:5080";
 const envMock = {
   NODE_ENV: "test",
-  get OTEL_ENABLED() {
-    return _otelEnabled;
-  },
   get OTEL_EXPORTER_OTLP_ENDPOINT() {
-    return _otelEnabled ? "http://localhost:5080/api/default" : "";
+    return _otelEndpoint;
   },
   OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+  OPENOBSERVE_ORG: "default",
+  OPENOBSERVE_LOG_STREAM: "lumen_logs",
+  OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
+  OPENOBSERVE_TRACE_STREAM: "lumen_traces",
 };
 
 mock.module("./env", () => ({
@@ -141,7 +142,7 @@ mock.module("./env", () => ({
     return envMock;
   },
   // Export the control variable for cross-test coordination
-  _otelEnabledControl: _otelEnabled,
+  _otelEndpointControl: _otelEndpoint,
 }));
 
 mock.module("./config", () => ({
@@ -150,6 +151,10 @@ mock.module("./config", () => ({
       return {
         enabled: false,
         endpoint: "",
+        org: "default",
+        logStream: "",
+        metricStream: "",
+        traceStream: "",
         headers: {},
         serviceName,
         environment: "browser",
@@ -157,9 +162,12 @@ mock.module("./config", () => ({
     }
     const currentEnv = envMock;
     return {
-      enabled:
-        currentEnv.OTEL_ENABLED && !!currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+      enabled: !!currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
       endpoint: currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "",
+      org: currentEnv.OPENOBSERVE_ORG,
+      logStream: currentEnv.OPENOBSERVE_LOG_STREAM,
+      metricStream: currentEnv.OPENOBSERVE_METRIC_STREAM,
+      traceStream: currentEnv.OPENOBSERVE_TRACE_STREAM,
       headers: (() => {
         const headersStr = currentEnv.OTEL_EXPORTER_OTLP_HEADERS;
         if (!headersStr) {
@@ -180,6 +188,10 @@ mock.module("./config", () => ({
       environment: currentEnv.NODE_ENV,
     };
   },
+  getOtlpSignalEndpoint: (
+    config: { endpoint: string; org: string },
+    signal: string
+  ) => `${config.endpoint}/api/${config.org}/v1/${signal}`,
 }));
 
 import { createChildLogger, createLogger, getOtelConfig } from "./index";
@@ -214,7 +226,9 @@ describe("logger integration", () => {
       expect(config.enabled).toBe(true);
       expect(config.serviceName).toBe("integration-test");
       expect(config.headers.Authorization).toBe("Bearer test");
-      expect(config.endpoint).toBe("http://localhost:5080/api/default");
+      expect(config.endpoint).toBe("http://localhost:5080");
+      expect(config.org).toBe("default");
+      expect(config.traceStream).toBe("lumen_traces");
     });
 
     it("logger creates and logs with correct config-derived environment", () => {
@@ -224,15 +238,15 @@ describe("logger integration", () => {
       expect(call).toContain('"env":"test"');
     });
 
-    it("disabled OTEL config is consistent with logger behavior", () => {
-      _otelEnabled = false;
+    it("config without endpoint is consistent with logger behavior", () => {
+      _otelEndpoint = "";
       const config = getOtelConfig("svc");
       expect(config.enabled).toBe(false);
-      // Logger still works even when OTEL is disabled
+      // Logger still works even when no endpoint is configured
       const l = createLogger({ level: "info", pretty: false });
       l.info("works without otel");
       expect(consoleLogMock).toHaveBeenCalled();
-      _otelEnabled = true; // restore
+      _otelEndpoint = "http://localhost:5080"; // restore
     });
   });
 

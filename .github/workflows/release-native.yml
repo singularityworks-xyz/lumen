@@ -152,5 +152,4 @@ jobs:
             - **Linux:** `.AppImage`
           releaseDraft: false
           prerelease: false
-          includeDebug: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true

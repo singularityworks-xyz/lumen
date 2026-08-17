@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   cacheComponents: !isTauriBuild,
   typedRoutes: false,
+  // Type checking is handled by the dedicated `check-types` step (tsc --noEmit),
+  // which uses the repo-wide TypeScript 7 native compiler. Next's built-in
+  // type-check does not recognize the native compiler, so skip it here.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   turbopack: {
     root: turbopackRoot,
   },

@@ -175,35 +175,24 @@ defmodule Presence.Integration.PresenceFlowTest do
       workspace_id: workspace_id
     } do
       # Configure Redis for test
-      orig_url = Application.get_env(:presence, :upstash_redis_rest_url)
-      orig_token = Application.get_env(:presence, :upstash_redis_rest_token)
+      orig_url = Application.get_env(:presence, :redis_url)
 
       on_exit(fn ->
         if orig_url do
-          Application.put_env(:presence, :upstash_redis_rest_url, orig_url)
+          Application.put_env(:presence, :redis_url, orig_url)
         else
-          Application.delete_env(:presence, :upstash_redis_rest_url)
-        end
-
-        if orig_token do
-          Application.put_env(:presence, :upstash_redis_rest_token, orig_token)
-        else
-          Application.delete_env(:presence, :upstash_redis_rest_token)
+          Application.delete_env(:presence, :redis_url)
         end
       end)
 
-      # Set test Redis configuration
-      Application.put_env(
-        :presence,
-        :upstash_redis_rest_url,
-        "https://test-redis.upstash.io"
-      )
-
-      Application.put_env(
-        :presence,
-        :upstash_redis_rest_token,
-        "test-token-123"
-      )
+      # Set test Redis configuration (if not already set)
+      unless orig_url do
+        Application.put_env(
+          :presence,
+          :redis_url,
+          "redis://localhost:16379"
+        )
+      end
 
       socket = socket_in_workspace(workspace_id, %{id: user_id, name: "Redis User"})
 
@@ -230,33 +219,13 @@ defmodule Presence.Integration.PresenceFlowTest do
       assert result == :ok
     end
 
+    @tag skip: "Redis is now mandatory - application will fail to start without it"
     test "lifecycle works when Redis is not configured", %{
       user_id: user_id,
       workspace_id: workspace_id
     } do
-      # Ensure Redis is NOT configured
-      Application.delete_env(:presence, :upstash_redis_rest_url)
-      Application.delete_env(:presence, :upstash_redis_rest_token)
-      System.delete_env("UPSTASH_REDIS_REST_URL")
-      System.delete_env("UPSTASH_REDIS_REST_TOKEN")
-
-      socket = socket_in_workspace(workspace_id, %{id: user_id, name: "No Redis User"})
-
-      # Join should still work (Redis is optional)
-      {:ok, joined_socket} =
-        WorkspaceChannel.join("workspace:#{workspace_id}", %{}, socket)
-
-      assert joined_socket.assigns.status == "online"
-
-      # Status updates should still work
-      {:noreply, idle_socket} =
-        WorkspaceChannel.handle_in("status_update", %{"status" => "idle"}, joined_socket)
-
-      assert idle_socket.assigns.status == "idle"
-
-      # Leave should still work
-      result = WorkspaceChannel.terminate(:normal, idle_socket)
-      assert result == :ok
+      # This test is no longer relevant since Redis is mandatory
+      # The application will fail to start if Redis is not configured
     end
 
     test "presence state is maintained throughout lifecycle", %{

@@ -28,7 +28,7 @@ import {
   ParentBasedSampler,
   TraceIdRatioBasedSampler,
 } from "@opentelemetry/sdk-trace-node";
-import { getOtelConfig } from "./config";
+import { getOtelConfig, getOtlpSignalEndpoint } from "./config";
 
 let tracerProvider: NodeTracerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
@@ -56,7 +56,7 @@ export function initOtel(
 
   if (!config.enabled) {
     diag.info(
-      `[OTEL] Disabled (endpoint: ${config.endpoint || "not set"}, enabled: ${config.enabled})`
+      "[OTEL] Skipping initialization (no OTEL_EXPORTER_OTLP_ENDPOINT configured)"
     );
     return false;
   }
@@ -75,8 +75,8 @@ export function initOtel(
 
   // Trace Provider
   const traceExporter = new OTLPTraceExporter({
-    url: `${config.endpoint}/v1/traces`,
-    headers: config.headers,
+    url: getOtlpSignalEndpoint(config, "traces"),
+    headers: { ...config.headers, "stream-name": config.traceStream },
   });
 
   // Wrap exporter to suppress connection errors in development
@@ -107,8 +107,8 @@ export function initOtel(
 
   // Metric Provider
   const metricExporter = new OTLPMetricExporter({
-    url: `${config.endpoint}/v1/metrics`,
-    headers: config.headers,
+    url: getOtlpSignalEndpoint(config, "metrics"),
+    headers: { ...config.headers, "stream-name": config.metricStream },
   });
   meterProvider = new MeterProvider({
     resource,
@@ -123,8 +123,8 @@ export function initOtel(
 
   // Log Provider
   const logExporter = new OTLPLogExporter({
-    url: `${config.endpoint}/v1/logs`,
-    headers: config.headers,
+    url: getOtlpSignalEndpoint(config, "logs"),
+    headers: { ...config.headers, "stream-name": config.logStream },
   });
   loggerProvider = new LoggerProvider({
     resource,
@@ -163,7 +163,7 @@ export function initOtel(
 
   initialized = true;
   diag.info(
-    `[OTEL] Initialized for ${config.serviceName} → ${config.endpoint}`
+    `[OTEL] Initialized for ${config.serviceName} → org=${config.org} streams=(logs:${config.logStream}, metrics:${config.metricStream}, traces:${config.traceStream})`
   );
 
   return true;

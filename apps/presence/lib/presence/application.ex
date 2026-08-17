@@ -10,7 +10,8 @@ defmodule Presence.Application do
   def start(_type, _args) do
     Presence.Token.init_cache()
 
-    # Initialize OpenTelemetry instrumentation only when explicitly enabled.
+    # OpenTelemetry is mandatory; setup is skipped only when the exporter is
+    # not configured (i.e. in the :test environment).
     if otel_enabled?() do
       setup_opentelemetry()
     end
@@ -24,6 +25,7 @@ defmodule Presence.Application do
       Presence.TelemetryMetrics,
       {DNSCluster, query: Application.get_env(:presence, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Presence.PubSub},
+      redis_pool_child_spec(),
       Presence.Tracker,
       PresenceWeb.Endpoint
     ]
@@ -49,7 +51,19 @@ defmodule Presence.Application do
   end
 
   defp otel_enabled? do
-    Application.get_env(:presence, :otel_enabled, false) and
-      Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+    Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+  end
+
+  defp redis_pool_child_spec do
+    redis_url = Application.get_env(:presence, :redis_url) || System.get_env("REDIS_URL")
+
+    unless redis_url && redis_url != "" do
+      raise "REDIS_URL environment variable is required"
+    end
+
+    uri = URI.parse(redis_url)
+    host = uri.host || "127.0.0.1"
+    port = uri.port || 6379
+    {Redix, name: :redis_pool, host: host, port: port}
   end
 end

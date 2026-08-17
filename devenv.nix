@@ -58,6 +58,7 @@
       libsoup_3
       dbus
       libayatana-appindicator
+      openssl.dev
     ]
   );
 

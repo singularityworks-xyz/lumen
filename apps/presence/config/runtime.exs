@@ -31,8 +31,6 @@ parse_boolean_env = fn name, default ->
   end
 end
 
-otel_enabled = parse_boolean_env.("OTEL_ENABLED", "false")
-
 telemetry_console_reporter_enabled =
   parse_boolean_env.("PRESENCE_TELEMETRY_CONSOLE_REPORTER", "false")
 
@@ -54,29 +52,37 @@ end
 
 config :presence, PresenceWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
-# Redis configuration (Upstash REST API)
+# Redis configuration (standard Redis protocol)
 config :presence,
-  upstash_redis_rest_url: System.get_env("UPSTASH_REDIS_REST_URL"),
-  upstash_redis_rest_token: System.get_env("UPSTASH_REDIS_REST_TOKEN"),
+  redis_url: System.get_env("REDIS_URL"),
   better_auth_url: System.get_env("BETTER_AUTH_URL") || "http://localhost:3002",
   # Workers API URL for fetching workspace members (Phase 1)
   workers_api_url: System.get_env("WORKERS_API_URL") || "http://localhost:3002",
   # Internal API key for webhook authentication (Phase 2)
   internal_api_key: System.get_env("INTERNAL_API_KEY"),
-  telemetry_console_reporter: telemetry_console_reporter_enabled,
-  otel_enabled: otel_enabled
+  telemetry_console_reporter: telemetry_console_reporter_enabled
 
-# OpenTelemetry OTLP Configuration (Production Only, opt-in via OTEL_ENABLED)
-if config_env() == :prod and otel_enabled do
-  config :presence, env: :prod
+# OpenTelemetry OTLP Configuration. OpenTelemetry is mandatory (no opt-out);
+# it is only skipped in :test so tests stay hermetic. OpenObserve routes each
+# signal to a per-app stream using the org in the URL path plus the
+# `stream-name` header.
+otel_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5080")
+otel_org = System.get_env("OPENOBSERVE_ORG", "default")
+otel_metric_stream = System.get_env("OPENOBSERVE_METRIC_STREAM", "lumen_presence_metrics")
+otel_trace_stream = System.get_env("OPENOBSERVE_TRACE_STREAM", "lumen_presence_traces")
+otel_api_base = otel_endpoint <> "/api/" <> otel_org
+otel_headers = parse_otel_headers.(System.get_env("OTEL_EXPORTER_OTLP_HEADERS", ""))
 
-  # Configure OTLP exporter for traces
+if config_env() != :test do
+  config :presence, env: config_env()
+
+  # Configure OTLP exporter for traces.
   # Note: OTLP logs export is NOT supported in Erlang/Elixir OpenTelemetry SDK yet.
   # Logs are output as JSON to stdout with trace_id/span_id for correlation.
   config :opentelemetry_exporter,
     otlp_protocol: :http_protobuf,
-    otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5080/api/default"),
-    otlp_headers: parse_otel_headers.(System.get_env("OTEL_EXPORTER_OTLP_HEADERS", ""))
+    otlp_endpoint: otel_api_base,
+    otlp_headers: otel_headers ++ [{"stream-name", otel_trace_stream}]
 
   # Configure OpenTelemetry with batch processor and OTLP exporter
   config :opentelemetry,
@@ -93,13 +99,12 @@ if config_env() == :prod and otel_enabled do
        }},
     resource_detectors: [:otel_resource_env_var, :otel_resource_app_env]
 
-  # Configure metrics using experimental API (only when OTel is configured)
-  if System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
-    config :opentelemetry_experimental,
-      metrics_exporter: :otlp,
-      otlp_metrics_endpoint:
-        System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5080/api/default") <> "/v1/metrics"
-  end
+  # Configure metrics using experimental API; the `stream-name` header routes
+  # metrics to the metric stream.
+  config :opentelemetry_experimental,
+    metrics_exporter: :otlp,
+    otlp_metrics_endpoint: otel_api_base <> "/v1/metrics",
+    otlp_headers: otel_headers ++ [{"stream-name", otel_metric_stream}]
 else
   config :opentelemetry,
     traces_exporter: :none,

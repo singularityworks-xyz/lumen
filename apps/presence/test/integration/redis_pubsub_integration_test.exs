@@ -6,34 +6,20 @@ defmodule Presence.RedisPubSubIntegrationTest do
   @moduletag :capture_log
 
   setup do
-    orig_app_url = Application.get_env(:presence, :upstash_redis_rest_url)
-    orig_app_token = Application.get_env(:presence, :upstash_redis_rest_token)
-    orig_sys_url = System.get_env("UPSTASH_REDIS_REST_URL")
-    orig_sys_token = System.get_env("UPSTASH_REDIS_REST_TOKEN")
+    orig_app_url = Application.get_env(:presence, :redis_url)
+    orig_sys_url = System.get_env("REDIS_URL")
 
     on_exit(fn ->
       if orig_app_url != nil do
-        Application.put_env(:presence, :upstash_redis_rest_url, orig_app_url)
+        Application.put_env(:presence, :redis_url, orig_app_url)
       else
-        Application.delete_env(:presence, :upstash_redis_rest_url)
-      end
-
-      if orig_app_token != nil do
-        Application.put_env(:presence, :upstash_redis_rest_token, orig_app_token)
-      else
-        Application.delete_env(:presence, :upstash_redis_rest_token)
+        Application.delete_env(:presence, :redis_url)
       end
 
       if orig_sys_url != nil do
-        System.put_env("UPSTASH_REDIS_REST_URL", orig_sys_url)
+        System.put_env("REDIS_URL", orig_sys_url)
       else
-        System.delete_env("UPSTASH_REDIS_REST_URL")
-      end
-
-      if orig_sys_token != nil do
-        System.put_env("UPSTASH_REDIS_REST_TOKEN", orig_sys_token)
-      else
-        System.delete_env("UPSTASH_REDIS_REST_TOKEN")
+        System.delete_env("REDIS_URL")
       end
     end)
 
@@ -41,34 +27,14 @@ defmodule Presence.RedisPubSubIntegrationTest do
   end
 
   describe "broadcast/2" do
+    @tag skip: "Redis is now mandatory - application will fail to start without it"
     test "returns not_configured when Redis URL is not set" do
-      Application.delete_env(:presence, :upstash_redis_rest_url)
-      Application.delete_env(:presence, :upstash_redis_rest_token)
-      System.delete_env("UPSTASH_REDIS_REST_URL")
-      System.delete_env("UPSTASH_REDIS_REST_TOKEN")
-
-      result =
-        RedisPubSub.broadcast("presence:user_joined", %{
-          workspace_id: "ws-1",
-          user_id: "user-1"
-        })
-
-      assert result == {:error, :not_configured}
+      # Redis is now mandatory, so this test is skipped
     end
 
+    @tag skip: "Redis is now mandatory - application will fail to start without it"
     test "returns not_configured with empty credentials" do
-      Application.put_env(:presence, :upstash_redis_rest_url, "")
-      Application.put_env(:presence, :upstash_redis_rest_token, "")
-      System.delete_env("UPSTASH_REDIS_REST_URL")
-      System.delete_env("UPSTASH_REDIS_REST_TOKEN")
-
-      result =
-        RedisPubSub.broadcast("presence:user_joined", %{
-          workspace_id: "ws-1",
-          user_id: "user-1"
-        })
-
-      assert result == {:error, :not_configured}
+      # Redis is now mandatory, so this test is skipped
     end
   end
 
@@ -80,14 +46,9 @@ defmodule Presence.RedisPubSubIntegrationTest do
   end
 
   describe "command/1" do
+    @tag skip: "Redis is now mandatory - application will fail to start without it"
     test "returns not_configured when Redis is not set up" do
-      Application.delete_env(:presence, :upstash_redis_rest_url)
-      Application.delete_env(:presence, :upstash_redis_rest_token)
-      System.delete_env("UPSTASH_REDIS_REST_URL")
-      System.delete_env("UPSTASH_REDIS_REST_TOKEN")
-
-      result = RedisPubSub.command(["PING"])
-      assert result == {:error, :not_configured}
+      # Redis is now mandatory, so this test is skipped
     end
   end
 end

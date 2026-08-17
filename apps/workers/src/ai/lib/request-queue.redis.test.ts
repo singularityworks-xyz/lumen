@@ -1,14 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
-const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalRedisUrl = process.env.REDIS_URL;
 
-delete process.env.UPSTASH_REDIS_REST_URL;
-delete process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.NODE_ENV = "development";
-process.env.REDIS_URL = "redis://127.0.0.1:5354";
+process.env.REDIS_URL = "redis://127.0.0.1:16379";
 
 const mockLoggerInfo = mock(() => {
   // intentionally empty mock
@@ -46,21 +42,6 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
-mock.module("@upstash/redis", () => ({
-  Redis: class {},
-}));
-
-mock.module("@upstash/ratelimit", () => ({
-  Ratelimit: Object.assign(
-    function RatelimitMock() {
-      // constructor mock for tests
-    },
-    {
-      slidingWindow: mock(() => "sliding-window"),
-    }
-  ),
-}));
-
 mock.module("redis", () => ({
   createClient: mockCreateClient,
 }));
@@ -68,10 +49,10 @@ mock.module("redis", () => ({
 type RequestQueueModule = typeof import("./request-queue");
 
 const requestQueueModule = (await import(
-  `./request-queue?local-redis=${Date.now()}`
+  `./request-queue?redis=${Date.now()}`
 )) as RequestQueueModule;
 
-const { aiRequestQueue, getQueueStats, isUpstashEnabled } = requestQueueModule;
+const { aiRequestQueue, getQueueStats, isRedisEnabled } = requestQueueModule;
 
 beforeEach(() => {
   mockLoggerInfo.mockClear();
@@ -82,8 +63,8 @@ beforeEach(() => {
   mockOn.mockClear();
 });
 
-describe("RateLimitedQueue - local redis backend", () => {
-  it("uses lumencache in development when Upstash is not configured", async () => {
+describe("RateLimitedQueue - redis backend", () => {
+  it("uses redis when Redis is configured", async () => {
     const execute = mock(() => Promise.resolve("ok"));
 
     const { result, wasQueued } = await aiRequestQueue.enqueue(execute);
@@ -93,23 +74,21 @@ describe("RateLimitedQueue - local redis backend", () => {
     expect(mockCreateClient).toHaveBeenCalledTimes(1);
     expect(mockConnect).toHaveBeenCalledTimes(1);
     expect(mockEval).toHaveBeenCalledTimes(1);
-    expect(isUpstashEnabled()).toBe(false);
-    expect(getQueueStats().usingUpstash).toBe(false);
+    expect(isRedisEnabled()).toBe(true);
+    expect(getQueueStats().usingRedis).toBe(true);
   });
 
-  it("does not log the in-memory fallback warning when lumencache is available", async () => {
+  it("does not log the in-memory fallback warning when redis is available", async () => {
     await aiRequestQueue.enqueue(() => Promise.resolve("ok"));
 
     expect(mockLoggerWarn).not.toHaveBeenCalledWith(
-      expect.stringContaining("Upstash Redis not configured"),
+      expect.stringContaining("Redis not configured"),
       expect.anything()
     );
   });
 });
 
 afterAll(() => {
-  process.env.UPSTASH_REDIS_REST_URL = originalUpstashUrl;
-  process.env.UPSTASH_REDIS_REST_TOKEN = originalUpstashToken;
   process.env.NODE_ENV = originalNodeEnv;
   process.env.REDIS_URL = originalRedisUrl;
   mock.restore();

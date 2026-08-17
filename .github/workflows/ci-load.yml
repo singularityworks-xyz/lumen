@@ -45,8 +45,9 @@ jobs:
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -69,8 +70,9 @@ jobs:
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -93,8 +95,9 @@ jobs:
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -117,8 +120,9 @@ jobs:
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -149,8 +153,9 @@ jobs:
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6

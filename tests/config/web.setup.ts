@@ -2,9 +2,16 @@ import "./bun.setup";
 import { afterEach, beforeEach, mock } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import "fake-indexeddb/auto";
-import "@testing-library/jest-dom";
 
+// @testing-library/jest-dom@7 eagerly requires @testing-library/dom at module
+// load, and its `screen` singleton binds to document.body at that exact moment.
+// If happy-dom is not registered yet, screen ends up bound to the always-
+// throwing "no global document" fallback for the whole test process. Register
+// happy-dom first and load jest-dom dynamically, so screen binds to a real DOM.
 GlobalRegistrator.register();
+// jest-dom's type declarations are a side-effect script, so cast the specifier
+// to bypass module type resolution for the dynamic import.
+await import("@testing-library/jest-dom" as string);
 
 // Make IS_REACT_ACT_ENVIRONMENT writable after happy-dom registers
 // testing-library/react tries to set this and happy-dom makes it readonly
@@ -16,7 +23,6 @@ Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
 
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: "development",
-  OTEL_ENABLED: "false",
   NEXT_PUBLIC_API_URL: "http://localhost:3002",
   NEXT_PUBLIC_PRESENCE_WS_URL: "ws://localhost:4000",
 };

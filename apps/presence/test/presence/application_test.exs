@@ -22,20 +22,15 @@ defmodule Presence.ApplicationTest do
   end
 
   describe "setup_opentelemetry/0" do
-    test "initializes OpenTelemetry when otel is enabled" do
-      # Set both required configs to enable otel
-      Application.put_env(:presence, :otel_enabled, true)
+    test "initializes OpenTelemetry when traces exporter is :otlp" do
       Application.put_env(:opentelemetry, :traces_exporter, :otlp)
 
       on_exit(fn ->
-        Application.delete_env(:presence, :otel_enabled)
         Application.delete_env(:opentelemetry, :traces_exporter)
       end)
 
-      # Verify the otel_enabled? function returns true with these settings
-      # by checking the condition directly
-      assert Application.get_env(:presence, :otel_enabled, false) and
-               Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+      # OpenTelemetry is mandatory: enabled whenever the exporter is configured
+      assert Application.get_env(:opentelemetry, :traces_exporter) == :otlp
     end
   end
 
@@ -51,56 +46,30 @@ defmodule Presence.ApplicationTest do
   end
 
   describe "setup_opentelemetry/0 private function" do
-    test "otel_enabled?/0 returns true when both configs are set correctly" do
-      # Set both required configs to enable otel
-      Application.put_env(:presence, :otel_enabled, true)
+    test "otel_enabled?/0 returns true when traces_exporter is :otlp" do
       Application.put_env(:opentelemetry, :traces_exporter, :otlp)
 
       on_exit(fn ->
-        Application.delete_env(:presence, :otel_enabled)
         Application.delete_env(:opentelemetry, :traces_exporter)
       end)
 
-      # Verify both conditions are true
-      assert Application.get_env(:presence, :otel_enabled, false) == true
       assert Application.get_env(:opentelemetry, :traces_exporter) == :otlp
     end
 
-    test "otel_enabled?/0 returns false when only otel_enabled is set" do
-      Application.put_env(:presence, :otel_enabled, true)
+    test "otel_enabled?/0 returns false when traces_exporter is not :otlp" do
       Application.put_env(:opentelemetry, :traces_exporter, :none)
 
       on_exit(fn ->
-        Application.delete_env(:presence, :otel_enabled)
         Application.delete_env(:opentelemetry, :traces_exporter)
       end)
 
-      # Should be false because traces_exporter is not :otlp
-      refute Application.get_env(:presence, :otel_enabled, false) and
-               Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+      refute Application.get_env(:opentelemetry, :traces_exporter) == :otlp
     end
 
-    test "otel_enabled?/0 returns false when only traces_exporter is set to otlp" do
-      Application.put_env(:presence, :otel_enabled, false)
-      Application.put_env(:opentelemetry, :traces_exporter, :otlp)
-
-      on_exit(fn ->
-        Application.delete_env(:presence, :otel_enabled)
-        Application.delete_env(:opentelemetry, :traces_exporter)
-      end)
-
-      # Should be false because otel_enabled is false
-      refute Application.get_env(:presence, :otel_enabled, false) and
-               Application.get_env(:opentelemetry, :traces_exporter) == :otlp
-    end
-
-    test "otel_enabled?/0 returns false when neither config is set" do
-      Application.delete_env(:presence, :otel_enabled)
+    test "otel_enabled?/0 returns false when traces_exporter is unset" do
       Application.delete_env(:opentelemetry, :traces_exporter)
 
-      # Should default to false
-      refute Application.get_env(:presence, :otel_enabled, false) and
-               Application.get_env(:opentelemetry, :traces_exporter) == :otlp
+      refute Application.get_env(:opentelemetry, :traces_exporter) == :otlp
     end
   end
 end

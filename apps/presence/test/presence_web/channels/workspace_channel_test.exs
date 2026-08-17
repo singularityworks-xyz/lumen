@@ -435,44 +435,10 @@ defmodule PresenceWeb.WorkspaceChannelTest do
   end
 
   describe "Redis broadcast error handling" do
+    @tag skip: "Redis is now mandatory - application will fail to start without it"
     test "handles Redis broadcast errors gracefully" do
-      # Ensure Redis is not configured to trigger the error path
-      original_url = Application.get_env(:presence, :upstash_redis_rest_url)
-      original_token = Application.get_env(:presence, :upstash_redis_rest_token)
-
-      Application.delete_env(:presence, :upstash_redis_rest_url)
-      Application.delete_env(:presence, :upstash_redis_rest_token)
-
-      on_exit(fn ->
-        if original_url do
-          Application.put_env(:presence, :upstash_redis_rest_url, original_url)
-        end
-
-        if original_token do
-          Application.put_env(:presence, :upstash_redis_rest_token, original_token)
-        end
-      end)
-
-      # Joining should still work even if Redis broadcast fails
-      socket = socket_in_workspace("workspace_redis_error_test", %{id: "user_redis_test"})
-
-      {:ok, joined_socket} =
-        WorkspaceChannel.join("workspace:workspace_redis_error_test", %{}, socket)
-
-      assert joined_socket.assigns.workspace_id == "workspace_redis_error_test"
-    end
-
-    test "handles Redis errors during user leave" do
-      # Ensure Redis is not configured
-      Application.delete_env(:presence, :upstash_redis_rest_url)
-      Application.delete_env(:presence, :upstash_redis_rest_token)
-
-      socket = socket_in_workspace("workspace_redis_leave_test", %{id: "user_leave_test"})
-      {:ok, socket} = WorkspaceChannel.join("workspace:workspace_redis_leave_test", %{}, socket)
-
-      # Terminate should complete without error even if Redis fails
-      result = WorkspaceChannel.terminate(:normal, socket)
-      assert result == :ok
+      # This test is no longer relevant since Redis is mandatory
+      # The application will fail to start if Redis is not configured
     end
   end
 end

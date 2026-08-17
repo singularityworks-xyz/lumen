@@ -25,10 +25,7 @@ config :logger,
   format: "[$time] [$level] $message\n",
   colors: [enabled: true]
 
-# Disable OpenTelemetry in development
-config :opentelemetry,
-  traces_exporter: :none,
-  processors: []
+# OpenTelemetry is configured in runtime.exs (always on outside of :test).
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
