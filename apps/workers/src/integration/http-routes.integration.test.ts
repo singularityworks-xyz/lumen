@@ -171,7 +171,7 @@ mock.module("../ai/index", () => {
       remaining: 30,
       activeRequests: 0,
       isProcessing: false,
-      usingUpstash: false,
+      usingRedis: false,
       rateLimit: 30,
       windowSizeSeconds: 60,
     }))

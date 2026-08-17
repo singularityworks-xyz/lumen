@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+.next
+dist
+build
+out
+
+# Environment (never ship secrets or env files)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Git
+.git
+.gitignore
+
+# Coverage & test artifacts
+coverage
+coverage_parts
+junit_parts
+*.tsbuildinfo
+
+# Turbo
+.turbo
+
+# OS / editor
+.DS_Store

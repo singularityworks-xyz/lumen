@@ -1,9 +1,9 @@
 {
   "name": "@lumen/ai",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "private": true,
   "scripts": {
-    "check-types": "tsgo --noEmit -p tsconfig.check.json"
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "exports": {
     ".": "./src/index.ts",

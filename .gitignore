@@ -6,6 +6,10 @@ node_modules
 .pnp.js
 .codex
 trace/
+.devenv
+.direnv
+erl_crash.dump
+slop.md
 
 # Local env files
 .env
@@ -19,6 +23,7 @@ coverage
 test-results
 e2e-report
 e2e-results.json
+junit_parts/
 
 # Turbo
 .turbo

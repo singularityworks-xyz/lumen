@@ -37,15 +37,17 @@ jobs:
   ramp:
     name: Load Ramp
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'ramp'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'ramp'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -60,15 +62,17 @@ jobs:
   spike:
     name: Load Spike
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'spike'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'spike'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -83,15 +87,17 @@ jobs:
   soak:
     name: Load Soak
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'soak')
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch'
+      && github.event.inputs.scenario == 'soak')
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -106,15 +112,17 @@ jobs:
   convergence:
     name: Load Convergence
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'convergence'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'convergence'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
@@ -129,7 +137,8 @@ jobs:
   hybrid:
     name: Hybrid Load
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario == 'hybrid'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scenario ==
+      'hybrid'
     environment:
       name: load-test
       url: ${{ github.event.inputs.ws_url }}
@@ -140,12 +149,13 @@ jobs:
       COHORT_SIZE: "50"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-agent.gpg --keyserver keyserver.ubuntu.com --recv-keys C5AD17C747E3415A3642D57D77C6C491D556AC9C
+          # Fetch the signing key directly from dl.k6.io; keyserver.ubuntu.com
+          # is unreachable from GitHub runners ("keyserver receive failed").
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-agent.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-agent.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6

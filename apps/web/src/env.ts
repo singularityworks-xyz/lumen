@@ -13,13 +13,16 @@ export const env = createEnv({
     NEXT_TELEMETRY_DISABLED: z.string().default("1"),
     TURBO_TELEMETRY_DISABLED: z.string().default("1"),
     BETTER_AUTH_TELEMETRY: z.string().default("0"),
-    // OTEL - disabled by default in development
-    OTEL_ENABLED: z
-      .string()
-      .transform((v) => v === "true")
-      .default(false),
+    // OTEL - mandatory, no opt-out flag
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    // OpenObserve auth: Basic auth derived from user + password
+    OPENOBSERVE_USER: z.string().optional(),
+    OPENOBSERVE_PASSWORD: z.string().optional(),
+    // OpenObserve routing: org + per-signal stream names
+    OPENOBSERVE_ORG: z.string().default("default"),
+    OPENOBSERVE_LOG_STREAM: z.string().default("lumen_web_logs"),
+    OPENOBSERVE_METRIC_STREAM: z.string().default("lumen_web_metrics"),
+    OPENOBSERVE_TRACE_STREAM: z.string().default("lumen_web_traces"),
   },
   client: {
     NEXT_PUBLIC_API_URL: z.url().default("http://localhost:3002"),
@@ -31,9 +34,13 @@ export const env = createEnv({
     NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED ?? "1",
     TURBO_TELEMETRY_DISABLED: process.env.TURBO_TELEMETRY_DISABLED ?? "1",
     BETTER_AUTH_TELEMETRY: process.env.BETTER_AUTH_TELEMETRY ?? "0",
-    OTEL_ENABLED: process.env.OTEL_ENABLED,
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+    OPENOBSERVE_USER: process.env.OPENOBSERVE_USER,
+    OPENOBSERVE_PASSWORD: process.env.OPENOBSERVE_PASSWORD,
+    OPENOBSERVE_ORG: process.env.OPENOBSERVE_ORG,
+    OPENOBSERVE_LOG_STREAM: process.env.OPENOBSERVE_LOG_STREAM,
+    OPENOBSERVE_METRIC_STREAM: process.env.OPENOBSERVE_METRIC_STREAM,
+    OPENOBSERVE_TRACE_STREAM: process.env.OPENOBSERVE_TRACE_STREAM,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_PRESENCE_WS_URL: process.env.NEXT_PUBLIC_PRESENCE_WS_URL,
   },

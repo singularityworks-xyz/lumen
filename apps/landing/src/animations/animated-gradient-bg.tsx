@@ -3,6 +3,7 @@ import type React from "react";
 import { useEffect, useRef } from "react";
 
 interface AnimatedGradientBackgroundProps {
+  animateIn?: boolean;
   animationSpeed?: number;
   Breathing?: boolean;
   breathingRange?: number;
@@ -16,6 +17,7 @@ interface AnimatedGradientBackgroundProps {
 
 const AnimatedGradientBackground: React.FC<AnimatedGradientBackgroundProps> = ({
   startingGap = 146,
+  animateIn = true,
   Breathing = false,
   gradientColors = [
     "#0A0A0A",
@@ -90,19 +92,20 @@ const AnimatedGradientBackground: React.FC<AnimatedGradientBackgroundProps> = ({
 
   return (
     <motion.div
-      animate={{
-        opacity: 1,
-        scale: 1,
-        transition: {
-          duration: 2,
-          ease: [0.25, 0.1, 0.25, 1], // Cubic bezier easing
-        },
-      }}
+      animate={
+        animateIn
+          ? {
+              opacity: 1,
+              scale: 1,
+              transition: {
+                duration: 2,
+                ease: [0.25, 0.1, 0.25, 1], // Cubic bezier easing
+              },
+            }
+          : undefined
+      }
       className={`absolute inset-0 overflow-hidden ${containerClassName}`}
-      initial={{
-        opacity: 0,
-        scale: 1.5,
-      }}
+      initial={animateIn ? { opacity: 0, scale: 1.5 } : undefined}
       key="animated-gradient-background"
     >
       <div

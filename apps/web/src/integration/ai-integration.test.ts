@@ -567,13 +567,13 @@ describe("AI Integration Tests", () => {
   });
 
   describe("Rate-Limit Fallback Without External Network (unit)", () => {
-    it("falls back to in-memory rate limiter when Upstash fails", async () => {
-      const upstashAvailable = false;
+    it("falls back to in-memory rate limiter when Redis fails", async () => {
+      const redisAvailable = false;
       const inMemoryLimiter = {
         limit: () => Promise.resolve({ success: true, remaining: 29 }),
       };
 
-      const limiter = upstashAvailable ? null : inMemoryLimiter;
+      const limiter = redisAvailable ? null : inMemoryLimiter;
       const result = await limiter?.limit();
 
       expect(result).toBeDefined();

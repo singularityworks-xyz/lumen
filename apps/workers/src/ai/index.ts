@@ -30,7 +30,7 @@ export {
 export {
   aiRequestQueue,
   getQueueStats,
-  isUpstashEnabled,
+  isRedisEnabled,
 } from "./lib/request-queue";
 export {
   getModel,

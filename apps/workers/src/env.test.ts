@@ -11,7 +11,6 @@ process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
 const {
   ALLOWED_ORIGINS_SCHEMA,
   BETTER_AUTH_TRUSTED_ORIGINS_SCHEMA,
-  OTEL_ENABLED_SCHEMA,
   PORT_SCHEMA,
   NODE_ENV_SCHEMA,
   LOG_LEVEL_SCHEMA,
@@ -69,30 +68,6 @@ describe("BETTER_AUTH_TRUSTED_ORIGINS transform", () => {
   it("returns undefined when not provided", () => {
     const result = BETTER_AUTH_TRUSTED_ORIGINS_SCHEMA.parse(undefined);
     expect(result).toBeUndefined();
-  });
-});
-
-// ─── OTEL_ENABLED transform ───────────────────────────────────
-
-describe("OTEL_ENABLED boolean coercion", () => {
-  it('coerces "true" to true', () => {
-    const result = OTEL_ENABLED_SCHEMA.parse("true");
-    expect(result).toBe(true);
-  });
-
-  it('coerces "false" to false', () => {
-    const result = OTEL_ENABLED_SCHEMA.parse("false");
-    expect(result).toBe(false);
-  });
-
-  it("coerces arbitrary string to false", () => {
-    const result = OTEL_ENABLED_SCHEMA.parse("1");
-    expect(result).toBe(false);
-  });
-
-  it("coerces empty string to false", () => {
-    const result = OTEL_ENABLED_SCHEMA.parse("");
-    expect(result).toBe(false);
   });
 });
 

@@ -49,35 +49,48 @@ const mockLoggerProvider = {
 } as unknown as LoggerProvider;
 
 // Track initialized state to control getOtelConfig mock
-let otelEnabled = true;
+let otelEndpoint = "http://localhost:5080";
 let otelEnvironment: "development" | "production" | "test" = "test";
 
 mock.module("./env", () => ({
   get env() {
     return {
       NODE_ENV: otelEnvironment,
-      get OTEL_ENABLED() {
-        return otelEnabled;
-      },
-      OTEL_EXPORTER_OTLP_ENDPOINT: otelEnabled ? "http://localhost:4318" : "",
-      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20test",
+      OTEL_EXPORTER_OTLP_ENDPOINT: otelEndpoint,
+      OPENOBSERVE_USER: "testuser",
+      OPENOBSERVE_PASSWORD: "testpass",
+      OPENOBSERVE_ORG: "default",
+      OPENOBSERVE_LOG_STREAM: "lumen_logs",
+      OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
+      OPENOBSERVE_TRACE_STREAM: "lumen_traces",
     };
   },
 }));
 
-// Also mock the config to ensure OTEL_ENABLED is respected
+// Also mock the config: OTEL is mandatory and enabled whenever an endpoint is set
 mock.module("./config", () => ({
   getOtelConfig: (serviceName: string) => {
-    const currentOtelEnabled = otelEnabled;
-    const endpoint = currentOtelEnabled ? "http://localhost:4318" : "";
+    const endpoint = otelEndpoint;
     return {
-      enabled: currentOtelEnabled && !!endpoint,
+      enabled: !!endpoint,
       endpoint,
-      headers: { Authorization: "Bearer test" },
+      org: "default",
+      logStream: "lumen_logs",
+      metricStream: "lumen_metrics",
+      traceStream: "lumen_traces",
+      headers: {
+        Authorization: `Basic ${Buffer.from("testuser:testpass").toString(
+          "base64"
+        )}`,
+      },
       serviceName,
       environment: otelEnvironment,
     };
   },
+  getOtlpSignalEndpoint: (
+    config: { endpoint: string; org: string },
+    signal: string
+  ) => `${config.endpoint}/api/${config.org}/v1/${signal}`,
 }));
 
 mock.module("@opentelemetry/api", () => {
@@ -246,7 +259,7 @@ import {
 
 describe("sdk-node", () => {
   beforeEach(() => {
-    otelEnabled = true;
+    otelEndpoint = "http://localhost:5080";
     otelEnvironment = "test";
     mockTracerProviderShutdown.mockClear();
     mockMeterProviderShutdown.mockClear();
@@ -281,8 +294,8 @@ describe("sdk-node", () => {
   });
 
   describe("initOtel", () => {
-    it("returns false and does not initialize when OTEL is disabled", () => {
-      otelEnabled = false;
+    it("returns false and does not initialize when no endpoint is configured", () => {
+      otelEndpoint = "";
 
       const result = initOtel("test-service");
 
@@ -290,7 +303,7 @@ describe("sdk-node", () => {
       expect(isOtelInitialized()).toBe(false);
     });
 
-    it("returns true and initializes providers when OTEL is enabled", () => {
+    it("returns true and initializes providers when an endpoint is configured", () => {
       const result = initOtel("test-service");
 
       expect(result).toBe(true);
@@ -441,8 +454,8 @@ describe("sdk-node", () => {
       expect(isOtelInitialized()).toBe(true);
     });
 
-    it("returns false after init with disabled config", () => {
-      otelEnabled = false;
+    it("returns false after init with no endpoint configured", () => {
+      otelEndpoint = "";
       initOtel("test-service");
       expect(isOtelInitialized()).toBe(false);
     });

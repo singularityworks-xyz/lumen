@@ -16,13 +16,13 @@ const TEST_ENV: Record<string, string> = {
   GITHUB_CLIENT_ID: "test-github-client-id",
   GITHUB_CLIENT_SECRET: "test-github-client-secret",
   DATABASE_URL: "postgresql://test:test@localhost:5432/lumen_test",
+  REDIS_URL: "redis://127.0.0.1:16379",
   JWKS_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   AI_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   CEREBRAS_API_KEY: "test-cerebras-api-key",
   LOG_LEVEL: "error",
-  OTEL_ENABLED: "false",
 };
 
 for (const [key, value] of Object.entries(TEST_ENV)) {

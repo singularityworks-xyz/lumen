@@ -28,7 +28,7 @@ import {
 } from "./chats/conversation-service";
 import { buildMessagesFromHistory } from "./lib/message-builder";
 import { recordAiRequest, recordStreamDuration } from "./lib/metrics";
-import { getQueueStats, isUpstashEnabled } from "./lib/request-queue";
+import { getQueueStats, isRedisEnabled } from "./lib/request-queue";
 import { streamWithFallback } from "./lib/streaming";
 import type { HistoryMessage } from "./lib/types";
 import { generateMessageId, parseRateLimitError } from "./lib/utils";
@@ -953,7 +953,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       remaining: stats.remaining,
       activeRequests: stats.activeRequests,
       isProcessing: stats.isProcessing,
-      usingUpstash: isUpstashEnabled(),
+      usingRedis: isRedisEnabled(),
       rateLimit: 30,
       windowSizeSeconds: 60,
     };

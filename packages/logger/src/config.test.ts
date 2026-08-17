@@ -2,15 +2,26 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const envState: Record<string, unknown> = {
   NODE_ENV: "test",
-  OTEL_ENABLED: true,
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
-  OTEL_EXPORTER_OTLP_HEADERS:
-    "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue",
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:5080",
+  OPENOBSERVE_ORG: "default",
+  OPENOBSERVE_LOG_STREAM: "lumen_logs",
+  OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
+  OPENOBSERVE_TRACE_STREAM: "lumen_traces",
+};
+
+// Mirrors the zod schema defaults in env.ts: createEnv applies .default()
+// when a var is unset, so the proxy must too.
+const envDefaults: Record<string, unknown> = {
+  NODE_ENV: "development",
+  OPENOBSERVE_ORG: "default",
+  OPENOBSERVE_LOG_STREAM: "lumen_logs",
+  OPENOBSERVE_METRIC_STREAM: "lumen_metrics",
+  OPENOBSERVE_TRACE_STREAM: "lumen_traces",
 };
 
 const envProxy = new Proxy({} as Record<string, unknown>, {
   get(_target, prop: string) {
-    return envState[prop];
+    return envState[prop] ?? envDefaults[prop];
   },
   ownKeys() {
     return Reflect.ownKeys(envState);
@@ -27,7 +38,7 @@ mock.module("./env", () => ({
   env: envProxy,
 }));
 
-import { getOtelConfig } from "./config";
+import { getOtelConfig, getOtlpSignalEndpoint } from "./config";
 
 describe("getOtelConfig", () => {
   let originalWindow: typeof window | undefined;
@@ -35,10 +46,13 @@ describe("getOtelConfig", () => {
   beforeEach(() => {
     originalWindow = globalThis.window;
     envState.NODE_ENV = "test";
-    envState.OTEL_ENABLED = true;
-    envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
-    envState.OTEL_EXPORTER_OTLP_HEADERS =
-      "Authorization=Bearer%20Token123,InvalidHeader,ValidKey=ValidValue";
+    envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:5080";
+    envState.OPENOBSERVE_USER = undefined;
+    envState.OPENOBSERVE_PASSWORD = undefined;
+    envState.OPENOBSERVE_ORG = "default";
+    envState.OPENOBSERVE_LOG_STREAM = "lumen_logs";
+    envState.OPENOBSERVE_METRIC_STREAM = "lumen_metrics";
+    envState.OPENOBSERVE_TRACE_STREAM = "lumen_traces";
   });
 
   afterEach(() => {
@@ -88,13 +102,31 @@ describe("getOtelConfig", () => {
       globalThis.window = undefined;
     });
 
-    it("returns enabled config with endpoint and headers", () => {
+    it("returns enabled config with endpoint, org and streams", () => {
       const config = getOtelConfig("test-service");
 
       expect(config.enabled).toBe(true);
-      expect(config.endpoint).toBe("http://localhost:4318");
+      expect(config.endpoint).toBe("http://localhost:5080");
+      expect(config.org).toBe("default");
+      expect(config.logStream).toBe("lumen_logs");
+      expect(config.metricStream).toBe("lumen_metrics");
+      expect(config.traceStream).toBe("lumen_traces");
       expect(config.environment).toBe("test");
       expect(config.serviceName).toBe("test-service");
+    });
+
+    it("applies OpenObserve defaults when env vars are unset", () => {
+      envState.OPENOBSERVE_ORG = undefined;
+      envState.OPENOBSERVE_LOG_STREAM = undefined;
+      envState.OPENOBSERVE_METRIC_STREAM = undefined;
+      envState.OPENOBSERVE_TRACE_STREAM = undefined;
+
+      const config = getOtelConfig("svc");
+
+      expect(config.org).toBe("default");
+      expect(config.logStream).toBe("lumen_logs");
+      expect(config.metricStream).toBe("lumen_metrics");
+      expect(config.traceStream).toBe("lumen_traces");
     });
 
     it("reflects production NODE_ENV", () => {
@@ -114,112 +146,59 @@ describe("getOtelConfig", () => {
     });
   });
 
-  describe("OTEL header parsing", () => {
+  describe("OpenObserve Basic auth headers", () => {
     beforeEach(() => {
       // @ts-expect-error
       globalThis.window = undefined;
+      envState.OPENOBSERVE_USER = undefined;
+      envState.OPENOBSERVE_PASSWORD = undefined;
     });
 
-    it("decodes URL-encoded values and ignores malformed pairs", () => {
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({
-        Authorization: "Bearer Token123",
-        ValidKey: "ValidValue",
-      });
-    });
-
-    it("returns empty headers when OTEL_EXPORTER_OTLP_HEADERS is undefined", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = undefined;
+    it("builds Basic auth from OPENOBSERVE_USER and OPENOBSERVE_PASSWORD", () => {
+      envState.OPENOBSERVE_USER = "testuser";
+      envState.OPENOBSERVE_PASSWORD = "testpass";
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({});
+      expect(config.headers.Authorization).toBe(
+        `Basic ${Buffer.from("testuser:testpass").toString("base64")}`
+      );
     });
 
-    it("returns empty headers when OTEL_EXPORTER_OTLP_HEADERS is empty string", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "";
+    it("does not add an Authorization header when credentials are missing", () => {
+      envState.OPENOBSERVE_USER = undefined;
+      envState.OPENOBSERVE_PASSWORD = undefined;
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({});
+      expect(config.headers.Authorization).toBeUndefined();
     });
 
-    it("ignores pairs without equals sign", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "NoEquals,Key=Value";
+    it("does not add an Authorization header when only one credential is set", () => {
+      envState.OPENOBSERVE_USER = "testuser";
+      envState.OPENOBSERVE_PASSWORD = undefined;
 
       const config = getOtelConfig("test-service");
 
-      expect(config.headers).toEqual({ Key: "Value" });
-    });
-
-    it("ignores pairs where equals is at position 0", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "=ValueAtStart,Key=Value";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key: "Value" });
-    });
-
-    it("handles key=value where value contains equals sign", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "Token=abc=def";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Token: "abc=def" });
-    });
-
-    it("decodes percent-encoded values", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "Key=hello%20world";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key: "hello world" });
-    });
-
-    it("trims whitespace around keys and values", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = " Key1 = Value1 , Key2 = Value2 ";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ Key1: "Value1", Key2: "Value2" });
-    });
-
-    it("handles multiple comma-separated headers", () => {
-      envState.OTEL_EXPORTER_OTLP_HEADERS = "A=1,B=2,C=3";
-
-      const config = getOtelConfig("test-service");
-
-      expect(config.headers).toEqual({ A: "1", B: "2", C: "3" });
+      expect(config.headers.Authorization).toBeUndefined();
     });
   });
 
-  describe("enabled/disabled activation matrix", () => {
+  describe("activation matrix (OTEL is mandatory, driven by endpoint)", () => {
     beforeEach(() => {
       // @ts-expect-error
       globalThis.window = undefined;
     });
 
-    it("enabled when OTEL_ENABLED=true and endpoint is set", () => {
-      envState.OTEL_ENABLED = true;
-      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
+    it("enabled when endpoint is set", () => {
+      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:5080";
 
       const config = getOtelConfig("svc");
 
       expect(config.enabled).toBe(true);
     });
 
-    it("disabled when OTEL_ENABLED=false", () => {
-      envState.OTEL_ENABLED = false;
-      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
-
-      const config = getOtelConfig("svc");
-
-      expect(config.enabled).toBe(false);
-    });
-
     it("disabled when endpoint is empty string", () => {
-      envState.OTEL_ENABLED = true;
       envState.OTEL_EXPORTER_OTLP_ENDPOINT = "";
 
       const config = getOtelConfig("svc");
@@ -228,21 +207,42 @@ describe("getOtelConfig", () => {
     });
 
     it("disabled when endpoint is undefined", () => {
-      envState.OTEL_ENABLED = true;
       envState.OTEL_EXPORTER_OTLP_ENDPOINT = undefined;
 
       const config = getOtelConfig("svc");
 
       expect(config.enabled).toBe(false);
     });
+  });
 
-    it("disabled when both OTEL_ENABLED=false and no endpoint", () => {
-      envState.OTEL_ENABLED = false;
-      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "";
+  describe("getOtlpSignalEndpoint", () => {
+    beforeEach(() => {
+      // @ts-expect-error
+      globalThis.window = undefined;
+    });
+
+    it("builds per-signal endpoints with org in the path", () => {
+      const config = getOtelConfig("svc");
+
+      expect(getOtlpSignalEndpoint(config, "traces")).toBe(
+        "http://localhost:5080/api/default/v1/traces"
+      );
+      expect(getOtlpSignalEndpoint(config, "metrics")).toBe(
+        "http://localhost:5080/api/default/v1/metrics"
+      );
+      expect(getOtlpSignalEndpoint(config, "logs")).toBe(
+        "http://localhost:5080/api/default/v1/logs"
+      );
+    });
+
+    it("strips trailing slashes from the endpoint", () => {
+      envState.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:5080/";
 
       const config = getOtelConfig("svc");
 
-      expect(config.enabled).toBe(false);
+      expect(getOtlpSignalEndpoint(config, "traces")).toBe(
+        "http://localhost:5080/api/default/v1/traces"
+      );
     });
   });
 });

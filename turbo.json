@@ -3,9 +3,13 @@
   "globalDependencies": [".env"],
   "globalEnv": [
     "NEXT_PUBLIC_API_URL",
-    "OTEL_ENABLED",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "OTEL_EXPORTER_OTLP_HEADERS"
+    "OPENOBSERVE_USER",
+    "OPENOBSERVE_PASSWORD",
+    "OPENOBSERVE_ORG",
+    "OPENOBSERVE_LOG_STREAM",
+    "OPENOBSERVE_METRIC_STREAM",
+    "OPENOBSERVE_TRACE_STREAM"
   ],
   "tasks": {
     "build": {

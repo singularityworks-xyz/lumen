@@ -17,7 +17,8 @@ on:
           - visual-regression
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.test-suite }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{
+    github.event.inputs.test-suite }}
   cancel-in-progress: true
 
 jobs:
@@ -26,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -52,8 +53,9 @@ jobs:
 
   e2e-chromium:
     name: E2E Chromium
-    needs: [build]
-    if: ${{ github.event.inputs.test-suite == 'all' || github.event.inputs.test-suite == 'chromium' }}
+    needs: [ build ]
+    if: ${{ github.event.inputs.test-suite == 'all' ||
+      github.event.inputs.test-suite == 'chromium' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -65,13 +67,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -134,8 +134,9 @@ jobs:
 
   e2e-firefox:
     name: E2E Firefox
-    needs: [build]
-    if: ${{ github.event.inputs.test-suite == 'all' || github.event.inputs.test-suite == 'firefox' }}
+    needs: [ build ]
+    if: ${{ github.event.inputs.test-suite == 'all' ||
+      github.event.inputs.test-suite == 'firefox' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -147,13 +148,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -184,7 +183,15 @@ jobs:
         run: bunx playwright install --with-deps firefox
       - name: Run Playwright Firefox collaboration smoke
         id: playwright
-        run: bunx playwright test -c playwright/playwright.config.ts --project=firefox apps/web/e2e/collaboration-live-sync.spec.ts apps/web/e2e/collaboration-drag-sync.spec.ts apps/web/e2e/collaboration-presence-lifecycle.spec.ts apps/web/e2e/collaboration-reconnect-recovery.spec.ts apps/web/e2e/collaboration-chat-comments.spec.ts apps/web/e2e/collaboration-permissions-and-delete.spec.ts apps/web/e2e/share-link-owner.spec.ts apps/web/e2e/share-link-editor.spec.ts
+        run: bunx playwright test -c playwright/playwright.config.ts --project=firefox
+          apps/web/e2e/collaboration-live-sync.spec.ts
+          apps/web/e2e/collaboration-drag-sync.spec.ts
+          apps/web/e2e/collaboration-presence-lifecycle.spec.ts
+          apps/web/e2e/collaboration-reconnect-recovery.spec.ts
+          apps/web/e2e/collaboration-chat-comments.spec.ts
+          apps/web/e2e/collaboration-permissions-and-delete.spec.ts
+          apps/web/e2e/share-link-owner.spec.ts
+          apps/web/e2e/share-link-editor.spec.ts
       - name: Upload traces
         if: steps.playwright.outcome == 'failure'
         uses: actions/upload-artifact@v7
@@ -209,8 +216,9 @@ jobs:
 
   e2e-webkit:
     name: E2E WebKit
-    needs: [build]
-    if: ${{ github.event.inputs.test-suite == 'all' || github.event.inputs.test-suite == 'webkit' }}
+    needs: [ build ]
+    if: ${{ github.event.inputs.test-suite == 'all' ||
+      github.event.inputs.test-suite == 'webkit' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -222,13 +230,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -259,7 +265,15 @@ jobs:
         run: bunx playwright install --with-deps webkit
       - name: Run Playwright WebKit collaboration smoke
         id: playwright
-        run: bunx playwright test -c playwright/playwright.config.ts --project=webkit apps/web/e2e/collaboration-live-sync.spec.ts apps/web/e2e/collaboration-drag-sync.spec.ts apps/web/e2e/collaboration-presence-lifecycle.spec.ts apps/web/e2e/collaboration-reconnect-recovery.spec.ts apps/web/e2e/collaboration-chat-comments.spec.ts apps/web/e2e/collaboration-permissions-and-delete.spec.ts apps/web/e2e/share-link-owner.spec.ts apps/web/e2e/share-link-editor.spec.ts
+        run: bunx playwright test -c playwright/playwright.config.ts --project=webkit
+          apps/web/e2e/collaboration-live-sync.spec.ts
+          apps/web/e2e/collaboration-drag-sync.spec.ts
+          apps/web/e2e/collaboration-presence-lifecycle.spec.ts
+          apps/web/e2e/collaboration-reconnect-recovery.spec.ts
+          apps/web/e2e/collaboration-chat-comments.spec.ts
+          apps/web/e2e/collaboration-permissions-and-delete.spec.ts
+          apps/web/e2e/share-link-owner.spec.ts
+          apps/web/e2e/share-link-editor.spec.ts
       - name: Upload traces
         if: steps.playwright.outcome == 'failure'
         uses: actions/upload-artifact@v7
@@ -284,8 +298,9 @@ jobs:
 
   e2e-cross-browser:
     name: E2E Cross-Browser (Chrome + Firefox)
-    needs: [build]
-    if: ${{ github.event.inputs.test-suite == 'all' || github.event.inputs.test-suite == 'cross-browser' }}
+    needs: [ build ]
+    if: ${{ github.event.inputs.test-suite == 'all' ||
+      github.event.inputs.test-suite == 'cross-browser' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -297,13 +312,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -336,7 +349,8 @@ jobs:
         id: playwright
         env:
           CROSS_BROWSER: "1"
-        run: bunx playwright test -c playwright/playwright.config.ts --project=chromium apps/web/e2e/collaboration-cross-browser.spec.ts
+        run: bunx playwright test -c playwright/playwright.config.ts --project=chromium
+          apps/web/e2e/collaboration-cross-browser.spec.ts
       - name: Upload traces
         if: steps.playwright.outcome == 'failure'
         uses: actions/upload-artifact@v7
@@ -361,12 +375,13 @@ jobs:
 
   visual-regression:
     name: Visual Regression Chromium
-    needs: [build]
-    if: ${{ github.event.inputs.test-suite == 'all' || github.event.inputs.test-suite == 'visual-regression' }}
+    needs: [ build ]
+    if: ${{ github.event.inputs.test-suite == 'all' ||
+      github.event.inputs.test-suite == 'visual-regression' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -376,7 +391,8 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install chromium
       - name: Run Playwright visual regression suite
-        run: bunx playwright test -c playwright/playwright.visual.config.ts --project=chromium
+        run: bunx playwright test -c playwright/playwright.visual.config.ts
+          --project=chromium
         continue-on-error: true
       - name: Upload screenshot diffs
         if: failure()

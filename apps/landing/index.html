@@ -1,10 +1,120 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+    "use strict";
+    // Always open at the top: this runs before first paint, so it
+    // disables the browser's scroll restoration and strips any #hash
+    // fragment (nav links like #canvas) before the browser can jump
+    // the page to a mid-page section on refresh.
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual";
+    }
+    if (location.hash) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+    window.scrollTo(0, 0);
+    window.addEventListener("pageshow", () => {
+      window.scrollTo(0, 0);
+    });
+    </script>
     <meta charset="UTF-8">
-    <link rel="icon" type="image/svg+xml" href="/lumen_white.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0A0A0A">
+
+    <link rel="icon" type="image/svg+xml" href="/lumen_white.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="canonical" href="https://lumen.itssingularity.com/">
+
     <title>Lumen — Work, illuminated</title>
+    <meta
+      name="description"
+      content="Lumen is the local-first spatial project-management canvas from Singularity Works. Real kanban boards, live presence, offline-first storage, and Larity — the AI that remembers your workspace. Free, secure, offline-first."
+    >
+    <meta name="author" content="Singularity Works">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="generator" content="Lumen">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Lumen">
+    <meta property="og:url" content="https://lumen.itssingularity.com/">
+    <meta property="og:title" content="Lumen — Work, illuminated">
+    <meta
+      property="og:description"
+      content="The local-first spatial project-management canvas. Real kanban boards, live presence, offline-first storage, and Larity, the AI that remembers your workspace."
+    >
+    <meta property="og:image" content="https://lumen.itssingularity.com/og.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:image:alt" content="Lumen app icon">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Lumen — Work, illuminated">
+    <meta
+      name="twitter:description"
+      content="The local-first spatial project-management canvas. Real kanban boards, live presence, offline-first storage, and Larity, the AI that remembers your workspace."
+    >
+    <meta
+      name="twitter:image"
+      content="https://lumen.itssingularity.com/og.png"
+    >
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://lumen.itssingularity.com/#website",
+          "url": "https://lumen.itssingularity.com/",
+          "name": "Lumen",
+          "description": "Work, illuminated — the local-first spatial project-management canvas.",
+          "publisher": {
+            "@id": "https://itssingularity.com/#organization"
+          },
+          "inLanguage": "en"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://itssingularity.com/#organization",
+          "name": "Singularity Works",
+          "url": "https://itssingularity.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://lumen.itssingularity.com/og.png",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": [
+            "https://github.com/singularityworks-xyz/lumen"
+          ]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://lumen.itssingularity.com/#software",
+          "name": "Lumen",
+          "url": "https://canvas.itssingularity.com",
+          "applicationCategory": "ProductivityApplication",
+          "operatingSystem": "Web",
+          "description": "A local-first spatial project-management canvas with real-time kanban boards, live presence, offline-first storage, and an AI assistant that remembers your workspace.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "publisher": {
+            "@id": "https://itssingularity.com/#organization"
+          },
+          "image": "https://lumen.itssingularity.com/og.png"
+        }
+      ]
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -15,5 +125,26 @@
   <body class="antialiased overflow-x-hidden min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+    "use strict";
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.location.hostname === "::1" ||
+      window.location.hostname.startsWith("192.168.") ||
+      window.location.hostname.startsWith("10.") ||
+      window.location.hostname.startsWith("172.");
+    if (!isLocalhost) {
+      const script = document.createElement("script");
+      script.defer = true;
+      script.src = "https://tracking.przknv.cc/script.js";
+      script.setAttribute(
+        "data-website-id",
+        "99342bb1-649a-49c1-99de-8db2f5347e1c"
+      );
+      document.head.appendChild(script);
+    }
+    </script>
   </body>
 </html>

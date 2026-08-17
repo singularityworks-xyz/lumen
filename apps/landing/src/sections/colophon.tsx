@@ -1,367 +1,162 @@
 "use client";
 
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useEffect, useRef } from "react";
-
-gsap.registerPlugin(ScrollTrigger);
+import { ArrowRight, Check } from "lucide-react";
+import PixelSnow from "../animations/pixel-snow";
 
 export function ColophonSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const footerRef = useRef<HTMLDivElement>(null);
-
   const currentYear = new Date().getFullYear();
-
-  useEffect(() => {
-    if (!sectionRef.current) {
-      return;
-    }
-
-    const ctx = gsap.context(() => {
-      if (headerRef.current) {
-        gsap.from(headerRef.current, {
-          x: -60,
-          opacity: 0,
-          duration: 1,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: headerRef.current,
-            start: "top 85%",
-            toggleActions: "play none none reverse",
-          },
-        });
-      }
-
-      if (gridRef.current) {
-        const columns = gridRef.current.querySelectorAll(":scope > div");
-        gsap.from(columns, {
-          y: 40,
-          opacity: 0,
-          duration: 0.8,
-          stagger: 0.1,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: gridRef.current,
-            start: "top 85%",
-            toggleActions: "play none none reverse",
-          },
-        });
-      }
-
-      if (footerRef.current) {
-        gsap.from(footerRef.current, {
-          y: 20,
-          opacity: 0,
-          duration: 0.8,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: footerRef.current,
-            start: "top 95%",
-            toggleActions: "play none none reverse",
-          },
-        });
-      }
-    }, sectionRef);
-
-    return () => ctx.revert();
-  }, []);
 
   return (
     <section
-      className="relative border-border/30 border-t px-6 py-32 md:px-12"
+      className="relative overflow-hidden border-border/30 border-t"
       id="colophon"
-      ref={sectionRef}
     >
-      <div
-        className="mb-16 flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between"
-        ref={headerRef}
-      >
-        <div className="lg:w-2/5 lg:shrink-0">
-          <h2 className="font-(--font-bebas) text-5xl tracking-tight md:text-7xl">
-            LUMEN
-          </h2>
-          <span className="ml-2 font-mono text-[10px] text-accent uppercase tracking-[0.3em]">
-            By Singularity Works
-          </span>
+      {/* Light bleeding up from the bottom edge, behind the wordmark */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 bottom-0 h-3/4 bg-[radial-gradient(ellipse_70%_55%_at_50%_100%,rgba(255,255,255,0.14),transparent_65%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-36 bg-[radial-gradient(ellipse_45%_100%_at_50%_100%,rgba(255,255,255,0.07),transparent_70%)]" />
+        <PixelSnow
+          brightness={0.2}
+          color="#ffffff"
+          density={0.45}
+          direction={75}
+          flakeSize={0.01}
+          minFlakeSize={1.25}
+          pixelResolution={200}
+          speed={0.6}
+        />
+      </div>
 
-          <p className="mt-8 text-foreground/70 text-sm leading-relaxed">
-            A management system built on an infinite canvas. Work spatially
-            instead of hierarchically. Place Kanban boards anywhere, draw
-            relationships directly between them, and shape workflows visually as
-            they evolve. Collaborate with real-time presence rendered as live
-            cursors inside a shared workspace rather than delayed updates or
-            comment threads.
-          </p>
-          <p className="mt-4 text-foreground/70 text-sm leading-relaxed">
-            Engineered for reliability rather than spectacle. It is
-            offline-first, state-durable, and conflict-resistant by default.
-            Real-time sync through CRDTs proven at scale, ensuring consistency
-            without central locks. Persistence is local, observability is built
-            in, and the system is designed to survive network failure,
-            concurrency, and production load without degrading the user’s mental
-            model.
-          </p>
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-20 sm:px-6 lg:px-8 lg:pt-28">
+        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+          <div className="max-w-sm">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2
+                className="font-bold text-2xl text-foreground"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Lumen
+              </h2>
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
+                By Singularity Works
+              </span>
+            </div>
+            <p className="mt-4 text-muted-foreground text-sm leading-relaxed">
+              A management system built on an infinite canvas. Offline-first,
+              state-durable, and conflict-resistant by default.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <span className="flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 px-2.5 py-1 font-medium text-[10px] text-muted-foreground">
+                <Check className="h-3 w-3 text-primary" />
+                Free
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 px-2.5 py-1 font-medium text-[10px] text-muted-foreground">
+                <Check className="h-3 w-3 text-primary" />
+                Secure
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 px-2.5 py-1 font-medium text-[10px] text-muted-foreground">
+                <Check className="h-3 w-3 text-primary" />
+                Offline-first
+              </span>
+            </div>
+          </div>
 
-          <div className="mt-10 flex gap-12" ref={gridRef}>
-            <div>
-              <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-                Design
-              </h4>
-              <ul className="space-y-1">
-                <li className="font-mono text-foreground/80 text-xs">
-                  Singularity Works
-                </li>
-                <li className="font-mono text-foreground/80 text-xs">
-                  Design Studio
-                </li>
-              </ul>
+          <div className="flex flex-col items-start gap-8 md:items-end">
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-stretch">
+              <a
+                className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-b from-primary to-primary/90 px-4 font-semibold text-primary-foreground text-sm shadow-[0_0_24px_rgba(255,255,255,0.22),0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3)] sm:flex-1"
+                href="https://canvas.itssingularity.com"
+              >
+                <ArrowRight className="h-4 w-4" />
+                Try it out
+              </a>
+              <a
+                className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-border/50 bg-card/50 px-4 font-medium text-sm shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-colors hover:bg-card/70 sm:flex-1"
+                href="https://github.com/singularityworks-xyz/lumen"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                GitHub
+              </a>
             </div>
 
-            <div>
-              <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-                Year
-              </h4>
-              <ul className="space-y-1">
-                <li className="font-mono text-foreground/80 text-xs">2025</li>
-                <li className="font-mono text-foreground/80 text-xs">
-                  Ongoing
-                </li>
-              </ul>
+            <div className="flex gap-12">
+              <div>
+                <h4 className="mb-3 font-semibold text-muted-foreground text-xs">
+                  Design
+                </h4>
+                <ul className="space-y-1">
+                  <li className="font-mono text-foreground/80 text-xs">
+                    Singularity Works
+                  </li>
+                  <li className="font-mono text-foreground/80 text-xs">
+                    Design Studio
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="mb-3 font-semibold text-muted-foreground text-xs">
+                  Runtime
+                </h4>
+                <ul className="space-y-1">
+                  <li className="font-mono text-foreground/80 text-xs">
+                    Local-First CRDT
+                  </li>
+                  <li className="font-mono text-foreground/80 text-xs">
+                    WebGL 2D Canvas
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="mb-3 font-semibold text-muted-foreground text-xs">
+                  Year
+                </h4>
+                <ul className="space-y-1">
+                  <li className="font-mono text-foreground/80 text-xs">2026</li>
+                  <li className="font-mono text-foreground/80 text-xs">
+                    Continuous
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="lg:w-3/5" id="pricing">
-          <h4 className="mb-6 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-            Pricing
-          </h4>
-          <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
-              {/* Subtle SVG decoration */}
-              <div className="absolute -top-4 -right-4 opacity-12">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="100"
-                  viewBox="0 0 100 100"
-                  width="100"
-                >
-                  <path
-                    d="M50 10 L80 40 L50 70 L20 40 Z"
-                    fill="currentColor"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M60 30 L85 55 L60 80 L35 55 Z"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    fill="currentColor"
-                    opacity="0.1"
-                    r="15"
-                  />
-                </svg>
-              </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Offline
-              </p>
-              <p className="mt-2 font-bold text-2xl text-foreground">Free</p>
-              <p className="font-mono text-[10px] text-muted-foreground">
-                permanently
-              </p>
-              <p className="mt-3 text-[10px] text-foreground/60 leading-relaxed">
-                1 workspace
-                <br />
-                Shareable
-              </p>
-            </div>
-
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-primary/30 bg-primary/5 p-5 backdrop-blur-sm">
-              {/* Subtle SVG decoration */}
-              <div className="absolute -right-5 -bottom-5 opacity-10">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="120"
-                  viewBox="0 0 120 120"
-                  width="120"
-                >
-                  <rect
-                    fill="currentColor"
-                    height="60"
-                    opacity="0.2"
-                    rx="8"
-                    width="60"
-                    x="30"
-                    y="30"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="30"
-                    opacity="0.15"
-                    rx="4"
-                    width="30"
-                    x="45"
-                    y="45"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    fill="currentColor"
-                    opacity="0.1"
-                    r="12"
-                  />
-                  <path
-                    d="M20 20 L40 20 L30 40 Z"
-                    fill="currentColor"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M80 80 L100 80 L90 100 Z"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                </svg>
-              </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Individual
-              </p>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-muted-foreground text-sm line-through">
-                  $12
-                </span>
-                <span className="font-bold text-2xl text-foreground">$8</span>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  /mo
-                </span>
-              </div>
-              <p className="mt-3 text-[10px] text-foreground/60 leading-relaxed">
-                Unlimited workspaces
-                <br />
-                All shareable
-              </p>
-            </div>
-
-            <div className="relative flex-1 overflow-hidden rounded-xl border border-border/30 bg-card/20 p-5 backdrop-blur-sm">
-              <div className="absolute top-0 right-0 rounded-bl-lg bg-primary/80 px-2 py-0.5">
-                <span className="font-mono text-[8px] text-primary-foreground uppercase">
-                  Limited
-                </span>
-              </div>
-              {/* Subtle SVG decoration */}
-              <div className="absolute top-1/4 -right-6 opacity-8">
-                <svg
-                  aria-hidden="true"
-                  className="text-primary"
-                  height="140"
-                  viewBox="0 0 140 140"
-                  width="140"
-                >
-                  <polygon
-                    fill="currentColor"
-                    opacity="0.18"
-                    points="70,20 110,50 90,90 50,90 30,50"
-                  />
-                  <polygon
-                    fill="currentColor"
-                    opacity="0.12"
-                    points="80,40 100,60 90,80 70,80 60,60"
-                  />
-                  <circle
-                    cx="80"
-                    cy="60"
-                    fill="currentColor"
-                    opacity="0.08"
-                    r="18"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="20"
-                    opacity="0.2"
-                    rx="3"
-                    width="20"
-                    x="25"
-                    y="25"
-                  />
-                  <rect
-                    fill="currentColor"
-                    height="15"
-                    opacity="0.15"
-                    rx="2"
-                    width="15"
-                    x="95"
-                    y="95"
-                  />
-                </svg>
-              </div>
-              <p className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                Permanent
-              </p>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-muted-foreground text-sm line-through">
-                  $320
-                </span>
-                <span className="font-bold text-2xl text-foreground">$220</span>
-              </div>
-              <p className="font-mono text-[10px] text-muted-foreground">
-                one-time
-              </p>
-              <p className="mt-2 text-[10px] text-foreground/60 leading-relaxed">
-                Lifetime access
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-              How it Works
-            </h4>
-            <p className="text-foreground/70 text-sm leading-relaxed">
-              Zoom, pan, and place boards anywhere on an infinite canvas with no
-              limits. Watch teammates' cursors move in real-time as you
-              collaborate. Work offline seamlessly — your changes sync
-              automatically when you reconnect. Drop comment clusters anywhere
-              for contextual discussions, and connect related boards with visual
-              links to see the big picture at a glance.
-            </p>
-          </div>
-
-          <div className="mt-6">
-            <h4 className="mb-3 font-mono text-[9px] text-muted-foreground uppercase tracking-[0.3em]">
-              Built For
-            </h4>
-            <p className="text-foreground/70 text-sm leading-relaxed">
-              Visual thinkers who sketch ideas before typing them. Remote teams
-              who want to collaborate as if they're in the same room. Complex
-              projects with multiple interconnected boards. Privacy-conscious
-              users who want data to stay local until they choose to sync.
-            </p>
-          </div>
+        {/* Giant wordmark fading into the light from below */}
+        <div className="relative mt-6 flex justify-center overflow-hidden lg:mt-8">
+          <h2
+            className="translate-y-[8%] select-none bg-linear-to-b from-foreground via-foreground/55 to-transparent bg-clip-text text-center font-bold text-[28vw] text-transparent leading-[0.75] tracking-tight sm:text-[24vw] lg:text-[19rem]"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Lumen
+          </h2>
         </div>
       </div>
 
-      <div
-        className="mt-24 flex flex-col gap-4 border-border/20 border-t pt-8 md:flex-row md:items-center md:justify-between"
-        ref={footerRef}
-      >
-        <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          © {currentYear} Singularity Works. All rights reserved.
-        </p>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
-          <a
-            className="font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-            href="mailto:work@singularityworks.xyz"
-          >
-            Contact: work@singularityworks.xyz
-          </a>
-          <p className="font-mono text-[10px] text-muted-foreground">
-            Crafted with precision. Illuminated with vision.
+      <div className="relative z-10 border-border/20 border-t px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <p className="text-muted-foreground text-xs">
+            © {currentYear} Singularity Works. All rights reserved.
           </p>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+            <a
+              className="font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+              href="mailto:work@singularityworks.xyz"
+            >
+              work@singularityworks.xyz
+            </a>
+            <p className="text-muted-foreground text-xs">
+              Crafted with precision. Illuminated with vision.
+            </p>
+          </div>
         </div>
       </div>
     </section>

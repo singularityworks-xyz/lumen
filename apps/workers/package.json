@@ -1,6 +1,6 @@
 {
   "name": "@lumen/workers",
-  "version": "1.0.67",
+  "version": "1.0.72",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
     "start": "cross-env NODE_ENV=production bun run dist/index.js",
     "start:test": "cross-env NODE_ENV=test bun run dist/index.js",
-    "check-types": "tsgo --noEmit"
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
@@ -20,8 +20,6 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/instrumentation": "^7.8.0",
-    "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.37.0",
     "ai": "^6.0.168",
     "better-auth": "^1.6.7",
     "elysia": "^1.4.28",

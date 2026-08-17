@@ -1,9 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
-// Set environment variables BEFORE any imports to ensure in-memory limiter is used
-// (not Upstash - we want in-memory for tests so we can reset state between tests)
-process.env.UPSTASH_REDIS_REST_URL = "http://localhost:6379";
-process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+// Set environment variables BEFORE any imports to ensure Redis is configured
+process.env.REDIS_URL = "redis://127.0.0.1:16379";
 
 const mockLoggerInfo = mock(() => {
   // intentionally empty mock
@@ -18,6 +16,20 @@ const mockLoggerDebug = mock(() => {
   // intentionally empty mock
 });
 
+const mockEval = mock(() =>
+  Promise.resolve([1, 29, Date.now() + 60_000] as const)
+);
+const mockConnect = mock(() => Promise.resolve());
+const mockOn = mock(() => {
+  // intentionally empty mock
+});
+const mockCreateClient = mock(() => ({
+  connect: mockConnect,
+  eval: mockEval,
+  isReady: true,
+  on: mockOn,
+}));
+
 mock.module("@lumen/logger", () => ({
   createLogger: () => ({
     info: mockLoggerInfo,
@@ -27,48 +39,33 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
-mock.module("@upstash/redis", () => ({
-  Redis: class {},
-}));
-
-// Mock must be set up before importing request-queue
-// This mock ensures rate limit always allows requests
-mock.module("@upstash/ratelimit", () => ({
-  Ratelimit: class {
-    limit = mock(() =>
-      Promise.resolve({
-        success: true,
-        remaining: 29,
-        reset: Date.now() + 60_000,
-      })
-    );
-  },
+mock.module("redis", () => ({
+  createClient: mockCreateClient,
 }));
 
 // Import types for the module we're about to import
 type RequestQueueModule = typeof import("./request-queue");
 
 // Use dynamic import with cache-busting to get fresh module
-// This bypasses any mocks set up by other test files (like title-generator.test.ts)
 const requestQueueModule = (await import(
   `./request-queue?${Date.now()}`
 )) as RequestQueueModule;
 
-const {
-  _resetInMemoryLimiter,
-  aiRequestQueue,
-  getQueueStats,
-  getQueueStatus,
-  isUpstashEnabled,
-} = requestQueueModule;
+const { aiRequestQueue, getQueueStats, getQueueStatus, isRedisEnabled } =
+  requestQueueModule;
 
 beforeEach(() => {
   mockLoggerInfo.mockClear();
   mockLoggerWarn.mockClear();
   mockLoggerError.mockClear();
   mockLoggerDebug.mockClear();
-  // Reset the in-memory rate limiter state before each test to prevent rate limiting
-  _resetInMemoryLimiter();
+  mockEval.mockClear();
+  mockOn.mockClear();
+  mockConnect.mockClear();
+  // Reset mock to ensure fresh state for each test
+  mockEval.mockImplementation(() =>
+    Promise.resolve([1, 29, Date.now() + 60_000] as const)
+  );
 });
 
 describe("RateLimitedQueue - immediate execution", () => {
@@ -170,14 +167,10 @@ describe("RateLimitedQueue - status reporting", () => {
   });
 });
 
-describe("RateLimitedQueue - fallback", () => {
-  it("WORKERS-U-05: fallback from Upstash to in-memory limiter works on errors", async () => {
-    const execute = mock(() => Promise.resolve("fallback-ok"));
-
-    const { result, wasQueued } = await aiRequestQueue.enqueue(execute);
-
-    expect(result).toBe("fallback-ok");
-    expect(typeof wasQueued).toBe("boolean");
+describe("RateLimitedQueue - mandatory Redis", () => {
+  it("requires Redis to be configured", () => {
+    expect(isRedisEnabled()).toBe(true);
+    expect(getQueueStats().usingRedis).toBe(true);
   });
 });
 
@@ -189,18 +182,18 @@ describe("RateLimitedQueue - stats", () => {
     expect(stats).toHaveProperty("activeRequests");
     expect(stats).toHaveProperty("isProcessing");
     expect(stats).toHaveProperty("remaining");
-    expect(stats).toHaveProperty("usingUpstash");
+    expect(stats).toHaveProperty("usingRedis");
     expect(typeof stats.queueLength).toBe("number");
     expect(typeof stats.activeRequests).toBe("number");
     expect(typeof stats.isProcessing).toBe("boolean");
     expect(typeof stats.remaining).toBe("number");
-    expect(typeof stats.usingUpstash).toBe("boolean");
+    expect(typeof stats.usingRedis).toBe("boolean");
   });
 });
 
-describe("isUpstashEnabled", () => {
+describe("isRedisEnabled", () => {
   it("returns a boolean", () => {
-    const result = isUpstashEnabled();
+    const result = isRedisEnabled();
     expect(typeof result).toBe("boolean");
   });
 });

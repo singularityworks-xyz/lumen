@@ -1,17 +1,14 @@
 import { createLogger } from "@lumen/logger";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { createClient } from "redis";
 
 const logger = createLogger({ name: "ai:request-queue" });
 const RATE_LIMIT_PER_MINUTE = 30;
 const WINDOW_SIZE_MS = 60_000;
-const LOCAL_REDIS_KEY_PREFIX = "lumen:ai:ratelimit";
+const REDIS_KEY_PREFIX = "lumen:ai:ratelimit";
 
 export type Priority = "high" | "normal" | "low";
 
-type RateLimiterBackend = "upstash" | "lumencache" | "memory";
-type LocalRedisClient = ReturnType<typeof createClient>;
+type RedisClient = ReturnType<typeof createClient>;
 
 interface QueueStatus {
   estimatedWaitMs: number;
@@ -29,24 +26,18 @@ interface QueuedRequest<T> {
   workspaceId?: string;
 }
 
-const UPSTASH_REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const isUpstashConfigured = Boolean(UPSTASH_REDIS_URL && UPSTASH_REDIS_TOKEN);
-const LOCAL_REDIS_URL =
-  process.env.REDIS_URL ??
-  (process.env.NODE_ENV === "development"
-    ? "redis://127.0.0.1:5354"
-    : undefined);
+const REDIS_URL = process.env.REDIS_URL;
 
-let upstashRatelimit: Ratelimit | null = null;
-let localRedisClient: LocalRedisClient | null = null;
-let localRedisConnectPromise: Promise<void> | null = null;
-let localRedisReady = false;
-let currentBackend: RateLimiterBackend = "memory";
+if (!REDIS_URL) {
+  throw new Error("REDIS_URL environment variable is required");
+}
+
+let redisClient: RedisClient | null = null;
+let redisConnectPromise: Promise<void> | null = null;
+let redisReady = false;
 let lastKnownRemaining = RATE_LIMIT_PER_MINUTE;
-let loggedLocalRedisFallback = false;
 
-const LOCAL_REDIS_SLIDING_WINDOW_SCRIPT = `
+const REDIS_SLIDING_WINDOW_SCRIPT = `
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
@@ -84,11 +75,7 @@ function parseInteger(value: unknown): number | null {
   return null;
 }
 
-function updateRateLimiterState(
-  backend: RateLimiterBackend,
-  remaining: number
-): void {
-  currentBackend = backend;
+function updateRateLimiterState(remaining: number): void {
   lastKnownRemaining = remaining;
 }
 
@@ -96,229 +83,112 @@ function createRateLimitMember(now: number): string {
   return `${now}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function logLocalRedisFallback(error: unknown): void {
-  if (loggedLocalRedisFallback) {
-    return;
-  }
+try {
+  const client = createClient({
+    url: REDIS_URL,
+    socket: {
+      connectTimeout: 1000,
+    },
+  });
 
-  loggedLocalRedisFallback = true;
-  logger.warn(
-    "Local Redis rate limiter unavailable, using in-memory fallback",
-    {
+  client.on("error", (error) => {
+    redisReady = false;
+    logger.error("Redis rate limiter error", {
       error: error instanceof Error ? error.message : "Unknown",
-      url: LOCAL_REDIS_URL,
-    }
-  );
-}
-
-if (isUpstashConfigured) {
-  try {
-    const redis = new Redis({
-      url: UPSTASH_REDIS_URL ?? "",
-      token: UPSTASH_REDIS_TOKEN ?? "",
     });
+  });
 
-    upstashRatelimit = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(RATE_LIMIT_PER_MINUTE, "60 s"),
-      analytics: true,
-      prefix: "lumen:ai:ratelimit",
-    });
-
-    logger.info("Upstash Redis rate limiter initialized", {
+  client.on("ready", () => {
+    redisReady = true;
+    logger.info("Redis rate limiter ready", {
       rateLimit: RATE_LIMIT_PER_MINUTE,
       windowSize: "60s",
     });
-    currentBackend = "upstash";
-  } catch (error) {
-    logger.error("Failed to initialize Upstash Redis", {
-      error: error instanceof Error ? error.message : "Unknown",
-    });
-  }
-}
+  });
 
-if (!isUpstashConfigured && LOCAL_REDIS_URL) {
-  try {
-    const client = createClient({
-      url: LOCAL_REDIS_URL,
-      socket: {
-        connectTimeout: 1000,
-      },
-    });
-
-    client.on("error", (error) => {
-      localRedisReady = false;
-      logLocalRedisFallback(error);
-    });
-
-    client.on("ready", () => {
-      localRedisReady = true;
-      loggedLocalRedisFallback = false;
-      logger.info("Local Redis rate limiter ready", {
+  redisClient = client;
+  redisConnectPromise = client
+    .connect()
+    .then(() => {
+      redisReady = true;
+      logger.info("Redis rate limiter initialized", {
         rateLimit: RATE_LIMIT_PER_MINUTE,
-        url: LOCAL_REDIS_URL,
         windowSize: "60s",
       });
-    });
-
-    localRedisClient = client;
-    localRedisConnectPromise = client
-      .connect()
-      .then(() => {
-        localRedisReady = true;
-        loggedLocalRedisFallback = false;
-        logger.info("Local Redis rate limiter initialized", {
-          rateLimit: RATE_LIMIT_PER_MINUTE,
-          url: LOCAL_REDIS_URL,
-          windowSize: "60s",
-        });
-      })
-      .catch((error) => {
-        localRedisClient = null;
-        localRedisReady = false;
-        logLocalRedisFallback(error);
+    })
+    .catch((error) => {
+      redisClient = null;
+      redisReady = false;
+      logger.error("Failed to connect to Redis", {
+        error: error instanceof Error ? error.message : "Unknown",
       });
-  } catch (error) {
-    logLocalRedisFallback(error);
-  }
+      throw new Error("Redis connection failed");
+    });
+} catch (error) {
+  logger.error("Failed to initialize Redis client", {
+    error: error instanceof Error ? error.message : "Unknown",
+  });
+  throw new Error("Redis initialization failed");
 }
 
-if (!(isUpstashConfigured || LOCAL_REDIS_URL)) {
-  logger.warn(
-    "Upstash Redis not configured, using in-memory rate limiting. " +
-      "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for production."
-  );
-}
-
-class InMemoryRateLimiter {
-  private timestamps: number[] = [];
-
-  reset(): void {
-    this.timestamps = [];
-  }
-
-  limit(): {
-    success: boolean;
-    remaining: number;
-    reset: number;
-  } {
-    const now = Date.now();
-    const cutoff = now - WINDOW_SIZE_MS;
-    this.timestamps = this.timestamps.filter((ts) => ts >= cutoff);
-
-    if (this.timestamps.length >= RATE_LIMIT_PER_MINUTE) {
-      const oldestTimestamp = this.timestamps[0];
-      const reset = oldestTimestamp + WINDOW_SIZE_MS;
-      return {
-        success: false,
-        remaining: 0,
-        reset,
-      };
-    }
-
-    this.timestamps.push(now);
-    return {
-      success: true,
-      remaining: RATE_LIMIT_PER_MINUTE - this.timestamps.length,
-      reset: now + WINDOW_SIZE_MS,
-    };
-  }
-
-  getRemaining(): number {
-    const now = Date.now();
-    const cutoff = now - WINDOW_SIZE_MS;
-    const validTimestamps = this.timestamps.filter((ts) => ts >= cutoff);
-    return RATE_LIMIT_PER_MINUTE - validTimestamps.length;
-  }
-}
-
-const inMemoryLimiter = new InMemoryRateLimiter();
-
-// Export for testing only
-export function _resetInMemoryLimiter(): void {
-  inMemoryLimiter.reset();
-}
-
-// Unified rate limiter that uses Upstash when available, falls back to in-memory
+// Rate limiter that uses Redis
 async function checkRateLimit(identifier = "global"): Promise<{
   success: boolean;
   remaining: number;
   resetMs: number;
 }> {
-  if (upstashRatelimit) {
-    try {
-      const result = await upstashRatelimit.limit(identifier);
-      updateRateLimiterState("upstash", result.remaining);
-      return {
-        success: result.success,
-        remaining: result.remaining,
-        resetMs: result.reset - Date.now(),
-      };
-    } catch (error) {
-      logger.warn(
-        "Upstash rate limit check failed, falling back to in-memory",
-        {
-          error: error instanceof Error ? error.message : "Unknown",
-        }
-      );
-    }
+  if (!redisClient) {
+    throw new Error("Redis client not initialized");
   }
 
-  if (localRedisClient) {
-    try {
-      if (localRedisConnectPromise) {
-        await localRedisConnectPromise;
-      }
-
-      if (localRedisClient.isReady && localRedisReady) {
-        const now = Date.now();
-        const rawResult = await localRedisClient.eval(
-          LOCAL_REDIS_SLIDING_WINDOW_SCRIPT,
-          {
-            keys: [`${LOCAL_REDIS_KEY_PREFIX}:${identifier}`],
-            arguments: [
-              String(now),
-              String(WINDOW_SIZE_MS),
-              String(RATE_LIMIT_PER_MINUTE),
-              createRateLimitMember(now),
-            ],
-          }
-        );
-
-        if (Array.isArray(rawResult) && rawResult.length >= 3) {
-          const successFlag = parseInteger(rawResult[0]);
-          const remaining = parseInteger(rawResult[1]);
-          const resetAt = parseInteger(rawResult[2]);
-
-          if (successFlag !== null && remaining !== null && resetAt !== null) {
-            updateRateLimiterState("lumencache", remaining);
-            return {
-              success: successFlag === 1,
-              remaining,
-              resetMs: Math.max(0, resetAt - now),
-            };
-          }
-        }
-
-        throw new Error("Local Redis rate limiter returned an invalid result");
-      }
-    } catch (error) {
-      localRedisReady = false;
-      logLocalRedisFallback(error);
+  try {
+    if (redisConnectPromise) {
+      await redisConnectPromise;
     }
-  }
 
-  const result = inMemoryLimiter.limit();
-  updateRateLimiterState("memory", result.remaining);
-  return {
-    success: result.success,
-    remaining: result.remaining,
-    resetMs: result.reset - Date.now(),
-  };
+    if (!(redisClient.isReady && redisReady)) {
+      throw new Error("Redis is not ready");
+    }
+
+    const now = Date.now();
+    const rawResult = await redisClient.eval(REDIS_SLIDING_WINDOW_SCRIPT, {
+      keys: [`${REDIS_KEY_PREFIX}:${identifier}`],
+      arguments: [
+        String(now),
+        String(WINDOW_SIZE_MS),
+        String(RATE_LIMIT_PER_MINUTE),
+        createRateLimitMember(now),
+      ],
+    });
+
+    if (Array.isArray(rawResult) && rawResult.length >= 3) {
+      const successFlag = parseInteger(rawResult[0]);
+      const remaining = parseInteger(rawResult[1]);
+      const resetAt = parseInteger(rawResult[2]);
+
+      if (successFlag !== null && remaining !== null && resetAt !== null) {
+        updateRateLimiterState(remaining);
+        return {
+          success: successFlag === 1,
+          remaining,
+          resetMs: Math.max(0, resetAt - now),
+        };
+      }
+    }
+
+    throw new Error("Redis rate limiter returned an invalid result");
+  } catch (error) {
+    redisReady = false;
+    logger.error("Redis rate limit check failed", {
+      error: error instanceof Error ? error.message : "Unknown",
+      identifier,
+    });
+    throw new Error("Redis rate limit check failed");
+  }
 }
 
 // Rate-limited request queue with priority support
-// Uses Upstash Redis for distributed rate limiting in production
+// Uses Redis for distributed rate limiting (mandatory)
 class RateLimitedQueue {
   private readonly queue: QueuedRequest<unknown>[] = [];
   private processing = false;
@@ -344,17 +214,14 @@ class RateLimitedQueue {
     activeRequests: number;
     isProcessing: boolean;
     remaining: number;
-    usingUpstash: boolean;
+    usingRedis: boolean;
   } {
     return {
       queueLength: this.queue.length,
       activeRequests: this.activeRequests,
       isProcessing: this.processing,
-      remaining:
-        currentBackend === "memory"
-          ? inMemoryLimiter.getRemaining()
-          : lastKnownRemaining,
-      usingUpstash: currentBackend === "upstash",
+      remaining: lastKnownRemaining,
+      usingRedis: isRedisEnabled(),
     };
   }
 
@@ -475,11 +342,27 @@ class RateLimitedQueue {
 
     try {
       while (this.queue.length > 0) {
-        await this.waitForSlot();
-
         const request = this.queue.shift();
         if (!request) {
           continue;
+        }
+
+        try {
+          await this.waitForSlot();
+        } catch (error) {
+          // Reject current request and all remaining on rate limit failure
+          const queueError =
+            error instanceof Error
+              ? error
+              : new Error("Unknown rate limit error");
+          request.reject(queueError);
+          while (this.queue.length > 0) {
+            const remainingRequest = this.queue.shift();
+            if (remainingRequest) {
+              remainingRequest.reject(queueError);
+            }
+          }
+          return;
         }
 
         const waitTime = Date.now() - request.addedAt;
@@ -554,6 +437,6 @@ export function getQueueStats() {
   return aiRequestQueue.getStats();
 }
 
-export function isUpstashEnabled(): boolean {
-  return Boolean(upstashRatelimit);
+export function isRedisEnabled(): boolean {
+  return Boolean(redisClient && redisReady);
 }
