@@ -151,39 +151,94 @@ const priorityConfig = {
   },
 };
 
-const annotations = [
+const oldStyleCards = [
   {
-    id: "spatial",
-    title: "Spatial Positioning",
-    desc: "Boards float freely on an unbounded 2D canvas with arbitrary coordinate placement.",
-    target: "header",
-    tag: "01 / Canvas Node",
+    id: "capture",
+    label: "Capture",
+    title: "Instant Spatial Capture",
+    desc: "No rigid constraints. Drop boards, tasks, and ideas onto an unbounded 2D canvas with arbitrary coordinate placement.",
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6 text-primary"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
   },
   {
-    id: "telemetry",
-    title: "Progress Telemetry",
-    desc: "Live completion roll-up auto-calculated across all column tasks with animated progress.",
-    target: "progress-pill",
-    tag: "02 / Analytics",
+    id: "organize",
+    label: "Organize",
+    title: "Deep Rules & Metadata",
+    desc: "Drag cards into columns. Nest checklists, progress telemetry, priority levels, and tags. Lumen adapts to how you think.",
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6 text-primary"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
   },
   {
-    id: "metadata",
-    title: "Deep Task Metas",
-    desc: "Full checklists, sub-tasks, progress bars, priority levels, tags, and due dates on every card.",
-    target: "card",
-    tag: "03 / Rich Cards",
+    id: "collaborate",
+    label: "Collaborate",
+    title: "Multiplayer Drag Presence",
+    desc: "Real-time cursors and live card drag presence across Phoenix channels. Watch teammates move tasks without locking.",
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6 text-primary"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
   },
   {
-    id: "presence",
-    title: "Live Drag Presence",
-    desc: "See teammates moving and editing cards in real-time with color-coded peer indicators.",
-    target: "presence",
-    tag: "04 / Multiplayer",
+    id: "speed",
+    label: "Speed",
+    title: "Offline-First & Local Fast",
+    desc: "Instant sub-millisecond local commits via IndexedDB. Zero-latency UI response with deterministic Yjs CRDT auto-merge.",
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6 text-primary"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
   },
 ];
 
 export function KanbanShowcase() {
-  const [activeAnnotation, setActiveAnnotation] = useState<string>("all");
   const [completedTaskMap, setCompletedTaskMap] = useState<
     Record<string, boolean>
   >({
@@ -207,7 +262,7 @@ export function KanbanShowcase() {
 
   return (
     <section
-      className="relative z-10 mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28"
+      className="relative z-10 mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
       id="canvas"
     >
       <div className="mx-auto max-w-3xl text-center">
@@ -227,42 +282,8 @@ export function KanbanShowcase() {
         </p>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-        <button
-          className={`cursor-pointer rounded-xl border px-3.5 py-1.5 font-mono text-xs transition-all ${
-            activeAnnotation === "all"
-              ? "border-primary/60 bg-primary/10 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.15)]"
-              : "border-border/40 bg-card/40 text-muted-foreground hover:border-border/80 hover:text-foreground"
-          }`}
-          onClick={() => setActiveAnnotation("all")}
-          type="button"
-        >
-          All Features
-        </button>
-        {annotations.map((ann) => (
-          <button
-            className={`cursor-pointer rounded-xl border px-3.5 py-1.5 font-mono text-xs transition-all ${
-              activeAnnotation === ann.id
-                ? "border-primary/60 bg-primary/10 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.15)]"
-                : "border-border/40 bg-card/40 text-muted-foreground hover:border-border/80 hover:text-foreground"
-            }`}
-            key={ann.id}
-            onClick={() => setActiveAnnotation(ann.id)}
-            type="button"
-          >
-            {ann.title}
-          </button>
-        ))}
-      </div>
-
-      <div className="relative mt-10">
-        <div
-          className={`relative mx-auto w-full overflow-hidden rounded-2xl border transition-all duration-300 ${
-            activeAnnotation === "spatial" || activeAnnotation === "all"
-              ? "border-primary/50 shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.12),inset_0_-2px_6px_rgba(0,0,0,0.5)] ring-1 ring-primary/20"
-              : "border-border/60 bg-card/80 shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
-          } bg-linear-to-b from-card via-background to-card/95 backdrop-blur-md`}
-        >
+      <div className="relative mt-12">
+        <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-primary/50 bg-linear-to-b from-card via-background to-card/95 shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.12),inset_0_-2px_6px_rgba(0,0,0,0.5)] ring-1 ring-primary/20 backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-3 border-border/60 border-b bg-muted/30 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
@@ -285,13 +306,7 @@ export function KanbanShowcase() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <div
-                className={`relative flex items-center gap-1.5 overflow-hidden rounded-full border px-3 py-1 font-mono text-xs transition-all ${
-                  activeAnnotation === "telemetry" || activeAnnotation === "all"
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                    : "border-border/50 bg-secondary/50 text-muted-foreground"
-                }`}
-              >
+              <div className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1 font-mono text-emerald-300 text-xs shadow-[0_0_12px_rgba(16,185,129,0.2)]">
                 <div
                   className="absolute inset-y-0 left-0 bg-emerald-500/20 transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
@@ -364,11 +379,7 @@ export function KanbanShowcase() {
                       return (
                         <div
                           className={`group relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
-                            isDragTarget &&
-                            (
-                              activeAnnotation === "presence" ||
-                                activeAnnotation === "all"
-                            )
+                            isDragTarget
                               ? "border-emerald-500/70 bg-card/95 shadow-[0_0_20px_rgba(16,185,129,0.2),inset_0_1px_2px_rgba(255,255,255,0.15)] ring-1 ring-emerald-500/40"
                               : isCompleted
                                 ? "border-border/30 bg-muted/20 opacity-75 hover:opacity-100"
@@ -520,36 +531,34 @@ export function KanbanShowcase() {
         <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-linear-to-b from-primary/10 via-transparent to-primary/5 opacity-40 blur-2xl" />
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {annotations.map((ann) => {
-          const isSelected =
-            activeAnnotation === ann.id || activeAnnotation === "all";
-          return (
-            <button
-              className={`cursor-pointer rounded-2xl border p-5 text-left transition-all duration-200 ${
-                isSelected
-                  ? "border-primary/40 bg-linear-to-b from-card via-background to-card shadow-[inset_0_1px_3px_rgba(255,255,255,0.1),0_4px_16px_rgba(0,0,0,0.3)]"
-                  : "border-border/30 bg-card/20 opacity-60 hover:opacity-100"
-              }`}
-              key={ann.id}
-              onClick={() => setActiveAnnotation(ann.id)}
-              type="button"
-            >
-              <span className="font-mono text-[10px] text-primary/70 uppercase tracking-wider">
-                {ann.tag}
-              </span>
-              <h4
-                className="mt-1.5 font-bold text-foreground text-lg"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {ann.title}
-              </h4>
-              <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
-                {ann.desc}
-              </p>
-            </button>
-          );
-        })}
+      <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
+        {oldStyleCards.map((card) => (
+          <div className="group relative" key={card.id}>
+            <div className="relative rounded-3xl bg-linear-to-br from-background via-background to-muted p-7 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),inset_0_-2px_15px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[inset_0_2px_20px_rgba(255,255,255,0.15),inset_0_-2px_15px_rgba(0,0,0,0.5),0_16px_48px_rgba(0,0,0,0.5)] sm:p-8">
+              <div className="absolute inset-0 rounded-3xl bg-linear-to-br from-primary/5 via-transparent to-primary/10 opacity-50 transition-opacity group-hover:opacity-75" />
+              <div className="relative">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">
+                    {card.icon}
+                  </div>
+                  <span className="font-mono text-primary/70 text-xs uppercase tracking-wider sm:text-sm">
+                    {card.label}
+                  </span>
+                </div>
+                <h3
+                  className="mb-3 font-semibold text-2xl text-foreground sm:text-3xl"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  {card.title}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed sm:text-base">
+                  {card.desc}
+                </p>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-linear-to-br from-primary/15 via-transparent to-primary/10 opacity-40 blur-xl transition-opacity group-hover:opacity-70" />
+          </div>
+        ))}
       </div>
     </section>
   );

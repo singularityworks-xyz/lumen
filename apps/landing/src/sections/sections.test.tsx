@@ -16,9 +16,10 @@ import { ConnectedCardsSection } from "./connected-cards";
 import { KanbanShowcase } from "./kanban-showcase";
 
 const COMPLETE_BUTTONS_REGEX = /mark complete|mark incomplete/i;
-const METADATA_BUTTONS_REGEX = /Deep Task Metas/i;
 const NETWORK_ONLINE_REGEX = /Network: Online/i;
 const NETWORK_OFFLINE_REGEX = /Network: Offline/i;
+const TRIGGERS_UPDATE_REGEX = /triggers state update/i;
+const STREAMS_DELTA_REGEX = /streams delta to peers/i;
 
 describe("Landing Page Revamped Sections", () => {
   describe("KanbanShowcase", () => {
@@ -46,14 +47,13 @@ describe("Landing Page Revamped Sections", () => {
       fireEvent.click(completeButtons[0]);
     });
 
-    it("allows filtering and switching feature annotations", () => {
-      const { getAllByRole } = render(<KanbanShowcase />);
+    it("renders the feature cards below the board in the 3D card style", () => {
+      const { getByText } = render(<KanbanShowcase />);
 
-      const metadataButtons = getAllByRole("button", {
-        name: METADATA_BUTTONS_REGEX,
-      });
-      expect(metadataButtons.length).toBeGreaterThan(0);
-      fireEvent.click(metadataButtons[0]);
+      expect(getByText("Instant Spatial Capture")).toBeDefined();
+      expect(getByText("Deep Rules & Metadata")).toBeDefined();
+      expect(getByText("Multiplayer Drag Presence")).toBeDefined();
+      expect(getByText("Offline-First & Local Fast")).toBeDefined();
     });
   });
 
@@ -69,9 +69,9 @@ describe("Landing Page Revamped Sections", () => {
       expect(getByText("Phoenix Presence Hub")).toBeDefined();
       expect(getByText("Global Edge Runtime")).toBeDefined();
 
-      // Connector labels
-      expect(getByText("triggers state update")).toBeDefined();
-      expect(getByText("streams delta to peers")).toBeDefined();
+      // Connector label
+      expect(getByText(TRIGGERS_UPDATE_REGEX)).toBeDefined();
+      expect(getByText(STREAMS_DELTA_REGEX)).toBeDefined();
     });
   });
 

@@ -345,7 +345,7 @@ interface MinimalHeroProps {
 
 export const MinimalHero = ({ onWatchDemo }: MinimalHeroProps) => {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden pb-16">
+    <div className="relative w-full overflow-hidden pb-8 sm:pb-12">
       <AnimatedGradientBackground Breathing={true} />
 
       <div
@@ -369,7 +369,7 @@ export const MinimalHero = ({ onWatchDemo }: MinimalHeroProps) => {
         />
       </div>
 
-      <div className="relative z-10 flex h-full flex-col items-center justify-start px-4 pt-40 text-center sm:pt-48">
+      <div className="relative z-10 flex h-full flex-col items-center justify-start px-4 pt-28 text-center sm:pt-36">
         <div className="flex flex-col items-center lg:hidden">
           <div className="mb-4 flex w-full max-w-md justify-between gap-2 px-2">
             <div className="flex -translate-x-8 -rotate-14 animate-[fadeIn_0.5s_ease-out_0.1s_both] flex-col items-center">
@@ -708,8 +708,8 @@ export const MinimalHero = ({ onWatchDemo }: MinimalHeroProps) => {
           </div>
         </div>
 
-        <div className="mt-14 flex animate-[fadeIn_0.5s_ease-out_0.8s_both] flex-col items-center">
-          <CurvedArrowUp className="mb-6 h-20 w-10 text-primary/50" />
+        <div className="mt-8 flex animate-[fadeIn_0.5s_ease-out_0.8s_both] flex-col items-center sm:mt-10">
+          <CurvedArrowUp className="mb-4 h-16 w-8 text-primary/50 sm:mb-6 sm:h-20 sm:w-10" />
           <div className="max-w-3xl px-4">
             <h2
               className="font-bold text-3xl text-foreground leading-tight sm:text-5xl md:text-6xl"
