@@ -27,6 +27,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref_name == 'origin'
     runs-on: ubuntu-latest
     outputs:
+      db: ${{ steps.filter.outputs.db }}
       presence: ${{ steps.filter.outputs.presence }}
       native: ${{ steps.filter.outputs.native }}
       web: ${{ steps.filter.outputs.web }}
@@ -68,6 +69,11 @@ jobs:
             echo "presence=true" >> "$GITHUB_OUTPUT"
           else
             echo "presence=false" >> "$GITHUB_OUTPUT"
+          fi
+          if grep -qE '^(packages/db/|docker/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/prisma-sync\.yml$)' changed-files.txt; then
+            echo "db=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "db=false" >> "$GITHUB_OUTPUT"
           fi
           if grep -qE '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
             echo "native=true" >> "$GITHUB_OUTPUT"
@@ -451,6 +457,18 @@ jobs:
       contents: read
       packages: write
     uses: singularityworks-xyz/lumen/.github/workflows/presence-deploy.yml@origin
+    secrets: inherit
+
+  deploy-db:
+    name: Prisma Schema Sync
+    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.db == 'true' }}
+    needs:
+      - changes
+      - ci-passed
+    permissions:
+      contents: read
+      packages: write
+    uses: singularityworks-xyz/lumen/.github/workflows/prisma-sync.yml@origin
     secrets: inherit
 
   release-native:
