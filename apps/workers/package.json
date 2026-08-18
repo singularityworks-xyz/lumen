@@ -1,6 +1,6 @@
 {
   "name": "@lumen/workers",
-  "version": "1.0.73",
+  "version": "1.0.79",
   "private": true,
   "type": "module",
   "scripts": {
@@ -27,6 +27,7 @@
     "lib0": "^0.2.117",
     "prismabox": "^1.1.26",
     "redis": "^5.12.1",
+    "supermemory": "^4.25.4",
     "tsdown": "^0.21.10",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.30"

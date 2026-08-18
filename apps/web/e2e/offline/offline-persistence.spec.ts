@@ -71,16 +71,9 @@ test.describe("E2E-07: Offline Persistence", () => {
   }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill(
-      '[data-testid="board-name-input"]',
-      "Offline Persistence Board"
-    );
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
-    const boardNode = page.locator(
-      '[data-testid="board-node"]:has-text("Offline Persistence Board")'
-    );
+    const boardNode = page.locator('[data-testid="board-node"]').last();
     await expect(boardNode).toBeVisible();
 
     await clickWithDispatchFallback(page, '[data-testid="add-column-trigger"]');
@@ -97,9 +90,7 @@ test.describe("E2E-07: Offline Persistence", () => {
 
     await page.context().setOffline(false);
 
-    const boardAfterReload = page.locator(
-      '[data-testid="board-node"]:has-text("Offline Persistence Board")'
-    );
+    const boardAfterReload = page.locator('[data-testid="board-node"]').last();
     await expect(boardAfterReload).toBeVisible();
 
     const columnAfterReload = page.locator(
@@ -139,16 +130,9 @@ test.describe("E2E-07: Offline Persistence", () => {
   test("IndexedDB stores workspace state correctly", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "IndexedDB Test Board");
-    await clickWithDispatchFallback(
-      page,
-      '[data-testid="board-create-submit"]'
-    );
     await page.waitForTimeout(500);
 
-    const boardNode = page.locator(
-      '[data-testid="board-node"]:has-text("IndexedDB Test Board")'
-    );
+    const boardNode = page.locator('[data-testid="board-node"]').last();
     await expect(boardNode).toBeVisible();
 
     await expect

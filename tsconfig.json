@@ -11,8 +11,6 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
     "noUncheckedSideEffectImports": true,
-    "libReplacement": false,
-    "stableTypeOrdering": true,
     "rootDir": "./",
     "paths": {
       "@lumen/db": ["./packages/db/src/index.ts"],

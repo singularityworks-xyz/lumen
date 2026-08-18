@@ -4,7 +4,7 @@ import { useReactFlow } from "@xyflow/react";
 import { MessageCircle, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useCollaboration } from "@/src/features/collab";
-import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
+import { useKanbanStore } from "@/src/features/kanban";
 
 interface ContextMenuProps {
   onClose: () => void;
@@ -23,16 +23,20 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
     const defaultWidth = 800;
     const defaultHeight = 400;
 
+    // The context menu event coordinates are screen-space; boards live in
+    // flow space, so convert before centering the new board on the cursor.
+    const flowPos = screenToFlowPosition({ x, y });
+
     useKanbanStore.getState().addBoard(
       "New Board",
       {
-        x: x - defaultWidth / 2,
-        y: y - defaultHeight / 2,
+        x: flowPos.x - defaultWidth / 2,
+        y: flowPos.y - defaultHeight / 2,
       },
       "New project board"
     );
     onClose();
-  }, [x, y, onClose]);
+  }, [x, y, onClose, screenToFlowPosition]);
 
   const handleAddComment = useCallback(() => {
     if (!localUser) {
@@ -91,28 +95,21 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
 ContextMenuContent.displayName = "ContextMenuContent";
 
 export const CanvasContextMenu = memo(() => {
-  const showWelcomeScreen = useShowWelcomeScreen();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
 
-  const handleContextMenu = useCallback(
-    (e: MouseEvent) => {
-      if (showWelcomeScreen) {
-        return;
-      }
-      const target = e.target as HTMLElement;
-      if (
-        target.classList.contains("react-flow__pane") ||
-        target.classList.contains("react-flow__viewport")
-      ) {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY });
-      }
-    },
-    [showWelcomeScreen]
-  );
+  const handleContextMenu = useCallback((e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.classList.contains("react-flow__pane") ||
+      target.classList.contains("react-flow__viewport")
+    ) {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
 
   const handleClose = useCallback(() => {
     setContextMenu(null);

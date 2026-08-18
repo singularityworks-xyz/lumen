@@ -1,5 +1,10 @@
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import type { OnConnect, OnEdgesChange, OnMove } from "@xyflow/react";
+import type {
+  OnConnect,
+  OnEdgesChange,
+  OnMove,
+  OnNodeDrag,
+} from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BoardEdge } from "@/src/components/core/board-edge";
 import {
@@ -169,7 +174,6 @@ interface UseKeyboardHandlersProps {
   localEdges: BoardEdge[];
   removeConnection: (id: string) => void;
   setInteractionMode: (mode: "drag" | "select") => void;
-  showWelcomeScreen: boolean;
 }
 
 export function useKeyboardHandlers({
@@ -178,7 +182,6 @@ export function useKeyboardHandlers({
   clearBoardSelection,
   localEdges,
   removeConnection,
-  showWelcomeScreen,
 }: UseKeyboardHandlersProps) {
   const handleToggleMode = useCallback(
     (event: KeyboardEvent) => {
@@ -236,10 +239,6 @@ export function useKeyboardHandlers({
   }, []);
 
   useEffect(() => {
-    if (showWelcomeScreen) {
-      return;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       const isEditableElement =
@@ -261,13 +260,7 @@ export function useKeyboardHandlers({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    showWelcomeScreen,
-    handleToggleMode,
-    handleEscapeKey,
-    handleDeleteKey,
-    handleUndoRedo,
-  ]);
+  }, [handleToggleMode, handleEscapeKey, handleDeleteKey, handleUndoRedo]);
 }
 
 export function useSelectionHandlers(
@@ -496,22 +489,26 @@ export function useNodeDragHandlers({
     isDraggingRef.current = true;
   }, [isDraggingRef]);
 
-  const handleNodeDrag = useCallback(
-    (event: React.MouseEvent) => {
+  const handleNodeDrag: OnNodeDrag<CanvasNode> = useCallback(
+    (event) => {
       if (!isCollaborating) {
         return;
       }
+      const clientX =
+        "clientX" in event ? event.clientX : (event.touches[0]?.clientX ?? 0);
+      const clientY =
+        "clientY" in event ? event.clientY : (event.touches[0]?.clientY ?? 0);
       const flowPos = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
+        x: clientX,
+        y: clientY,
       });
       updateCursor({ x: flowPos.x, y: flowPos.y });
     },
     [isCollaborating, screenToFlowPosition, updateCursor]
   );
 
-  const handleNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: CanvasNode) => {
+  const handleNodeDragStop: OnNodeDrag<CanvasNode> = useCallback(
+    (_event, node) => {
       isDraggingRef.current = false;
 
       // Flush all accumulated positions to the store in one go

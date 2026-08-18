@@ -51,13 +51,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  transpilePackages: [
-    "@lumen/logger",
-    "lib0",
-    "y-protocols",
-    "yjs",
-    "y-indexeddb",
-  ],
+  serverExternalPackages: ["yjs", "lib0", "y-protocols", "y-indexeddb"],
+  transpilePackages: ["@lumen/logger"],
 };
 
 export default isTauriBuild

@@ -302,7 +302,6 @@ beforeAll(() => {
     onmessage: ((event: { data: ArrayBuffer }) => void) | null = null;
     onclose: ((event: { code: number; reason: string }) => void) | null = null;
     onerror: ((event: unknown) => void) | null = null;
-    private _readyState = 0;
     private _instance: MockWsInstance;
 
     constructor(url: string) {
@@ -349,7 +348,9 @@ beforeAll(() => {
     }
 
     get readyState() {
-      return this._readyState;
+      // Mirror the live instance state so consumers see the real connection
+      // lifecycle (CONNECTING → OPEN → CLOSED) like a native WebSocket.
+      return this._instance._readyState;
     }
 
     send(data: Uint8Array) {
@@ -357,7 +358,6 @@ beforeAll(() => {
     }
 
     close() {
-      this._readyState = 3;
       this._instance.close();
     }
   };
@@ -554,6 +554,117 @@ describe("CollaborationProvider", () => {
       getContext().connect("ws-1");
 
       expect(wsInstances).toHaveLength(0);
+    });
+
+    it("keeps the reconnect chain alive when offline", () => {
+      const capturedTimers: { fn: () => void; delay: number }[] = [];
+      const origSetTimeout = globalThis.setTimeout;
+      globalThis.setTimeout = ((
+        fn: () => void,
+        delay: number
+      ): ReturnType<typeof setTimeout> => {
+        capturedTimers.push({ fn, delay });
+        return {} as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout;
+
+      try {
+        Object.defineProperty(navigator, "onLine", {
+          value: false,
+          writable: true,
+          configurable: true,
+        });
+
+        const { getContext } = renderProvider();
+        getContext().connect("ws-1");
+
+        expect(getContext().connectionState).toBe("disconnected");
+        expect(wsInstances).toHaveLength(0);
+        expect(capturedTimers).toHaveLength(1);
+        expect(capturedTimers[0]?.delay).toBe(1000);
+      } finally {
+        globalThis.setTimeout = origSetTimeout;
+      }
+    });
+  });
+
+  describe("Online recovery", () => {
+    it("reconnects when the browser comes back online after an offline bail", async () => {
+      Object.defineProperty(navigator, "onLine", {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+
+      const { getContext } = renderProvider();
+      getContext().connect("ws-1");
+      expect(wsInstances).toHaveLength(0);
+
+      Object.defineProperty(navigator, "onLine", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+
+      // connect() is async (JWT + user fetch); flush the pending macrotask
+      // before asserting so the WebSocket creation has completed.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      expect(wsInstances).toHaveLength(1);
+      expect(wsInstances[0]?.url).toContain("/ws/collab/ws-1");
+    });
+
+    it("does not reconnect on online event when the socket is already open", async () => {
+      const { getContext } = renderProvider();
+      await act(async () => {
+        await getContext().connect("ws-1");
+      });
+      expect(wsInstances).toHaveLength(1);
+
+      act(() => {
+        wsInstances[0]?._simulateOpen();
+      });
+
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+
+      expect(wsInstances).toHaveLength(1);
+    });
+
+    it("does not reconnect on online event for a deleted workspace", async () => {
+      const { getContext } = renderProvider();
+      await act(async () => {
+        await getContext().connect("ws-1");
+      });
+
+      act(() => {
+        wsInstances[0]?._simulateOpen();
+      });
+
+      mockReadVarUint.mockReturnValue(3); // MESSAGE_WORKSPACE_DELETED
+
+      const deletedMsg = new Uint8Array([3]);
+      act(() => {
+        wsInstances[0]?._simulateMessage(deletedMsg.buffer);
+      });
+
+      Object.defineProperty(navigator, "onLine", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+
+      expect(wsInstances).toHaveLength(1);
     });
   });
 

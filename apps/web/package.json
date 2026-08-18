@@ -1,14 +1,14 @@
 {
   "name": "@lumen/web",
-  "version": "1.1.16",
+  "version": "1.1.29",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development bun --bun next dev --port 3000",
-    "dev:test": "cross-env NODE_ENV=test bun --bun next dev --port 3100",
-    "build": "next build",
-    "start": "cross-env NODE_ENV=production bun --bun next start --port 3000",
-    "start:test": "cross-env NODE_ENV=test bun --bun next start --port 3100",
+    "dev": "cross-env NODE_ENV=development BROWSERSLIST_IGNORE_OLD_DATA=true bun --bun next dev --port 3000",
+    "dev:test": "cross-env NODE_ENV=test BROWSERSLIST_IGNORE_OLD_DATA=true bun --bun next dev --port 3100",
+    "build": "cross-env BROWSERSLIST_IGNORE_OLD_DATA=true next build",
+    "start": "cross-env NODE_ENV=production BROWSERSLIST_IGNORE_OLD_DATA=true bun --bun next start --port 3000",
+    "start:test": "cross-env NODE_ENV=test BROWSERSLIST_IGNORE_OLD_DATA=true bun --bun next start --port 3100",
     "check": "biome check --write .",
     "check-types": "tsc --noEmit"
   },
@@ -52,6 +52,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "esbuild": "^0.28.0",
+    "geist": "^1.7.2",
     "gsap": "^3.15.0",
     "idb-keyval": "^6.2.2",
     "immer": "^11.1.4",
@@ -98,9 +99,11 @@
     "@types/react-dom": "^19.2.4",
     "@types/react-syntax-highlighter": "^15.5.13",
     "babel-plugin-react-compiler": "^1.0.0",
-    "bun-types": "^1.3.13",
+    "bun-types": "^1.3.14",
+    "caniuse-lite": "^1.0.30001809",
     "cross-env": "^10.1.0",
     "pg": "^8.20.0",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^7.0.2"
   }
 }

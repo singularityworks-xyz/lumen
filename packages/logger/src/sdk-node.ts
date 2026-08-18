@@ -1,5 +1,6 @@
 import {
   DiagConsoleLogger,
+  type DiagLogger,
   DiagLogLevel,
   diag,
   metrics,
@@ -29,6 +30,40 @@ import {
   TraceIdRatioBasedSampler,
 } from "@opentelemetry/sdk-trace-node";
 import { getOtelConfig, getOtlpSignalEndpoint } from "./config";
+
+export class FilteredDiagLogger implements DiagLogger {
+  private readonly logger: DiagLogger;
+
+  constructor(logger: DiagLogger = new DiagConsoleLogger()) {
+    this.logger = logger;
+  }
+
+  error(message: string, ...args: unknown[]): void {
+    this.logger.error(message, ...args);
+  }
+
+  warn(message: string, ...args: unknown[]): void {
+    if (
+      typeof message === "string" &&
+      message.includes("Inconsistent start and end time")
+    ) {
+      return;
+    }
+    this.logger.warn(message, ...args);
+  }
+
+  info(message: string, ...args: unknown[]): void {
+    this.logger.info(message, ...args);
+  }
+
+  debug(message: string, ...args: unknown[]): void {
+    this.logger.debug(message, ...args);
+  }
+
+  verbose(message: string, ...args: unknown[]): void {
+    this.logger.verbose(message, ...args);
+  }
+}
 
 let tracerProvider: NodeTracerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
@@ -63,7 +98,7 @@ export function initOtel(
 
   // Enable debug logging in development
   if (config.environment === "development") {
-    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+    diag.setLogger(new FilteredDiagLogger(), DiagLogLevel.INFO);
   }
 
   const resource = resourceFromAttributes({

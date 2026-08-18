@@ -9,6 +9,7 @@ defmodule PresenceWeb.WorkspaceChannel do
   require Logger
   require Presence.Tracer, as: PresenceTracer
 
+  alias Presence.PresenceSets
   alias Presence.Tracer, as: PresenceTracer
   alias Presence.Tracker
 
@@ -43,6 +44,10 @@ defmodule PresenceWeb.WorkspaceChannel do
         avatar: socket.assigns.user_avatar,
         status: "online"
       })
+
+    # Reference-count live channels in the Redis presence sets so closing one
+    # tab does not drop the user while another tab stays connected.
+    PresenceSets.user_joined(socket.assigns.user_id, workspace_id)
 
     # Send initial presence state after a short delay to ensure tracking is complete
     send(self(), :after_join)
@@ -150,6 +155,47 @@ defmodule PresenceWeb.WorkspaceChannel do
     {:noreply, assign(socket, :last_activity, now)}
   end
 
+  def handle_in("typing", payload, socket) do
+    is_typing = Map.get(payload, "is_typing", true)
+    task_id = Map.get(payload, "task_id")
+
+    PresenceTracer.add_event("channel.typing", [
+      {"user.id", socket.assigns.user_id},
+      {"workspace.id", socket.assigns.workspace_id},
+      {"is_typing", is_typing}
+    ])
+
+    Logger.debug("User typing event (is_typing: #{is_typing})",
+      user_id: socket.assigns.user_id,
+      workspace_id: socket.assigns.workspace_id
+    )
+
+    if socket.joined do
+      broadcast_from!(socket, "user_typing", %{
+        user_id: socket.assigns.user_id,
+        name: socket.assigns.user_name,
+        is_typing: is_typing,
+        task_id: task_id
+      })
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_in("cursor_position", %{"x" => x, "y" => y} = payload, socket) do
+    if socket.joined do
+      broadcast_from!(socket, "cursor_moved", %{
+        user_id: socket.assigns.user_id,
+        name: socket.assigns.user_name,
+        x: x,
+        y: y,
+        selection: Map.get(payload, "selection")
+      })
+    end
+
+    {:noreply, socket}
+  end
+
   @impl true
   def terminate(_reason, socket) do
     Logger.info("User disconnected from workspace",
@@ -157,7 +203,12 @@ defmodule PresenceWeb.WorkspaceChannel do
       workspace_id: socket.assigns.workspace_id
     )
 
-    broadcast_presence_event("user_left", socket)
+    # Only clean up Redis set membership (and announce the leave) when the
+    # final channel for this user in this workspace terminates.
+    case PresenceSets.user_left(socket.assigns.user_id, socket.assigns.workspace_id) do
+      :removed -> broadcast_presence_event("user_left", socket)
+      :retained -> :ok
+    end
 
     :telemetry.execute(
       [:presence, :user_left],

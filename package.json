@@ -12,9 +12,9 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "bun-types": "^1.3.14",
+    "caniuse-lite": "^1.0.30001809",
     "cli-table3": "^0.6.5",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
@@ -25,7 +25,7 @@
     "msw": "^2.15.0",
     "playwright": "^1.62.1",
     "turbo": "^2.10.10",
-    "typescript": "^7.0.2",
+    "typescript": "7.0.2",
     "ultracite": "7.6.1"
   },
   "lint-staged": {
@@ -53,8 +53,8 @@
     "dep:up": "bunx taze major -wr",
     "db:gen": "cd packages/db && bun prisma generate",
     "db:push": "bun run --cwd packages/db push",
-    "db:push:dev": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:5154/lumendb NODE_ENV=development bun run --cwd packages/db push",
-    "db:push:test": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:5154/lumendb NODE_ENV=test bun run --cwd packages/db push",
+    "db:push:dev": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:15432/lumendb NODE_ENV=development bun run --cwd packages/db push",
+    "db:push:test": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:15432/lumendb NODE_ENV=test bun run --cwd packages/db push",
     "presence:deps": "cd apps/presence && mix deps.get",
     "presence:dev": "cd apps/presence && mix phx.server",
     "presence:build": "cd apps/presence && mix compile",
@@ -73,13 +73,18 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.38",
+  "version": "0.6.59",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "packageManager": "bun@1.3.14",
   "private": true,
+  "overrides": {
+    "caniuse-lite": "^1.0.30001809",
+    "typescript": "^7.0.2",
+    "yjs": "^13.6.30"
+  },
   "trustedDependencies": [
     "@biomejs/biome",
     "@vercel/speed-insights",

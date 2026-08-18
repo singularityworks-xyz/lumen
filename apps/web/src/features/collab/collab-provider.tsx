@@ -1,4 +1,4 @@
-/** biome-ignore-all lint/performance/noNamespaceImport: usecase */
+// biome-ignore-all lint/performance/noNamespaceImport: usecase
 "use client";
 
 import { createLogger } from "@lumen/logger";
@@ -283,10 +283,29 @@ export function CollaborationProvider({
       if (!navigator.onLine) {
         logger.info("Offline - skipping connection", { workspaceId });
         setConnectionState("disconnected");
+        workspaceIdRef.current = workspaceId;
+        // Keep the reconnect chain alive: an attempt that fires while the
+        // browser is offline must schedule the next one, otherwise
+        // reconnection dies until the provider remounts.
+        const delay =
+          RECONNECT_DELAYS[
+            Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS.length - 1)
+          ];
+        reconnectAttemptRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (workspaceIdRef.current === workspaceId) {
+            connect(workspaceId);
+          }
+        }, delay);
         return;
       }
 
       cleanup();
+      // A workspace switch restarts the retry budget: the pending timer for
+      // the previous workspace was just cleared, so start backoff fresh.
+      if (workspaceIdRef.current !== workspaceId) {
+        reconnectAttemptRef.current = 0;
+      }
       workspaceIdRef.current = workspaceId;
 
       logger.info("Connecting to workspace", { workspaceId });
@@ -569,6 +588,31 @@ export function CollaborationProvider({
     },
     [enabled, apiUrl, cleanup, handleAwarenessUpdate]
   );
+
+  // Retry the moment the network returns. Without this, a reconnect chain
+  // that bailed while offline only resumes on a remount or workspace switch.
+  useEffect(() => {
+    const handleOnline = () => {
+      const workspaceId = workspaceIdRef.current;
+      if (!workspaceId || workspaceDeletedRef.current) {
+        return;
+      }
+      const socket = wsRef.current;
+      // A socket that is still connecting (or open) counts as active; only
+      // reconnect when it is absent, closed, or otherwise unusable.
+      if (
+        socket &&
+        (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
+      reconnectAttemptRef.current = 0;
+      connect(workspaceId);
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [connect]);
 
   const disconnect = useCallback(
     () =>

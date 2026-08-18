@@ -819,15 +819,6 @@ export class RoomManager {
     };
   }
 
-  getCollaborators(workspaceId: string): CollaboratorInfo[] {
-    const room = this.rooms.get(workspaceId);
-    if (!room) {
-      return [];
-    }
-
-    return Array.from(room.connections.values()).map((conn) => conn.user);
-  }
-
   deleteRoom(workspaceId: string): void {
     withSpan("room.delete", () => {
       const room = this.rooms.get(workspaceId);

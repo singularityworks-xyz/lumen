@@ -9,9 +9,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "types": [],
-    "noUncheckedSideEffectImports": true,
-    "libReplacement": false,
-    "stableTypeOrdering": true
+    "noUncheckedSideEffectImports": true
   },
   "include": ["./**/*.ts", "./types.d.ts"]
 }

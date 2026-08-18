@@ -3,6 +3,8 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
   import Presence.Test.Helpers
 
+  alias Presence.PresenceSets
+  alias Presence.Test.FakeRedis
   alias PresenceWeb.WorkspaceChannel
 
   @moduletag :capture_log
@@ -12,6 +14,101 @@ defmodule PresenceWeb.WorkspaceChannelTest do
     Application.ensure_all_started(:phoenix_pubsub)
     Application.ensure_all_started(:presence)
     :ok
+  end
+
+  describe "presence set membership across multiple channels" do
+    setup do
+      start_supervised!(FakeRedis)
+      Application.put_env(:presence, :redis_command_runner, FakeRedis)
+
+      on_exit(fn ->
+        Application.delete_env(:presence, :redis_command_runner)
+      end)
+
+      :ok
+    end
+
+    # Distinct, live channel processes (started under the test supervisor so
+    # they are cleaned up automatically) so Phoenix.Presence can track the
+    # same user on the same topic from two separate sockets.
+    defp distinct_channel_sockets(workspace_id, user_id) do
+      pids =
+        for index <- 1..2 do
+          start_supervised!(
+            {Task, fn -> Process.sleep(:infinity) end},
+            id: {:channel_socket_task, workspace_id, user_id, index}
+          )
+        end
+
+      [pid1, pid2] = pids
+
+      base = socket_in_workspace(workspace_id, %{id: user_id})
+
+      [
+        %{base | channel_pid: pid1},
+        %{base | channel_pid: pid2}
+      ]
+    end
+
+    test "first channel termination preserves membership, second removes it" do
+      workspace_id = "ws_multi_channel_#{System.unique_integer()}"
+      user_id = "user_multi_channel_#{System.unique_integer()}"
+      ws_key = PresenceSets.workspace_users_key(workspace_id)
+      user_key = PresenceSets.user_workspaces_key(user_id)
+      count_key = PresenceSets.channel_count_key(user_id, workspace_id)
+
+      [socket1, socket2] = distinct_channel_sockets(workspace_id, user_id)
+
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket1)
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket2)
+
+      assert FakeRedis.counter(count_key) == 2
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
+
+      # Closing the first channel must not drop the user: another channel
+      # for the same user/workspace is still connected.
+      assert WorkspaceChannel.terminate(:normal, socket1) == :ok
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
+      assert FakeRedis.counter(count_key) == 1
+
+      # Closing the final channel removes membership and resets the counter.
+      assert WorkspaceChannel.terminate(:normal, socket2) == :ok
+      refute user_id in FakeRedis.set_members(ws_key)
+      refute workspace_id in FakeRedis.set_members(user_key)
+      assert FakeRedis.counter(count_key) == 0
+    end
+
+    test "membership cleanup only happens on the final channel termination" do
+      workspace_id = "ws_broadcast_#{System.unique_integer()}"
+      user_id = "user_broadcast_#{System.unique_integer()}"
+      ws_key = PresenceSets.workspace_users_key(workspace_id)
+      user_key = PresenceSets.user_workspaces_key(user_id)
+      count_key = PresenceSets.channel_count_key(user_id, workspace_id)
+
+      [socket1, socket2] = distinct_channel_sockets(workspace_id, user_id)
+
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket1)
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket2)
+
+      FakeRedis.clear_log()
+
+      :ok = WorkspaceChannel.terminate(:normal, socket1)
+
+      # The first disconnect only decrements the counter; no set cleanup yet
+      # (membership and counter are mutated atomically inside a single EVAL).
+      assert FakeRedis.counter(count_key) == 1
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
+
+      :ok = WorkspaceChannel.terminate(:normal, socket2)
+
+      # Final disconnect: counter deleted and both memberships removed.
+      assert FakeRedis.counter(count_key) == 0
+      refute user_id in FakeRedis.set_members(ws_key)
+      refute workspace_id in FakeRedis.set_members(user_key)
+    end
   end
 
   describe "join/3" do

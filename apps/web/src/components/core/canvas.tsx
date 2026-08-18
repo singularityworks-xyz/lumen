@@ -32,7 +32,6 @@ import {
   BoardEdgeComponent,
 } from "@/src/components/core/board-edge";
 import { CustomControls } from "@/src/components/custom-controls";
-import { WelcomeScreen } from "@/src/components/dialogs/welcome-screen";
 import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
 import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
@@ -44,6 +43,7 @@ import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/compon
 import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
 import { useCanvasEdges } from "./helpers/canvas-edges";
 import {
@@ -62,6 +62,7 @@ import {
 import { MiniMapNode } from "./minimap-node";
 import { SelectionContextMenu } from "./selection-context-menu";
 import { TaskConnectionLayer } from "./task-connection-layer";
+import { WELCOME_NODE_ID, WelcomeNode } from "./welcome-node";
 
 const TARGET_HANDLE_SUFFIX = /-target$/;
 const SOURCE_HANDLE_SUFFIX = /-source$/;
@@ -90,6 +91,9 @@ export function KanbanCanvas() {
   const focusedBoardId = useKanbanStore((s) => s.canvas.focusedBoardId);
   const setFocusedBoard = useKanbanStore((s) => s.setFocusedBoard);
   const showWelcomeScreen = useShowWelcomeScreen();
+  const hasBoardsInCurrentWorkspace = currentWorkspaceId
+    ? (workspaces.byId[currentWorkspaceId]?.board_ids?.length ?? 0) > 0
+    : boards.allIds.length > 0;
 
   const {
     screenToFlowPosition,
@@ -160,6 +164,29 @@ export function KanbanCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevWorkspaceIdRef = useRef(currentWorkspaceId);
   const prevNodeCountRef = useRef(storeNodes.length);
+  const prevHasBoardsRef = useRef(hasBoardsInCurrentWorkspace);
+
+  // When the workspace empties out (all boards deleted), bring the viewport
+  // back to the welcome card so it is not left off-screen.
+  useEffect(() => {
+    if (
+      !hasBoardsInCurrentWorkspace &&
+      prevHasBoardsRef.current &&
+      showWelcomeScreen
+    ) {
+      const timeoutId = setTimeout(() => {
+        fitView({
+          nodes: [{ id: WELCOME_NODE_ID }],
+          padding: 0.2,
+          duration: 300,
+          maxZoom: 1,
+        });
+      }, 50);
+      prevHasBoardsRef.current = false;
+      return () => clearTimeout(timeoutId);
+    }
+    prevHasBoardsRef.current = hasBoardsInCurrentWorkspace;
+  }, [hasBoardsInCurrentWorkspace, showWelcomeScreen, fitView]);
 
   // Track the previous storeNodes reference to detect changes.
   const prevStoreNodesRef = useRef(storeNodes);
@@ -325,9 +352,16 @@ export function KanbanCanvas() {
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
           } else if ("resizing" in change && change.resizing === false) {
+            const board = useKanbanStore.getState().boards.byId[change.id];
+            const columnCount = board?.column_ids.length ?? 0;
+            const exactWidth = calculateBoardWidth(columnCount);
             useKanbanStore
               .getState()
-              .updateBoardDimensions(change.id, change.dimensions, true);
+              .updateBoardDimensions(
+                change.id,
+                { width: exactWidth, height: change.dimensions.height },
+                true
+              );
           }
         }
       }
@@ -390,7 +424,6 @@ export function KanbanCanvas() {
     clearBoardSelection,
     localEdges,
     removeConnection,
-    showWelcomeScreen,
   });
 
   const sensors = useSensors(
@@ -576,23 +609,29 @@ export function KanbanCanvas() {
             defaultViewport={canvas.viewport}
             edges={localEdges}
             edgeTypes={edgeTypes}
-            elementsSelectable={
-              !showWelcomeScreen && interactionMode === "select"
-            }
-            fitView={storeNodes.length === 0}
+            elementsSelectable={interactionMode === "select"}
+            fitView={!hasBoardsInCurrentWorkspace}
+            fitViewOptions={{
+              nodes: [{ id: WELCOME_NODE_ID }],
+              padding: 0.2,
+              maxZoom: 1,
+            }}
             maxZoom={3}
             minZoom={0.1}
             noDragClassName="nodrag"
             nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable={!showWelcomeScreen}
-            nodesDraggable={!showWelcomeScreen && interactionMode === "drag"}
-            nodeTypes={{ ...nodeTypes, commentCluster: CommentClusterNode }}
+            nodesConnectable
+            nodesDraggable={interactionMode === "drag"}
+            nodeTypes={{
+              ...nodeTypes,
+              commentCluster: CommentClusterNode,
+              welcome: WelcomeNode,
+            }}
             onConnect={handleConnect}
             onEdgeContextMenu={handleEdgeContextMenu}
             onEdgesChange={handleEdgesChange}
-            onlyRenderVisibleElements
             onMoveEnd={handleMoveEnd}
             onNodeDrag={handleNodeDrag}
             onNodeDragStart={handleNodeDragStart}
@@ -601,16 +640,16 @@ export function KanbanCanvas() {
             onPaneClick={handlePaneClick}
             onSelectionEnd={onSelectionEndWrapper}
             onSelectionStart={handleSelectionStart}
-            panOnDrag={!showWelcomeScreen && interactionMode === "drag"}
-            panOnScroll={!showWelcomeScreen && interactionMode === "drag"}
+            panOnDrag={interactionMode === "drag"}
+            panOnScroll={interactionMode === "drag"}
             proOptions={{ hideAttribution: true }}
             selectionKeyCode={interactionMode === "select" ? null : "Meta"}
             selectionMode={
               interactionMode === "select" ? SelectionMode.Partial : undefined
             }
-            selectionOnDrag={!showWelcomeScreen && interactionMode === "select"}
-            zoomActivationKeyCode={showWelcomeScreen ? null : "Control"}
-            zoomOnScroll={!showWelcomeScreen}
+            selectionOnDrag={interactionMode === "select"}
+            zoomActivationKeyCode="Control"
+            zoomOnScroll
           >
             <div
               className="pointer-events-none fixed inset-0"
@@ -642,7 +681,6 @@ export function KanbanCanvas() {
               />
             )}
           </ReactFlow>
-          <WelcomeScreen />
           <WorkspaceSelector />
           <RightControls />
           <BulkActionsBar />

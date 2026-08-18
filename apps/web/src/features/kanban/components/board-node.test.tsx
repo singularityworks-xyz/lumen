@@ -279,6 +279,7 @@ mock.module("@/src/lib/utils", () => ({
 }));
 
 mock.module("@/src/features/kanban/utils/board-resize-rules", () => ({
+  calculateBoardWidth: (count?: number) => (count ?? 1) * 285 + 28,
   calculateContentDimensions: () => ({ width: 400, height: 300 }),
   calculateMaxDimensions: () => ({ width: 1200, height: 900 }),
   calculateMinDimensions: () => ({ width: 200, height: 150 }),
@@ -286,6 +287,10 @@ mock.module("@/src/features/kanban/utils/board-resize-rules", () => ({
     shouldResize: false,
     newDimensions: { width: 400, height: 300 },
   }),
+}));
+
+mock.module("@/src/components/dialogs/column/column-create-dialog", () => ({
+  ColumnCreateDialog: () => null,
 }));
 
 mock.module("@/src/features/kanban/utils/color-icon-utils", () => ({
@@ -811,6 +816,7 @@ describe("BoardNodeComponent", () => {
     }));
 
     mock.module("@/src/features/kanban/utils/board-resize-rules", () => ({
+      calculateBoardWidth: (count?: number) => (count ?? 1) * 285 + 28,
       calculateContentDimensions: () => ({ width: 400, height: 300 }),
       calculateMaxDimensions: () => ({ width: 1200, height: 900 }),
       calculateMinDimensions: () => ({ width: 200, height: 150 }),
@@ -840,7 +846,7 @@ describe("BoardNodeComponent", () => {
     await waitFor(() => {
       expect(mockUpdateBoardDimensions).toHaveBeenCalledWith(
         "board-1",
-        { width: 500, height: 400 },
+        { width: 313, height: 400 },
         false
       );
     });
@@ -975,5 +981,29 @@ describe("BoardNodeComponent", () => {
     window.dispatchEvent(pointerEvent);
 
     expect(updateCursor).toHaveBeenCalledWith({ x: 100, y: 200 });
+  });
+
+  it("renders Add Column button in board header", () => {
+    setupStore({
+      columnIds: ["col-1", "col-2"],
+    });
+
+    const { container } = render(
+      React.createElement(BoardNodeComponent as any, {
+        id: "node-1",
+        data: { boardId: "board-1", isSelected: false },
+        selected: false,
+        dragging: false,
+        type: "board",
+        position: { x: 0, y: 0 },
+        zIndex: 1,
+      })
+    );
+
+    const addColumnBtn = container.querySelector(
+      '[data-testid="add-column-trigger"]'
+    );
+    expect(addColumnBtn).not.toBeNull();
+    expect(addColumnBtn?.textContent).toContain("Add Column");
   });
 });

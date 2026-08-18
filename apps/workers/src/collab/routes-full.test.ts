@@ -142,8 +142,35 @@ const roomManagerMock = {
   getRoom: mock(() => undefined as any),
   getOrCreateRoom: mock(() => undefined as any),
   persistRoom: mock(() => Promise.resolve()),
-  getCollaborators: mock(() => [] as any),
 };
+
+const presenceClientMock = {
+  getWorkspacePresence: mock(() =>
+    Promise.resolve({
+      userIds: new Set<string>(),
+      users: [] as Array<{
+        id: string;
+        name?: string | null;
+        avatar?: string | null;
+        status: string;
+        joinedAt?: number;
+        lastActivity?: number;
+      }>,
+      onlineCount: 0,
+    })
+  ),
+  getUserPresence: mock(() =>
+    Promise.resolve({
+      userId: "",
+      workspaces: [] as string[],
+      isOnline: false,
+      count: 0,
+    })
+  ),
+  resetPresenceClientForTesting: mock(() => Promise.resolve()),
+};
+
+mock.module("./presence-client", () => presenceClientMock);
 
 mock.module("./room-manager", () => ({
   roomManager: roomManagerMock,
@@ -332,7 +359,13 @@ function resetMocks() {
   roomManagerMock.getRoom.mockImplementation(() => undefined as any);
   roomManagerMock.getOrCreateRoom.mockImplementation(() => undefined as any);
   roomManagerMock.persistRoom.mockImplementation(() => Promise.resolve());
-  roomManagerMock.getCollaborators.mockImplementation(() => [] as any);
+  presenceClientMock.getWorkspacePresence.mockImplementation(() =>
+    Promise.resolve({
+      userIds: new Set<string>(),
+      users: [],
+      onlineCount: 0,
+    })
+  );
 
   authMock.api.getSession.mockImplementation(() =>
     Promise.resolve(null as any)
@@ -1356,17 +1389,19 @@ describe("collabRoutes", () => {
           },
         } as any)
       );
-      roomManagerMock.getCollaborators.mockImplementation(
-        () =>
-          [
+      presenceClientMock.getWorkspacePresence.mockImplementation(() =>
+        Promise.resolve({
+          userIds: new Set(["user-1"]),
+          users: [
             {
               id: "user-1",
               name: "Owner",
-              email: "owner@test.com",
-              role: "OWNER" as Role,
-              color: "#ef4444",
+              avatar: null,
+              status: "online",
             },
-          ] as any
+          ],
+          onlineCount: 1,
+        })
       );
 
       const collabRoutes = await getCollabRoutes();

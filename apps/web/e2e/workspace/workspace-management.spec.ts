@@ -109,8 +109,6 @@ test.describe("E2E-06: Workspace Management", () => {
   test("duplicate local workspace", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Board in Original");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     const workspaceSelector = page.locator(
@@ -137,22 +135,16 @@ test.describe("E2E-06: Workspace Management", () => {
       "Duplicated Workspace"
     );
 
-    const duplicatedBoard = page.locator(
-      '[data-testid="board-node"]:has-text("Board in Original")'
-    );
+    const duplicatedBoard = page.locator('[data-testid="board-node"]').first();
     await expect(duplicatedBoard).toBeVisible();
   });
 
   test("reset local workspace", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Board to Reset");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
-    const boardNode = page.locator(
-      '[data-testid="board-node"]:has-text("Board to Reset")'
-    );
+    const boardNode = page.locator('[data-testid="board-node"]').last();
     await expect(boardNode).toBeVisible();
 
     const workspaceSelector = page.locator(
@@ -171,14 +163,15 @@ test.describe("E2E-06: Workspace Management", () => {
 
     await page.waitForTimeout(500);
 
-    await expect(boardNode).not.toBeVisible();
+    const boardCountAfterReset = await page
+      .locator('[data-testid="board-node"]')
+      .count();
+    expect(boardCountAfterReset).toBe(0);
   });
 
   test("delete local workspace", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Board to Delete");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     const workspaceSelector = page.locator(
@@ -209,13 +202,9 @@ test.describe("E2E-06: Workspace Management", () => {
 
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Board in Second WS");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
-    const boardInSecond = page.locator(
-      '[data-testid="board-node"]:has-text("Board in Second WS")'
-    );
+    const boardInSecond = page.locator('[data-testid="board-node"]').last();
     await expect(boardInSecond).toBeVisible();
 
     await workspaceSelector.click();
@@ -229,7 +218,13 @@ test.describe("E2E-06: Workspace Management", () => {
 
     const boardInFirst = page.locator('[data-testid="board-node"]').first();
     await expect(boardInFirst).toBeVisible();
-    await expect(boardInSecond).not.toBeVisible();
+
+    // Only the first workspace's board renders; the second workspace's board
+    // belongs to a different workspace and is filtered out of the canvas.
+    const boardCountInFirst = await page
+      .locator('[data-testid="board-node"]')
+      .count();
+    expect(boardCountInFirst).toBe(1);
   });
 
   test("switching workspaces restores dialog context", async ({ page }) => {
@@ -240,13 +235,9 @@ test.describe("E2E-06: Workspace Management", () => {
 
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Dialog Test Board");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
-    const boardNode = page.locator(
-      '[data-testid="board-node"]:has-text("Dialog Test Board")'
-    );
+    const boardNode = page.locator('[data-testid="board-node"]').last();
     await boardNode
       .locator('[data-testid="board-header"]')
       .click({ button: "right" });

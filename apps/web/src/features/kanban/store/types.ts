@@ -125,6 +125,7 @@ export interface KanbanState {
     }
   >;
   tasks: EntityMap<Task>;
+  welcomeDismissed: boolean;
   workspaceDialog: {
     type: "rename" | "reset" | "delete" | "duplicate";
     workspaceId: string;
@@ -227,6 +228,8 @@ export interface KanbanActions {
   detachBoardFromArea: (areaId: string, boardId: string) => void;
   // Disable AI for a workspace
   disableWorkspaceAi: (workspaceId: string) => void;
+  // Hide the welcome card until the next session reset
+  dismissWelcome: () => void;
   duplicateBoard: (
     boardId: string,
     newName: string,

@@ -1,12 +1,11 @@
 .boardContent {
-  scrollbar-gutter: stable;
+  overflow-x: hidden;
   scrollbar-color: hsl(var(--border) / 0.5) hsl(var(--muted) / 0.3);
   scrollbar-width: thin;
 }
 
 .boardContent::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
   -webkit-appearance: none;
 }
 
@@ -16,7 +15,6 @@
 }
 
 .boardContent::-webkit-scrollbar-thumb {
-  min-width: 30px;
   min-height: 30px;
   background: hsl(var(--border) / 0.5);
   border-radius: 4px;
@@ -28,13 +26,5 @@
 }
 
 .boardContent::-webkit-scrollbar-corner {
-  background: hsl(var(--muted) / 0.3);
-}
-
-.boardContent::-webkit-scrollbar:horizontal {
-  height: 10px;
-}
-
-.boardContent::-webkit-scrollbar-track:horizontal {
   background: hsl(var(--muted) / 0.3);
 }

@@ -549,19 +549,15 @@ describe("useColumnCountForBoard logic", () => {
 // ─── useShowWelcomeScreen ──────────────────────────────────────
 
 describe("useShowWelcomeScreen logic", () => {
-  it("returns false when workspace has boards", () => {
-    const wsId = state.currentWorkspaceId!;
-    const workspace = state.workspaces.byId[wsId];
-    const show = (workspace?.board_ids.length ?? 0) === 0;
-    expect(show).toBe(false);
+  it("returns true when the welcome card has not been dismissed", () => {
+    const show = !state.welcomeDismissed;
+    expect(show).toBe(true);
   });
 
-  it("returns true when workspace has no boards", () => {
-    const wsId = state.currentWorkspaceId!;
-    state.workspaces.byId[wsId]!.board_ids = [];
-    const workspace = state.workspaces.byId[wsId];
-    const show = (workspace?.board_ids.length ?? 0) === 0;
-    expect(show).toBe(true);
+  it("returns false once the welcome card is dismissed", () => {
+    state.welcomeDismissed = true;
+    const show = !state.welcomeDismissed;
+    expect(show).toBe(false);
   });
 });
 

@@ -62,6 +62,7 @@ export function createInitialState(): KanbanState {
     workspaceShareUrls: {},
     selectedTaskIds: [],
     draggedTaskId: null,
+    welcomeDismissed: false,
     workspaceQuickActions: null,
     workspaceDialog: null,
     columnQuickActions: {},

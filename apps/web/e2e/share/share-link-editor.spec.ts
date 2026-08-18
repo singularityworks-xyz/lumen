@@ -79,17 +79,19 @@ test.describe("E2E-10: Share Link (Editor)", () => {
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
 
+    const boardsInEditorBefore = await editorPage
+      .locator('[data-testid="board-node"]')
+      .count();
+
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Owner Added Board");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(1000);
 
-    const ownerBoard = editorPage.locator(
-      '[data-testid="board-node"]:has-text("Owner Added Board")'
-    );
-    await ownerBoard.waitFor({ state: "visible", timeout: 10_000 });
-    await expect(ownerBoard).toBeVisible({ timeout: 10_000 });
+    await expect
+      .poll(() => editorPage.locator('[data-testid="board-node"]').count(), {
+        timeout: 10_000,
+      })
+      .toBe(boardsInEditorBefore + 1);
 
     await editorPage.close();
   });

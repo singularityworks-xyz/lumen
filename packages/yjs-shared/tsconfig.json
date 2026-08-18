@@ -11,9 +11,7 @@
     "rootDir": ".",
     "noEmit": true,
     "types": ["node", "bun-types"],
-    "noUncheckedSideEffectImports": true,
-    "libReplacement": false,
-    "stableTypeOrdering": true
+    "noUncheckedSideEffectImports": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]

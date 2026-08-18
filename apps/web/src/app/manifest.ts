@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
-export const dynamic = "force-static";
+// Manifest routes are static by default; `dynamic = "force-static"` is
+// incompatible with `nextConfig.cacheComponents` and breaks the build.
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

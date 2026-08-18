@@ -316,17 +316,18 @@ test.describe("E2E-11: Collaboration Live Sync", () => {
       '[data-testid="new-board-button"]'
     );
     await newBoardButton.click();
-    await ownerPage.fill('[data-testid="board-name-input"]', "Live Sync Board");
-    await ownerPage.click('[data-testid="board-create-submit"]');
     await ownerPage.waitForTimeout(1000);
-
-    await editorPage
-      .locator('[data-testid="board-node"]:has-text("Live Sync Board")')
-      .waitFor({ state: "visible", timeout: 10_000 });
 
     const finalBoardsOwner = await ownerPage
       .locator('[data-testid="board-node"]')
       .count();
+
+    await expect
+      .poll(() => editorPage.locator('[data-testid="board-node"]').count(), {
+        timeout: 10_000,
+      })
+      .toBe(finalBoardsOwner);
+
     const finalBoardsEditor = await editorPage
       .locator('[data-testid="board-node"]')
       .count();

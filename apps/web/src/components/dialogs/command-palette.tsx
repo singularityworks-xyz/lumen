@@ -8,10 +8,7 @@ import {
   undo,
   useKanbanStore,
 } from "@/src/features/kanban/store/kanban-store";
-import {
-  useCurrentWorkspace,
-  useShowWelcomeScreen,
-} from "@/src/features/kanban/store/selectors";
+import { useCurrentWorkspace } from "@/src/features/kanban/store/selectors";
 
 interface Command {
   action: () => void;
@@ -71,7 +68,6 @@ export const CommandPalette = memo(() => {
   const tasks = useKanbanStore((state) => state.tasks);
   const addBoard = useKanbanStore((state) => state.addBoard);
   const currentWorkspace = useCurrentWorkspace();
-  const showWelcomeScreen = useShowWelcomeScreen();
   const [query, setQuery] = useState("");
 
   const handleNewBoard = useCallback(() => {
@@ -144,9 +140,6 @@ export const CommandPalette = memo(() => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        if (showWelcomeScreen) {
-          return;
-        }
         e.preventDefault();
         setShowCommandPalette(!showCommandPalette);
       }
@@ -175,12 +168,7 @@ export const CommandPalette = memo(() => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    showCommandPalette,
-    setShowCommandPalette,
-    showWelcomeScreen,
-    handleNewBoard,
-  ]);
+  }, [showCommandPalette, setShowCommandPalette, handleNewBoard]);
 
   const filteredCommands = commands.filter((cmd) =>
     cmd.label.toLowerCase().includes(query.toLowerCase())

@@ -379,7 +379,7 @@ export const KanbanColumn = memo(
     return (
       <section
         aria-label={`Column: ${column.name}`}
-        className="relative flex max-h-full w-71.25 shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
+        className="relative flex max-h-full w-[285px] min-w-[285px] max-w-[285px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60"
         data-testid="kanban-column"
         id={`kanban-column-${column.id}`}
         onMouseEnter={() => setIsHovered(true)}

@@ -1,8 +1,14 @@
 import { useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
+import {
+  WELCOME_NODE_ID,
+  WELCOME_NODE_POSITION,
+} from "@/src/components/core/welcome-node";
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
   AreaNode,
   BoardDialogNode,
@@ -16,6 +22,7 @@ import type {
   TaskDetailModalNode,
   TaskModalNode,
   TaskQuickActionsNode,
+  WelcomeNode,
 } from "./canvas-types";
 
 function styleEqual(
@@ -235,7 +242,9 @@ export function useCanvasNodes() {
       (currentWorkspace?.board_ids ?? state.boards.allIds)
         .map((id) => {
           const bp = state.boardPositions.byId[id];
-          return `${id}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+          const b = state.boards.byId[id];
+          const colCount = b?.column_ids?.length ?? 0;
+          return `${id}:${colCount}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
         })
         .join("|")
     )
@@ -270,6 +279,34 @@ export function useCanvasNodes() {
       .filter((node): node is AreaNode => node != null);
   }, [areaStructuralSig, areas, areaPositionIds.join(","), currentWorkspaceId]);
 
+  const showWelcomeScreen = useShowWelcomeScreen();
+
+  const welcomeNodes = useStableNodeFactory<WelcomeNode>(
+    () =>
+      showWelcomeScreen
+        ? [
+            {
+              id: WELCOME_NODE_ID,
+              type: "welcome" as const,
+              position: WELCOME_NODE_POSITION,
+              data: {},
+              // Boards grow their z-index on every creation, so the card sits
+              // just below modals/dialogs to stay above them. React Flow
+              // disables hit-testing on non-interactive nodes (pointer-events:
+              // none) unless the node style opts back in, which would make the
+              // card's buttons unclickable — so force pointer-events: all.
+              style: {
+                zIndex: Z_INDEX_BASE.TASK_MODALS - 1,
+                pointerEvents: "all",
+              },
+              draggable: false,
+              selectable: false,
+            },
+          ]
+        : [],
+    [showWelcomeScreen]
+  );
+
   const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
 
   const boardNodes = useStableNodeFactory<KanbanNode>(
@@ -289,6 +326,10 @@ export function useCanvasNodes() {
           if (!position) {
             return null as unknown as KanbanNode;
           }
+
+          const board = boards.byId[boardId];
+          const columnCount = board?.column_ids?.length ?? 0;
+          const exactWidth = calculateBoardWidth(columnCount);
 
           let parentId: string | undefined;
           let pPos = { x: position.x, y: position.y };
@@ -329,7 +370,7 @@ export function useCanvasNodes() {
               isSelected: boardId === selectedBoardId,
             },
             style: { zIndex },
-            width: position.width,
+            width: exactWidth,
             height: position.height,
             parentId,
           };
@@ -648,6 +689,7 @@ export function useCanvasNodes() {
     () => [
       ...areaNodes,
       ...boardNodes,
+      ...welcomeNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
       ...quickActionsNodes,
@@ -663,6 +705,7 @@ export function useCanvasNodes() {
     [
       areaNodes,
       boardNodes,
+      welcomeNodes,
       modalNodes,
       taskDetailModalNodes,
       quickActionsNodes,

@@ -984,23 +984,18 @@ async function waitForSharedWorkspaceUi(
   }
 }
 
-async function createBoardForSyncSeed(
-  page: Page,
-  boardName: string
-): Promise<boolean> {
+async function createBoardForSyncSeed(page: Page): Promise<boolean> {
   try {
+    const boardsBefore = await page
+      .locator('[data-testid="board-node"]')
+      .count();
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.waitFor({ state: "visible", timeout: 10_000 });
     await newBoardButton.click({ timeout: 5000 });
 
-    const boardNameInput = page.locator('[data-testid="board-name-input"]');
-    await boardNameInput.waitFor({ state: "visible", timeout: 5000 });
-    await boardNameInput.fill(boardName);
-
-    await page.click('[data-testid="board-create-submit"]', { timeout: 5000 });
     await page
-      .locator(`[data-testid="board-node"]:has-text("${boardName}")`)
-      .first()
+      .locator('[data-testid="board-node"]')
+      .nth(boardsBefore)
       .waitFor({ state: "visible", timeout: 10_000 });
 
     return true;
@@ -1336,8 +1331,7 @@ export async function setupTwoUsers(
     );
 
     if (!ownerWorkspaceReady) {
-      const seededBoardName = `E2E Seed ${Date.now()}`;
-      const seeded = await createBoardForSyncSeed(ownerPage, seededBoardName);
+      const seeded = await createBoardForSyncSeed(ownerPage);
       if (seeded) {
         ownerWorkspaceReady = await waitForSharedWorkspaceState(
           ownerPage,
