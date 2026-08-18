@@ -273,4 +273,28 @@ defmodule PresenceWeb.WorkspaceChannelIntegrationTest do
       assert WorkspaceChannel.terminate(:left, socket) == :ok
     end
   end
+
+  describe "typing indicators and live cursors" do
+    test "handle_in typing returns noreply", %{
+      user_id: user_id,
+      workspace_id: workspace_id
+    } do
+      socket = socket_in_workspace(workspace_id, %{id: user_id})
+      {:ok, socket} = WorkspaceChannel.join("workspace:#{workspace_id}", %{}, socket)
+
+      assert {:noreply, ^socket} =
+               WorkspaceChannel.handle_in("typing", %{"is_typing" => true, "task_id" => "task_1"}, socket)
+    end
+
+    test "handle_in cursor_position returns noreply", %{
+      user_id: user_id,
+      workspace_id: workspace_id
+    } do
+      socket = socket_in_workspace(workspace_id, %{id: user_id})
+      {:ok, socket} = WorkspaceChannel.join("workspace:#{workspace_id}", %{}, socket)
+
+      assert {:noreply, ^socket} =
+               WorkspaceChannel.handle_in("cursor_position", %{"x" => 100, "y" => 200}, socket)
+    end
+  end
 end

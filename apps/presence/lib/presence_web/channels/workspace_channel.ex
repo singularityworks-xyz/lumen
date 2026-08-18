@@ -44,6 +44,10 @@ defmodule PresenceWeb.WorkspaceChannel do
         status: "online"
       })
 
+    # Synchronize presence sets in Redis for fast canonical querying
+    Presence.RedisPubSub.command(["SADD", "presence:workspace:#{workspace_id}:users", socket.assigns.user_id])
+    Presence.RedisPubSub.command(["SADD", "presence:user:#{socket.assigns.user_id}:workspaces", workspace_id])
+
     # Send initial presence state after a short delay to ensure tracking is complete
     send(self(), :after_join)
 
@@ -150,12 +154,55 @@ defmodule PresenceWeb.WorkspaceChannel do
     {:noreply, assign(socket, :last_activity, now)}
   end
 
+  def handle_in("typing", payload, socket) do
+    is_typing = Map.get(payload, "is_typing", true)
+    task_id = Map.get(payload, "task_id")
+
+    if socket.joined do
+      broadcast_from!(socket, "user_typing", %{
+        user_id: socket.assigns.user_id,
+        name: socket.assigns.user_name,
+        is_typing: is_typing,
+        task_id: task_id
+      })
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_in("cursor_position", %{"x" => x, "y" => y} = payload, socket) do
+    if socket.joined do
+      broadcast_from!(socket, "cursor_moved", %{
+        user_id: socket.assigns.user_id,
+        name: socket.assigns.user_name,
+        x: x,
+        y: y,
+        selection: Map.get(payload, "selection")
+      })
+    end
+
+    {:noreply, socket}
+  end
+
   @impl true
   def terminate(_reason, socket) do
     Logger.info("User disconnected from workspace",
       user_id: socket.assigns.user_id,
       workspace_id: socket.assigns.workspace_id
     )
+
+    # Clean up Redis presence sets
+    Presence.RedisPubSub.command([
+      "SREM",
+      "presence:workspace:#{socket.assigns.workspace_id}:users",
+      socket.assigns.user_id
+    ])
+
+    Presence.RedisPubSub.command([
+      "SREM",
+      "presence:user:#{socket.assigns.user_id}:workspaces",
+      socket.assigns.workspace_id
+    ])
 
     broadcast_presence_event("user_left", socket)
 

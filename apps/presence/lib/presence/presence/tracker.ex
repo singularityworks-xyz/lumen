@@ -144,6 +144,50 @@ defmodule Presence.Tracker do
   end
 
   @doc """
+  List all users in a workspace with formatted metadata.
+  """
+  def list_workspace_users_formatted(workspace_id) do
+    list_workspace_users(workspace_id)
+    |> Enum.map(fn {user_id, %{metas: metas}} ->
+      meta = hd(metas)
+
+      %{
+        id: user_id,
+        name: Map.get(meta, :name) || Map.get(meta, "name"),
+        avatar: Map.get(meta, :avatar) || Map.get(meta, "avatar"),
+        status: Map.get(meta, :status) || Map.get(meta, "status", "online"),
+        joined_at: Map.get(meta, :joined_at) || Map.get(meta, "joined_at"),
+        last_activity: Map.get(meta, :last_activity) || Map.get(meta, "last_activity")
+      }
+    end)
+  end
+
+  @doc """
+  List user IDs present in a workspace.
+  """
+  def list_workspace_user_ids(workspace_id) do
+    list_workspace_users(workspace_id)
+    |> Map.keys()
+  end
+
+  @doc """
+  List all workspaces where a user is currently active (cross-workspace presence).
+  Queries Redis presence sets if available.
+  """
+  def list_user_workspaces(user_id) do
+    PresenceTracer.trace "presence.list_user_workspaces",
+                         [{"user.id", user_id}] do
+      case Presence.RedisPubSub.command(["SMEMBERS", "presence:user:#{user_id}:workspaces"]) do
+        {:ok, workspaces} when is_list(workspaces) ->
+          workspaces
+
+        _ ->
+          []
+      end
+    end
+  end
+
+  @doc """
   Get a specific user's presence data.
   """
   def get_user(socket, user_id) do

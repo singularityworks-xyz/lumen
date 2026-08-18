@@ -13,5 +13,7 @@ defmodule PresenceWeb.Router do
     pipe_through(:api)
 
     get("/test/token", TestTokenController, :generate)
+    get("/workspaces/:workspace_id/presence", WorkspacePresenceController, :show)
+    get("/users/:user_id/presence", UserPresenceController, :show)
   end
 end

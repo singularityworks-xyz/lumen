@@ -17,21 +17,30 @@ defmodule Presence.RedisPubSub do
     env_getter = Keyword.get(opts, :env_getter, @default_opts[:env_getter])
     redis_url = get_redis_url(env_getter)
 
-    if redis_url == "" do
-      Logger.warning("Redis not configured, skipping broadcast", channel: channel)
-      {:error, :not_configured}
-    else
-      command = ["PUBLISH", channel, Jason.encode!(payload)]
+    cond do
+      redis_url == "" ->
+        Logger.warning("Redis not configured, skipping broadcast", channel: channel)
+        {:error, :not_configured}
 
-      case Redix.command(@pool_name, command) do
-        {:ok, _result} ->
-          Logger.debug("Redis PUBLISH successful", channel: channel)
-          {:ok, :published}
+      is_nil(Process.whereis(@pool_name)) ->
+        {:error, :not_started}
 
-        {:error, reason} ->
-          Logger.error("Redis PUBLISH failed", reason: inspect(reason))
-          {:error, :publish_failed}
-      end
+      true ->
+        do_broadcast(channel, payload)
+    end
+  end
+
+  defp do_broadcast(channel, payload) do
+    command = ["PUBLISH", channel, Jason.encode!(payload)]
+
+    case Redix.command(@pool_name, command) do
+      {:ok, _result} ->
+        Logger.debug("Redis PUBLISH successful", channel: channel)
+        {:ok, :published}
+
+      {:error, reason} ->
+        Logger.error("Redis PUBLISH failed", reason: inspect(reason))
+        {:error, :publish_failed}
     end
   end
 
@@ -53,18 +62,27 @@ defmodule Presence.RedisPubSub do
     env_getter = Keyword.get(opts, :env_getter, @default_opts[:env_getter])
     redis_url = get_redis_url(env_getter)
 
-    if redis_url == "" do
-      Logger.warning("Redis not configured, skipping command")
-      {:error, :not_configured}
-    else
-      case Redix.command(@pool_name, cmd) do
-        {:ok, result} ->
-          {:ok, result}
+    cond do
+      redis_url == "" ->
+        Logger.warning("Redis not configured, skipping command")
+        {:error, :not_configured}
 
-        {:error, reason} ->
-          Logger.error("Redis command failed", reason: inspect(reason))
-          {:error, :command_failed}
-      end
+      is_nil(Process.whereis(@pool_name)) ->
+        {:error, :not_started}
+
+      true ->
+        do_command(cmd)
+    end
+  end
+
+  defp do_command(cmd) do
+    case Redix.command(@pool_name, cmd) do
+      {:ok, result} ->
+        {:ok, result}
+
+      {:error, reason} ->
+        Logger.error("Redis command failed", reason: inspect(reason))
+        {:error, :command_failed}
     end
   end
 

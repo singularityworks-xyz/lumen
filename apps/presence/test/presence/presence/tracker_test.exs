@@ -56,6 +56,46 @@ defmodule Presence.TrackerTest do
     end
   end
 
+  describe "list_workspace_users_formatted/1" do
+    test "returns formatted list of user maps" do
+      workspace_id = "workspace_formatted_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+      metadata = %{name: "Bob", avatar: "bob.jpg"}
+
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, metadata)
+
+      users = Tracker.list_workspace_users_formatted(workspace_id)
+      assert length(users) == 1
+      [user] = users
+      assert user.id == user_id
+      assert user.name == "Bob"
+      assert user.avatar == "bob.jpg"
+      assert user.status == "online"
+    end
+  end
+
+  describe "list_workspace_user_ids/1" do
+    test "returns list of user ids" do
+      workspace_id = "workspace_ids_#{System.unique_integer()}"
+      socket = socket_in_workspace(workspace_id)
+      user_id = "user_#{System.unique_integer()}"
+
+      {:ok, _} = Tracker.track_user(socket, user_id, workspace_id, %{status: "online"})
+
+      user_ids = Tracker.list_workspace_user_ids(workspace_id)
+      assert user_id in user_ids
+    end
+  end
+
+  describe "list_user_workspaces/1" do
+    test "returns empty list when no Redis entries exist" do
+      user_id = "user_no_workspaces_#{System.unique_integer()}"
+      workspaces = Tracker.list_user_workspaces(user_id)
+      assert workspaces == []
+    end
+  end
+
   describe "get_user/2" do
     test "returns nil or empty for untracked user" do
       socket = socket_in_workspace("workspace_get_untracked")
