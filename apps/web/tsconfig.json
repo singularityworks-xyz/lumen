@@ -7,8 +7,7 @@
       }
     ],
     "strictNullChecks": true,
-    "types": ["bun-types"],
-    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "paths": {
       "@/*": ["./*"],
       "@tests/*": ["../../tests/*"]

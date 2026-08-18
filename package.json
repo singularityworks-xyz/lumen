@@ -25,7 +25,7 @@
     "msw": "^2.15.0",
     "playwright": "^1.62.1",
     "turbo": "^2.10.10",
-    "typescript": "^7.0.2",
+    "typescript": "5.7.3",
     "ultracite": "7.6.1"
   },
   "lint-staged": {
@@ -73,7 +73,7 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.42",
+  "version": "0.6.43",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -82,7 +82,7 @@
   "private": true,
   "overrides": {
     "caniuse-lite": "^1.0.30001809",
-    "@typescript/native-preview": "npm:typescript@^7.0.2",
+    "typescript": "^5.7.3",
     "yjs": "^13.6.30"
   },
   "trustedDependencies": [
