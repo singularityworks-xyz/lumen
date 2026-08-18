@@ -44,6 +44,7 @@ import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/compon
 import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
 import { useCanvasEdges } from "./helpers/canvas-edges";
 import {
@@ -325,9 +326,16 @@ export function KanbanCanvas() {
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
           } else if ("resizing" in change && change.resizing === false) {
+            const board = useKanbanStore.getState().boards.byId[change.id];
+            const columnCount = board?.column_ids.length ?? 0;
+            const exactWidth = calculateBoardWidth(columnCount);
             useKanbanStore
               .getState()
-              .updateBoardDimensions(change.id, change.dimensions, true);
+              .updateBoardDimensions(
+                change.id,
+                { width: exactWidth, height: change.dimensions.height },
+                true
+              );
           }
         }
       }

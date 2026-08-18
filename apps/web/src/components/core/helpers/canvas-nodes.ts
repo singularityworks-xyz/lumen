@@ -3,6 +3,7 @@ import { useShallow } from "zustand/shallow";
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
   AreaNode,
   BoardDialogNode,
@@ -235,7 +236,9 @@ export function useCanvasNodes() {
       (currentWorkspace?.board_ids ?? state.boards.allIds)
         .map((id) => {
           const bp = state.boardPositions.byId[id];
-          return `${id}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+          const b = state.boards.byId[id];
+          const colCount = b?.column_ids?.length ?? 0;
+          return `${id}:${colCount}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
         })
         .join("|")
     )
@@ -290,6 +293,10 @@ export function useCanvasNodes() {
             return null as unknown as KanbanNode;
           }
 
+          const board = boards.byId[boardId];
+          const columnCount = board?.column_ids?.length ?? 0;
+          const exactWidth = calculateBoardWidth(columnCount);
+
           let parentId: string | undefined;
           let pPos = { x: position.x, y: position.y };
           let zIndex = position.zIndex;
@@ -329,7 +336,7 @@ export function useCanvasNodes() {
               isSelected: boardId === selectedBoardId,
             },
             style: { zIndex },
-            width: position.width,
+            width: exactWidth,
             height: position.height,
             parentId,
           };

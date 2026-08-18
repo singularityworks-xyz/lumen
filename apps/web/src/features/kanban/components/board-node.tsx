@@ -13,6 +13,7 @@ import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical"
 import { PlusIcon } from "@/src/components/animated/icons/plus";
 import { SquarePenIcon } from "@/src/components/animated/icons/square-pen";
 import { XIcon } from "@/src/components/animated/icons/x";
+import { ColumnCreateDialog } from "@/src/components/dialogs/column/column-create-dialog";
 import { Button } from "@/src/components/ui/button";
 import {
   Popover,
@@ -29,6 +30,7 @@ import type {
   Task,
 } from "../types";
 import {
+  calculateBoardWidth,
   calculateContentDimensions,
   calculateMaxDimensions,
   calculateMinDimensions,
@@ -172,6 +174,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const openCreateTaskModal = useKanbanStore(
       (state) => state.openCreateTaskModal
     );
+    const addColumn = useKanbanStore((state) => state.addColumn);
     const removeBoard = useKanbanStore((state) => state.removeBoard);
     const openBoardQuickActions = useKanbanStore(
       (state) => state.openBoardQuickActions
@@ -179,7 +182,45 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     const openBoardDialog = useKanbanStore((state) => state.openBoardDialog);
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isCreateColumnOpen, setIsCreateColumnOpen] = useState(false);
+    const [createColumnPos, setCreateColumnPos] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
+    const addColumnButtonRef = useRef<HTMLButtonElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
+
+    const handleAddColumn = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!board) {
+          return;
+        }
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const DIALOG_WIDTH = 320;
+        const DIALOG_HEIGHT = 200;
+        setCreateColumnPos({
+          x: (viewportWidth - DIALOG_WIDTH) / 2,
+          y: (viewportHeight - DIALOG_HEIGHT) / 2,
+        });
+        setIsCreateColumnOpen(true);
+      },
+      [board]
+    );
+
+    const handleCloseCreateColumn = useCallback(() => {
+      setIsCreateColumnOpen(false);
+      setCreateColumnPos(null);
+    }, []);
+
+    const handleSubmitCreateColumn = useCallback(
+      (columnName: string) => {
+        const columnCount = board?.columns.length ?? 0;
+        addColumn(boardId, columnName, columnCount);
+      },
+      [addColumn, boardId, board?.columns.length]
+    );
 
     const VIEWPORT_PADDING = 100;
     const ensureDialogVisible = useCallback(
@@ -325,14 +366,20 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       [collaborators, id]
     );
 
-    const { minDimensions, maxDimensions, contentDimensions } = useMemo(() => {
-      const boardColumns = board?.columns ?? [];
-      return {
-        minDimensions: calculateMinDimensions(),
+    const boardColumns = board?.columns ?? [];
+    const exactBoardWidth = useMemo(
+      () => calculateBoardWidth(boardColumns.length),
+      [boardColumns.length]
+    );
+
+    const { minDimensions, maxDimensions, contentDimensions } = useMemo(
+      () => ({
+        minDimensions: calculateMinDimensions(boardColumns.length),
         maxDimensions: calculateMaxDimensions(boardColumns),
         contentDimensions: calculateContentDimensions(boardColumns),
-      };
-    }, [board?.columns]);
+      }),
+      [boardColumns]
+    );
 
     const updateBoardDimensions = useKanbanStore(
       (state) => state.updateBoardDimensions
@@ -345,7 +392,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
       // Use dimensions from synced store state, not React Flow node
       // This ensures consistent sizing across synced browsers
-      const currentWidth = boardDimensions?.width || minDimensions.width;
+      const currentWidth = boardDimensions?.width || exactBoardWidth;
       const currentHeight = boardDimensions?.height || minDimensions.height;
       const userResized = boardDimensions?.userResized ?? false;
 
@@ -360,7 +407,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       );
 
       if (shouldResize) {
-        const finalWidth = Math.min(newDimensions.width, maxDimensions.width);
+        const finalWidth = exactBoardWidth;
         const finalHeight = Math.min(
           newDimensions.height,
           maxDimensions.height
@@ -380,6 +427,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
       contentDimensions,
       minDimensions,
       maxDimensions,
+      exactBoardWidth,
       boardDimensions?.width,
       boardDimensions?.height,
       boardDimensions?.userResized,
@@ -560,9 +608,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             opacity: 0,
           }}
           maxHeight={maxDimensions.height}
-          maxWidth={maxDimensions.width}
+          maxWidth={exactBoardWidth}
           minHeight={minDimensions.height}
-          minWidth={minDimensions.width}
+          minWidth={exactBoardWidth}
           onResizeEnd={() => setIsResizing(false)}
           onResizeStart={() => setIsResizing(true)}
         />
@@ -571,17 +619,14 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           <div
             className="pointer-events-none absolute top-0 left-0 z-0 flex items-center justify-center rounded border-2 border-primary/50 border-dashed bg-primary/10 transition-all"
             style={{
-              width: contentDimensions.width,
+              width: exactBoardWidth,
               height: contentDimensions.height,
             }}
           >
             <div className="flex flex-col items-center gap-1 rounded-lg bg-primary/90 px-4 py-2 text-primary-foreground shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.1)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]">
-              <span className="font-medium text-xs">
-                Drag here to auto-snap
-              </span>
+              <span className="font-medium text-xs">Drag height to resize</span>
               <span className="text-[10px] opacity-80">
-                {Math.round(contentDimensions.width)} ×{" "}
-                {Math.round(contentDimensions.height)}
+                Height: {Math.round(contentDimensions.height)}px
               </span>
             </div>
           </div>
@@ -620,8 +665,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                   strokeWidth="2"
                   viewBox="0 0 24 24"
                 >
-                  <title>Resize handle</title>
-                  <path d="M21 15v6h-6M3 9V3h6M21 3l-7 7M3 21l7-7" />
+                  <title>Resize height</title>
+                  <path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" />
                 </svg>
               </div>
             </div>
@@ -833,6 +878,17 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
                 <PlusIcon size={16} />
                 <span className="font-medium text-[10px]">Add Task</span>
               </Button>
+              <Button
+                className="nodrag h-6 gap-1 rounded-full bg-card/80 px-2.5 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                data-testid="add-column-trigger"
+                onClick={handleAddColumn}
+                ref={addColumnButtonRef}
+                size="sm"
+                variant="ghost"
+              >
+                <PlusIcon size={16} />
+                <span className="font-medium text-[10px]">Add Column</span>
+              </Button>
               <Popover
                 onOpenChange={setShowDeleteConfirm}
                 open={showDeleteConfirm}
@@ -872,7 +928,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: required */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: required */}
           <div
-            className={`nodrag overflow-x-auto overflow-y-auto p-3 ${styles.boardContent}`}
+            className={`nodrag overflow-y-auto overflow-x-hidden p-3 ${styles.boardContent}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onPointerDown={handlePointerDown}
@@ -888,6 +944,15 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             />
           </div>
         </div>
+
+        <ColumnCreateDialog
+          boardId={boardId}
+          isOpen={isCreateColumnOpen}
+          onClose={handleCloseCreateColumn}
+          onSubmit={handleSubmitCreateColumn}
+          position={createColumnPos ?? undefined}
+          sourceElement={addColumnButtonRef.current}
+        />
       </>
     );
   }

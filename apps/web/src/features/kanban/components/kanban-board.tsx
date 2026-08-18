@@ -8,7 +8,6 @@ import {
 import { memo, useMemo } from "react";
 import { useColumnDragContext } from "@/src/components/core/canvas";
 import type { DenormalizedBoard } from "../types";
-import { AddColumnPlaceholder } from "./add-column-placeholder";
 import { KanbanColumn } from "./kanban-column";
 
 interface KanbanBoardProps {
@@ -44,7 +43,7 @@ export const KanbanBoard = memo(
           strategy={horizontalListSortingStrategy}
         >
           <div
-            className={`flex flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-1 transition-all duration-200 ${
+            className={`flex flex-1 gap-3 overflow-hidden pb-1 transition-all duration-200 ${
               showDropHighlight
                 ? "relative rounded-lg border-2 border-primary border-dashed bg-primary/5 ring-2 ring-primary/50"
                 : ""
@@ -66,7 +65,6 @@ export const KanbanBoard = memo(
                 onOpenTaskDetail={onOpenTaskDetail}
               />
             ))}
-            <AddColumnPlaceholder boardId={board.id} />
           </div>
         </SortableContext>
       </div>

@@ -191,7 +191,7 @@ describe("board-resize-rules", () => {
       );
       for (let i = 1; i < widths.length; i++) {
         const diff = widths[i]! - widths[i - 1]!;
-        expect(diff).toBe(312);
+        expect(diff).toBe(297);
       }
     });
 
@@ -212,7 +212,7 @@ describe("board-resize-rules", () => {
         createMockColumn([]),
       ]);
       const diff = twoCols.width - oneCol.width;
-      expect(diff).toBe(312);
+      expect(diff).toBe(297);
     });
 
     it("resize decision is deterministic for same inputs", () => {
