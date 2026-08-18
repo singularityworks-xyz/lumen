@@ -29,6 +29,7 @@ import {
   recordWsConnectionLatency,
   recordWsMessage,
 } from "./metrics";
+import { getWorkspacePresence } from "./presence-client";
 import { type CollaboratorInfo, roomManager } from "./room-manager";
 
 const logger = createLogger({ name: "collab:routes" });
@@ -885,9 +886,9 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           uniqueCollaborators.set(c.id, c);
         }
 
-        // Get online status
-        const onlineUsers = roomManager.getCollaborators(workspaceId);
-        const onlineIds = new Set(onlineUsers.map((u) => u.id));
+        // Get online status from Presence as the single source of truth
+        const presence = await getWorkspacePresence(workspaceId);
+        const onlineIds = presence.userIds;
 
         return {
           collaborators: Array.from(uniqueCollaborators.values()).map((c) => ({

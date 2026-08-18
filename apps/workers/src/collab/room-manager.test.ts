@@ -491,27 +491,6 @@ describe("RoomManager - delete", () => {
   });
 });
 
-describe("RoomManager - getCollaborators", () => {
-  it("returns empty array for non-existent room", () => {
-    const collaborators = roomManager.getCollaborators("nonexistent-ws");
-    expect(collaborators).toEqual([]);
-  });
-
-  it("returns collaborators for existing room", async () => {
-    const { ws } = createMockWs();
-    await roomManager.join({
-      connectionId: "conn-gc-1",
-      ws,
-      user: makeUser({ id: "user-gc-1" }),
-      workspaceId: "ws-test",
-    });
-
-    const collaborators = roomManager.getCollaborators("ws-test");
-    expect(collaborators.length).toBe(1);
-    expect(collaborators[0]?.id).toBe("user-gc-1");
-  });
-});
-
 describe("RoomManager - getRoomStats", () => {
   it("returns null for non-existent room", () => {
     const stats = roomManager.getRoomStats("nonexistent-ws");
