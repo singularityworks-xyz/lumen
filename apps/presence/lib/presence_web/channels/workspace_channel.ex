@@ -158,6 +158,17 @@ defmodule PresenceWeb.WorkspaceChannel do
     is_typing = Map.get(payload, "is_typing", true)
     task_id = Map.get(payload, "task_id")
 
+    PresenceTracer.add_event("channel.typing", [
+      {"user.id", socket.assigns.user_id},
+      {"workspace.id", socket.assigns.workspace_id},
+      {"is_typing", is_typing}
+    ])
+
+    Logger.debug("User typing event (is_typing: #{is_typing})",
+      user_id: socket.assigns.user_id,
+      workspace_id: socket.assigns.workspace_id
+    )
+
     if socket.joined do
       broadcast_from!(socket, "user_typing", %{
         user_id: socket.assigns.user_id,

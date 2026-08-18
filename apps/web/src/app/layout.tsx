@@ -1,5 +1,5 @@
+import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -8,11 +8,6 @@ import { ConsoleBranding } from "../components/dev/console-branding";
 import { NativeTitlebar } from "../components/native-titlebar";
 import { UmamiAnalytics } from "../components/umami-analytics";
 import { AppProviders } from "./providers/app-providers";
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-manrope",
-});
 
 const APP_NAME = "Lumen";
 const APP_DESCRIPTION = "Shedding light on the singularity";
@@ -65,7 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${manrope.variable} ${manrope.className} bg-background font-sans text-foreground`}
+        className={`${GeistSans.variable} ${GeistSans.className} bg-background font-sans text-foreground`}
       >
         <NativeTitlebar />
         <ConsoleBranding />

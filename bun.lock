@@ -82,11 +82,11 @@
     },
     "apps/presence": {
       "name": "@lumen/presence",
-      "version": "1.0.37",
+      "version": "1.0.38",
     },
     "apps/web": {
       "name": "@lumen/web",
-      "version": "1.1.21",
+      "version": "1.1.22",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -127,6 +127,7 @@
         "cmdk": "^1.1.1",
         "date-fns": "^4.1.0",
         "esbuild": "^0.28.0",
+        "geist": "^1.7.2",
         "gsap": "^3.15.0",
         "idb-keyval": "^6.2.2",
         "immer": "^11.1.4",
@@ -183,7 +184,7 @@
     },
     "apps/workers": {
       "name": "@lumen/workers",
-      "version": "1.0.74",
+      "version": "1.0.75",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/opentelemetry": "^1.4.11",
@@ -1526,6 +1527,8 @@
     "fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
     "function-bind": ["function-bind@1.1.2", "", {}, "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="],
+
+    "geist": ["geist@1.7.2", "", { "peerDependencies": { "next": ">=13.2.0" } }, "sha512-Gu5lDFa3pLRyoBlBPf0QIFHVdWAnpco7fS1bJm41jyLPFoguBgiubseUN2oLXMgqZ7uxAxDoXcHMhCY/fOTTgg=="],
 
     "generate-function": ["generate-function@2.3.1", "", { "dependencies": { "is-property": "^1.0.2" } }, "sha512-eeB5GfMNeevm/GRYq20ShmsaGcmI81kIX2K9XQx5miC8KdHaC6Jm0qQ8ZNeGOi7wYB8OsdxKs+Y2oVuTFuVwKQ=="],
 

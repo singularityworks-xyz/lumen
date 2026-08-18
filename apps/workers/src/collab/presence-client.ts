@@ -1,5 +1,9 @@
 import { createLogger } from "@lumen/logger";
-import { setSpanAttributes, withSpanAsync } from "@lumen/logger/server";
+import {
+  recordSpanError,
+  setSpanAttributes,
+  withSpanAsync,
+} from "@lumen/logger/server";
 import { createClient } from "redis";
 
 const logger = createLogger({ name: "collab:presence-client" });
@@ -94,8 +98,11 @@ export function isPresenceRedisReady(): boolean {
 export function getWorkspacePresence(
   workspaceId: string
 ): Promise<WorkspacePresenceResult> {
-  return withSpanAsync("presence.getWorkspacePresence", async () => {
-    setSpanAttributes({ workspaceId });
+  return withSpanAsync("presence.getWorkspacePresence", async (span) => {
+    setSpanAttributes({
+      workspaceId,
+      "presence.operation": "getWorkspacePresence",
+    });
 
     // 1. Try Redis fast path
     const client = getPresenceRedisClient();
@@ -110,6 +117,14 @@ export function getWorkspacePresence(
           const userIds = await client.sMembers(key);
           if (Array.isArray(userIds)) {
             const userSet = new Set(userIds);
+            setSpanAttributes({
+              "presence.source": "redis",
+              "presence.online_count": userSet.size,
+            });
+            logger.debug("Resolved workspace presence via Redis", {
+              workspaceId,
+              onlineCount: userSet.size,
+            });
             return {
               userIds: userSet,
               users: userIds.map((id) => ({
@@ -120,6 +135,7 @@ export function getWorkspacePresence(
             };
           }
         } catch (err) {
+          recordSpanError(span, err);
           logger.debug("Redis presence query failed, trying HTTP fallback", {
             workspaceId,
             error: err instanceof Error ? err.message : "Unknown",
@@ -171,6 +187,15 @@ export function getWorkspacePresence(
               status: "online",
             }));
 
+        setSpanAttributes({
+          "presence.source": "http",
+          "presence.online_count": userSet.size,
+        });
+        logger.debug("Resolved workspace presence via HTTP API", {
+          workspaceId,
+          onlineCount: userSet.size,
+        });
+
         return {
           userIds: userSet,
           users,
@@ -178,6 +203,7 @@ export function getWorkspacePresence(
         };
       }
     } catch (err) {
+      recordSpanError(span, err);
       logger.debug("HTTP presence query failed", {
         workspaceId,
         error: err instanceof Error ? err.message : "Unknown",
@@ -185,6 +211,11 @@ export function getWorkspacePresence(
     }
 
     // 3. Fallback when both fail (empty presence)
+    setSpanAttributes({
+      "presence.source": "empty_fallback",
+      "presence.online_count": 0,
+    });
+
     return {
       userIds: new Set<string>(),
       users: [],
@@ -194,8 +225,11 @@ export function getWorkspacePresence(
 }
 
 export function getUserPresence(userId: string): Promise<UserPresenceResult> {
-  return withSpanAsync("presence.getUserPresence", async () => {
-    setSpanAttributes({ userId });
+  return withSpanAsync("presence.getUserPresence", async (span) => {
+    setSpanAttributes({
+      userId,
+      "presence.operation": "getUserPresence",
+    });
 
     // 1. Try Redis fast path
     const client = getPresenceRedisClient();
@@ -209,6 +243,15 @@ export function getUserPresence(userId: string): Promise<UserPresenceResult> {
           const key = `presence:user:${userId}:workspaces`;
           const workspaces = await client.sMembers(key);
           if (Array.isArray(workspaces)) {
+            setSpanAttributes({
+              "presence.source": "redis",
+              "presence.workspace_count": workspaces.length,
+              "presence.is_online": workspaces.length > 0,
+            });
+            logger.debug("Resolved user presence via Redis", {
+              userId,
+              workspaceCount: workspaces.length,
+            });
             return {
               userId,
               workspaces,
@@ -217,6 +260,7 @@ export function getUserPresence(userId: string): Promise<UserPresenceResult> {
             };
           }
         } catch (err) {
+          recordSpanError(span, err);
           logger.debug(
             "Redis user presence query failed, trying HTTP fallback",
             {
@@ -249,19 +293,40 @@ export function getUserPresence(userId: string): Promise<UserPresenceResult> {
         };
 
         const workspaces = data.workspaces ?? [];
+        const isOnline = data.is_online ?? workspaces.length > 0;
+        const count = data.count ?? workspaces.length;
+
+        setSpanAttributes({
+          "presence.source": "http",
+          "presence.workspace_count": count,
+          "presence.is_online": isOnline,
+        });
+        logger.debug("Resolved user presence via HTTP API", {
+          userId,
+          workspaceCount: count,
+          isOnline,
+        });
+
         return {
           userId,
           workspaces,
-          isOnline: data.is_online ?? workspaces.length > 0,
-          count: data.count ?? workspaces.length,
+          isOnline,
+          count,
         };
       }
     } catch (err) {
+      recordSpanError(span, err);
       logger.debug("HTTP user presence query failed", {
         userId,
         error: err instanceof Error ? err.message : "Unknown",
       });
     }
+
+    setSpanAttributes({
+      "presence.source": "empty_fallback",
+      "presence.workspace_count": 0,
+      "presence.is_online": false,
+    });
 
     return {
       userId,
