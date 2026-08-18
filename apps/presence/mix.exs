@@ -4,7 +4,7 @@ defmodule Presence.MixProject do
   def project do
     [
       app: :presence,
-      version: "1.0.40",
+      version: "1.0.41",
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

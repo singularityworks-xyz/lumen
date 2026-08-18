@@ -46,13 +46,22 @@ defmodule PresenceWeb.Plugs.InternalAuthTest do
       assert conn.status == 401
     end
 
-    test "passes requests through when no key is configured", %{conn: conn} do
+    test "rejects requests when no key is configured", %{conn: conn} do
       Application.put_env(:presence, :internal_api_key, nil)
 
       conn = call_plug(conn)
 
-      refute conn.halted
-      assert conn.status == nil
+      assert conn.halted
+      assert conn.status == 401
+    end
+
+    test "rejects requests when the configured key is empty", %{conn: conn} do
+      Application.put_env(:presence, :internal_api_key, "")
+
+      conn = call_plug(conn)
+
+      assert conn.halted
+      assert conn.status == 401
     end
   end
 end

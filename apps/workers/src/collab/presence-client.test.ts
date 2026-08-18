@@ -174,23 +174,23 @@ describe("presence-client", () => {
       process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
       process.env.INTERNAL_API_KEY = "secret-key";
 
-      const mockFetch = mock(
-        (_url: string | URL | Request, init?: RequestInit) => {
-          expect(init?.headers).toMatchObject({
-            Authorization: "Bearer secret-key",
-          });
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                workspace_id: "ws-auth",
-                user_ids: ["user-auth"],
-              }),
-              { status: 200, headers: { "Content-Type": "application/json" } }
-            )
-          );
-        }
-      );
-      globalThis.fetch = mockFetch as any;
+      const mockFetch = mock<
+        (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+      >((_input, init) => {
+        expect(init?.headers).toMatchObject({
+          Authorization: "Bearer secret-key",
+        });
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              workspace_id: "ws-auth",
+              user_ids: ["user-auth"],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        );
+      });
+      globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
       const result = await getWorkspacePresence("ws-auth");
 
@@ -204,19 +204,19 @@ describe("presence-client", () => {
       process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
       process.env.INTERNAL_API_KEY = "";
 
-      const mockFetch = mock(
-        (_url: string | URL | Request, init?: RequestInit) => {
-          const headers = init?.headers as Record<string, string> | undefined;
-          expect(headers?.Authorization).toBeUndefined();
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ workspace_id: "ws-noauth", user_ids: [] }),
-              { status: 200, headers: { "Content-Type": "application/json" } }
-            )
-          );
-        }
-      );
-      globalThis.fetch = mockFetch as any;
+      const mockFetch = mock<
+        (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+      >((_input, init) => {
+        const headers = init?.headers as Record<string, string> | undefined;
+        expect(headers?.Authorization).toBeUndefined();
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ workspace_id: "ws-noauth", user_ids: [] }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        );
+      });
+      globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
       const result = await getUserPresence("user-noauth");
 
@@ -229,7 +229,9 @@ describe("presence-client", () => {
       process.env.REDIS_URL = "";
       process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
 
-      const mockFetch = mock(() =>
+      const mockFetch = mock<
+        (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+      >(() =>
         Promise.resolve(
           new Response(JSON.stringify({ error: "unauthorized" }), {
             status: 401,
@@ -237,7 +239,7 @@ describe("presence-client", () => {
           })
         )
       );
-      globalThis.fetch = mockFetch as any;
+      globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
       const result = await getWorkspacePresence("ws-denied");
 

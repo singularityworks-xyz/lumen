@@ -18,7 +18,7 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
   describe "presence set membership across multiple channels" do
     setup do
-      {:ok, _} = FakeRedis.start_link()
+      start_supervised!(FakeRedis)
       Application.put_env(:presence, :redis_command_runner, FakeRedis)
 
       on_exit(fn ->
@@ -28,20 +28,16 @@ defmodule PresenceWeb.WorkspaceChannelTest do
       :ok
     end
 
-    # Distinct, live channel processes so Phoenix.Presence can track the same
-    # user on the same topic from two separate sockets.
+    # Distinct, live channel processes (started under the test supervisor so
+    # they are cleaned up automatically) so Phoenix.Presence can track the
+    # same user on the same topic from two separate sockets.
     defp distinct_channel_sockets(workspace_id, user_id) do
       pids =
-        for _ <- 1..2 do
-          pid =
-            spawn(fn ->
-              receive do
-                :stop -> :ok
-              end
-            end)
-
-          on_exit(fn -> send(pid, :stop) end)
-          pid
+        for index <- 1..2 do
+          start_supervised!(
+            {Task, fn -> Process.sleep(:infinity) end},
+            id: {:channel_socket_task, workspace_id, user_id, index}
+          )
         end
 
       [pid1, pid2] = pids
@@ -87,6 +83,9 @@ defmodule PresenceWeb.WorkspaceChannelTest do
     test "membership cleanup only happens on the final channel termination" do
       workspace_id = "ws_broadcast_#{System.unique_integer()}"
       user_id = "user_broadcast_#{System.unique_integer()}"
+      ws_key = PresenceSets.workspace_users_key(workspace_id)
+      user_key = PresenceSets.user_workspaces_key(user_id)
+      count_key = PresenceSets.channel_count_key(user_id, workspace_id)
 
       [socket1, socket2] = distinct_channel_sockets(workspace_id, user_id)
 
@@ -97,26 +96,19 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
       :ok = WorkspaceChannel.terminate(:normal, socket1)
 
-      # The first disconnect only decrements the counter; no set cleanup yet.
-      refute Enum.any?(FakeRedis.log(), fn [cmd | _] -> cmd == "SREM" end)
+      # The first disconnect only decrements the counter; no set cleanup yet
+      # (membership and counter are mutated atomically inside a single EVAL).
+      assert FakeRedis.counter(count_key) == 1
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
 
       :ok = WorkspaceChannel.terminate(:normal, socket2)
 
-      srem_keys = FakeRedis.log() |> Enum.filter(fn [cmd | _] -> cmd == "SREM" end)
-
-      assert length(srem_keys) == 2
-
-      assert Enum.any?(srem_keys, fn ["SREM", key, member] ->
-               key == ws_key(workspace_id) and member == user_id
-             end)
-
-      assert Enum.any?(srem_keys, fn ["SREM", key, member] ->
-               key == user_key(user_id) and member == workspace_id
-             end)
+      # Final disconnect: counter deleted and both memberships removed.
+      assert FakeRedis.counter(count_key) == 0
+      refute user_id in FakeRedis.set_members(ws_key)
+      refute workspace_id in FakeRedis.set_members(user_key)
     end
-
-    defp ws_key(workspace_id), do: PresenceSets.workspace_users_key(workspace_id)
-    defp user_key(user_id), do: PresenceSets.user_workspaces_key(user_id)
   end
 
   describe "join/3" do
