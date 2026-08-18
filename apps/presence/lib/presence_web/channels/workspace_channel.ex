@@ -9,6 +9,7 @@ defmodule PresenceWeb.WorkspaceChannel do
   require Logger
   require Presence.Tracer, as: PresenceTracer
 
+  alias Presence.PresenceSets
   alias Presence.Tracer, as: PresenceTracer
   alias Presence.Tracker
 
@@ -44,9 +45,9 @@ defmodule PresenceWeb.WorkspaceChannel do
         status: "online"
       })
 
-    # Synchronize presence sets in Redis for fast canonical querying
-    Presence.RedisPubSub.command(["SADD", "presence:workspace:#{workspace_id}:users", socket.assigns.user_id])
-    Presence.RedisPubSub.command(["SADD", "presence:user:#{socket.assigns.user_id}:workspaces", workspace_id])
+    # Reference-count live channels in the Redis presence sets so closing one
+    # tab does not drop the user while another tab stays connected.
+    PresenceSets.user_joined(socket.assigns.user_id, workspace_id)
 
     # Send initial presence state after a short delay to ensure tracking is complete
     send(self(), :after_join)
@@ -202,20 +203,12 @@ defmodule PresenceWeb.WorkspaceChannel do
       workspace_id: socket.assigns.workspace_id
     )
 
-    # Clean up Redis presence sets
-    Presence.RedisPubSub.command([
-      "SREM",
-      "presence:workspace:#{socket.assigns.workspace_id}:users",
-      socket.assigns.user_id
-    ])
-
-    Presence.RedisPubSub.command([
-      "SREM",
-      "presence:user:#{socket.assigns.user_id}:workspaces",
-      socket.assigns.workspace_id
-    ])
-
-    broadcast_presence_event("user_left", socket)
+    # Only clean up Redis set membership (and announce the leave) when the
+    # final channel for this user in this workspace terminates.
+    case PresenceSets.user_left(socket.assigns.user_id, socket.assigns.workspace_id) do
+      :removed -> broadcast_presence_event("user_left", socket)
+      :retained -> :ok
+    end
 
     :telemetry.execute(
       [:presence, :user_left],

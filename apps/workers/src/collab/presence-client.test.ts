@@ -166,4 +166,85 @@ describe("presence-client", () => {
       expect(result.workspaces).toEqual([]);
     });
   });
+
+  describe("internal API authentication", () => {
+    it("sends the internal API key as a Bearer token when configured", async () => {
+      await resetPresenceClientForTesting(null);
+      process.env.REDIS_URL = "";
+      process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
+      process.env.INTERNAL_API_KEY = "secret-key";
+
+      const mockFetch = mock(
+        (_url: string | URL | Request, init?: RequestInit) => {
+          expect(init?.headers).toMatchObject({
+            Authorization: "Bearer secret-key",
+          });
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                workspace_id: "ws-auth",
+                user_ids: ["user-auth"],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            )
+          );
+        }
+      );
+      globalThis.fetch = mockFetch as any;
+
+      const result = await getWorkspacePresence("ws-auth");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(result.onlineCount).toBe(1);
+    });
+
+    it("omits the Authorization header when no internal API key is configured", async () => {
+      await resetPresenceClientForTesting(null);
+      process.env.REDIS_URL = "";
+      process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
+      process.env.INTERNAL_API_KEY = "";
+
+      const mockFetch = mock(
+        (_url: string | URL | Request, init?: RequestInit) => {
+          const headers = init?.headers as Record<string, string> | undefined;
+          expect(headers?.Authorization).toBeUndefined();
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ workspace_id: "ws-noauth", user_ids: [] }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            )
+          );
+        }
+      );
+      globalThis.fetch = mockFetch as any;
+
+      const result = await getUserPresence("user-noauth");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(result.isOnline).toBe(false);
+    });
+
+    it("returns empty presence on a non-2xx response", async () => {
+      await resetPresenceClientForTesting(null);
+      process.env.REDIS_URL = "";
+      process.env.PRESENCE_HTTP_URL = "http://localhost:4000";
+
+      const mockFetch = mock(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ error: "unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          })
+        )
+      );
+      globalThis.fetch = mockFetch as any;
+
+      const result = await getWorkspacePresence("ws-denied");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(result.onlineCount).toBe(0);
+      expect(result.userIds.size).toBe(0);
+      expect(result.users).toEqual([]);
+    });
+  });
 });

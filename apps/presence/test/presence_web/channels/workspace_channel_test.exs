@@ -3,6 +3,8 @@ defmodule PresenceWeb.WorkspaceChannelTest do
 
   import Presence.Test.Helpers
 
+  alias Presence.PresenceSets
+  alias Presence.Test.FakeRedis
   alias PresenceWeb.WorkspaceChannel
 
   @moduletag :capture_log
@@ -12,6 +14,109 @@ defmodule PresenceWeb.WorkspaceChannelTest do
     Application.ensure_all_started(:phoenix_pubsub)
     Application.ensure_all_started(:presence)
     :ok
+  end
+
+  describe "presence set membership across multiple channels" do
+    setup do
+      {:ok, _} = FakeRedis.start_link()
+      Application.put_env(:presence, :redis_command_runner, FakeRedis)
+
+      on_exit(fn ->
+        Application.delete_env(:presence, :redis_command_runner)
+      end)
+
+      :ok
+    end
+
+    # Distinct, live channel processes so Phoenix.Presence can track the same
+    # user on the same topic from two separate sockets.
+    defp distinct_channel_sockets(workspace_id, user_id) do
+      pids =
+        for _ <- 1..2 do
+          pid =
+            spawn(fn ->
+              receive do
+                :stop -> :ok
+              end
+            end)
+
+          on_exit(fn -> send(pid, :stop) end)
+          pid
+        end
+
+      [pid1, pid2] = pids
+
+      base = socket_in_workspace(workspace_id, %{id: user_id})
+
+      [
+        %{base | channel_pid: pid1},
+        %{base | channel_pid: pid2}
+      ]
+    end
+
+    test "first channel termination preserves membership, second removes it" do
+      workspace_id = "ws_multi_channel_#{System.unique_integer()}"
+      user_id = "user_multi_channel_#{System.unique_integer()}"
+      ws_key = PresenceSets.workspace_users_key(workspace_id)
+      user_key = PresenceSets.user_workspaces_key(user_id)
+      count_key = PresenceSets.channel_count_key(user_id, workspace_id)
+
+      [socket1, socket2] = distinct_channel_sockets(workspace_id, user_id)
+
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket1)
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket2)
+
+      assert FakeRedis.counter(count_key) == 2
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
+
+      # Closing the first channel must not drop the user: another channel
+      # for the same user/workspace is still connected.
+      assert WorkspaceChannel.terminate(:normal, socket1) == :ok
+      assert user_id in FakeRedis.set_members(ws_key)
+      assert workspace_id in FakeRedis.set_members(user_key)
+      assert FakeRedis.counter(count_key) == 1
+
+      # Closing the final channel removes membership and resets the counter.
+      assert WorkspaceChannel.terminate(:normal, socket2) == :ok
+      refute user_id in FakeRedis.set_members(ws_key)
+      refute workspace_id in FakeRedis.set_members(user_key)
+      assert FakeRedis.counter(count_key) == 0
+    end
+
+    test "membership cleanup only happens on the final channel termination" do
+      workspace_id = "ws_broadcast_#{System.unique_integer()}"
+      user_id = "user_broadcast_#{System.unique_integer()}"
+
+      [socket1, socket2] = distinct_channel_sockets(workspace_id, user_id)
+
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket1)
+      {:ok, _} = WorkspaceChannel.join("workspace:" <> workspace_id, %{}, socket2)
+
+      FakeRedis.clear_log()
+
+      :ok = WorkspaceChannel.terminate(:normal, socket1)
+
+      # The first disconnect only decrements the counter; no set cleanup yet.
+      refute Enum.any?(FakeRedis.log(), fn [cmd | _] -> cmd == "SREM" end)
+
+      :ok = WorkspaceChannel.terminate(:normal, socket2)
+
+      srem_keys = FakeRedis.log() |> Enum.filter(fn [cmd | _] -> cmd == "SREM" end)
+
+      assert length(srem_keys) == 2
+
+      assert Enum.any?(srem_keys, fn ["SREM", key, member] ->
+               key == ws_key(workspace_id) and member == user_id
+             end)
+
+      assert Enum.any?(srem_keys, fn ["SREM", key, member] ->
+               key == user_key(user_id) and member == workspace_id
+             end)
+    end
+
+    defp ws_key(workspace_id), do: PresenceSets.workspace_users_key(workspace_id)
+    defp user_key(user_id), do: PresenceSets.user_workspaces_key(user_id)
   end
 
   describe "join/3" do

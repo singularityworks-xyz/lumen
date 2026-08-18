@@ -1,13 +1,11 @@
 import type { DenormalizedColumn } from "../types";
 
-/**
- * Centralized constants and utility functions for accurate board sizing.
- * SIZING BEHAVIOR:
- * 1. Board width is exact and deterministic based on total columns: (N * COLUMN_WIDTH) + ((N - 1) * COLUMN_GAP) + BOARD_PADDING + BOARD_BORDER
- * 2. Columns have fixed width (285px) with no horizontal scrollbar or extra spacing
- * 3. Board is non-resizable width-wise to maintain exact column alignment
- * 4. Height is resizable and auto-grows to fit visible tasks
- */
+// Centralized constants and utility functions for accurate board sizing.
+// SIZING BEHAVIOR:
+// 1. Board width is exact and deterministic based on total columns: (N * COLUMN_WIDTH) + ((N - 1) * COLUMN_GAP) + BOARD_PADDING + BOARD_BORDER
+// 2. Columns have fixed width (285px) with no horizontal scrollbar or extra spacing
+// 3. Board is non-resizable width-wise to maintain exact column alignment
+// 4. Height is resizable and auto-grows to fit visible tasks
 
 export const BOARD_RESIZE_CONSTANTS = {
   COLUMN_WIDTH: 285,
@@ -27,10 +25,8 @@ export const RESIZE_RULES = {
   RESPECT_USER_SIZE: true,
 } as const;
 
-/**
- * Calculate the exact pixel width for a board based on its column count.
- * Perfectly accounts for column width, gap-3 (12px), p-3 padding (24px total), and border-2 (4px total).
- */
+// Calculate the exact pixel width for a board based on its column count.
+// Perfectly accounts for column width, gap-3 (12px), p-3 padding (24px total), and border-2 (4px total).
 export function calculateBoardWidth(columnCount: number): number {
   const { COLUMN_WIDTH, COLUMN_GAP, BOARD_PADDING, BOARD_BORDER } =
     BOARD_RESIZE_CONSTANTS;
@@ -122,10 +118,8 @@ export function calculateMaxDimensions(columns: DenormalizedColumn[]): {
   return { width, height: maxHeight };
 }
 
-/**
- * Calculate initial dimensions for a newly created board with empty columns.
- * @param columnCount - Number of columns in the new board
- */
+// Calculate initial dimensions for a newly created board with empty columns.
+// @param columnCount - Number of columns in the new board
 export function calculateInitialBoardDimensions(columnCount: number): {
   width: number;
   height: number;
@@ -148,9 +142,7 @@ export function calculateInitialBoardDimensions(columnCount: number): {
   return { width, height };
 }
 
-/**
- * Calculate the required content dimensions based on actual column content.
- */
+// Calculate the required content dimensions based on actual column content.
 export function calculateContentDimensions(columns: DenormalizedColumn[]): {
   width: number;
   height: number;
@@ -176,11 +168,9 @@ export function calculateContentDimensions(columns: DenormalizedColumn[]): {
   return { width, height };
 }
 
-/**
- * Determine if and how to apply resize based on content and user preferences.
- * Width is strictly kept in sync with the column count (non-resizable width-wise).
- * Height only grows to fit content or respects user-resized height.
- */
+// Determine if and how to apply resize based on content and user preferences.
+// Width is strictly kept in sync with the column count (non-resizable width-wise).
+// Height only grows to fit content or respects user-resized height.
 export function shouldApplyResize(
   currentDimensions: { width: number; height: number },
   contentDimensions: { width: number; height: number },

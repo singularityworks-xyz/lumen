@@ -57,9 +57,13 @@ defmodule Presence.RedisPubSub do
 
   @doc """
   Execute a Redis command via standard Redis protocol.
+
+  Accepts the same options as `Redix.command/3` (e.g. `:timeout`), forwarded
+  as-is when no special handling is required.
   """
   def command(cmd, opts \\ []) when is_list(cmd) do
     env_getter = Keyword.get(opts, :env_getter, @default_opts[:env_getter])
+    redix_opts = Keyword.drop(opts, [:env_getter])
     redis_url = get_redis_url(env_getter)
 
     cond do
@@ -71,12 +75,12 @@ defmodule Presence.RedisPubSub do
         {:error, :not_started}
 
       true ->
-        do_command(cmd)
+        do_command(cmd, redix_opts)
     end
   end
 
-  defp do_command(cmd) do
-    case Redix.command(@pool_name, cmd) do
+  defp do_command(cmd, redix_opts) do
+    case Redix.command(@pool_name, cmd, redix_opts) do
       {:ok, result} ->
         {:ok, result}
 

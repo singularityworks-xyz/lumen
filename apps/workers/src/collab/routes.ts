@@ -890,12 +890,18 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         const presence = await getWorkspacePresence(workspaceId);
         const onlineIds = presence.userIds;
 
-        return {
-          collaborators: Array.from(uniqueCollaborators.values()).map((c) => ({
+        const knownCollaborators = Array.from(uniqueCollaborators.values()).map(
+          (c) => ({
             ...c,
             isOnline: onlineIds.has(c.id),
-          })),
-          onlineCount: onlineIds.size,
+          })
+        );
+
+        return {
+          collaborators: knownCollaborators,
+          // Presence may include users without a collaborator row (e2e
+          // anonymous sockets, stale members); only count known collaborators.
+          onlineCount: knownCollaborators.filter((c) => c.isOnline).length,
         };
       });
     },

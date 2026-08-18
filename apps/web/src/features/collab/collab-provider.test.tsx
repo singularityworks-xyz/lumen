@@ -646,9 +646,6 @@ describe("CollaborationProvider", () => {
       act(() => {
         wsInstances[0]?._simulateOpen();
       });
-      act(() => {
-        /* no-op */
-      });
 
       mockReadVarUint.mockReturnValue(3); // MESSAGE_WORKSPACE_DELETED
 

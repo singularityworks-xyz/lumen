@@ -23,16 +23,20 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
     const defaultWidth = 800;
     const defaultHeight = 400;
 
+    // The context menu event coordinates are screen-space; boards live in
+    // flow space, so convert before centering the new board on the cursor.
+    const flowPos = screenToFlowPosition({ x, y });
+
     useKanbanStore.getState().addBoard(
       "New Board",
       {
-        x: x - defaultWidth / 2,
-        y: y - defaultHeight / 2,
+        x: flowPos.x - defaultWidth / 2,
+        y: flowPos.y - defaultHeight / 2,
       },
       "New project board"
     );
     onClose();
-  }, [x, y, onClose]);
+  }, [x, y, onClose, screenToFlowPosition]);
 
   const handleAddComment = useCallback(() => {
     if (!localUser) {

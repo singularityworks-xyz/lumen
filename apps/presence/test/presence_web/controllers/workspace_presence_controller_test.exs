@@ -3,10 +3,39 @@ defmodule PresenceWeb.WorkspacePresenceControllerTest do
 
   alias Presence.Tracker
 
+  @api_key "test_internal_key"
+
+  setup do
+    Application.put_env(:presence, :internal_api_key, @api_key)
+    on_exit(fn -> Application.put_env(:presence, :internal_api_key, nil) end)
+    :ok
+  end
+
+  defp authed_get(conn, path) do
+    conn
+    |> put_req_header("authorization", "Bearer #{@api_key}")
+    |> get(path)
+  end
+
   describe "show/2" do
+    test "rejects requests without an authorization header", %{conn: conn} do
+      conn = get(conn, "/api/workspaces/ws_unauth/presence")
+
+      assert json_response(conn, 401) == %{"error" => "unauthorized"}
+    end
+
+    test "rejects requests with an invalid token", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer wrong-key")
+        |> get("/api/workspaces/ws_bad_token/presence")
+
+      assert json_response(conn, 401) == %{"error" => "unauthorized"}
+    end
+
     test "returns empty list for workspace with no active users", %{conn: conn} do
       workspace_id = "empty_ws_#{System.unique_integer()}"
-      conn = get(conn, "/api/workspaces/#{workspace_id}/presence")
+      conn = authed_get(conn, "/api/workspaces/#{workspace_id}/presence")
 
       assert %{
                "workspace_id" => ^workspace_id,
@@ -27,7 +56,7 @@ defmodule PresenceWeb.WorkspacePresenceControllerTest do
           avatar: "https://example.com/alice.png"
         })
 
-      conn = get(conn, "/api/workspaces/#{workspace_id}/presence")
+      conn = authed_get(conn, "/api/workspaces/#{workspace_id}/presence")
 
       response = json_response(conn, 200)
       assert response["workspace_id"] == workspace_id

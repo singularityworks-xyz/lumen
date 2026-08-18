@@ -38,54 +38,56 @@ let redisConnectPromise: Promise<void> | null = null;
 let redisReady = false;
 
 export function getPresenceRedisClient(): RedisClient | null {
+  // An injected client (tests) wins over environment configuration.
+  if (redisClient) {
+    return redisClient;
+  }
+
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
     return null;
   }
+  try {
+    const client = createClient({
+      url: redisUrl,
+      socket: {
+        connectTimeout: 1000,
+        reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+      },
+    });
 
-  if (!redisClient) {
-    try {
-      const client = createClient({
-        url: redisUrl,
-        socket: {
-          connectTimeout: 1000,
-          reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
-        },
+    client.on("error", (error) => {
+      redisReady = false;
+      logger.debug("Redis presence client error", {
+        error: error instanceof Error ? error.message : "Unknown",
       });
+    });
 
-      client.on("error", (error) => {
-        redisReady = false;
-        logger.debug("Redis presence client error", {
-          error: error instanceof Error ? error.message : "Unknown",
-        });
-      });
+    client.on("ready", () => {
+      redisReady = true;
+      logger.debug("Redis presence client ready");
+    });
 
-      client.on("ready", () => {
+    redisClient = client;
+    redisConnectPromise = client
+      .connect()
+      .then(() => {
         redisReady = true;
-        logger.debug("Redis presence client ready");
+      })
+      .catch((err) => {
+        redisReady = false;
+        logger.debug(
+          "Redis presence client connect failed, will use HTTP fallback",
+          {
+            error: err instanceof Error ? err.message : "Unknown",
+          }
+        );
       });
-
-      redisClient = client;
-      redisConnectPromise = client
-        .connect()
-        .then(() => {
-          redisReady = true;
-        })
-        .catch((err) => {
-          redisReady = false;
-          logger.debug(
-            "Redis presence client connect failed, will use HTTP fallback",
-            {
-              error: err instanceof Error ? err.message : "Unknown",
-            }
-          );
-        });
-    } catch (err) {
-      logger.debug("Failed to create Redis client for presence", {
-        error: err instanceof Error ? err.message : "Unknown",
-      });
-      return null;
-    }
+  } catch (err) {
+    logger.debug("Failed to create Redis client for presence", {
+      error: err instanceof Error ? err.message : "Unknown",
+    });
+    return null;
   }
 
   return redisClient;
@@ -153,7 +155,12 @@ export function getWorkspacePresence(
     try {
       const url = `${presenceBaseUrl.replace(TRAILING_SLASH_REGEX, "")}/api/workspaces/${encodeURIComponent(workspaceId)}/presence`;
       const res = await fetch(url, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...(process.env.INTERNAL_API_KEY
+            ? { Authorization: `Bearer ${process.env.INTERNAL_API_KEY}` }
+            : {}),
+        },
         signal: AbortSignal.timeout(2000),
       });
 
@@ -202,6 +209,14 @@ export function getWorkspacePresence(
           onlineCount: userSet.size,
         };
       }
+
+      logger.warn("Presence HTTP API returned an error status", {
+        workspaceId,
+        status: res.status,
+      });
+      setSpanAttributes({
+        "presence.http_status": res.status,
+      });
     } catch (err) {
       recordSpanError(span, err);
       logger.debug("HTTP presence query failed", {
@@ -281,7 +296,12 @@ export function getUserPresence(userId: string): Promise<UserPresenceResult> {
     try {
       const url = `${presenceBaseUrl.replace(TRAILING_SLASH_REGEX, "")}/api/users/${encodeURIComponent(userId)}/presence`;
       const res = await fetch(url, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...(process.env.INTERNAL_API_KEY
+            ? { Authorization: `Bearer ${process.env.INTERNAL_API_KEY}` }
+            : {}),
+        },
         signal: AbortSignal.timeout(2000),
       });
 
@@ -314,6 +334,14 @@ export function getUserPresence(userId: string): Promise<UserPresenceResult> {
           count,
         };
       }
+
+      logger.warn("Presence HTTP API returned an error status", {
+        userId,
+        status: res.status,
+      });
+      setSpanAttributes({
+        "presence.http_status": res.status,
+      });
     } catch (err) {
       recordSpanError(span, err);
       logger.debug("HTTP user presence query failed", {
@@ -342,7 +370,7 @@ export async function resetPresenceClientForTesting(
 ): Promise<void> {
   if (redisClient && redisClient !== mockClient) {
     try {
-      await redisClient.disconnect();
+      await redisClient.destroy();
     } catch {
       // ignore
     }

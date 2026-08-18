@@ -301,6 +301,11 @@ export function CollaborationProvider({
       }
 
       cleanup();
+      // A workspace switch restarts the retry budget: the pending timer for
+      // the previous workspace was just cleared, so start backoff fresh.
+      if (workspaceIdRef.current !== workspaceId) {
+        reconnectAttemptRef.current = 0;
+      }
       workspaceIdRef.current = workspaceId;
 
       logger.info("Connecting to workspace", { workspaceId });
@@ -593,7 +598,13 @@ export function CollaborationProvider({
         return;
       }
       const socket = wsRef.current;
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      // A socket that is still connecting (or open) counts as active; only
+      // reconnect when it is absent, closed, or otherwise unusable.
+      if (
+        socket &&
+        (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
+      ) {
         return;
       }
       reconnectAttemptRef.current = 0;
