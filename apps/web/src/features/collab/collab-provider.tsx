@@ -283,6 +283,20 @@ export function CollaborationProvider({
       if (!navigator.onLine) {
         logger.info("Offline - skipping connection", { workspaceId });
         setConnectionState("disconnected");
+        workspaceIdRef.current = workspaceId;
+        // Keep the reconnect chain alive: an attempt that fires while the
+        // browser is offline must schedule the next one, otherwise
+        // reconnection dies until the provider remounts.
+        const delay =
+          RECONNECT_DELAYS[
+            Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS.length - 1)
+          ];
+        reconnectAttemptRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (workspaceIdRef.current === workspaceId) {
+            connect(workspaceId);
+          }
+        }, delay);
         return;
       }
 
@@ -569,6 +583,25 @@ export function CollaborationProvider({
     },
     [enabled, apiUrl, cleanup, handleAwarenessUpdate]
   );
+
+  // Retry the moment the network returns. Without this, a reconnect chain
+  // that bailed while offline only resumes on a remount or workspace switch.
+  useEffect(() => {
+    const handleOnline = () => {
+      const workspaceId = workspaceIdRef.current;
+      if (!workspaceId || workspaceDeletedRef.current) {
+        return;
+      }
+      const socket = wsRef.current;
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        return;
+      }
+      reconnectAttemptRef.current = 0;
+      connect(workspaceId);
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [connect]);
 
   const disconnect = useCallback(
     () =>
