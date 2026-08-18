@@ -249,6 +249,7 @@ mock.module("@opentelemetry/sdk-trace-node", () => {
 });
 
 import {
+  FilteredDiagLogger,
   getLoggerProvider,
   getMeterProvider,
   getTracerProvider,
@@ -458,6 +459,67 @@ describe("sdk-node", () => {
       otelEndpoint = "";
       initOtel("test-service");
       expect(isOtelInitialized()).toBe(false);
+    });
+  });
+
+  describe("FilteredDiagLogger", () => {
+    it("delegates error, info, debug, and verbose to underlying logger", () => {
+      const mockDelegate = {
+        error: mock(() => undefined),
+        warn: mock(() => undefined),
+        info: mock(() => undefined),
+        debug: mock(() => undefined),
+        verbose: mock(() => undefined),
+      };
+
+      const logger = new FilteredDiagLogger(mockDelegate);
+
+      logger.error("error message", { detail: "test" });
+      logger.info("info message");
+      logger.debug("debug message");
+      logger.verbose("verbose message");
+
+      expect(mockDelegate.error).toHaveBeenCalledWith("error message", {
+        detail: "test",
+      });
+      expect(mockDelegate.info).toHaveBeenCalledWith("info message");
+      expect(mockDelegate.debug).toHaveBeenCalledWith("debug message");
+      expect(mockDelegate.verbose).toHaveBeenCalledWith("verbose message");
+    });
+
+    it("delegates normal warnings to underlying logger", () => {
+      const mockDelegate = {
+        error: mock(() => undefined),
+        warn: mock(() => undefined),
+        info: mock(() => undefined),
+        debug: mock(() => undefined),
+        verbose: mock(() => undefined),
+      };
+
+      const logger = new FilteredDiagLogger(mockDelegate);
+      logger.warn("Some regular warning message", { foo: "bar" });
+
+      expect(mockDelegate.warn).toHaveBeenCalledWith(
+        "Some regular warning message",
+        { foo: "bar" }
+      );
+    });
+
+    it("filters out Inconsistent start and end time warning", () => {
+      const mockDelegate = {
+        error: mock(() => undefined),
+        warn: mock(() => undefined),
+        info: mock(() => undefined),
+        debug: mock(() => undefined),
+        verbose: mock(() => undefined),
+      };
+
+      const logger = new FilteredDiagLogger(mockDelegate);
+      logger.warn(
+        "Inconsistent start and end time, startTime > endTime. Setting span duration to 0ms."
+      );
+
+      expect(mockDelegate.warn).not.toHaveBeenCalled();
     });
   });
 });

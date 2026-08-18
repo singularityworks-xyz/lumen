@@ -12,7 +12,6 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "bun-types": "^1.3.14",
     "cli-table3": "^0.6.5",
@@ -53,8 +52,8 @@
     "dep:up": "bunx taze major -wr",
     "db:gen": "cd packages/db && bun prisma generate",
     "db:push": "bun run --cwd packages/db push",
-    "db:push:dev": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:5154/lumendb NODE_ENV=development bun run --cwd packages/db push",
-    "db:push:test": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:5154/lumendb NODE_ENV=test bun run --cwd packages/db push",
+    "db:push:dev": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:15432/lumendb NODE_ENV=development bun run --cwd packages/db push",
+    "db:push:test": "bun cross-env DATABASE_URL=postgresql://lumen:lumen@127.0.0.1:15432/lumendb NODE_ENV=test bun run --cwd packages/db push",
     "presence:deps": "cd apps/presence && mix deps.get",
     "presence:dev": "cd apps/presence && mix phx.server",
     "presence:build": "cd apps/presence && mix compile",
@@ -73,7 +72,7 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.38",
+  "version": "0.6.39",
   "workspaces": [
     "apps/*",
     "packages/*"
