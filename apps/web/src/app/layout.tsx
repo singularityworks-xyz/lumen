@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -9,13 +9,9 @@ import { NativeTitlebar } from "../components/native-titlebar";
 import { UmamiAnalytics } from "../components/umami-analytics";
 import { AppProviders } from "./providers/app-providers";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
 });
 
 const APP_NAME = "Lumen";
@@ -69,7 +65,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground`}
+        className={`${manrope.variable} ${manrope.className} bg-background font-sans text-foreground`}
       >
         <NativeTitlebar />
         <ConsoleBranding />
