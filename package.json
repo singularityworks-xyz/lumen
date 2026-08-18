@@ -14,6 +14,7 @@
     "@types/react-dom": "^19.2.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "bun-types": "^1.3.14",
+    "caniuse-lite": "^1.0.30001809",
     "cli-table3": "^0.6.5",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
@@ -72,13 +73,16 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.39",
+  "version": "0.6.40",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "packageManager": "bun@1.3.14",
   "private": true,
+  "overrides": {
+    "caniuse-lite": "^1.0.30001809"
+  },
   "trustedDependencies": [
     "@biomejs/biome",
     "@vercel/speed-insights",
