@@ -10,6 +10,7 @@ trace/
 .direnv
 erl_crash.dump
 slop.md
+.devin
 
 # Local env files
 .env
