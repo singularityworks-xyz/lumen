@@ -73,7 +73,7 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.41",
+  "version": "0.6.42",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -82,7 +82,8 @@
   "private": true,
   "overrides": {
     "caniuse-lite": "^1.0.30001809",
-    "@typescript/native-preview": "npm:typescript@^7.0.2"
+    "@typescript/native-preview": "npm:typescript@^7.0.2",
+    "yjs": "^13.6.30"
   },
   "trustedDependencies": [
     "@biomejs/biome",

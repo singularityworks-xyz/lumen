@@ -317,6 +317,7 @@
   "overrides": {
     "@typescript/native-preview": "npm:typescript@^7.0.2",
     "caniuse-lite": "^1.0.30001809",
+    "yjs": "^13.6.30",
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],

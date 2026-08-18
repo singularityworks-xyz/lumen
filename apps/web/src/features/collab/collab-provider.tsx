@@ -1,4 +1,4 @@
-/** biome-ignore-all lint/performance/noNamespaceImport: usecase */
+// biome-ignore-all lint/performance/noNamespaceImport: usecase
 "use client";
 
 import { createLogger } from "@lumen/logger";
