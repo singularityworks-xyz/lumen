@@ -92,7 +92,7 @@ export function KanbanCanvas() {
   const setFocusedBoard = useKanbanStore((s) => s.setFocusedBoard);
   const showWelcomeScreen = useShowWelcomeScreen();
   const hasBoardsInCurrentWorkspace = currentWorkspaceId
-    ? (workspaces.byId[currentWorkspaceId]?.board_ids.length ?? 0) > 0
+    ? (workspaces.byId[currentWorkspaceId]?.board_ids?.length ?? 0) > 0
     : boards.allIds.length > 0;
 
   const {
