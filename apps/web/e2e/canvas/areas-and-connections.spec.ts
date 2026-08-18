@@ -242,17 +242,12 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
   test("duplicate connection creation is blocked", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill(
-      '[data-testid="board-name-input"]',
-      "Second Board for Connection"
-    );
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     const board1 = page.locator('[data-testid="board-node"]').first();
-    const board2 = page.locator('[data-testid="board-node"]').nth(1);
-    await expect(board2).toContainText("Second Board for Connection");
-    await createConnectionViaDialog(board1, "Second Board for Connection");
+    const board2 = page.locator('[data-testid="board-node"]').last();
+    await expect(board2).toContainText("New Board");
+    await createConnectionViaDialog(board1, "New Board");
 
     await page.waitForTimeout(500);
 
@@ -268,9 +263,7 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
     await expect(
       connectionDialog.getByText("Existing Connections")
     ).toBeVisible();
-    await expect(
-      connectionDialog.getByText("Second Board for Connection").first()
-    ).toBeVisible();
+    await expect(connectionDialog.getByText("New Board").first()).toBeVisible();
 
     await page.waitForTimeout(500);
 
@@ -297,27 +290,17 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
   test("connection style edits persist", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill(
-      '[data-testid="board-name-input"]',
-      "Second Board for Style Connection"
-    );
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     const board1 = page.locator('[data-testid="board-node"]').first();
-    const board2 = page.locator('[data-testid="board-node"]').nth(1);
-    await expect(board2).toContainText("Second Board for Style Connection");
-    await createConnectionViaDialog(
-      board1,
-      "Second Board for Style Connection"
-    );
+    const board2 = page.locator('[data-testid="board-node"]').last();
+    await expect(board2).toContainText("New Board");
+    await createConnectionViaDialog(board1, "New Board");
 
     await page.waitForTimeout(500);
 
     const connectionDialog = await openConnectionDialog(board1);
-    await expect(
-      connectionDialog.getByText("Second Board for Style Connection").first()
-    ).toBeVisible();
+    await expect(connectionDialog.getByText("New Board").first()).toBeVisible();
 
     const editButton = connectionDialog
       .locator('button[title="Edit connection"]')
@@ -349,27 +332,17 @@ test.describe("E2E-05: Area Management and Board Connections", () => {
   test("connection label edits persist", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill(
-      '[data-testid="board-name-input"]',
-      "Second Board for Label Connection"
-    );
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     const board1 = page.locator('[data-testid="board-node"]').first();
-    const board2 = page.locator('[data-testid="board-node"]').nth(1);
-    await expect(board2).toContainText("Second Board for Label Connection");
-    await createConnectionViaDialog(
-      board1,
-      "Second Board for Label Connection"
-    );
+    const board2 = page.locator('[data-testid="board-node"]').last();
+    await expect(board2).toContainText("New Board");
+    await createConnectionViaDialog(board1, "New Board");
 
     await page.waitForTimeout(500);
 
     const connectionDialog = await openConnectionDialog(board1);
-    await expect(
-      connectionDialog.getByText("Second Board for Label Connection").first()
-    ).toBeVisible();
+    await expect(connectionDialog.getByText("New Board").first()).toBeVisible();
 
     const editButton = connectionDialog
       .locator('button[title="Edit connection"]')

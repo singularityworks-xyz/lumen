@@ -56,6 +56,7 @@ const createMinimalState = (): KanbanState => ({
   taskDetailModals: {},
   taskQuickActions: {},
   tasks: { byId: {}, allIds: [] },
+  welcomeDismissed: false,
   workspaceDialog: null,
   workspaceQuickActions: null,
   workspaceShareUrls: {},

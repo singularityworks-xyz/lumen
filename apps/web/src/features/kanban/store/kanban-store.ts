@@ -51,6 +51,7 @@ const uiStateFields: (keyof KanbanState)[] = [
   "selectedTaskIds",
   "draggedTaskId",
   "columnUi",
+  "welcomeDismissed",
 ];
 
 const temporalExcludeFields: (keyof KanbanState)[] = [
@@ -100,6 +101,7 @@ export const useKanbanStore = create<KanbanStore>()(
           connectionDialog: state.connectionDialog,
           taskQuickActions: state.taskQuickActions,
           columnUi: state.columnUi,
+          welcomeDismissed: state.welcomeDismissed,
           lastActiveDrawerTab: state.lastActiveDrawerTab,
           areas: state.areas,
           areaPositions: state.areaPositions,

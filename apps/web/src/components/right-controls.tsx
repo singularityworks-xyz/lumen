@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
-import { useShowWelcomeScreen } from "../features/kanban/store/selectors";
 import { HelpDialog } from "./dialogs/help-dialog";
 
 const MotionButton = motion.create(Button);
@@ -20,11 +19,6 @@ export const RightControls = memo(() => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const showMiniMap = useKanbanStore((state) => state.showMiniMap);
   const setShowMiniMap = useKanbanStore((state) => state.setShowMiniMap);
-  const showWelcomeScreen = useShowWelcomeScreen();
-
-  if (showWelcomeScreen) {
-    return null;
-  }
 
   return (
     <>

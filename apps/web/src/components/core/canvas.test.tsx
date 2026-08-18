@@ -171,8 +171,9 @@ mock.module("@/src/components/custom-controls", () => ({
   CustomControls: () => <div data-testid="custom-controls" />,
 }));
 
-mock.module("@/src/components/dialogs/welcome-screen", () => ({
-  WelcomeScreen: () => <div data-testid="welcome-screen" />,
+mock.module("./welcome-node", () => ({
+  WELCOME_NODE_ID: "welcome-card",
+  WelcomeNode: () => <div data-testid="welcome-screen" />,
 }));
 
 mock.module("@/src/components/edge-context-menu", () => ({

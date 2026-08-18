@@ -81,14 +81,6 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
 
-    await page.waitForSelector('[data-testid="board-name-input"]');
-    await page.fill('[data-testid="board-name-input"]', "Second Board");
-    await page.fill(
-      '[data-testid="board-description-input"]',
-      "Test description"
-    );
-    await page.click('[data-testid="board-create-submit"]');
-
     await page.waitForTimeout(500);
 
     const newBoardCount = await page
@@ -96,10 +88,8 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
       .count();
     expect(newBoardCount).toBe(initialBoardCount + 1);
 
-    const secondBoard = page.locator(
-      '[data-testid="board-node"]:has-text("Second Board")'
-    );
-    await expect(secondBoard).toBeVisible();
+    const newBoard = page.locator('[data-testid="board-node"]').last();
+    await expect(newBoard).toBeVisible();
   });
 
   test("board dragging persists after reload", async ({ page }) => {
@@ -156,13 +146,9 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
 
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Third Board");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(800);
 
-    const boardToFocus = page.locator(
-      '[data-testid="board-node"]:has-text("Third Board")'
-    );
+    const boardToFocus = page.locator('[data-testid="board-node"]').last();
     await boardToFocus.waitFor({ state: "visible", timeout: 10_000 });
     await boardToFocus.click();
 
@@ -186,8 +172,6 @@ test.describe("E2E-02: Board Creation, Placement, and Canvas Viewport", () => {
     for (let i = 0; i < 3; i++) {
       const newBoardButton = page.locator('[data-testid="new-board-button"]');
       await newBoardButton.click();
-      await page.fill('[data-testid="board-name-input"]', `Board ${i + 3}`);
-      await page.click('[data-testid="board-create-submit"]');
       await page.waitForTimeout(300);
     }
 

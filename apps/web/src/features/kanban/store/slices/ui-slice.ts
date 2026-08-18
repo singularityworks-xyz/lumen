@@ -16,6 +16,7 @@ type SliceCreator = (
   | "toggleTaskSelection"
   | "clearTaskSelection"
   | "updateColumnUi"
+  | "dismissWelcome"
 >;
 
 export const createUiSlice: SliceCreator = (set, _get) => ({
@@ -42,6 +43,11 @@ export const createUiSlice: SliceCreator = (set, _get) => ({
       if (workspaceId && state.workspaces.byId[workspaceId]) {
         state.workspaces.byId[workspaceId].showMiniMap = show;
       }
+    }),
+
+  dismissWelcome: () =>
+    set((state) => {
+      state.welcomeDismissed = true;
     }),
 
   setInteractionMode: (mode) =>

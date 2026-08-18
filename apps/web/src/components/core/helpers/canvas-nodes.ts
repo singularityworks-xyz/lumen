@@ -1,7 +1,12 @@
 import { useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
+import {
+  WELCOME_NODE_ID,
+  WELCOME_NODE_POSITION,
+} from "@/src/components/core/welcome-node";
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
@@ -17,6 +22,7 @@ import type {
   TaskDetailModalNode,
   TaskModalNode,
   TaskQuickActionsNode,
+  WelcomeNode,
 } from "./canvas-types";
 
 function styleEqual(
@@ -272,6 +278,34 @@ export function useCanvasNodes() {
       })
       .filter((node): node is AreaNode => node != null);
   }, [areaStructuralSig, areas, areaPositionIds.join(","), currentWorkspaceId]);
+
+  const showWelcomeScreen = useShowWelcomeScreen();
+
+  const welcomeNodes = useStableNodeFactory<WelcomeNode>(
+    () =>
+      showWelcomeScreen
+        ? [
+            {
+              id: WELCOME_NODE_ID,
+              type: "welcome" as const,
+              position: WELCOME_NODE_POSITION,
+              data: {},
+              // Boards grow their z-index on every creation, so the card sits
+              // just below modals/dialogs to stay above them. React Flow
+              // disables hit-testing on non-interactive nodes (pointer-events:
+              // none) unless the node style opts back in, which would make the
+              // card's buttons unclickable — so force pointer-events: all.
+              style: {
+                zIndex: Z_INDEX_BASE.TASK_MODALS - 1,
+                pointerEvents: "all",
+              },
+              draggable: false,
+              selectable: false,
+            },
+          ]
+        : [],
+    [showWelcomeScreen]
+  );
 
   const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
 
@@ -655,6 +689,7 @@ export function useCanvasNodes() {
     () => [
       ...areaNodes,
       ...boardNodes,
+      ...welcomeNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
       ...quickActionsNodes,
@@ -670,6 +705,7 @@ export function useCanvasNodes() {
     [
       areaNodes,
       boardNodes,
+      welcomeNodes,
       modalNodes,
       taskDetailModalNodes,
       quickActionsNodes,

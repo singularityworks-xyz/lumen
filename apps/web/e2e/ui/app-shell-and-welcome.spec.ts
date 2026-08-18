@@ -55,7 +55,9 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
     await expect(createFirstBoardButton).toBeVisible();
   });
 
-  test("first-board CTA creates the initial board", async ({ page }) => {
+  test("first-board CTA creates the initial board beside the welcome card", async ({
+    page,
+  }) => {
     const createFirstBoardButton = page.locator(
       '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
     );
@@ -66,7 +68,11 @@ test.describe("E2E-01: App Shell and Welcome Flow", () => {
     const boardNode = page.locator('[data-testid="board-node"]');
     await expect(boardNode).toBeVisible({ timeout: 10_000 });
 
+    // The welcome card stays on the canvas next to the board until dismissed
     const welcomeScreen = page.locator('[data-testid="welcome-screen"]');
+    await expect(welcomeScreen).toBeVisible();
+
+    await page.click('[data-testid="welcome-dismiss-button"]');
     await expect(welcomeScreen).not.toBeVisible();
   });
 

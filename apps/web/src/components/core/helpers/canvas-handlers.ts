@@ -174,7 +174,6 @@ interface UseKeyboardHandlersProps {
   localEdges: BoardEdge[];
   removeConnection: (id: string) => void;
   setInteractionMode: (mode: "drag" | "select") => void;
-  showWelcomeScreen: boolean;
 }
 
 export function useKeyboardHandlers({
@@ -183,7 +182,6 @@ export function useKeyboardHandlers({
   clearBoardSelection,
   localEdges,
   removeConnection,
-  showWelcomeScreen,
 }: UseKeyboardHandlersProps) {
   const handleToggleMode = useCallback(
     (event: KeyboardEvent) => {
@@ -241,10 +239,6 @@ export function useKeyboardHandlers({
   }, []);
 
   useEffect(() => {
-    if (showWelcomeScreen) {
-      return;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       const isEditableElement =
@@ -266,13 +260,7 @@ export function useKeyboardHandlers({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    showWelcomeScreen,
-    handleToggleMode,
-    handleEscapeKey,
-    handleDeleteKey,
-    handleUndoRedo,
-  ]);
+  }, [handleToggleMode, handleEscapeKey, handleDeleteKey, handleUndoRedo]);
 }
 
 export function useSelectionHandlers(

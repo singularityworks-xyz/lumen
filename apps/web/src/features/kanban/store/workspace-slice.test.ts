@@ -158,6 +158,14 @@ describe("addWorkspace", () => {
     expect(ws.board_ids).toEqual([]);
     expect(state.workspaces.allIds).toContain(id);
   });
+
+  it("resets the welcome card dismissal so it shows on the new workspace", () => {
+    state.welcomeDismissed = true;
+
+    actions.addWorkspace("Fresh Workspace");
+
+    expect(state.welcomeDismissed).toBe(false);
+  });
 });
 
 describe("updateWorkspace", () => {

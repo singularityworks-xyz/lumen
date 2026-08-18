@@ -5,7 +5,6 @@ import { Minus } from "lucide-react";
 import { motion } from "motion/react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { useShowWelcomeScreen } from "../features/kanban/store/selectors";
 import { EyeIcon } from "./animated/icons/eye";
 import { MaximizeIcon } from "./animated/icons/maximize";
 import { MinimizeIcon } from "./animated/icons/minimize";
@@ -22,11 +21,6 @@ const buttonSpring = {
 export const CustomControls = memo(() => {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const showWelcomeScreen = useShowWelcomeScreen();
-
-  if (showWelcomeScreen) {
-    return null;
-  }
 
   const handleZoomIn = () => {
     zoomIn();

@@ -56,6 +56,7 @@ export type ColumnDialogNode = Node<{
   dialogId: string;
   [key: string]: unknown;
 }>;
+export type WelcomeNode = Node<{ [key: string]: unknown }>;
 
 export type CanvasNode =
   | AreaNode
@@ -70,6 +71,7 @@ export type CanvasNode =
   | ConnectionDialogNode
   | ShareDialogNode
   | ColumnDialogNode
+  | WelcomeNode
   | Node<
       {
         comments: unknown[];

@@ -19,7 +19,6 @@ import {
 } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Textarea } from "@/src/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -59,9 +58,6 @@ export const FloatingNavbar = memo(() => {
   const addArea = useKanbanStore((state) => state.addArea);
   const currentWorkspace = useCurrentWorkspace();
 
-  const [showBoardCreateDialog, setShowBoardCreateDialog] = useState(false);
-  const [boardName, setBoardName] = useState("");
-  const [boardDescription, setBoardDescription] = useState("");
   const [showAreaCreateDialog, setShowAreaCreateDialog] = useState(false);
   const [areaName, setAreaName] = useState("");
 
@@ -69,22 +65,7 @@ export const FloatingNavbar = memo(() => {
     if (!currentWorkspace) {
       return;
     }
-    setBoardName("");
-    setBoardDescription("");
-    setShowBoardCreateDialog(true);
-  };
-
-  const handleBoardCreateSubmit = () => {
-    if (!currentWorkspace) {
-      return;
-    }
-    if (!boardName.trim()) {
-      return;
-    }
-    addBoard(boardName.trim(), undefined, boardDescription.trim() || undefined);
-    setShowBoardCreateDialog(false);
-    setBoardName("");
-    setBoardDescription("");
+    addBoard("New Board", undefined, "New project board");
   };
 
   const handleNewArea = () => {
@@ -127,65 +108,6 @@ export const FloatingNavbar = memo(() => {
 
   return (
     <>
-      <Dialog
-        onOpenChange={setShowBoardCreateDialog}
-        open={showBoardCreateDialog}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create New Board</DialogTitle>
-            <DialogDescription>
-              Add a new board to your workspace.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="board-name">Board Name</Label>
-              <Input
-                autoFocus
-                data-testid="board-name-input"
-                id="board-name"
-                onChange={(e) => setBoardName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleBoardCreateSubmit();
-                  }
-                }}
-                placeholder="Enter board name"
-                value={boardName}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="board-description">Description</Label>
-              <Textarea
-                data-testid="board-description-input"
-                id="board-description"
-                onChange={(e) => setBoardDescription(e.target.value)}
-                placeholder="Enter board description (optional)"
-                value={boardDescription}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              data-testid="board-create-cancel"
-              onClick={() => setShowBoardCreateDialog(false)}
-              type="button"
-              variant="ghost"
-            >
-              Cancel
-            </Button>
-            <Button
-              data-testid="board-create-submit"
-              onClick={handleBoardCreateSubmit}
-              type="button"
-            >
-              Create Board
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog
         onOpenChange={setShowAreaCreateDialog}
         open={showAreaCreateDialog}

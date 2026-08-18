@@ -446,14 +446,9 @@ describe("useKeyboardHandlers", () => {
     overrides: {
       interactionMode?: "drag" | "select";
       localEdges?: BoardEdge[];
-      showWelcomeScreen?: boolean;
     } = {}
   ) {
-    const {
-      interactionMode = "drag",
-      localEdges = [],
-      showWelcomeScreen = false,
-    } = overrides;
+    const { interactionMode = "drag", localEdges = [] } = overrides;
     const clearBoardSelection = mock(() => undefined);
     const setInteractionMode = mock(() => undefined);
     const removeConnection = mock(() => undefined);
@@ -468,7 +463,6 @@ describe("useKeyboardHandlers", () => {
         localEdges,
         removeConnection,
         setInteractionMode,
-        showWelcomeScreen,
       });
     });
 
@@ -731,17 +725,6 @@ describe("useKeyboardHandlers", () => {
     }));
   });
 
-  it("does nothing on V key when showWelcomeScreen is true", () => {
-    const { setInteractionMode } = setup({
-      interactionMode: "drag",
-      showWelcomeScreen: true,
-    });
-
-    fireKeydown({ key: "v" });
-
-    expect(setInteractionMode).not.toHaveBeenCalled();
-  });
-
   it("handles V key in editable elements without toggling mode", () => {
     const { setInteractionMode } = setup({ interactionMode: "drag" });
     const inputEl = {
@@ -847,7 +830,6 @@ describe("useKeyboardHandlers", () => {
         localEdges: [],
         removeConnection: mock(() => undefined),
         setInteractionMode: mock(() => undefined),
-        showWelcomeScreen: false,
       });
     });
 

@@ -25,10 +25,7 @@ import { UserButton } from "../features/auth/components";
 import { useConnectionStatus } from "../features/kanban/hooks/use-connection-status";
 import { useTheme } from "../features/kanban/hooks/use-theme";
 import { useKanbanStore } from "../features/kanban/store/kanban-store";
-import {
-  useCurrentWorkspace,
-  useShowWelcomeScreen,
-} from "../features/kanban/store/selectors";
+import { useCurrentWorkspace } from "../features/kanban/store/selectors";
 import { HelpDialog } from "./dialogs/help-dialog";
 
 const MotionButton = motion.create(Button);
@@ -56,13 +53,8 @@ export const MobileNavbar = memo(
     // );
     const addBoard = useKanbanStore((state) => state.addBoard);
     const currentWorkspace = useCurrentWorkspace();
-    const showWelcomeScreen = useShowWelcomeScreen();
     const showMiniMap = useKanbanStore((state) => state.showMiniMap);
     const setShowMiniMap = useKanbanStore((state) => state.setShowMiniMap);
-
-    if (showWelcomeScreen) {
-      return null;
-    }
 
     const handleNewBoard = () => {
       if (!currentWorkspace) {

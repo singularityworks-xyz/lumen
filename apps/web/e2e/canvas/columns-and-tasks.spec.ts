@@ -110,14 +110,12 @@ test.describe("E2E-03: Column and Task CRUD", () => {
   test("move column to another board", async ({ page }) => {
     const newBoardButton = page.locator('[data-testid="new-board-button"]');
     await newBoardButton.click();
-    await page.fill('[data-testid="board-name-input"]', "Target Board");
-    await page.click('[data-testid="board-create-submit"]');
     await page.waitForTimeout(500);
 
     // Wait for the new board to be visible
-    const targetBoardLocator = page.locator(
-      '[data-testid="board-node"]:has-text("Target Board")'
-    );
+    const targetBoardLocator = page
+      .locator('[data-testid="board-node"]')
+      .last();
     await expect(targetBoardLocator).toBeVisible({ timeout: 10_000 });
 
     const sourceBoard = page.locator('[data-testid="board-node"]').first();
@@ -156,8 +154,8 @@ test.describe("E2E-03: Column and Task CRUD", () => {
 
     const targetBoardOption = page
       .locator('[data-testid="board-select-option"]')
-      .filter({ hasText: "Target Board" })
-      .first();
+      .filter({ hasText: "New Board" })
+      .last();
     await expect(targetBoardOption).toBeVisible();
     await targetBoardOption.click();
 
@@ -169,9 +167,7 @@ test.describe("E2E-03: Column and Task CRUD", () => {
 
     await page.waitForTimeout(500);
 
-    const targetBoard = page.locator(
-      '[data-testid="board-node"]:has-text("Target Board")'
-    );
+    const targetBoard = page.locator('[data-testid="board-node"]').last();
     await expect(
       targetBoard.locator(
         '[data-testid="kanban-column"]:has-text("Movable Column")'

@@ -168,6 +168,9 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     set((state) => {
       state.workspaces.byId[id] = workspace;
       state.workspaces.allIds.push(id);
+      // A fresh workspace gets the welcome card again, even if it was
+      // dismissed elsewhere before.
+      state.welcomeDismissed = false;
     });
 
     logger.info({ id, name }, "Local workspace created");

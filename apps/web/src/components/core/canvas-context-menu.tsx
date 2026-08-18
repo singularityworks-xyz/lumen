@@ -4,7 +4,7 @@ import { useReactFlow } from "@xyflow/react";
 import { MessageCircle, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useCollaboration } from "@/src/features/collab";
-import { useKanbanStore, useShowWelcomeScreen } from "@/src/features/kanban";
+import { useKanbanStore } from "@/src/features/kanban";
 
 interface ContextMenuProps {
   onClose: () => void;
@@ -91,28 +91,21 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
 ContextMenuContent.displayName = "ContextMenuContent";
 
 export const CanvasContextMenu = memo(() => {
-  const showWelcomeScreen = useShowWelcomeScreen();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
 
-  const handleContextMenu = useCallback(
-    (e: MouseEvent) => {
-      if (showWelcomeScreen) {
-        return;
-      }
-      const target = e.target as HTMLElement;
-      if (
-        target.classList.contains("react-flow__pane") ||
-        target.classList.contains("react-flow__viewport")
-      ) {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY });
-      }
-    },
-    [showWelcomeScreen]
-  );
+  const handleContextMenu = useCallback((e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.classList.contains("react-flow__pane") ||
+      target.classList.contains("react-flow__viewport")
+    ) {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
 
   const handleClose = useCallback(() => {
     setContextMenu(null);
