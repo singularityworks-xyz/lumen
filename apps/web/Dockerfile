@@ -1,5 +1,5 @@
 FROM oven/bun:1.3.11-alpine AS builder
-RUN apk add --no-cache git
+RUN apk add --no-cache git nodejs
 WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY scripts/install/prepare.ts ./scripts/install/
