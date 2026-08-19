@@ -146,7 +146,7 @@ describe("ColumnCreateDialog", () => {
     expect(input).toBeNull();
   });
 
-  it("renders input, board name initials, and buttons when open", () => {
+  it("renders input, board name initials, and buttons without dimming backdrop when open", () => {
     act(() => {
       render(
         <ColumnCreateDialog
@@ -170,9 +170,10 @@ describe("ColumnCreateDialog", () => {
     expect(
       document.querySelector('[data-testid="column-create-close"]')
     ).not.toBeNull();
+    // Verify no dimming backdrop element is rendered
     expect(
       document.querySelector('[data-testid="column-create-backdrop"]')
-    ).not.toBeNull();
+    ).toBeNull();
     expect(document.body.textContent).toContain("Sprint Board");
   });
 
@@ -283,7 +284,7 @@ describe("ColumnCreateDialog", () => {
     expect(mockClose).toHaveBeenCalled();
   });
 
-  it("calls onClose when clicking the backdrop", () => {
+  it("calls onClose when clicking outside the dialog", () => {
     const mockClose = mock(() => undefined);
 
     act(() => {
@@ -297,11 +298,8 @@ describe("ColumnCreateDialog", () => {
       );
     });
 
-    const backdrop = document.querySelector(
-      '[data-testid="column-create-backdrop"]'
-    ) as HTMLElement;
     act(() => {
-      fireEvent.click(backdrop);
+      document.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     });
 
     expect(mockClose).toHaveBeenCalled();
@@ -321,9 +319,10 @@ describe("ColumnCreateDialog", () => {
       );
     });
 
-    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
     act(() => {
-      fireEvent.keyDown(dialog, { key: "Escape" });
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
     });
 
     expect(mockClose).toHaveBeenCalled();

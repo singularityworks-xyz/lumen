@@ -275,16 +275,39 @@ export const ColumnCreateDialog = memo(
       }
     }, []);
 
-    const handleKeyDown = useCallback(
-      (e: React.KeyboardEvent) => {
+    useEffect(() => {
+      if (!isOpen) {
+        return;
+      }
+
+      const handleClickOutside = (e: MouseEvent | PointerEvent) => {
+        const target = e.target as Node | null;
+        if (
+          target &&
+          dialogRef.current &&
+          !dialogRef.current.contains(target) &&
+          !sourceElement?.contains(target)
+        ) {
+          handleCancel();
+        }
+      };
+
+      const handleEscape = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
           handleCancel();
         }
-      },
-      [handleCancel]
-    );
+      };
+
+      document.addEventListener("pointerdown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+
+      return () => {
+        document.removeEventListener("pointerdown", handleClickOutside);
+        document.removeEventListener("keydown", handleEscape);
+      };
+    }, [isOpen, handleCancel, sourceElement]);
 
     if (!(mounted && isOpen && board)) {
       return null;
@@ -295,15 +318,6 @@ export const ColumnCreateDialog = memo(
 
     const dialogContent = (
       <>
-        {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close */}
-        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Backdrop click to close */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop click to close */}
-        <div
-          className="fixed inset-0 z-9998 bg-black/20"
-          data-testid="column-create-backdrop"
-          onClick={handleCancel}
-        />
-
         {connectorState &&
           portalTarget &&
           createPortal(
@@ -349,7 +363,6 @@ export const ColumnCreateDialog = memo(
               }
             }}
             onFocus={() => setIsFocused(true)}
-            onKeyDown={handleKeyDown}
             onPointerDown={() => {
               bringDialogToFront(dialogId);
               handleDialogPointerDown();
