@@ -24,6 +24,7 @@ async function hashString(str: string): Promise<string> {
 }
 
 export interface JoinSuccessData {
+  isGuest?: boolean;
   owner?: {
     id: string;
     name: string | null;
@@ -36,15 +37,17 @@ export interface JoinSuccessData {
 }
 
 interface JoinHandlerProps {
+  guestToken?: string | null;
   onJoinError?: (error: string) => void;
   onJoinSuccess?: (data: JoinSuccessData) => void;
-  shareToken: string | null;
+  shareToken?: string | null;
 }
 
 type JoinState = "idle" | "validating" | "joining" | "success" | "error";
 
 export function useJoinWorkspace({
   shareToken,
+  guestToken,
   onJoinSuccess,
   onJoinError,
 }: JoinHandlerProps) {
@@ -60,12 +63,15 @@ export function useJoinWorkspace({
       image: string | null;
       email: string;
     };
+    isGuest?: boolean;
   } | null>(null);
 
   const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
+  const effectiveToken = guestToken || shareToken;
+  const isGuest = !!guestToken;
 
   const validateToken = useCallback(() => {
-    if (!shareToken) {
+    if (!effectiveToken) {
       return;
     }
 
@@ -73,11 +79,15 @@ export function useJoinWorkspace({
     setError(null);
 
     return withSpanAsync("share.validateToken", async (span) => {
-      const tokenHash = await hashString(shareToken);
+      const tokenHash = await hashString(effectiveToken);
       span.setAttribute("share.token_fingerprint", tokenHash);
+      span.setAttribute("share.is_guest", isGuest);
 
       try {
-        const response = await fetch(`${apiUrl}/api/share/${shareToken}`);
+        const endpoint = isGuest
+          ? `${apiUrl}/api/share/guest/${effectiveToken}`
+          : `${apiUrl}/api/share/${effectiveToken}`;
+        const response = await fetch(endpoint);
         const data = await response.json();
 
         span.setAttribute("http.status_code", response.status);
@@ -94,11 +104,27 @@ export function useJoinWorkspace({
           workspaceId: data.workspaceId,
           workspaceName: data.workspaceName,
           owner: data.owner,
+          isGuest,
         });
         span.setAttribute("share.validate.success", true);
         span.setAttribute("workspace.id", data.workspaceId);
-        logger.info("Share token validated", { workspaceId: data.workspaceId });
-        // Stay in "validating" state - the useEffect will trigger join if authenticated
+        logger.info("Share token validated", {
+          workspaceId: data.workspaceId,
+          isGuest,
+        });
+
+        if (isGuest) {
+          // Guest view mode requires no authentication
+          useKanbanStore.getState().setGuestMode(true, effectiveToken);
+          setJoinState("success");
+          onJoinSuccess?.({
+            workspaceId: data.workspaceId,
+            workspaceName: data.workspaceName,
+            owner: data.owner,
+            role: "VIEWER",
+            isGuest: true,
+          });
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to validate share link";
@@ -109,10 +135,10 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [shareToken, onJoinError, apiUrl]);
+  }, [effectiveToken, isGuest, onJoinSuccess, onJoinError, apiUrl]);
 
   const joinWorkspace = useCallback(() => {
-    if (!(shareToken && isAuthenticated && workspaceInfo)) {
+    if (!(shareToken && isAuthenticated && workspaceInfo && !isGuest)) {
       return;
     }
 
@@ -169,6 +195,7 @@ export function useJoinWorkspace({
     });
   }, [
     shareToken,
+    isGuest,
     isAuthenticated,
     workspaceInfo,
     onJoinSuccess,
@@ -176,16 +203,17 @@ export function useJoinWorkspace({
     apiUrl,
   ]);
 
-  // Start validation when share token is present
+  // Start validation when token is present
   useEffect(() => {
-    if (shareToken && joinState === "idle") {
+    if (effectiveToken && joinState === "idle") {
       validateToken();
     }
-  }, [shareToken, joinState, validateToken]);
+  }, [effectiveToken, joinState, validateToken]);
 
-  // Auto-join when authenticated and workspace info is available
+  // Auto-join collaborator when authenticated and workspace info is available
   useEffect(() => {
     if (
+      !isGuest &&
       isAuthenticated &&
       !authLoading &&
       workspaceInfo &&
@@ -193,7 +221,14 @@ export function useJoinWorkspace({
     ) {
       joinWorkspace();
     }
-  }, [isAuthenticated, authLoading, workspaceInfo, joinState, joinWorkspace]);
+  }, [
+    isGuest,
+    isAuthenticated,
+    authLoading,
+    workspaceInfo,
+    joinState,
+    joinWorkspace,
+  ]);
 
   return {
     joinState,
@@ -201,7 +236,7 @@ export function useJoinWorkspace({
     workspaceInfo,
     isAuthenticated,
     needsLogin:
-      !(isAuthenticated || authLoading) &&
+      !(isGuest || isAuthenticated || authLoading) &&
       workspaceInfo !== null &&
       joinState === "validating",
     validateToken,
@@ -211,13 +246,16 @@ export function useJoinWorkspace({
 
 export function JoinWorkspaceHandler({
   shareToken,
+  guestToken,
   onComplete,
 }: {
-  shareToken: string | null;
+  guestToken?: string | null;
   onComplete?: (data: JoinSuccessData | null) => void;
+  shareToken?: string | null;
 }) {
   const { joinState, error, needsLogin, workspaceInfo } = useJoinWorkspace({
     shareToken,
+    guestToken,
     onJoinSuccess: (data) => {
       onComplete?.(data);
     },
@@ -232,7 +270,7 @@ export function JoinWorkspaceHandler({
     openProfileModal();
   };
 
-  if (!shareToken) {
+  if (!(shareToken || guestToken)) {
     return null;
   }
 

@@ -21,6 +21,7 @@ import {
   getShareInfo,
   getWorkspaceCollaboratorCount,
   getWorkspaceName,
+  revokeGuestShareToken,
 } from "./helpers";
 import {
   decrementActiveConnections,
@@ -75,6 +76,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     }),
     query: t.Object({
       token: t.Optional(t.String()),
+      guestToken: t.Optional(t.String()),
       stateVector: t.Optional(t.String()),
     }),
 
@@ -82,8 +84,14 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
       return withSpanAsync("ws.auth", async () => {
         const { params, headers, set, query } = context;
         const { workspaceId } = params;
-        const { token } = query;
-        const authMethod = token ? "jwt" : "session";
+        const { token, guestToken } = query;
+        const authMethod = guestToken
+          ? "guest"
+          : token?.startsWith("guest_")
+            ? "guest"
+            : token
+              ? "jwt"
+              : "session";
         const wsContext = context as typeof context & {
           __pendingAuth?: PendingAuthEntry;
         };
@@ -93,6 +101,7 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         logger.debug("WebSocket beforeHandle starting", {
           workspaceId,
           hasToken: !!token,
+          hasGuestToken: !!guestToken,
         });
 
         // Immediately reject if workspace was recently deleted
@@ -105,6 +114,84 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             error: "Gone",
             message: "Workspace has been deleted",
           };
+        }
+
+        // Handle guest token (public read-only viewer)
+        const effectiveGuestToken =
+          guestToken || (token?.startsWith("guest_") ? token : undefined);
+        if (effectiveGuestToken) {
+          const share = await prisma.workspaceShare.findUnique({
+            where: { token: effectiveGuestToken },
+          });
+
+          if (!share || share.workspaceId !== workspaceId) {
+            logger.warn("Invalid guest token for workspace", {
+              workspaceId,
+              token: effectiveGuestToken,
+            });
+            set.status = 403;
+            return {
+              error: "Forbidden",
+              message: "Invalid guest share token",
+            };
+          }
+
+          if (share.expiresAt && share.expiresAt < new Date()) {
+            logger.warn("Guest share token expired", {
+              workspaceId,
+              token: effectiveGuestToken,
+            });
+            set.status = 410;
+            return {
+              error: "Gone",
+              message: "Guest share link has expired",
+            };
+          }
+
+          if (!share.isGuest && share.role !== "VIEWER") {
+            logger.warn("Token is not a guest viewer token", {
+              workspaceId,
+              token: effectiveGuestToken,
+            });
+            set.status = 403;
+            return {
+              error: "Forbidden",
+              message: "Token is not a guest viewer token",
+            };
+          }
+
+          let initialStateVector: Uint8Array | undefined;
+          if (query.stateVector) {
+            try {
+              initialStateVector = new Uint8Array(
+                Buffer.from(query.stateVector, "base64")
+              );
+            } catch {
+              logger.warn("Invalid state vector in query", { workspaceId });
+            }
+          }
+
+          const connectionId = generateId(16);
+          const authEntry: PendingAuthEntry = {
+            user: {
+              id: `guest-${connectionId}`,
+              name: "Guest Viewer",
+              email: "guest@lumen.local",
+              image: undefined,
+            },
+            collaborator: { role: "VIEWER" },
+            initialStateVector,
+            connectionId,
+            timestamp: Date.now(),
+            connectionStartTime: performance.now(),
+          };
+          wsContext.__pendingAuth = authEntry;
+
+          logger.info("Guest WebSocket authenticated successfully", {
+            workspaceId,
+            connectionId,
+          });
+          return;
         }
 
         if (token) {
@@ -511,11 +598,11 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
     },
   })
 
-  // Get existing share link for workspace
+  // Get existing share links for workspace (collaborator and public guest links)
   .get(
     "/api/workspaces/:workspaceId/share",
-    ({ params, headers, set }) => {
-      return withSpanAsync("workspace.getShare", async () => {
+    ({ params, headers, set }) =>
+      withSpanAsync("workspace.getShare", async () => {
         const { workspaceId } = params;
         setSpanAttributes({ workspaceId });
 
@@ -533,20 +620,45 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           return { error: "Not a collaborator on this workspace" };
         }
 
-        // Find existing share link
         try {
-          const share = await prisma.workspaceShare.findFirst({
+          const shares = await prisma.workspaceShare.findMany({
             where: { workspaceId },
             orderBy: { createdAt: "desc" },
           });
 
-          if (share) {
-            return {
-              token: share.token,
-              url: `${env.WEB_URL}?share=${share.token}`,
-              expiresAt: share.expiresAt,
-            };
-          }
+          const collaboratorShare = shares.find(
+            (s) => !s.isGuest && s.role !== "VIEWER"
+          );
+          const guestShare = shares.find(
+            (s) => s.isGuest || s.role === "VIEWER"
+          );
+
+          return {
+            token: collaboratorShare?.token ?? null,
+            url: collaboratorShare
+              ? `${env.WEB_URL}?share=${collaboratorShare.token}`
+              : null,
+            collaboratorLink: collaboratorShare
+              ? {
+                  token: collaboratorShare.token,
+                  url: `${env.WEB_URL}?share=${collaboratorShare.token}`,
+                  expiresAt: collaboratorShare.expiresAt,
+                }
+              : null,
+            guestLink: guestShare
+              ? {
+                  enabled: true,
+                  token: guestShare.token,
+                  url: `${env.WEB_URL}?guest=${guestShare.token}`,
+                  expiresAt: guestShare.expiresAt,
+                }
+              : {
+                  enabled: false,
+                  token: null,
+                  url: null,
+                  expiresAt: null,
+                },
+          };
         } catch (error) {
           logger.error("Failed to fetch share link", {
             workspaceId,
@@ -554,9 +666,113 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           });
         }
 
-        return { url: null };
+        return {
+          url: null,
+          token: null,
+          collaboratorLink: null,
+          guestLink: {
+            enabled: false,
+            token: null,
+            url: null,
+            expiresAt: null,
+          },
+        };
+      }),
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  // Enable/create guest share link (Owner only)
+  .post(
+    "/api/workspaces/:workspaceId/share/guest",
+    ({ params, headers, set }) => {
+      return withSpanAsync("workspace.createGuestShare", async () => {
+        const { workspaceId } = params;
+        setSpanAttributes({ workspaceId });
+
+        const session = await auth.api.getSession({
+          headers: toHeaders(headers),
+        });
+        if (!session) {
+          set.status = 401;
+          return { error: "Unauthorized" };
+        }
+
+        const collab = await getCollaborator(workspaceId, session.user.id);
+        if (!collab || collab.role !== "OWNER") {
+          set.status = 403;
+          return { error: "Only workspace owner can manage guest share links" };
+        }
+
+        // Clean up any existing guest shares
+        await revokeGuestShareToken(workspaceId);
+
+        const token = await createShareToken(
+          workspaceId,
+          session.user.id,
+          "VIEWER",
+          true
+        );
+
+        const room = roomManager.getRoom(workspaceId);
+        if (room) {
+          await roomManager.persistRoom(workspaceId);
+        }
+
+        logger.info("Guest share link enabled", {
+          workspaceId,
+          createdBy: session.user.id,
+          operation: "share.guest.enable",
+        });
+
+        return {
+          enabled: true,
+          token,
+          url: `${env.WEB_URL}?guest=${token}`,
+        };
       });
     },
+    {
+      params: t.Object({ workspaceId: t.String() }),
+    }
+  )
+
+  // Disable/revoke guest share link (Owner only)
+  .delete(
+    "/api/workspaces/:workspaceId/share/guest",
+    ({ params, headers, set }) =>
+      withSpanAsync("workspace.revokeGuestShare", async () => {
+        const { workspaceId } = params;
+        setSpanAttributes({ workspaceId });
+
+        const session = await auth.api.getSession({
+          headers: toHeaders(headers),
+        });
+        if (!session) {
+          set.status = 401;
+          return { error: "Unauthorized" };
+        }
+
+        const collab = await getCollaborator(workspaceId, session.user.id);
+        if (!collab || collab.role !== "OWNER") {
+          set.status = 403;
+          return { error: "Only workspace owner can manage guest share links" };
+        }
+
+        await revokeGuestShareToken(workspaceId);
+
+        logger.info("Guest share link revoked", {
+          workspaceId,
+          userId: session.user.id,
+          operation: "share.guest.revoke",
+        });
+
+        return {
+          enabled: false,
+          success: true,
+        };
+      }),
     {
       params: t.Object({ workspaceId: t.String() }),
     }
@@ -729,6 +945,142 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           workspaceId: shareInfo.workspaceId,
           workspaceName: shareInfo.workspaceName,
           owner: shareInfo.owner,
+          isGuest: shareInfo.isGuest ?? false,
+          role: shareInfo.role ?? "EDITOR",
+        };
+      }),
+    {
+      params: t.Object({ token: t.String() }),
+    }
+  )
+
+  // Public guest info (unauthenticated)
+  .get(
+    "/api/share/guest/:token",
+    async ({ params, set }) =>
+      withSpanAsync("share.getGuestInfo", async () => {
+        const { token } = params;
+        setSpanAttributes({ token });
+
+        const shareInfo = await getShareInfo(token);
+        if (!shareInfo || (!shareInfo.isGuest && shareInfo.role !== "VIEWER")) {
+          set.status = 404;
+          return { error: "Guest share link not found or disabled" };
+        }
+
+        if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
+          set.status = 410;
+          return { error: "Guest share link has expired" };
+        }
+
+        return {
+          workspaceId: shareInfo.workspaceId,
+          workspaceName: shareInfo.workspaceName,
+          owner: shareInfo.owner,
+          isGuest: true,
+          role: "VIEWER",
+        };
+      }),
+    {
+      params: t.Object({ token: t.String() }),
+    }
+  )
+
+  // Public guest workspace state snapshot (unauthenticated)
+  .get(
+    "/api/share/guest/:token/state",
+    async ({ params, set }) =>
+      withSpanAsync("share.getGuestState", async () => {
+        const { token } = params;
+        setSpanAttributes({ token });
+
+        const shareInfo = await getShareInfo(token);
+        if (!shareInfo || (!shareInfo.isGuest && shareInfo.role !== "VIEWER")) {
+          set.status = 404;
+          return { error: "Guest share link not found or disabled" };
+        }
+
+        if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
+          set.status = 410;
+          return { error: "Guest share link has expired" };
+        }
+
+        const workspaceId = shareInfo.workspaceId;
+
+        // Try to get state from active room first
+        const room = roomManager.getRoom(workspaceId);
+        if (room) {
+          const doc = room.doc;
+          return {
+            workspace: Object.fromEntries(doc.getMap("workspace").entries()),
+            boards: Object.fromEntries(doc.getMap("boards").entries()),
+            columns: Object.fromEntries(doc.getMap("columns").entries()),
+            tasks: Object.fromEntries(doc.getMap("tasks").entries()),
+            boardPositions: Object.fromEntries(
+              doc.getMap("boardPositions").entries()
+            ),
+            textBoards: Object.fromEntries(doc.getMap("textBoards").entries()),
+            textBoardPositions: Object.fromEntries(
+              doc.getMap("textBoardPositions").entries()
+            ),
+            boardConnections: Object.fromEntries(
+              doc.getMap("boardConnections").entries()
+            ),
+            taskDetailModals: Object.fromEntries(
+              doc.getMap("taskDetailModals").entries()
+            ),
+          };
+        }
+
+        // Fall back to database
+        try {
+          const stored = await prisma.workspaceState.findUnique({
+            where: { workspaceId },
+          });
+          if (stored?.yjsState) {
+            const tempRoom = roomManager.getOrCreateRoom(workspaceId);
+            const doc = tempRoom.doc;
+            Y.applyUpdate(doc, new Uint8Array(stored.yjsState));
+
+            return {
+              workspace: Object.fromEntries(doc.getMap("workspace").entries()),
+              boards: Object.fromEntries(doc.getMap("boards").entries()),
+              columns: Object.fromEntries(doc.getMap("columns").entries()),
+              tasks: Object.fromEntries(doc.getMap("tasks").entries()),
+              boardPositions: Object.fromEntries(
+                doc.getMap("boardPositions").entries()
+              ),
+              textBoards: Object.fromEntries(
+                doc.getMap("textBoards").entries()
+              ),
+              textBoardPositions: Object.fromEntries(
+                doc.getMap("textBoardPositions").entries()
+              ),
+              boardConnections: Object.fromEntries(
+                doc.getMap("boardConnections").entries()
+              ),
+              taskDetailModals: Object.fromEntries(
+                doc.getMap("taskDetailModals").entries()
+              ),
+            };
+          }
+        } catch (error) {
+          logger.error("Failed to fetch guest workspace state", {
+            workspaceId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+
+        return {
+          workspace: {},
+          boards: {},
+          columns: {},
+          tasks: {},
+          boardPositions: {},
+          textBoards: {},
+          textBoardPositions: {},
+          boardConnections: {},
+          taskDetailModals: {},
         };
       }),
     {

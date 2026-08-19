@@ -121,6 +121,8 @@ model WorkspaceShare {
   id          String    @id @default(cuid())
   workspaceId String
   token       String    @unique
+  role        Role      @default(EDITOR)
+  isGuest     Boolean   @default(false)
   createdBy   String
   createdAt   DateTime  @default(now())
   expiresAt   DateTime?

@@ -8,6 +8,7 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightDrawers } from "@/src/components/right-drawers";
+import { SharedViaLumenWatermark } from "@/src/components/shared-via-lumen-watermark";
 import { TooltipProvider } from "@/src/components/ui/tooltip";
 import {
   type JoinSuccessData,
@@ -36,21 +37,31 @@ function KanbanPageContent() {
   useCollaboration();
   useWorkspaceSync();
   const shareToken = searchParams.get("share");
+  const guestToken =
+    searchParams.get("guest") || searchParams.get("guestToken");
 
+  const isGuestMode =
+    useKanbanStore((state) => state.isGuestMode) || !!guestToken;
   const setCurrentWorkspace = useKanbanStore(
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
   const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
 
+  useEffect(() => {
+    if (guestToken) {
+      useKanbanStore.getState().setGuestMode(true, guestToken);
+    }
+  }, [guestToken]);
+
   const handleJoinComplete = useCallback(
     async (data: JoinSuccessData | null) => {
-      if (shareToken) {
+      if (shareToken && !guestToken) {
         router.replace("/");
       }
 
       if (data?.workspaceId) {
-        const { workspaceId, workspaceName, owner } = data;
+        const { workspaceId, workspaceName, owner, isGuest } = data;
         const existingWorkspace = workspaces.byId[workspaceId];
 
         if (!existingWorkspace) {
@@ -60,7 +71,9 @@ function KanbanPageContent() {
               name: workspaceName || "Shared Workspace",
               description: owner
                 ? `Shared by ${owner.name || owner.email}`
-                : "Joined via share link",
+                : isGuest
+                  ? "Shared via Lumen"
+                  : "Joined via share link",
               created_at: new Date().toISOString(),
               board_ids: [],
               isShared: true,
@@ -78,12 +91,14 @@ function KanbanPageContent() {
         setCurrentWorkspace(workspaceId);
 
         try {
-          const response = await fetch(
-            `${apiUrl}/api/workspaces/${workspaceId}/state`,
-            {
-              credentials: "include",
-            }
-          );
+          const stateEndpoint =
+            isGuest && guestToken
+              ? `${apiUrl}/api/share/guest/${guestToken}/state`
+              : `${apiUrl}/api/workspaces/${workspaceId}/state`;
+
+          const response = await fetch(stateEndpoint, {
+            credentials: isGuest ? "same-origin" : "include",
+          });
 
           if (response.ok) {
             const stateData = await response.json();
@@ -137,7 +152,14 @@ function KanbanPageContent() {
         }
       }
     },
-    [apiUrl, shareToken, router, workspaces.byId, setCurrentWorkspace]
+    [
+      apiUrl,
+      shareToken,
+      guestToken,
+      router,
+      workspaces.byId,
+      setCurrentWorkspace,
+    ]
   );
 
   useEffect(() => {
@@ -164,19 +186,21 @@ function KanbanPageContent() {
       {isReady ? (
         <TooltipProvider delayDuration={200}>
           <JoinWorkspaceHandler
+            guestToken={guestToken}
             onComplete={handleJoinComplete}
             shareToken={shareToken}
           />
           <ReactFlowProvider>
             <KanbanCanvas />
-            <MobileNavbar position="bottom" />
-            <CanvasContextMenu />
-            <RightDrawers />
+            {!isGuestMode && <MobileNavbar position="bottom" />}
+            {!isGuestMode && <CanvasContextMenu />}
+            {!isGuestMode && <RightDrawers />}
           </ReactFlowProvider>
-          <FloatingNavbar />
-          <RightControls />
-          <CommandPalette />
-          <BulkActionsBar />
+          {!isGuestMode && <FloatingNavbar />}
+          {!isGuestMode && <RightControls />}
+          {!isGuestMode && <CommandPalette />}
+          {!isGuestMode && <BulkActionsBar />}
+          {isGuestMode && <SharedViaLumenWatermark />}
         </TooltipProvider>
       ) : null}
     </div>

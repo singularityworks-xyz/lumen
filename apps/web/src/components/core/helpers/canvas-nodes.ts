@@ -197,6 +197,7 @@ export function useCanvasNodes() {
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
   const boards = useKanbanStore((state) => state.boards);
   const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
@@ -781,8 +782,11 @@ export function useCanvasNodes() {
     [areaDialogs, computeZIndex]
   );
 
-  const nodes: CanvasNode[] = useMemo(
-    () => [
+  const nodes: CanvasNode[] = useMemo(() => {
+    if (isGuestMode) {
+      return [...boardNodes, ...textBoardNodes, ...taskDetailModalNodes];
+    }
+    return [
       ...areaNodes,
       ...boardNodes,
       ...textBoardNodes,
@@ -798,25 +802,25 @@ export function useCanvasNodes() {
       ...columnDialogNodes,
       ...areaDialogNodes,
       ...commentClusterNodes,
-    ],
-    [
-      areaNodes,
-      boardNodes,
-      textBoardNodes,
-      welcomeNodes,
-      modalNodes,
-      taskDetailModalNodes,
-      quickActionsNodes,
-      taskQuickActionsNodes,
-      columnQuickActionsNodes,
-      dialogNodes,
-      connectionDialogNodes,
-      shareDialogNodes,
-      columnDialogNodes,
-      areaDialogNodes,
-      commentClusterNodes,
-    ]
-  );
+    ];
+  }, [
+    isGuestMode,
+    areaNodes,
+    boardNodes,
+    textBoardNodes,
+    welcomeNodes,
+    modalNodes,
+    taskDetailModalNodes,
+    quickActionsNodes,
+    taskQuickActionsNodes,
+    columnQuickActionsNodes,
+    dialogNodes,
+    connectionDialogNodes,
+    shareDialogNodes,
+    columnDialogNodes,
+    areaDialogNodes,
+    commentClusterNodes,
+  ]);
 
-  return { nodes, commentClusters };
+  return { nodes, commentClusters: isGuestMode ? [] : commentClusters };
 }

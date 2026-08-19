@@ -101,7 +101,9 @@ export interface KanbanState {
   // Z-index management
   dialogFocusStack: string[];
   draggedTaskId: string | null;
+  guestToken: string | null;
   interactionMode: InteractionMode;
+  isGuestMode: boolean;
   isProfileModalOpen: boolean;
   lastActiveDrawerTab: "comments" | "discussion";
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
@@ -418,6 +420,7 @@ export interface KanbanActions {
   setDeletedSharedWorkspace: (workspaceId: string | null) => void;
   setDraggedTask: (taskId: string | null) => void;
   setFocusedBoard: (boardId: string | null) => void;
+  setGuestMode: (isGuestMode: boolean, guestToken?: string | null) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
   setSelectedBoard: (boardId: string | null) => void;

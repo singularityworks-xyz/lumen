@@ -82,5 +82,7 @@ export function createInitialState(): KanbanState {
     lastTaskModalPositions: {},
     areaDragOrigins: {},
     lastActiveDrawerTab: "comments",
+    isGuestMode: false,
+    guestToken: null,
   };
 }

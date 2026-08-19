@@ -63,6 +63,8 @@ const createMinimalState = (): KanbanState => ({
   workspaceQuickActions: null,
   workspaceShareUrls: {},
   workspaces: { byId: {}, allIds: [] },
+  isGuestMode: false,
+  guestToken: null,
 });
 
 describe("fixer", () => {
