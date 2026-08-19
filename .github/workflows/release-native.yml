@@ -14,9 +14,91 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Creates the GitHub Release once, before the platform matrix builds.
+  # The matrix jobs only upload assets — without this, every parallel build
+  # tries to create the same tag and the second one fails with
+  # "already_exists".
+  create-release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip build]') }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    outputs:
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Get release metadata
+        id: release
+        shell: bash
+        run: |
+          APP_VERSION=$(node -p 'require("./apps/native/package.json").version')
+          ROOT_VERSION=$(node -p 'require("./package.json").version')
+          TAG_NAME="native-v${APP_VERSION}"
+          PREVIOUS_TAG=$(git tag --list 'native-v*' --sort=-v:refname | grep -Fxv "$TAG_NAME" | head -n 1 || true)
+
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_full=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "root_version=${ROOT_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "previous_tag=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
+
+          {
+            echo "commit_list<<EOF"
+            if [ -n "$PREVIOUS_TAG" ]; then
+              git log --pretty='- `%h` %s' "${PREVIOUS_TAG}..HEAD"
+            else
+              git log --pretty='- `%h` %s'
+            fi
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release (idempotent)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_NAME="${{ steps.release.outputs.tag_name }}"
+          if gh release view "${TAG_NAME}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${TAG_NAME} already exists — skipping creation"
+            exit 0
+          fi
+          gh release create "${TAG_NAME}" \
+            --repo "${{ github.repository }}" \
+            --title "Lumen Native v${{ steps.release.outputs.app_version }}" \
+            --notes "## Native Release \`${TAG_NAME}\`
+
+            **Native Version:** ${{ steps.release.outputs.app_version }}
+            **Root Version:** ${{ steps.release.outputs.root_version }}
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ steps.release.outputs.sha_full }}
+            **Latest Commit Message:** ${{ steps.release.outputs.message }}
+            **Previous Native Tag:** ${{ steps.release.outputs.previous_tag || 'none' }}
+
+            ### Changes Since Previous Native Release
+            ${{ steps.release.outputs.commit_list }}
+
+            ---
+
+            ### Downloads
+            - **Windows:** \`.msi\` or \`.exe\` installer
+            - **macOS Intel:** \`x64.dmg\` or \`.app\`
+            - **macOS Apple Silicon:** \`aarch64.dmg\` or \`.app\`
+            - **Linux:** \`.AppImage\`"
+
   # Build and release Tauri app for all platforms
   build-tauri:
     if: ${{ !contains(github.event.head_commit.message, '[skip build]') }}
+    needs: [create-release]
     permissions:
       contents: write
     strategy:
@@ -153,3 +235,6 @@ jobs:
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
+          # The release is created by the create-release job — matrix jobs
+          # only upload their platform assets to it
+          createRelease: false
