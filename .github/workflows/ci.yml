@@ -43,6 +43,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A merge commit pushed to the release branch (origin) is a release:
+          # build, test, and deploy EVERY target instead of diffing — a merge
+          # brings the whole of dev, and skipping deploys on merges silently
+          # ships nothing.
+          HEAD_MSG="$(git log -1 --format=%s)"
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_name }}" = "origin" ] && [[ "${HEAD_MSG}" == "Merge pull request"* || "${HEAD_MSG}" == "Merge branch"* ]]; then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+            echo "workers=true" >> "$GITHUB_OUTPUT"
+            echo "presence=true" >> "$GITHUB_OUTPUT"
+            echo "db=true" >> "$GITHUB_OUTPUT"
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            echo "supermemory=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BEFORE_SHA="${{ github.event.pull_request.base.sha }}"
             AFTER_SHA="${{ github.event.pull_request.head.sha }}"
@@ -89,12 +103,9 @@ jobs:
 
   lint:
     name: Lint
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && github.ref_name != 'origin') ||
-      (github.event_name == 'push' && github.ref_name == 'origin' &&
-       !startsWith(github.event.head_commit.message, 'Merge pull request') &&
-       !startsWith(github.event.head_commit.message, 'Merge branch'))
+    # Runs on every PR and every push to the release branch (origin) —
+    # merge commits are not skipped so releases always get the full pipeline.
+    if: github.event_name == 'pull_request' || github.ref_name == 'origin'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
