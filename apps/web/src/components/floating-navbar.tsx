@@ -2,6 +2,7 @@
 
 import {
   // Command, // Disabled: Search functionality temporarily disabled
+  Layers,
   LayoutGrid,
   MousePointer2,
   WifiOff,
@@ -9,14 +10,7 @@ import {
 import { motion } from "motion/react";
 import { memo, useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/src/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import {
@@ -112,45 +106,69 @@ export const FloatingNavbar = memo(() => {
         onOpenChange={setShowAreaCreateDialog}
         open={showAreaCreateDialog}
       >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Create New Area</DialogTitle>
-            <DialogDescription>
-              Group related boards together on your canvas.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="area-name">Area Name</Label>
-            <Input
-              autoFocus
-              data-testid="area-name-input"
-              id="area-name"
-              onChange={(e) => setAreaName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleAreaCreateSubmit();
-                }
-              }}
-              placeholder="Enter area name"
-              value={areaName}
-            />
-          </div>
-          <DialogFooter>
-            <Button
+        <DialogContent
+          className="gap-0 overflow-hidden border-2 border-border/50 bg-card/95 p-0 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] backdrop-blur-md sm:max-w-sm dark:border-white/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+          showCloseButton={false}
+        >
+          <div className="flex items-center justify-between border-border border-b bg-muted/95 px-3.5 py-2.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/20 font-bold text-[10px] text-primary">
+                <Layers className="h-3 w-3" />
+              </span>
+              <DialogTitle className="font-semibold text-foreground text-xs">
+                Create Area
+              </DialogTitle>
+            </div>
+            <button
+              aria-label="Close create area dialog"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
               onClick={() => setShowAreaCreateDialog(false)}
               type="button"
-              variant="ghost"
             >
-              Cancel
-            </Button>
-            <Button
-              data-testid="area-create-submit"
-              onClick={handleAreaCreateSubmit}
-              type="button"
-            >
-              Create Area
-            </Button>
-          </DialogFooter>
+              <span className="font-bold text-xs">✕</span>
+            </button>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAreaCreateSubmit();
+            }}
+          >
+            <div className="space-y-2 p-3.5">
+              <Label
+                className="block font-medium text-[11px] text-muted-foreground"
+                htmlFor="navbar-area-name"
+              >
+                Area Name
+              </Label>
+              <Input
+                autoFocus
+                className="h-8 rounded-md border border-border/30 bg-muted/80 px-2.5 text-foreground text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] focus:outline-none dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]"
+                data-testid="area-name-input"
+                id="navbar-area-name"
+                onChange={(e) => setAreaName(e.target.value)}
+                placeholder="Enter area name..."
+                value={areaName}
+              />
+            </div>
+            <div className="flex gap-2 border-border border-t bg-muted/30 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+              <Button
+                className="h-7 flex-1 rounded-md bg-card/80 px-3 font-medium text-muted-foreground text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card hover:text-foreground dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                onClick={() => setShowAreaCreateDialog(false)}
+                type="button"
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="h-7 flex-1 rounded-md bg-primary px-3 font-medium text-primary-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(255,255,255,0.2)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_8px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(255,255,255,0.3)] active:scale-95 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                data-testid="area-create-submit"
+                type="submit"
+              >
+                Create Area
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
