@@ -120,12 +120,13 @@ export const ColumnCreateDialog = memo(
         const timer = setTimeout(() => {
           nameInputRef.current?.focus();
         }, 100);
-        return () => clearTimeout(timer);
+        return () => {
+          clearTimeout(timer);
+          unregisterDialog(dialogId);
+        };
       }
       return () => {
-        if (isOpen) {
-          unregisterDialog(dialogId);
-        }
+        unregisterDialog(dialogId);
       };
     }, [
       isOpen,

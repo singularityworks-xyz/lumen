@@ -43,7 +43,7 @@ import { BoardPresenceIndicator } from "./board-presence-indicator";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
-type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
+export type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
 
 export const BoardNodeComponent = memo<BoardNodeProps>(
   ({ id, data, selected, isConnectable }) => {
@@ -602,9 +602,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     return (
       <>
         <Resizer
-          handleClassName="!w-8 !h-8 !opacity-0"
+          handleClassName="w-8! h-8! opacity-0!"
           isVisible={selected || isSelected || isMultiSelected}
-          lineClassName="!border-0"
+          lineClassName="border-0!"
           lineStyle={{
             borderWidth: 0,
             opacity: 0,
@@ -708,9 +708,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }}
           tabIndex={0}
         >
-          {/* Target Connection Handles */}
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-top-target"
             id="top-target"
             isConnectable={isConnectable}
@@ -718,7 +717,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-right-target"
             id="right-target"
             isConnectable={isConnectable}
@@ -726,7 +725,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-bottom-target"
             id="bottom-target"
             isConnectable={isConnectable}
@@ -734,7 +733,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-left-target"
             id="left-target"
             isConnectable={isConnectable}
@@ -742,9 +741,8 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
 
-          {/* Source Connection Handles */}
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-top"
             id="top"
             isConnectable={isConnectable}
@@ -752,7 +750,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-right"
             id="right"
             isConnectable={isConnectable}
@@ -760,7 +758,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-bottom"
             id="bottom"
             isConnectable={isConnectable}
@@ -768,7 +766,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
+            className="border-0! bg-transparent! opacity-0!"
             data-testid="board-handle-left"
             id="left"
             isConnectable={isConnectable}

@@ -81,13 +81,15 @@ export const AreaPropertiesDialogNodeComponent =
 
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
+        // Escape closes only the frontmost dialog — a lower dialog must not
+        // close while another dialog is stacked on top of it
+        if (e.key === "Escape" && dialogFocusStack.at(-1) === zIndexDialogId) {
           handleClose();
         }
       };
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleClose]);
+    }, [dialogFocusStack, zIndexDialogId, handleClose]);
 
     const handleColorChange = useCallback(
       (color: string) => {

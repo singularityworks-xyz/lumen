@@ -513,6 +513,37 @@ function setupStore({
   mockStore.boardPositions = mockBoardPositions;
 }
 
+// Typed NodeProps fixture — no `as any` casts on the component. The
+// component's NodeProps type plus the extra node fields the fixture carries
+// (position etc., ignored at runtime by React.createElement).
+type BoardNodeFixture = React.ComponentProps<
+  typeof import("@/src/features/kanban/components/board-node").BoardNodeComponent
+> & {
+  position: { x: number; y: number };
+  [key: string]: unknown;
+};
+
+function makeBoardNodeProps(
+  overrides: Partial<BoardNodeFixture> = {}
+): BoardNodeFixture {
+  return {
+    id: "node-1",
+    data: { boardId: "board-1", isSelected: false },
+    selected: false,
+    dragging: false,
+    type: "board",
+    position: { x: 0, y: 0 },
+    zIndex: 1,
+    draggable: true,
+    selectable: true,
+    deletable: true,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    ...overrides,
+  };
+}
+
 describe("BoardNodeComponent", () => {
   let BoardNodeComponent: typeof import("@/src/features/kanban/components/board-node").BoardNodeComponent;
 
@@ -554,15 +585,18 @@ describe("BoardNodeComponent", () => {
 
     const { container } = await act(async () =>
       render(
-        React.createElement(BoardNodeComponent as any, {
-          id: "node-1",
-          data: { boardId: "missing-board", isSelected: false },
-          selected: false,
-          dragging: false,
-          type: "board",
-          position: { x: 0, y: 0 },
-          zIndex: 1,
-        })
+        React.createElement(
+          BoardNodeComponent,
+          makeBoardNodeProps({
+            id: "node-1",
+            data: { boardId: "missing-board", isSelected: false },
+            selected: false,
+            dragging: false,
+            type: "board",
+            position: { x: 0, y: 0 },
+            zIndex: 1,
+          })
+        )
       )
     );
 
@@ -577,15 +611,18 @@ describe("BoardNodeComponent", () => {
 
     const { container } = await act(async () =>
       render(
-        React.createElement(BoardNodeComponent as any, {
-          id: "node-1",
-          data: { boardId: "board-1", isSelected: false },
-          selected: false,
-          dragging: false,
-          type: "board",
-          position: { x: 0, y: 0 },
-          zIndex: 1,
-        })
+        React.createElement(
+          BoardNodeComponent,
+          makeBoardNodeProps({
+            id: "node-1",
+            data: { boardId: "board-1", isSelected: false },
+            selected: false,
+            dragging: false,
+            type: "board",
+            position: { x: 0, y: 0 },
+            zIndex: 1,
+          })
+        )
       )
     );
 
@@ -603,15 +640,18 @@ describe("BoardNodeComponent", () => {
 
     const { container } = await act(async () =>
       render(
-        React.createElement(BoardNodeComponent as any, {
-          id: "node-1",
-          data: { boardId: "board-1", isSelected: false },
-          selected: false,
-          dragging: false,
-          type: "board",
-          position: { x: 0, y: 0 },
-          zIndex: 1,
-        })
+        React.createElement(
+          BoardNodeComponent,
+          makeBoardNodeProps({
+            id: "node-1",
+            data: { boardId: "board-1", isSelected: false },
+            selected: false,
+            dragging: false,
+            type: "board",
+            position: { x: 0, y: 0 },
+            zIndex: 1,
+          })
+        )
       )
     );
 
@@ -629,15 +669,18 @@ describe("BoardNodeComponent", () => {
 
     const { container } = await act(async () =>
       render(
-        React.createElement(BoardNodeComponent as any, {
-          id: "node-1",
-          data: { boardId: "board-1", isSelected: false },
-          selected: false,
-          dragging: false,
-          type: "board",
-          position: { x: 0, y: 0 },
-          zIndex: 1,
-        })
+        React.createElement(
+          BoardNodeComponent,
+          makeBoardNodeProps({
+            id: "node-1",
+            data: { boardId: "board-1", isSelected: false },
+            selected: false,
+            dragging: false,
+            type: "board",
+            position: { x: 0, y: 0 },
+            zIndex: 1,
+          })
+        )
       )
     );
 
@@ -650,15 +693,18 @@ describe("BoardNodeComponent", () => {
     mockStore.interactionMode = "select" as const;
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const boardEl = container.querySelector('[role="button"]');
@@ -675,15 +721,18 @@ describe("BoardNodeComponent", () => {
     mockStore.interactionMode = "select" as const;
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const boardEl = container.querySelector('[role="button"]');
@@ -700,15 +749,18 @@ describe("BoardNodeComponent", () => {
     });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const deleteBtn = container.querySelector('[data-icon="x"]');
@@ -724,15 +776,18 @@ describe("BoardNodeComponent", () => {
     setupStore({ taskIds: [] });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const deleteBtn = container.querySelector('[data-icon="x"]');
@@ -755,15 +810,18 @@ describe("BoardNodeComponent", () => {
     });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const addBtn = container.querySelector('[data-icon="plus"]');
@@ -788,15 +846,18 @@ describe("BoardNodeComponent", () => {
     });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const editBtn = container.querySelector('[data-icon="edit"]');
@@ -882,15 +943,18 @@ describe("BoardNodeComponent", () => {
     );
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     expect(container.querySelector('[data-presence="Alice"]')).not.toBeNull();
@@ -996,15 +1060,18 @@ describe("BoardNodeComponent", () => {
     });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const addColumnBtn = container.querySelector(
@@ -1020,15 +1087,18 @@ describe("BoardNodeComponent", () => {
     });
 
     const { container } = render(
-      React.createElement(BoardNodeComponent as any, {
-        id: "node-1",
-        data: { boardId: "board-1", isSelected: false },
-        selected: false,
-        dragging: false,
-        type: "board",
-        position: { x: 0, y: 0 },
-        zIndex: 1,
-      })
+      React.createElement(
+        BoardNodeComponent,
+        makeBoardNodeProps({
+          id: "node-1",
+          data: { boardId: "board-1", isSelected: false },
+          selected: false,
+          dragging: false,
+          type: "board",
+          position: { x: 0, y: 0 },
+          zIndex: 1,
+        })
+      )
     );
 
     const expectedHandleIds = [

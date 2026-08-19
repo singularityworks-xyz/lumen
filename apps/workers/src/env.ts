@@ -133,7 +133,8 @@ const PLACEHOLDER_VALUE = /^(your-|sm_\.\.\.|change-me|test-|dev-only-)/i;
 if (env.NODE_ENV === "production") {
   const missing = PRODUCTION_REQUIRED_ENV.filter(
     ({ key }) =>
-      !process.env[key] || PLACEHOLDER_VALUE.test(process.env[key] ?? "")
+      !process.env[key]?.trim() ||
+      PLACEHOLDER_VALUE.test(process.env[key]?.trim() ?? "")
   );
 
   if (missing.length > 0) {

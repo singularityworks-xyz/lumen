@@ -59,6 +59,9 @@ const mockRegisterDialog = mock();
 const mockUnregisterDialog = mock();
 const mockBringDialogToFront = mock();
 
+// Mutable so tests can simulate stacked dialogs (frontmost Escape behavior)
+let mockDialogFocusStack: string[] = ["area-properties-dialog-dlg-1"];
+
 const mockArea = {
   id: "area-1",
   name: "Platform Team",
@@ -117,7 +120,7 @@ mock.module("@/src/features/kanban/store/kanban-store", () => ({
       columnUi: {},
       selectedTaskIds: [],
       selectedBoardIds: [],
-      dialogFocusStack: ["area-properties-dialog-dlg-1"],
+      dialogFocusStack: mockDialogFocusStack,
       updateArea: mockUpdateArea,
       closeAreaDialog: mockCloseAreaDialog,
       registerDialog: mockRegisterDialog,
@@ -239,6 +242,45 @@ describe("AreaPropertiesDialogNodeComponent", () => {
   });
 
   it("calls closeAreaDialog on Escape key", () => {
+    render(
+      React.createElement(
+        AreaPropertiesDialogNodeComponent,
+        createMockDialogProps()
+      )
+    );
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    expect(mockCloseAreaDialog).toHaveBeenCalledWith("dlg-1");
+  });
+
+  it("Escape closes only the frontmost dialog when multiple are open", () => {
+    // Another dialog is stacked above this one — Escape must not close it
+    mockDialogFocusStack = [
+      "area-properties-dialog-dlg-1",
+      "area-properties-dialog-dlg-2",
+    ];
+    render(
+      React.createElement(
+        AreaPropertiesDialogNodeComponent,
+        createMockDialogProps()
+      )
+    );
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    expect(mockCloseAreaDialog).not.toHaveBeenCalled();
+
+    // This dialog is frontmost again — Escape closes it
+    mockCloseAreaDialog.mockClear();
+    mockDialogFocusStack = [
+      "area-properties-dialog-dlg-2",
+      "area-properties-dialog-dlg-1",
+    ];
     render(
       React.createElement(
         AreaPropertiesDialogNodeComponent,

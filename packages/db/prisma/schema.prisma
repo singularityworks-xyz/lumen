@@ -174,7 +174,10 @@ model Jwks {
   id         String    @id @default(cuid())
   publicKey  String    @unique
   privateKey String
-  alg        String
+  // Better Auth's jwt plugin persists the key algorithm alongside the key
+  // material (EdDSA by default). The default backfills pre-existing rows so
+  // `prisma db push` stays safe on populated tables.
+  alg        String    @default("EdDSA")
   crv        String?
   createdAt  DateTime  @default(now())
   expiresAt  DateTime?

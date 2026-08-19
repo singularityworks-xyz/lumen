@@ -1,4 +1,4 @@
-const WEB_VERSION = "1.1.39";
+const WEB_VERSION = "1.1.40";
 
 // Production startup gate: the container refuses to boot without the
 // observability stack it is configured to export to. Runs here (server
@@ -14,22 +14,43 @@ const PRODUCTION_REQUIRED_ENV: Array<{ key: string; purpose: string }> = [
   { key: "OPENOBSERVE_PASSWORD", purpose: "OpenObserve auth" },
 ];
 
+const PLACEHOLDER_VALUE = /^(your-|sm_\.\.\.|change-me|test-|dev-only-)/i;
+
 export async function register() {
   // Only initialize OTEL on the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME === "nodejs") {
     if (process.env.NODE_ENV === "production") {
-      const missing = PRODUCTION_REQUIRED_ENV.filter(
-        ({ key }) => !process.env[key]
-      );
-      if (missing.length > 0) {
-        const detail = missing
-          .map(({ key, purpose }) => `  - ${key} (${purpose})`)
+      const problems: Array<{ key: string; detail: string }> = [];
+
+      for (const { key, purpose } of PRODUCTION_REQUIRED_ENV) {
+        const raw = process.env[key]?.trim() ?? "";
+        if (!raw || PLACEHOLDER_VALUE.test(raw)) {
+          problems.push({ key, detail: `missing or placeholder (${purpose})` });
+          continue;
+        }
+        // The OTLP endpoint must be a valid http(s) URL — a broken endpoint
+        // silently drops all observability
+        if (key === "OTEL_EXPORTER_OTLP_ENDPOINT") {
+          try {
+            const parsed = new URL(raw);
+            if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+              throw new Error("unsupported protocol");
+            }
+          } catch {
+            problems.push({ key, detail: `not a valid http(s) URL: "${raw}"` });
+          }
+        }
+      }
+
+      if (problems.length > 0) {
+        const detail = problems
+          .map(({ key, detail }) => `  - ${key} (${detail})`)
           .join("\n");
         console.error(
           [
             "",
             "Production startup check failed:",
-            `${missing.length} required environment variable(s) are missing.`,
+            `${problems.length} required environment variable(s) are missing, placeholders, or invalid.`,
             detail,
             "Set them in the deployment environment (Dokploy) before starting the container.",
             "",

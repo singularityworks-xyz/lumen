@@ -6,7 +6,7 @@ import {
   NodeResizer as Resizer,
 } from "@xyflow/react";
 import { Edit2, GripVertical, Layout, Palette, Trash2 } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import { ICON_MAP } from "../utils/color-icon-utils";
@@ -41,6 +41,14 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(area?.name ?? "");
+
+  // Draft size/position during an active resize gesture (committed on end)
+  const resizeDraft = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const handleStartRename = useCallback(() => {
     setEditName(area?.name ?? "");
@@ -98,11 +106,25 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
     [areaId, area?.name, areaPosition, openAreaDialog]
   );
 
+  // Intermediate resize events only track the draft — NodeResizer renders
+  // the live visuals itself. The shared store is updated once, with rounded
+  // dimensions, when the resize gesture ends.
   const handleResize = useCallback(
     (
       _event: unknown,
       params: { x: number; y: number; width: number; height: number }
     ) => {
+      resizeDraft.current = params;
+    },
+    []
+  );
+
+  const handleResizeEnd = useCallback(
+    (
+      _event: unknown,
+      params: { x: number; y: number; width: number; height: number }
+    ) => {
+      resizeDraft.current = null;
       updateAreaDimensions(areaId, {
         width: Math.round(params.width),
         height: Math.round(params.height),
@@ -130,15 +152,15 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
   return (
     <>
       <Resizer
-        handleClassName="!w-3 !h-3 !border-2 !border-background !bg-primary !rounded-xs shadow-md"
+        handleClassName="w-3! h-3! border-2! border-background! bg-primary! rounded-xs! shadow-md"
         isVisible={Boolean(selected)}
-        lineClassName="!border-primary/40"
+        lineClassName="border-primary/40!"
         maxHeight={MAX_HEIGHT}
         maxWidth={MAX_WIDTH}
         minHeight={MIN_HEIGHT}
         minWidth={MIN_WIDTH}
         onResize={handleResize}
-        onResizeEnd={handleResize}
+        onResizeEnd={handleResizeEnd}
       />
 
       <div
