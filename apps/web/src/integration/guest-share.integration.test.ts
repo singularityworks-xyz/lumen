@@ -316,4 +316,47 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(state.taskDetailModals["modal-1"]).toBeUndefined();
     });
   });
+
+  describe("9. Guest Spam Resistance for Chat and Larity AI", () => {
+    it("enforces 1 msg/sec, 10 msgs/min, and 100 msgs/day for guest chat", async () => {
+      const {
+        checkGuestChatRateLimit,
+        recordGuestChatMessage,
+        getGuestChatStats,
+      } = await import("../features/comments/lib/guest-rate-limit");
+
+      // Initial check should pass
+      const check1 = checkGuestChatRateLimit();
+      expect(check1.allowed).toBe(true);
+
+      // Record first message
+      recordGuestChatMessage();
+
+      // Second check within 1 second should be blocked
+      const check2 = checkGuestChatRateLimit();
+      expect(check2.allowed).toBe(false);
+      expect(check2.reason).toBe("second");
+
+      const stats = getGuestChatStats();
+      expect(stats.dailyLimit).toBe(100);
+      expect(stats.dailyCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("enforces 20 messages/day limit for guest Larity", async () => {
+      const {
+        checkGuestLarityRateLimit,
+        recordGuestLarityMessage,
+        getGuestLarityStats,
+      } = await import("../features/comments/lib/guest-rate-limit");
+
+      const check1 = checkGuestLarityRateLimit();
+      expect(check1.allowed).toBe(true);
+
+      recordGuestLarityMessage();
+
+      const stats = getGuestLarityStats();
+      expect(stats.dailyLimit).toBe(20);
+      expect(stats.dailyCount).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

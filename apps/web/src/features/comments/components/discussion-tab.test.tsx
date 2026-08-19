@@ -7,13 +7,14 @@ try {
 }
 
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { createElement } from "react";
 
 const REPLY_BUTTON_REGEX = /reply/i;
 const SEND_BUTTON_REGEX = /send/i;
 const DELETE_BUTTON_REGEX = /delete/i;
 const TYPING_TEXT_REGEX = /is typing/i;
+const GUEST_MODE_REGEX = /Guest mode ·/;
 
 const mockUpdateIsTyping = mock(() => undefined);
 const mockSendChatMessage = mock(() => undefined);
@@ -46,6 +47,8 @@ const mockStore = {
   chatMessages: { byId: {} as Record<string, unknown>, allIds: [] as string[] },
   comments: { byId: {} as Record<string, unknown>, allIds: [] as string[] },
   updateIsTyping: mockUpdateIsTyping,
+  isGuestMode: false,
+  openProfileModal: mock(() => undefined),
 };
 
 const mockUseKanbanStore = mock(
@@ -107,28 +110,24 @@ describe("DiscussionTab", () => {
 
   describe("empty state", () => {
     it("shows empty state when no messages", () => {
-      renderDiscussionTab();
+      const { getByText } = renderDiscussionTab();
 
-      expect(screen.getByText("Start the conversation")).toBeDefined();
-      expect(
-        screen.getByText("Chat with your team in real-time")
-      ).toBeDefined();
+      expect(getByText("Start the conversation")).toBeDefined();
+      expect(getByText("Chat with your team in real-time")).toBeDefined();
     });
   });
 
   describe("message input", () => {
     it("renders message textarea", () => {
-      renderDiscussionTab();
+      const { getByRole } = renderDiscussionTab();
 
-      expect(screen.getByRole("textbox")).toBeDefined();
+      expect(getByRole("textbox")).toBeDefined();
     });
 
     it("renders send button", () => {
-      renderDiscussionTab();
+      const { getByRole } = renderDiscussionTab();
 
-      expect(
-        screen.getByRole("button", { name: SEND_BUTTON_REGEX })
-      ).toBeDefined();
+      expect(getByRole("button", { name: SEND_BUTTON_REGEX })).toBeDefined();
     });
   });
 
@@ -146,19 +145,19 @@ describe("DiscussionTab", () => {
         allIds: ["msg-1"],
       };
 
-      renderDiscussionTab();
+      const { getAllByRole } = renderDiscussionTab();
 
       expect(
-        screen.getAllByRole("button", { name: REPLY_BUTTON_REGEX })[0]
+        getAllByRole("button", { name: REPLY_BUTTON_REGEX })[0]
       ).toBeDefined();
     });
   });
 
   describe("typing indicator", () => {
     it("does not show typing indicator when no one is typing", () => {
-      renderDiscussionTab();
+      const { queryByText } = renderDiscussionTab();
 
-      expect(screen.queryByText(TYPING_TEXT_REGEX)).toBeNull();
+      expect(queryByText(TYPING_TEXT_REGEX)).toBeNull();
     });
   });
 
@@ -196,52 +195,48 @@ describe("ChatBubble rendering", () => {
     const messages = [
       createChatMessage("msg-1", "My message", "user-1", "Test User"),
     ];
-    renderWithMessages(messages);
+    const { getByText } = renderWithMessages(messages);
 
-    expect(screen.getByText("My message")).toBeDefined();
-    expect(screen.getByText("You")).toBeDefined();
+    expect(getByText("My message")).toBeDefined();
+    expect(getByText("You")).toBeDefined();
   });
 
   it("renders other user's message with their name", () => {
     const messages = [
       createChatMessage("msg-1", "Their message", "user-2", "Other User"),
     ];
-    renderWithMessages(messages);
+    const { getByText } = renderWithMessages(messages);
 
-    expect(screen.getByText("Their message")).toBeDefined();
-    expect(screen.getByText("Other User")).toBeDefined();
+    expect(getByText("Their message")).toBeDefined();
+    expect(getByText("Other User")).toBeDefined();
   });
 
   it("shows delete button for own messages", () => {
     const messages = [
       createChatMessage("msg-1", "My message", "user-1", "Test User"),
     ];
-    renderWithMessages(messages);
+    const { getByRole } = renderWithMessages(messages);
 
-    expect(
-      screen.getByRole("button", { name: DELETE_BUTTON_REGEX })
-    ).toBeDefined();
+    expect(getByRole("button", { name: DELETE_BUTTON_REGEX })).toBeDefined();
   });
 
   it("does not show delete button for other user's messages", () => {
     const messages = [
       createChatMessage("msg-1", "Their message", "user-2", "Other User"),
     ];
-    renderWithMessages(messages);
+    const { queryByRole } = renderWithMessages(messages);
 
-    expect(
-      screen.queryByRole("button", { name: DELETE_BUTTON_REGEX })
-    ).toBeNull();
+    expect(queryByRole("button", { name: DELETE_BUTTON_REGEX })).toBeNull();
   });
 
   it("shows reply button for all messages", () => {
     const messages = [
       createChatMessage("msg-1", "Some message", "user-2", "Other User"),
     ];
-    renderWithMessages(messages);
+    const { getAllByRole } = renderWithMessages(messages);
 
     expect(
-      screen.getAllByRole("button", { name: REPLY_BUTTON_REGEX })[0]
+      getAllByRole("button", { name: REPLY_BUTTON_REGEX })[0]
     ).toBeDefined();
   });
 
@@ -250,9 +245,29 @@ describe("ChatBubble rendering", () => {
       createChatMessage("msg-1", "First message", "user-1", "Test User"),
       createChatMessage("msg-2", "Second message", "user-2", "Other User"),
     ];
-    renderWithMessages(messages);
+    const { getByText } = renderWithMessages(messages);
 
-    expect(screen.getByText("First message")).toBeDefined();
-    expect(screen.getByText("Second message")).toBeDefined();
+    expect(getByText("First message")).toBeDefined();
+    expect(getByText("Second message")).toBeDefined();
+  });
+});
+
+describe("Guest Mode spam resistance in DiscussionTab", () => {
+  beforeEach(() => {
+    mockUpdateIsTyping.mockClear();
+    mockSendChatMessage.mockClear();
+    mockDeleteChatMessage.mockClear();
+    mockStore.chatMessages = { byId: {}, allIds: [] };
+    mockStore.comments = { byId: {}, allIds: [] };
+    mockStore.isGuestMode = true;
+  });
+
+  it("shows guest limit indicator footer when in guest mode", () => {
+    const { getByText } = render(
+      createElement(DiscussionTab, { workspaceId: "ws-1" })
+    );
+
+    expect(getByText(GUEST_MODE_REGEX)).toBeDefined();
+    expect(getByText("Log in to chat more")).toBeDefined();
   });
 });

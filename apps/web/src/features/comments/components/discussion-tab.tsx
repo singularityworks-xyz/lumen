@@ -19,6 +19,11 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type { ChatMessage } from "@/src/features/kanban/types";
 import { formatRelativeTime } from "@/src/lib/date";
 import { cn } from "@/src/lib/utils";
+import {
+  checkGuestChatRateLimit,
+  getGuestChatStats,
+  recordGuestChatMessage,
+} from "../lib/guest-rate-limit";
 
 const MENTION_SEARCH_REGEX = /^[a-zA-Z0-9]*$/;
 
@@ -302,6 +307,29 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sendChatMessage = useKanbanStore((state) => state.sendChatMessage);
   const deleteChatMessage = useKanbanStore((state) => state.deleteChatMessage);
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
+  const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+  const [guestRateLimitError, setGuestRateLimitError] = useState<string | null>(
+    null
+  );
+  const [chatStats, setChatStats] = useState(() => getGuestChatStats());
+
+  const effectiveLocalUser = useMemo(() => {
+    if (localUser) {
+      return localUser;
+    }
+    if (isGuestMode) {
+      return {
+        id: "guest-user",
+        name: "Guest Viewer",
+        color: "#6b7280",
+        role: "viewer" as const,
+        image: null,
+      };
+    }
+    return null;
+  }, [localUser, isGuestMode]);
+
   const chatMessages = useKanbanStore((state) => state.chatMessages);
   const comments = useKanbanStore((state) => state.comments);
 
@@ -448,16 +476,30 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
   );
 
   const handleSend = useCallback(() => {
-    if (!(messageContent.trim() && localUser)) {
+    if (!(messageContent.trim() && effectiveLocalUser)) {
       return;
+    }
+
+    if (isGuestMode) {
+      const check = checkGuestChatRateLimit();
+      if (!check.allowed) {
+        setGuestRateLimitError(
+          check.message ||
+            "Daily guest chat limit reached (100 messages/day). Please log in to chat more."
+        );
+        return;
+      }
+      setGuestRateLimitError(null);
+      recordGuestChatMessage();
+      setChatStats(getGuestChatStats());
     }
 
     sendChatMessage(
       messageContent.trim(),
       {
-        id: localUser.id,
-        name: localUser.name,
-        image: localUser.image ?? undefined,
+        id: effectiveLocalUser.id,
+        name: effectiveLocalUser.name,
+        image: effectiveLocalUser.image ?? undefined,
       },
       replyTo
         ? {
@@ -475,7 +517,14 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-  }, [messageContent, localUser, sendChatMessage, replyTo, updateIsTyping]);
+  }, [
+    messageContent,
+    effectiveLocalUser,
+    isGuestMode,
+    sendChatMessage,
+    replyTo,
+    updateIsTyping,
+  ]);
 
   useEffect(
     () => () => {
@@ -736,6 +785,19 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
           )}
         </AnimatePresence>
 
+        {isGuestMode && guestRateLimitError && (
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-600 text-xs dark:text-amber-400">
+            <span className="mr-2 flex-1">{guestRateLimitError}</span>
+            <button
+              className="shrink-0 rounded-lg bg-primary px-2.5 py-1 font-medium text-primary-foreground text-xs shadow-sm transition-colors hover:bg-primary/90"
+              onClick={() => openProfileModal()}
+              type="button"
+            >
+              Log In
+            </button>
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
           <textarea
             aria-label="Type a message"
@@ -772,6 +834,20 @@ export const DiscussionTab = memo(({ workspaceId }: DiscussionTabProps) => {
             <Send className="h-4 w-4" />
           </button>
         </div>
+
+        {isGuestMode && (
+          <p className="mt-1.5 text-center text-[9px] text-muted-foreground/50">
+            Guest mode · {chatStats.dailyRemaining}/100 messages left today
+            (1/sec, 10/min) ·{" "}
+            <button
+              className="text-primary underline hover:text-primary/80"
+              onClick={() => openProfileModal()}
+              type="button"
+            >
+              Log in to chat more
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

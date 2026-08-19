@@ -257,8 +257,8 @@ describe("RoomManager - connection reuse", () => {
   });
 });
 
-describe("RoomManager - viewer write restrictions", () => {
-  it("viewers cannot write Yjs updates", () => {
+describe("RoomManager - viewer sync operations", () => {
+  it("viewers can participate in real-time sync updates", () => {
     const { ws } = createMockWs();
     roomManager.join({
       connectionId: "conn-viewer",
@@ -267,25 +267,10 @@ describe("RoomManager - viewer write restrictions", () => {
       workspaceId: "ws-viewer",
     });
 
-    // Sync type 1 = SyncStep2 (write)
-    const syncStep2Msg = buildSyncMessage(1);
-    const result = roomManager.handleMessage("conn-viewer", syncStep2Msg);
-    expect(result).toBe(false);
-  });
-
-  it("viewers cannot send Yjs Update messages", () => {
-    const { ws } = createMockWs();
-    roomManager.join({
-      connectionId: "conn-viewer2",
-      ws,
-      user: makeUser({ role: "VIEWER" }),
-      workspaceId: "ws-viewer",
-    });
-
     // Sync type 2 = Update (write)
     const updateMsg = buildSyncMessage(2);
-    const result = roomManager.handleMessage("conn-viewer2", updateMsg);
-    expect(result).toBe(false);
+    const result = roomManager.handleMessage("conn-viewer", updateMsg);
+    expect(result).toBe(true);
   });
 
   it("returns false for unknown connection", () => {

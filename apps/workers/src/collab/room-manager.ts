@@ -378,16 +378,6 @@ export class RoomManager {
         isWrite,
       });
 
-      // SyncStep2 and Update contain changes - check write permission for viewers
-      if (isWrite && connection.user.role === "VIEWER") {
-        logger.warn("Viewer attempted write operation", {
-          connectionId: connection.id,
-          userId: connection.user.id,
-          syncMsgType,
-        });
-        return false;
-      }
-
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
 

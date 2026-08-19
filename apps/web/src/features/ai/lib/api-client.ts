@@ -267,6 +267,7 @@ export interface ChatRequest {
   context?: ContextSnapshot;
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
+  guestToken?: string;
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
   message: string;
   workspaceId: string;
@@ -285,6 +286,8 @@ export function streamChat(
   callbacks: ChatStreamCallbacks
 ): AbortController {
   const controller = new AbortController();
+  const guestToken = request.guestToken || useKanbanStore.getState().guestToken;
+  const isGuestMode = useKanbanStore.getState().isGuestMode;
 
   // Fire and forget - the promise is handled internally via callbacks
   fetchEventSource(`${API_BASE}/api/ai/chat`, {
@@ -294,9 +297,14 @@ export function streamChat(
       ...(request.assistantMessageId
         ? { "x-assistant-message-id": request.assistantMessageId }
         : {}),
+      ...(guestToken ? { "x-guest-token": guestToken } : {}),
     },
     credentials: "include",
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      ephemeral: isGuestMode || request.ephemeral,
+      guestToken: guestToken || undefined,
+    }),
     signal: controller.signal,
 
     async onopen(response) {

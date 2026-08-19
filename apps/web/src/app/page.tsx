@@ -264,7 +264,7 @@ function KanbanPageContent() {
             <KanbanCanvas />
             {!isGuestMode && <MobileNavbar position="bottom" />}
             {!isGuestMode && <CanvasContextMenu />}
-            {!isGuestMode && <RightDrawers />}
+            <RightDrawers />
           </ReactFlowProvider>
           {!isGuestMode && <FloatingNavbar />}
           {!isGuestMode && <RightControls />}

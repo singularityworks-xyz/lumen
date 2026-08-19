@@ -83,6 +83,8 @@ export const RightDrawers = memo(() => {
     )
   );
 
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
+
   const isSharedWorkspace = useKanbanStore(
     useCallback(
       (state) => {
@@ -93,7 +95,8 @@ export const RightDrawers = memo(() => {
         return (
           ws?.isShared === true ||
           !!ws?.shareToken ||
-          !!state.workspaceShareUrls[currentWorkspaceId]
+          !!state.workspaceShareUrls[currentWorkspaceId] ||
+          state.isGuestMode
         );
       },
       [currentWorkspaceId]
@@ -177,66 +180,66 @@ export const RightDrawers = memo(() => {
           style={{ willChange: "transform, opacity" }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         >
-          {isSharedWorkspace && (
-            <>
-              <button
-                aria-label="Open comments"
-                className={floatingTabClass}
-                data-testid="comments-drawer-trigger"
-                onClick={() => {
-                  setLastActiveDrawerTab("comments");
-                  setActiveDrawer("comments");
-                }}
-                type="button"
-              >
-                <div className="relative">
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary">
-                    <MessageCircle className="h-5 w-5" />
-                  </span>
-                  {commentCount > 0 && (
-                    <motion.span
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-bold text-[9px] text-primary-foreground shadow-sm"
-                      initial={{ scale: 0 }}
-                    >
-                      {commentCount > 99 ? "99+" : commentCount}
-                    </motion.span>
-                  )}
-                </div>
-                <span className="writing-mode-vertical font-medium text-[9px] text-muted-foreground transition-colors group-hover:text-foreground">
-                  Comments
+          {isSharedWorkspace && !isGuestMode && (
+            <button
+              aria-label="Open comments"
+              className={floatingTabClass}
+              data-testid="comments-drawer-trigger"
+              onClick={() => {
+                setLastActiveDrawerTab("comments");
+                setActiveDrawer("comments");
+              }}
+              type="button"
+            >
+              <div className="relative">
+                <span className="text-muted-foreground transition-colors group-hover:text-primary">
+                  <MessageCircle className="h-5 w-5" />
                 </span>
-              </button>
+                {commentCount > 0 && (
+                  <motion.span
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-bold text-[9px] text-primary-foreground shadow-sm"
+                    initial={{ scale: 0 }}
+                  >
+                    {commentCount > 99 ? "99+" : commentCount}
+                  </motion.span>
+                )}
+              </div>
+              <span className="writing-mode-vertical font-medium text-[9px] text-muted-foreground transition-colors group-hover:text-foreground">
+                Comments
+              </span>
+            </button>
+          )}
 
-              <button
-                aria-label="Open chat"
-                className={floatingTabClass}
-                data-testid="chat-drawer-trigger"
-                onClick={() => {
-                  setLastActiveDrawerTab("discussion");
-                  setActiveDrawer("comments");
-                }}
-                type="button"
-              >
-                <div className="relative">
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary">
-                    <Users className="h-5 w-5" />
-                  </span>
-                  {discussionCount > 0 && (
-                    <motion.span
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-bold text-[9px] text-primary-foreground shadow-sm"
-                      initial={{ scale: 0 }}
-                    >
-                      {discussionCount > 99 ? "99+" : discussionCount}
-                    </motion.span>
-                  )}
-                </div>
-                <span className="writing-mode-vertical font-medium text-[9px] text-muted-foreground transition-colors group-hover:text-foreground">
-                  Chat
+          {isSharedWorkspace && (
+            <button
+              aria-label="Open chat"
+              className={floatingTabClass}
+              data-testid="chat-drawer-trigger"
+              onClick={() => {
+                setLastActiveDrawerTab("discussion");
+                setActiveDrawer("comments");
+              }}
+              type="button"
+            >
+              <div className="relative">
+                <span className="text-muted-foreground transition-colors group-hover:text-primary">
+                  <Users className="h-5 w-5" />
                 </span>
-              </button>
-            </>
+                {discussionCount > 0 && (
+                  <motion.span
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-bold text-[9px] text-primary-foreground shadow-sm"
+                    initial={{ scale: 0 }}
+                  >
+                    {discussionCount > 99 ? "99+" : discussionCount}
+                  </motion.span>
+                )}
+              </div>
+              <span className="writing-mode-vertical font-medium text-[9px] text-muted-foreground transition-colors group-hover:text-foreground">
+                Chat
+              </span>
+            </button>
           )}
 
           <button
