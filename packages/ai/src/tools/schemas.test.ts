@@ -5,8 +5,10 @@ import {
   createBoardSchema,
   createColumnSchema,
   createTaskSchema,
+  createTextBoardSchema,
   deleteBoardSchema,
   deleteTaskSchema,
+  deleteTextBoardSchema,
   getBoardDetailsSchema,
   getRecentActivitySchema,
   getTaskDetailsSchema,
@@ -17,6 +19,7 @@ import {
   taskStatusSchema,
   updateBoardSchema,
   updateTaskSchema,
+  updateTextBoardSchema,
 } from "./schemas";
 
 describe("prioritySchema", () => {
@@ -288,6 +291,62 @@ describe("deleteBoardSchema", () => {
     expect(() => deleteBoardSchema.parse({})).toThrow();
     expect(deleteBoardSchema.parse({ boardId: "b1" })).toEqual({
       boardId: "b1",
+    });
+  });
+});
+
+describe("createTextBoardSchema", () => {
+  it("accepts valid text board creation with content", () => {
+    const result = createTextBoardSchema.parse({
+      name: "Launch todos",
+      content: "- [ ] Ship\n- [x] Test",
+      position: { x: 5, y: 5 },
+    });
+    expect(result.name).toBe("Launch todos");
+    expect(result.content).toContain("Ship");
+  });
+
+  it("rejects empty name", () => {
+    expect(() => createTextBoardSchema.parse({ name: "" })).toThrow();
+  });
+
+  it("accepts minimal payload without content", () => {
+    const result = createTextBoardSchema.parse({ name: "Notes" });
+    expect(result.content).toBeUndefined();
+  });
+});
+
+describe("updateTextBoardSchema", () => {
+  it("requires textBoardId", () => {
+    expect(() =>
+      updateTextBoardSchema.parse({ updates: { name: "X" } })
+    ).toThrow();
+  });
+
+  it("accepts valid update with content", () => {
+    const result = updateTextBoardSchema.parse({
+      textBoardId: "tb1",
+      updates: { name: "New Name", content: "- [ ] Task" },
+    });
+    expect(result.textBoardId).toBe("tb1");
+    expect(result.updates.name).toBe("New Name");
+    expect(result.updates.content).toBe("- [ ] Task");
+  });
+
+  it("accepts null description to clear it", () => {
+    const result = updateTextBoardSchema.parse({
+      textBoardId: "tb1",
+      updates: { description: null },
+    });
+    expect(result.updates.description).toBeNull();
+  });
+});
+
+describe("deleteTextBoardSchema", () => {
+  it("requires textBoardId", () => {
+    expect(() => deleteTextBoardSchema.parse({})).toThrow();
+    expect(deleteTextBoardSchema.parse({ textBoardId: "tb1" })).toEqual({
+      textBoardId: "tb1",
     });
   });
 });

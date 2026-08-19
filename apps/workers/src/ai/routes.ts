@@ -765,6 +765,18 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 ),
               })
             ),
+            textBoards: t.Optional(
+              t.Array(
+                t.Object({
+                  id: t.String(),
+                  name: t.String(),
+                  description: t.Optional(t.String()),
+                  text: t.Optional(t.String()),
+                  createdAt: t.Optional(t.String()),
+                  updatedAt: t.Optional(t.String()),
+                })
+              )
+            ),
           })
         ),
         history: t.Optional(

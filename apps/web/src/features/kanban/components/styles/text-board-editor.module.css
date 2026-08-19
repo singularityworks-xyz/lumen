@@ -1,0 +1,30 @@
+.editor {
+  overflow-x: hidden;
+  scrollbar-color: hsl(var(--border) / 0.5) hsl(var(--muted) / 0.3);
+  scrollbar-width: thin;
+}
+
+.editor::-webkit-scrollbar {
+  width: 8px;
+  -webkit-appearance: none;
+}
+
+.editor::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 4px;
+}
+
+.editor::-webkit-scrollbar-thumb {
+  min-height: 30px;
+  background: hsl(var(--border) / 0.5);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.editor::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.7);
+}
+
+.editor::-webkit-scrollbar-corner {
+  background: hsl(var(--muted) / 0.3);
+}

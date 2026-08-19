@@ -134,6 +134,55 @@ export const updateBoardSchema = z.object({
     .describe("Fields to update"),
 });
 
+export const createTextBoardSchema = z.object({
+  name: z.string().min(1).max(200).describe("Text board name"),
+  description: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe("Short description of the text board"),
+  content: z
+    .string()
+    .max(20_000)
+    .optional()
+    .describe(
+      "Plain text or light markdown content. Lines like '- [ ] item' become todo checkboxes, '- item' bullets, '# Title' headings, everything else paragraphs."
+    ),
+  position: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+    })
+    .optional()
+    .describe("Position on canvas"),
+});
+
+export const updateTextBoardSchema = z.object({
+  textBoardId: z.string().describe("The ID of the text board to update"),
+  updates: z
+    .object({
+      name: z.string().min(1).max(200).optional().describe("New name"),
+      description: z
+        .string()
+        .max(1000)
+        .nullable()
+        .optional()
+        .describe("New description or null to clear"),
+      content: z
+        .string()
+        .max(20_000)
+        .optional()
+        .describe(
+          "New plain text / light markdown content. Replaces the whole document. Lines like '- [ ] item' become todo checkboxes."
+        ),
+    })
+    .describe("Fields to update"),
+});
+
+export const deleteTextBoardSchema = z.object({
+  textBoardId: z.string().describe("The ID of the text board to delete"),
+});
+
 export const deleteBoardSchema = z.object({
   boardId: z.string().describe("The ID of the board to delete"),
 });
@@ -187,6 +236,9 @@ export type MoveTaskParams = z.infer<typeof moveTaskSchema>;
 export type CreateBoardParams = z.infer<typeof createBoardSchema>;
 export type UpdateBoardParams = z.infer<typeof updateBoardSchema>;
 export type DeleteBoardParams = z.infer<typeof deleteBoardSchema>;
+export type CreateTextBoardParams = z.infer<typeof createTextBoardSchema>;
+export type UpdateTextBoardParams = z.infer<typeof updateTextBoardSchema>;
+export type DeleteTextBoardParams = z.infer<typeof deleteTextBoardSchema>;
 export type CreateColumnParams = z.infer<typeof createColumnSchema>;
 export type BulkUpdateTasksParams = z.infer<typeof bulkUpdateTasksSchema>;
 export type BulkDeleteTasksParams = z.infer<typeof bulkDeleteTasksSchema>;

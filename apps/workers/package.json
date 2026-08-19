@@ -1,6 +1,6 @@
 {
   "name": "@lumen/workers",
-  "version": "1.0.89",
+  "version": "1.0.91",
   "private": true,
   "type": "module",
   "scripts": {

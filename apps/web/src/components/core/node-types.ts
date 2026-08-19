@@ -16,11 +16,13 @@ import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
 import { TaskQuickActionsNodeComponent } from "@/src/components/tasks/task-quick-actions-node";
 import { AreaNodeComponent } from "@/src/features/kanban/components/area-node";
 import { BoardNodeComponent } from "@/src/features/kanban/components/board-node";
+import { TextBoardNodeComponent } from "@/src/features/kanban/components/text-board-node";
 
 export const nodeTypes = {
   area: AreaNodeComponent,
   areaPropertiesDialog: AreaPropertiesDialogNodeComponent,
   board: BoardNodeComponent,
+  textBoard: TextBoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
   boardQuickActions: BoardQuickActionsNodeComponent,

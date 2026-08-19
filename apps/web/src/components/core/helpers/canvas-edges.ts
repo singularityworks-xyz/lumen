@@ -11,6 +11,7 @@ export function useCanvasEdges() {
     (state) => state.currentWorkspaceId
   );
   const boards = useKanbanStore((state) => state.boards);
+  const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
   const boardConnections = useKanbanStore((state) => state.boardConnections);
 
@@ -18,7 +19,12 @@ export function useCanvasEdges() {
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
-    const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+    // Both kanban boards and text boards participate in connections, so a
+    // connection between a board and a text board stays visible.
+    const boardIds = [
+      ...(currentWorkspace?.board_ids ?? boards.allIds),
+      ...(currentWorkspace?.text_board_ids ?? textBoards.allIds),
+    ];
 
     return boardConnections.allIds
       .map((connectionId) => {
@@ -66,7 +72,13 @@ export function useCanvasEdges() {
         return edge;
       })
       .filter((edge): edge is BoardEdge => edge !== null);
-  }, [boardConnections, currentWorkspaceId, workspaces, boards.allIds]);
+  }, [
+    boardConnections,
+    currentWorkspaceId,
+    workspaces,
+    boards.allIds,
+    textBoards.allIds,
+  ]);
 
   return edges;
 }

@@ -65,9 +65,20 @@ export interface BoardSnapshot {
   name: string;
 }
 
+export interface TextBoardSnapshot {
+  createdAt?: string;
+  description?: string;
+  id: string;
+  name: string;
+  // Plain-text rendering of the TipTap document for AI consumption
+  text?: string;
+  updatedAt?: string;
+}
+
 export interface WorkspaceSnapshot {
   boards: BoardSnapshot[];
   name: string;
+  textBoards?: TextBoardSnapshot[];
 }
 
 export function buildWorkspaceSnapshot(
@@ -143,10 +154,98 @@ export function buildWorkspaceSnapshot(
     });
   }
 
+  const textBoards: TextBoardSnapshot[] = [];
+
+  for (const textBoardId of workspace.text_board_ids ?? []) {
+    const textBoard = state.textBoards.byId[textBoardId];
+    if (!textBoard) {
+      continue;
+    }
+
+    textBoards.push({
+      id: textBoard.id,
+      name: textBoard.name,
+      description: textBoard.description,
+      text: textBoard.content ? tiptapJsonToPlainText(textBoard.content) : "",
+      createdAt: textBoard.created_at,
+      updatedAt: textBoard.updated_at,
+    });
+  }
+
   return {
     name: workspace.name,
     boards,
+    textBoards,
   };
+}
+
+// Extract readable plain text from a serialized TipTap JSON document.
+// Falls back to returning the raw string when it is not valid TipTap JSON.
+function tiptapJsonToPlainText(content: string): string {
+  let doc: {
+    content?: Array<{ type: string; content?: unknown; text?: string }>;
+  };
+  try {
+    doc = JSON.parse(content) as typeof doc;
+  } catch {
+    return content;
+  }
+
+  const lines: string[] = [];
+
+  const renderNodes = (
+    nodes: Array<{ type: string; content?: unknown; text?: string }> | undefined
+  ): string[] => {
+    const result: string[] = [];
+    for (const node of nodes ?? []) {
+      if (node.type === "text") {
+        result.push(node.text ?? "");
+        continue;
+      }
+      if (node.type === "paragraph") {
+        const text = renderNodes(node.content as typeof nodes).join("");
+        result.push(text);
+        continue;
+      }
+      if (node.type === "taskList") {
+        for (const item of (node.content as typeof nodes) ?? []) {
+          const checked =
+            (item as { attrs?: { checked?: boolean } }).attrs?.checked === true;
+          const text = renderNodes(
+            (item as { content?: unknown }).content as typeof nodes
+          ).join("");
+          result.push(`- [${checked ? "x" : " "}] ${text}`);
+        }
+        continue;
+      }
+      if (node.type === "bulletList" || node.type === "orderedList") {
+        for (const item of (node.content as typeof nodes) ?? []) {
+          const text = renderNodes(
+            (item as { content?: unknown }).content as typeof nodes
+          ).join("");
+          result.push(`- ${text}`);
+        }
+        continue;
+      }
+      if (node.type === "heading") {
+        result.push(renderNodes(node.content as typeof nodes).join(""));
+        continue;
+      }
+      if (node.type === "codeBlock") {
+        const text = renderNodes(node.content as typeof nodes).join("");
+        result.push("```", text, "```");
+        continue;
+      }
+      // Fallback: recurse into any other container node
+      result.push(
+        ...renderNodes((node as { content?: unknown }).content as typeof nodes)
+      );
+    }
+    return result;
+  };
+
+  lines.push(...renderNodes(doc.content));
+  return lines.join("\n").trim();
 }
 
 // Builds workspace snapshot only if the message might need tools.

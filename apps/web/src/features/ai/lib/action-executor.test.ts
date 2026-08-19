@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { ActionInstruction } from "@lumen/ai/tools";
 import type { KanbanStore } from "../../kanban/store/types";
-import type { Board, Task } from "../../kanban/types";
+import type { Board, Task, TextBoard } from "../../kanban/types";
 import { executeActionInstruction } from "./action-executor";
 
 function makeMockStore(
   state: {
     boards?: Record<string, Partial<Board>>;
     tasks?: Record<string, Partial<Task>>;
+    textBoards?: Record<string, Partial<TextBoard>>;
   } = {}
 ): KanbanStore {
   return {
@@ -17,6 +18,9 @@ function makeMockStore(
     tasks: {
       byId: (state.tasks ?? {}) as Record<string, Task>,
     },
+    textBoards: {
+      byId: (state.textBoards ?? {}) as Record<string, TextBoard>,
+    },
     addTask: mock(() => "new-task-id"),
     updateTask: mock(() => undefined),
     deleteTask: mock(() => undefined),
@@ -24,6 +28,9 @@ function makeMockStore(
     addBoard: mock(() => "new-board-id"),
     updateBoard: mock(() => undefined),
     removeBoard: mock(() => undefined),
+    addTextBoard: mock(() => "new-text-board-id"),
+    updateTextBoard: mock(() => undefined),
+    removeTextBoard: mock(() => undefined),
     addColumn: mock(() => "new-col-id"),
     bulkUpdateTasks: mock(() => undefined),
     bulkDeleteTasks: mock(() => undefined),
@@ -268,6 +275,83 @@ describe("executeActionInstruction", () => {
       taskIds: ["missing"],
     } as ActionInstruction);
     expect(result).toBe("Failed to delete tasks: no valid tasks found");
+  });
+
+  it("creates a text board with content", () => {
+    const result = executeActionInstruction(mockStore, {
+      type: "createTextBoard",
+      name: "Launch todos",
+      description: "Todos",
+      content: "- [ ] Ship it",
+    } as ActionInstruction);
+    expect(result).toBe('Created text board "Launch todos"');
+    expect(mockStore.addTextBoard).toHaveBeenCalledWith(
+      "Launch todos",
+      undefined,
+      "Todos"
+    );
+    expect(mockStore.updateTextBoard).toHaveBeenCalledWith(
+      "new-text-board-id",
+      expect.objectContaining({ content: expect.any(String) })
+    );
+  });
+
+  it("creates a text board without content (no second update)", () => {
+    const result = executeActionInstruction(mockStore, {
+      type: "createTextBoard",
+      name: "Empty board",
+    } as ActionInstruction);
+    expect(result).toBe('Created text board "Empty board"');
+    expect(mockStore.addTextBoard).toHaveBeenCalled();
+    expect(mockStore.updateTextBoard).not.toHaveBeenCalled();
+  });
+
+  it("updates a text board", () => {
+    mockStore.textBoards.byId["tb-1"] = {
+      name: "Old name",
+    } as TextBoard;
+    const result = executeActionInstruction(mockStore, {
+      type: "updateTextBoard",
+      textBoardId: "tb-1",
+      updates: { name: "New name", content: "- [x] Done" },
+    } as ActionInstruction);
+    expect(result).toBe('Updated text board "Old name"');
+    expect(mockStore.updateTextBoard).toHaveBeenCalledWith(
+      "tb-1",
+      expect.objectContaining({
+        name: "New name",
+        content: expect.any(String),
+      })
+    );
+  });
+
+  it("fails to update a missing text board", () => {
+    const result = executeActionInstruction(mockStore, {
+      type: "updateTextBoard",
+      textBoardId: "tb-missing",
+      updates: { name: "X" },
+    } as ActionInstruction);
+    expect(result).toBe("Failed to update text board: text board not found");
+  });
+
+  it("deletes a text board", () => {
+    mockStore.textBoards.byId["tb-1"] = {
+      name: "Delete me",
+    } as TextBoard;
+    const result = executeActionInstruction(mockStore, {
+      type: "deleteTextBoard",
+      textBoardId: "tb-1",
+    } as ActionInstruction);
+    expect(result).toBe('Deleted text board "Delete me"');
+    expect(mockStore.removeTextBoard).toHaveBeenCalledWith("tb-1");
+  });
+
+  it("fails to delete a missing text board", () => {
+    const result = executeActionInstruction(mockStore, {
+      type: "deleteTextBoard",
+      textBoardId: "tb-missing",
+    } as ActionInstruction);
+    expect(result).toBe("Failed to delete text board: text board not found");
   });
 
   it("returns message for unknown action type", () => {

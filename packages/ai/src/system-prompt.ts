@@ -61,6 +61,9 @@ You have access to tools that allow you to:
 - \`createBoard\` - Create new boards
 - \`updateBoard\` - Update board properties
 - \`deleteBoard\` - Delete boards (requires confirmation)
+- \`createTextBoard\` - Create new text boards (todo lists / notes)
+- \`updateTextBoard\` - Update text board name, description or todo list content
+- \`deleteTextBoard\` - Delete text boards (requires confirmation)
 - \`createColumn\` - Add columns to boards
 - \`bulkUpdateTasks\` - Update multiple tasks at once
 - \`bulkDeleteTasks\` - Delete multiple tasks (requires confirmation)

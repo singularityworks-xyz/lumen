@@ -27,6 +27,8 @@ import {
   createTaskModalSync,
   taskQuickActionsSync,
   taskSync,
+  textBoardPositionSync,
+  textBoardSync,
   workspaceSync,
 } from "@/src/features/collab/sync/syncs";
 import { diffEntityMaps } from "@/src/features/collab/utils/deep-equals";
@@ -40,6 +42,8 @@ import type {
   Column,
   Comment,
   Task,
+  TextBoard,
+  TextBoardPosition,
   Workspace,
 } from "@/src/features/kanban";
 import { useKanbanStore } from "@/src/features/kanban";
@@ -68,6 +72,10 @@ export interface YjsSyncActions {
   deleteComment: (id: string) => void;
   // Delete a task from Yjs
   deleteTask: (id: string) => void;
+  // Delete a text board from Yjs
+  deleteTextBoard: (id: string) => void;
+  // Delete a text board position from Yjs
+  deleteTextBoardPosition: (id: string) => void;
   // Delete a workspace from Yjs
   deleteWorkspace: (id: string) => void;
   // Sync an area to Yjs
@@ -88,6 +96,10 @@ export interface YjsSyncActions {
   syncComment: (comment: Comment) => void;
   // Sync a task change to Yjs
   syncTask: (task: Task) => void;
+  // Sync a text board change to Yjs
+  syncTextBoard: (textBoard: TextBoard) => void;
+  // Sync a text board position change to Yjs
+  syncTextBoardPosition: (position: TextBoardPosition) => void;
   // Sync a workspace to Yjs
   syncWorkspace: (workspace: Workspace) => void;
 }
@@ -123,11 +135,11 @@ export function useYjsSync(
       );
       useKanbanStore.setState(newState);
 
-      // Update workspace.board_ids to match synced boards
+      // Update workspace.board_ids/text_board_ids to match synced entities.
       // This ensures shared workspace users see boards instead of welcome screen
-      // IMPORTANT: Only add boards that actually belong to this workspace (by checking workspace_id)
+      // IMPORTANT: Only add entities that actually belong to this workspace (by checking workspace_id)
       const workspaceId = currentState.currentWorkspaceId;
-      if (workspaceId && newState.boards) {
+      if (workspaceId && (newState.boards || newState.textBoards)) {
         useKanbanStore.setState((state) => {
           const workspace = state.workspaces.byId[workspaceId];
           if (workspace) {
@@ -145,8 +157,22 @@ export function useYjsSync(
               }
             }
 
-            // Only update if there are new boards to add (immutable update)
-            if (newBoardIds.length > 0) {
+            const syncedTextBoardIds = newState.textBoards?.allIds ?? [];
+            const newTextBoardIds: string[] = [];
+
+            for (const textBoardId of syncedTextBoardIds) {
+              const textBoard = newState.textBoards?.byId[textBoardId];
+              if (
+                textBoard &&
+                textBoard.workspace_id === workspaceId &&
+                !(workspace.text_board_ids ?? []).includes(textBoardId)
+              ) {
+                newTextBoardIds.push(textBoardId);
+              }
+            }
+
+            // Only update if there are new ids to add (immutable update)
+            if (newBoardIds.length > 0 || newTextBoardIds.length > 0) {
               return {
                 workspaces: {
                   ...state.workspaces,
@@ -154,7 +180,17 @@ export function useYjsSync(
                     ...state.workspaces.byId,
                     [workspaceId]: {
                       ...workspace,
-                      board_ids: [...workspace.board_ids, ...newBoardIds],
+                      board_ids:
+                        newBoardIds.length > 0
+                          ? [...workspace.board_ids, ...newBoardIds]
+                          : workspace.board_ids,
+                      text_board_ids:
+                        newTextBoardIds.length > 0
+                          ? [
+                              ...(workspace.text_board_ids ?? []),
+                              ...newTextBoardIds,
+                            ]
+                          : workspace.text_board_ids,
                     },
                   },
                 },
@@ -163,9 +199,10 @@ export function useYjsSync(
           }
           return state;
         });
-        logger.debug("Synced workspace.board_ids with Yjs boards", {
+        logger.debug("Synced workspace board ids with Yjs", {
           workspaceId,
-          boardCount: newState.boards.allIds.length,
+          boardCount: newState.boards?.allIds.length ?? 0,
+          textBoardCount: newState.textBoards?.allIds.length ?? 0,
         });
       }
 
@@ -323,6 +360,36 @@ export function useYjsSync(
       }
       for (const id of connDiff.removed) {
         boardConnectionSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync text boards
+      const textBoardDiff = diffEntityMaps(
+        prevState.textBoards.byId,
+        state.textBoards.byId
+      );
+      for (const textBoard of [
+        ...textBoardDiff.added,
+        ...textBoardDiff.changed,
+      ]) {
+        textBoardSync.setInYjs(doc, textBoard);
+      }
+      for (const id of textBoardDiff.removed) {
+        textBoardSync.deleteFromYjs(doc, id);
+      }
+
+      // Diff and sync text board positions
+      const textBoardPosDiff = diffEntityMaps(
+        prevState.textBoardPositions.byId,
+        state.textBoardPositions.byId
+      );
+      for (const pos of [
+        ...textBoardPosDiff.added,
+        ...textBoardPosDiff.changed,
+      ]) {
+        textBoardPositionSync.setInYjs(doc, pos);
+      }
+      for (const id of textBoardPosDiff.removed) {
+        textBoardPositionSync.deleteFromYjs(doc, id);
       }
 
       // Diff and sync areas
@@ -923,6 +990,42 @@ export function useYjsSync(
     [doc, isConnected]
   );
 
+  const syncTextBoard = useCallback(
+    (textBoard: TextBoard) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        textBoardSync.setInYjs(doc, textBoard);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const deleteTextBoard = useCallback(
+    (id: string) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        textBoardSync.deleteFromYjs(doc, id);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const syncTextBoardPosition = useCallback(
+    (position: TextBoardPosition) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        textBoardPositionSync.setInYjs(doc, position);
+      }
+    },
+    [doc, isConnected]
+  );
+
+  const deleteTextBoardPosition = useCallback(
+    (id: string) => {
+      if (doc && isConnected && !isUpdatingFromYjsRef.current) {
+        textBoardPositionSync.deleteFromYjs(doc, id);
+      }
+    },
+    [doc, isConnected]
+  );
+
   const syncWorkspace = useCallback(
     (workspace: Workspace) => {
       if (doc && isConnected && !isUpdatingFromYjsRef.current) {
@@ -988,6 +1091,10 @@ export function useYjsSync(
     deleteBoardPosition,
     syncBoardConnection,
     deleteBoardConnection,
+    syncTextBoard,
+    deleteTextBoard,
+    syncTextBoardPosition,
+    deleteTextBoardPosition,
     syncArea,
     deleteArea,
     syncAreaPosition,

@@ -13,6 +13,7 @@ import { createCommentSlice } from "./slices/comment-slice";
 import { createConnectionSlice } from "./slices/connection-slice";
 import { createModalSlice } from "./slices/modal-slice";
 import { createTaskSlice } from "./slices/task-slice";
+import { createTextBoardSlice } from "./slices/text-board-slice";
 import { createUiSlice } from "./slices/ui-slice";
 import { createWorkspaceSlice } from "./slices/workspace-slice";
 import { createZIndexSlice } from "./slices/z-index-slice";
@@ -35,6 +36,7 @@ const storeCreator: StateCreator<
   ...createCommentSlice(set, get),
   ...createChatSlice(set, get),
   ...createTaskSlice(set, get),
+  ...createTextBoardSlice(set, get),
   ...createConnectionSlice(set, get),
   ...createModalSlice(set, get),
   ...createUiSlice(set, get),
@@ -88,6 +90,8 @@ export const useKanbanStore = create<KanbanStore>()(
           tasks: state.tasks,
           boardPositions: state.boardPositions,
           boardConnections: state.boardConnections,
+          textBoards: state.textBoards,
+          textBoardPositions: state.textBoardPositions,
           currentWorkspaceId: state.currentWorkspaceId,
           canvas: state.canvas,
           createTaskModals: state.createTaskModals,

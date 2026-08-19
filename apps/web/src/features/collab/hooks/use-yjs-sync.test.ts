@@ -44,6 +44,8 @@ interface StoreState {
   currentWorkspaceId: string | null;
   taskQuickActions: Record<string, unknown>;
   tasks: { byId: Record<string, unknown>; allIds: string[] };
+  textBoardPositions: { byId: Record<string, unknown>; allIds: string[] };
+  textBoards: { byId: Record<string, unknown>; allIds: string[] };
   workspaces: { byId: Record<string, unknown>; allIds: string[] };
 }
 
@@ -70,6 +72,8 @@ function createDefaultState(overrides: Partial<StoreState> = {}): StoreState {
     taskQuickActions: {},
     areaDragOrigins: {},
     chatMessages: { byId: {}, allIds: [] },
+    textBoards: { byId: {}, allIds: [] },
+    textBoardPositions: { byId: {}, allIds: [] },
     workspaces: { byId: {}, allIds: [] },
     ...overrides,
   };
@@ -153,6 +157,8 @@ const mockBoardConnectionSync = createMockSync();
 const mockAreaSync = createMockSync();
 const mockAreaPositionSync = createMockSync();
 const mockAreaDialogSync = createMockSync();
+const mockTextBoardSync = createMockSync();
+const mockTextBoardPositionSync = createMockSync();
 const mockWorkspaceSync = createMockSync();
 const mockBoardQuickActionsSync = createMockSync();
 const mockBoardDialogSync = createMockSync();
@@ -171,6 +177,8 @@ mock.module("@/src/features/collab/sync/syncs", () => ({
   taskSync: mockTaskSync,
   boardPositionSync: mockBoardPositionSync,
   boardConnectionSync: mockBoardConnectionSync,
+  textBoardSync: mockTextBoardSync,
+  textBoardPositionSync: mockTextBoardPositionSync,
   areaSync: mockAreaSync,
   areaPositionSync: mockAreaPositionSync,
   areaDialogSync: mockAreaDialogSync,

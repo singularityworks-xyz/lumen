@@ -351,6 +351,10 @@ export function KanbanCanvas() {
 
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
+          } else if (change.id.startsWith("tb_")) {
+            useKanbanStore
+              .getState()
+              .updateTextBoardDimensions(change.id, change.dimensions, true);
           } else if ("resizing" in change && change.resizing === false) {
             const board = useKanbanStore.getState().boards.byId[change.id];
             const columnCount = board?.column_ids.length ?? 0;

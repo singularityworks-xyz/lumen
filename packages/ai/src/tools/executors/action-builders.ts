@@ -6,11 +6,14 @@ import type {
   CreateBoardParams,
   CreateColumnParams,
   CreateTaskParams,
+  CreateTextBoardParams,
   DeleteBoardParams,
   DeleteTaskParams,
+  DeleteTextBoardParams,
   MoveTaskParams,
   UpdateBoardParams,
   UpdateTaskParams,
+  UpdateTextBoardParams,
 } from "../schemas";
 import type { ActionInstructionResult } from "./action-instructions";
 import { mapPriority } from "./types";
@@ -129,6 +132,53 @@ export function buildDeleteBoardInstruction(
   };
 }
 
+export function buildCreateTextBoardInstruction(
+  params: CreateTextBoardParams
+): ActionInstructionResult {
+  return {
+    success: true,
+    instruction: {
+      type: "createTextBoard",
+      name: params.name,
+      description: params.description,
+      content: params.content,
+      position: params.position,
+    },
+    message: `Create text board "${params.name}"`,
+  };
+}
+
+export function buildUpdateTextBoardInstruction(
+  params: UpdateTextBoardParams
+): ActionInstructionResult {
+  return {
+    success: true,
+    instruction: {
+      type: "updateTextBoard",
+      textBoardId: params.textBoardId,
+      updates: {
+        name: params.updates.name,
+        description: params.updates.description,
+        content: params.updates.content,
+      },
+    },
+    message: `Update text board ${params.textBoardId}`,
+  };
+}
+
+export function buildDeleteTextBoardInstruction(
+  params: DeleteTextBoardParams
+): ActionInstructionResult {
+  return {
+    success: true,
+    instruction: {
+      type: "deleteTextBoard",
+      textBoardId: params.textBoardId,
+    },
+    message: `Delete text board ${params.textBoardId}`,
+  };
+}
+
 export function buildCreateColumnInstruction(
   params: CreateColumnParams
 ): ActionInstructionResult {
@@ -198,6 +248,12 @@ export function buildActionInstruction(
       return buildUpdateBoardInstruction(args as UpdateBoardParams);
     case "deleteBoard":
       return buildDeleteBoardInstruction(args as DeleteBoardParams);
+    case "createTextBoard":
+      return buildCreateTextBoardInstruction(args as CreateTextBoardParams);
+    case "updateTextBoard":
+      return buildUpdateTextBoardInstruction(args as UpdateTextBoardParams);
+    case "deleteTextBoard":
+      return buildDeleteTextBoardInstruction(args as DeleteTextBoardParams);
     case "createColumn":
       return buildCreateColumnInstruction(args as CreateColumnParams);
     case "bulkUpdateTasks":

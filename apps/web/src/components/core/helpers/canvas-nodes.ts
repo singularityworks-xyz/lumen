@@ -7,6 +7,7 @@ import {
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { TEXT_BOARD_DEFAULT_WIDTH } from "@/src/features/kanban/store/slices/text-board-slice";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
@@ -22,6 +23,7 @@ import type {
   TaskDetailModalNode,
   TaskModalNode,
   TaskQuickActionsNode,
+  TextBoardCanvasNode,
   WelcomeNode,
 } from "./canvas-types";
 
@@ -178,6 +180,7 @@ export function useCanvasNodes() {
     (state) => state.currentWorkspaceId
   );
   const boards = useKanbanStore((state) => state.boards);
+  const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
   const areas = useKanbanStore((state) => state.areas);
   // Only subscribe to area position IDs, not the full positions object.
@@ -248,6 +251,17 @@ export function useCanvasNodes() {
           const b = state.boards.byId[id];
           const colCount = b?.column_ids?.length ?? 0;
           return `${id}:${colCount}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+        })
+        .join("|")
+    )
+  );
+
+  const textBoardStructuralSig = useKanbanStore(
+    useShallow((state) =>
+      (currentWorkspace?.text_board_ids ?? state.textBoards.allIds)
+        .map((id) => {
+          const bp = state.textBoardPositions.byId[id];
+          return `${id}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
         })
         .join("|")
     )
@@ -388,6 +402,49 @@ export function useCanvasNodes() {
       areas,
       areaPositionIds.join(","),
       areaDragOrigins,
+      currentWorkspaceId,
+      selectedBoardId,
+    ]
+  );
+
+  const textBoardIds = currentWorkspace?.text_board_ids ?? textBoards.allIds;
+
+  const textBoardNodes = useStableNodeFactory<TextBoardCanvasNode>(
+    () =>
+      textBoardIds
+        .filter((textBoardId) => {
+          const textBoard = textBoards.byId[textBoardId];
+          return (
+            textBoard &&
+            (!currentWorkspaceId ||
+              textBoard.workspace_id === currentWorkspaceId)
+          );
+        })
+        .map((textBoardId) => {
+          const position =
+            useKanbanStore.getState().textBoardPositions.byId[textBoardId];
+          if (!position) {
+            return null as unknown as TextBoardCanvasNode;
+          }
+
+          return {
+            id: textBoardId,
+            type: "textBoard" as const,
+            position: { x: position.x, y: position.y },
+            data: {
+              textBoardId,
+              isSelected: textBoardId === selectedBoardId,
+            },
+            style: { zIndex: position.zIndex },
+            width: position.width ?? TEXT_BOARD_DEFAULT_WIDTH,
+            height: position.height,
+          };
+        })
+        .filter((node): node is TextBoardCanvasNode => node != null),
+    [
+      textBoardStructuralSig,
+      textBoardIds.join(","),
+      textBoards,
       currentWorkspaceId,
       selectedBoardId,
     ]
@@ -692,6 +749,7 @@ export function useCanvasNodes() {
     () => [
       ...areaNodes,
       ...boardNodes,
+      ...textBoardNodes,
       ...welcomeNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
@@ -708,6 +766,7 @@ export function useCanvasNodes() {
     [
       areaNodes,
       boardNodes,
+      textBoardNodes,
       welcomeNodes,
       modalNodes,
       taskDetailModalNodes,

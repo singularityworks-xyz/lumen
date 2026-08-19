@@ -6,8 +6,10 @@ import {
   type CreateBoardParams,
   type CreateColumnParams,
   type CreateTaskParams,
+  type CreateTextBoardParams,
   type DeleteBoardParams,
   type DeleteTaskParams,
+  type DeleteTextBoardParams,
   type ExecutorContext,
   // Query executors from @lumen/ai (snapshot-based, privacy-first)
   executeGetBoardDetails,
@@ -23,6 +25,7 @@ import {
   type ToolExecutionResult,
   type UpdateBoardParams,
   type UpdateTaskParams,
+  type UpdateTextBoardParams,
 } from "@lumen/ai/tools";
 
 // Action executors (still need Yjs for real-time sync)
@@ -31,11 +34,14 @@ import { executeBulkUpdateTasks } from "./executors/bulk-update-tasks";
 import { executeCreateBoard } from "./executors/create-board";
 import { executeCreateColumn } from "./executors/create-column";
 import { executeCreateTask } from "./executors/create-task";
+import { executeCreateTextBoard } from "./executors/create-text-board";
 import { executeDeleteBoard } from "./executors/delete-board";
 import { executeDeleteTask } from "./executors/delete-task";
+import { executeDeleteTextBoard } from "./executors/delete-text-board";
 import { executeMoveTask } from "./executors/move-task";
 import { executeUpdateBoard } from "./executors/update-board";
 import { executeUpdateTask } from "./executors/update-task";
+import { executeUpdateTextBoard } from "./executors/update-text-board";
 
 export type { ExecutorContext, ToolExecutionResult } from "@lumen/ai/tools";
 
@@ -87,6 +93,9 @@ export async function executeToolDirect(
     case "createBoard":
     case "updateBoard":
     case "deleteBoard":
+    case "createTextBoard":
+    case "updateTextBoard":
+    case "deleteTextBoard":
     case "createColumn":
     case "bulkUpdateTasks":
     case "bulkDeleteTasks":
@@ -135,6 +144,12 @@ async function executeActionTool(
       return executeUpdateBoard(args as UpdateBoardParams, ctx);
     case "deleteBoard":
       return executeDeleteBoard(args as DeleteBoardParams, ctx);
+    case "createTextBoard":
+      return executeCreateTextBoard(args as CreateTextBoardParams, ctx);
+    case "updateTextBoard":
+      return executeUpdateTextBoard(args as UpdateTextBoardParams, ctx);
+    case "deleteTextBoard":
+      return executeDeleteTextBoard(args as DeleteTextBoardParams, ctx);
     case "createColumn":
       return executeCreateColumn(args as CreateColumnParams, ctx);
     case "bulkUpdateTasks":

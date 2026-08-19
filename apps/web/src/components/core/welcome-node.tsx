@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { HelpCircle, Plus, X } from "lucide-react";
+import { ClipboardList, HelpCircle, Plus, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { memo, useState } from "react";
@@ -44,6 +44,39 @@ export const WelcomeNode = memo(() => {
         if (boardPosition) {
           setCenter(
             boardPosition.x + (boardPosition.width ?? 400) / 2,
+            boardPosition.y + (boardPosition.height ?? 300) / 2,
+            { zoom: 1, duration: 300 }
+          );
+        } else {
+          fitView({ padding: 0.3, duration: 300 });
+        }
+      }, 100);
+    }
+  };
+
+  const handleNewTextBoard = () => {
+    const state = useKanbanStore.getState();
+    const hasBoards = state.currentWorkspaceId
+      ? (state.workspaces.byId[state.currentWorkspaceId]?.board_ids.length ??
+          0) > 0 ||
+        (state.workspaces.byId[state.currentWorkspaceId]?.text_board_ids
+          ?.length ?? 0) > 0
+      : state.boards.allIds.length > 0 || state.textBoards.allIds.length > 0;
+    const position = hasBoards ? undefined : FIRST_BOARD_POSITION;
+
+    const textBoardId = state.addTextBoard(
+      "New Text Board",
+      position,
+      "A todo / text board"
+    );
+
+    if (hasBoards) {
+      setTimeout(() => {
+        const boardPosition =
+          useKanbanStore.getState().textBoardPositions.byId[textBoardId];
+        if (boardPosition) {
+          setCenter(
+            boardPosition.x + (boardPosition.width ?? 300) / 2,
             boardPosition.y + (boardPosition.height ?? 300) / 2,
             { zoom: 1, duration: 300 }
           );
@@ -127,6 +160,15 @@ export const WelcomeNode = memo(() => {
                   Create Your First Board
                 </Button>
               </motion.div>
+
+              <Button
+                className="nodrag h-10 gap-2 rounded-lg border-2 border-border/50 bg-card/50 text-sm shadow-[0_2px_8px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm sm:h-12 sm:rounded-xl sm:text-base dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.3)]"
+                onClick={handleNewTextBoard}
+                variant="outline"
+              >
+                <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5" />
+                Create a Text Board
+              </Button>
 
               <Button
                 className="nodrag h-10 gap-2 rounded-lg border-2 border-border/50 bg-card/50 text-sm shadow-[0_2px_8px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm sm:h-12 sm:rounded-xl sm:text-base dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_2px_3px_rgba(255,255,255,0.1),inset_0_-1px_2px_rgba(0,0,0,0.3)]"

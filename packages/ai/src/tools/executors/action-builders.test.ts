@@ -6,11 +6,14 @@ import {
   buildCreateBoardInstruction,
   buildCreateColumnInstruction,
   buildCreateTaskInstruction,
+  buildCreateTextBoardInstruction,
   buildDeleteBoardInstruction,
   buildDeleteTaskInstruction,
+  buildDeleteTextBoardInstruction,
   buildMoveTaskInstruction,
   buildUpdateBoardInstruction,
   buildUpdateTaskInstruction,
+  buildUpdateTextBoardInstruction,
 } from "./action-builders";
 import type {
   BulkUpdateTasksInstruction,
@@ -222,6 +225,59 @@ describe("buildDeleteBoardInstruction", () => {
   });
 });
 
+describe("buildCreateTextBoardInstruction", () => {
+  it("builds a createTextBoard instruction with all fields", () => {
+    const result = buildCreateTextBoardInstruction({
+      name: "Launch todos",
+      description: "Todos for launch",
+      content: "- [ ] Ship it",
+      position: { x: 1, y: 2 },
+    });
+    expect(result.success).toBe(true);
+    const inst = result.instruction as {
+      content?: string;
+      name: string;
+      position?: { x: number; y: number };
+      type: string;
+    };
+    expect(inst.type).toBe("createTextBoard");
+    expect(inst.name).toBe("Launch todos");
+    expect(inst.content).toBe("- [ ] Ship it");
+    expect(inst.position).toEqual({ x: 1, y: 2 });
+    expect(result.message).toContain("Launch todos");
+  });
+});
+
+describe("buildUpdateTextBoardInstruction", () => {
+  it("builds an updateTextBoard instruction", () => {
+    const result = buildUpdateTextBoardInstruction({
+      textBoardId: "tb1",
+      updates: { name: "Renamed", content: "- [x] Done" },
+    });
+    expect(result.success).toBe(true);
+    const inst = result.instruction as {
+      textBoardId: string;
+      type: string;
+      updates: { content?: string; name?: string };
+    };
+    expect(inst.type).toBe("updateTextBoard");
+    expect(inst.textBoardId).toBe("tb1");
+    expect(inst.updates.name).toBe("Renamed");
+    expect(inst.updates.content).toBe("- [x] Done");
+  });
+});
+
+describe("buildDeleteTextBoardInstruction", () => {
+  it("builds a deleteTextBoard instruction", () => {
+    const result = buildDeleteTextBoardInstruction({ textBoardId: "tb1" });
+    expect(result.success).toBe(true);
+    expect(result.instruction.type).toBe("deleteTextBoard");
+    expect((result.instruction as { textBoardId: string }).textBoardId).toBe(
+      "tb1"
+    );
+  });
+});
+
 describe("buildCreateColumnInstruction", () => {
   it("builds a createColumn instruction", () => {
     const result = buildCreateColumnInstruction({
@@ -356,6 +412,29 @@ describe("buildActionInstruction (dispatcher)", () => {
   it("dispatches 'deleteBoard' to buildDeleteBoardInstruction", () => {
     const result = buildActionInstruction("deleteBoard", { boardId: "b1" });
     expect(result?.instruction.type).toBe("deleteBoard");
+  });
+
+  it("dispatches 'createTextBoard' to buildCreateTextBoardInstruction", () => {
+    const result = buildActionInstruction("createTextBoard", {
+      name: "Notes",
+      content: "- [ ] a",
+    });
+    expect(result?.instruction.type).toBe("createTextBoard");
+  });
+
+  it("dispatches 'updateTextBoard' to buildUpdateTextBoardInstruction", () => {
+    const result = buildActionInstruction("updateTextBoard", {
+      textBoardId: "tb1",
+      updates: { name: "X" },
+    });
+    expect(result?.instruction.type).toBe("updateTextBoard");
+  });
+
+  it("dispatches 'deleteTextBoard' to buildDeleteTextBoardInstruction", () => {
+    const result = buildActionInstruction("deleteTextBoard", {
+      textBoardId: "tb1",
+    });
+    expect(result?.instruction.type).toBe("deleteTextBoard");
   });
 
   it("dispatches 'createColumn' to buildCreateColumnInstruction", () => {

@@ -100,6 +100,8 @@ export class RoomManager {
         doc.getMap(YJS_MAP_NAMES.TASKS);
         doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS);
         doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS);
+        doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS);
+        doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS);
         doc.getMap(YJS_MAP_NAMES.AREAS);
         doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS);
         doc.getMap(YJS_MAP_NAMES.WORKSPACE);
@@ -618,6 +620,10 @@ export class RoomManager {
           boardPositions: room.doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS).size,
           boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
             .size,
+          textBoards: room.doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS).size,
+          textBoardPositions: room.doc.getMap(
+            YJS_MAP_NAMES.TEXT_BOARD_POSITIONS
+          ).size,
           areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
           areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
           comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,
@@ -723,6 +729,10 @@ export class RoomManager {
                 .size,
               boardConnections: room.doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
                 .size,
+              textBoards: room.doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS).size,
+              textBoardPositions: room.doc.getMap(
+                YJS_MAP_NAMES.TEXT_BOARD_POSITIONS
+              ).size,
               areas: room.doc.getMap(YJS_MAP_NAMES.AREAS).size,
               areaPositions: room.doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS).size,
               comments: room.doc.getMap(YJS_MAP_NAMES.COMMENTS).size,

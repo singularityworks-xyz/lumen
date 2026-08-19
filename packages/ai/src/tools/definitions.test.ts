@@ -37,8 +37,13 @@ describe("toolMetadata", () => {
     }
   });
 
-  it("deleteTask, deleteBoard, and bulkDeleteTasks are high-destructive and require confirmation", () => {
-    const destructive = ["deleteTask", "deleteBoard", "bulkDeleteTasks"];
+  it("deleteTask, deleteBoard, deleteTextBoard, and bulkDeleteTasks are high-destructive and require confirmation", () => {
+    const destructive = [
+      "deleteTask",
+      "deleteBoard",
+      "deleteTextBoard",
+      "bulkDeleteTasks",
+    ];
     for (const name of destructive) {
       const meta = toolMetadata[name as keyof typeof toolMetadata];
       expect(meta.destructive).toBe("high");
@@ -65,9 +70,9 @@ describe("queryTools and actionTools collections", () => {
     expect(names).toContain("getRecentActivity");
   });
 
-  it("actionTools contains exactly 10 action tools", () => {
+  it("actionTools contains exactly 13 action tools", () => {
     const names = Object.keys(actionTools);
-    expect(names).toHaveLength(10);
+    expect(names).toHaveLength(13);
     expect(names).toContain("createTask");
     expect(names).toContain("updateTask");
     expect(names).toContain("deleteTask");
@@ -75,6 +80,9 @@ describe("queryTools and actionTools collections", () => {
     expect(names).toContain("createBoard");
     expect(names).toContain("updateBoard");
     expect(names).toContain("deleteBoard");
+    expect(names).toContain("createTextBoard");
+    expect(names).toContain("updateTextBoard");
+    expect(names).toContain("deleteTextBoard");
     expect(names).toContain("createColumn");
     expect(names).toContain("bulkUpdateTasks");
     expect(names).toContain("bulkDeleteTasks");
@@ -98,6 +106,7 @@ describe("requiresConfirmation", () => {
   it("returns true for high-destructive tools", () => {
     expect(requiresConfirmation("deleteTask")).toBe(true);
     expect(requiresConfirmation("deleteBoard")).toBe(true);
+    expect(requiresConfirmation("deleteTextBoard")).toBe(true);
     expect(requiresConfirmation("bulkDeleteTasks")).toBe(true);
   });
 
@@ -124,7 +133,7 @@ describe("getToolsByCategory", () => {
 
   it("returns only action tools when filtering by 'action'", () => {
     const results = getToolsByCategory("action");
-    expect(results).toHaveLength(10);
+    expect(results).toHaveLength(13);
     for (const [name] of results) {
       const meta = toolMetadata[name as keyof typeof toolMetadata];
       expect(meta.category).toBe("action");
@@ -138,6 +147,7 @@ describe("getSafeTools", () => {
     const names = safe.map(([name]) => name);
     expect(names).not.toContain("deleteTask");
     expect(names).not.toContain("deleteBoard");
+    expect(names).not.toContain("deleteTextBoard");
     expect(names).not.toContain("bulkDeleteTasks");
   });
 

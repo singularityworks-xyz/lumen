@@ -46,6 +46,8 @@ describe("syncs", () => {
         tasks: YJS_MAP_NAMES.TASKS,
         boardPositions: YJS_MAP_NAMES.BOARD_POSITIONS,
         boardConnections: YJS_MAP_NAMES.BOARD_CONNECTIONS,
+        textBoards: YJS_MAP_NAMES.TEXT_BOARDS,
+        textBoardPositions: YJS_MAP_NAMES.TEXT_BOARD_POSITIONS,
         areas: YJS_MAP_NAMES.AREAS,
         areaPositions: YJS_MAP_NAMES.AREA_POSITIONS,
         areaDialogs: YJS_MAP_NAMES.AREA_DIALOGS,
@@ -76,9 +78,9 @@ describe("syncs", () => {
       }
     });
 
-    it("allSyncs contains exactly 20 keys", async () => {
+    it("allSyncs contains exactly 22 keys", async () => {
       const { allSyncs } = await import("./syncs");
-      expect(Object.keys(allSyncs)).toHaveLength(20);
+      expect(Object.keys(allSyncs)).toHaveLength(22);
     });
   });
 

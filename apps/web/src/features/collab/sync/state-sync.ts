@@ -25,6 +25,8 @@ import {
   createTaskModalSync,
   taskQuickActionsSync,
   taskSync,
+  textBoardPositionSync,
+  textBoardSync,
   workspaceSync,
 } from "./syncs";
 
@@ -72,6 +74,8 @@ export function applyYjsToState(
     tasks: [],
     boardPositions: [],
     boardConnections: [],
+    textBoards: [],
+    textBoardPositions: [],
     areas: [],
     areaPositions: [],
     comments: [],
@@ -90,6 +94,8 @@ export function applyYjsToState(
       "tasks",
       "boardPositions",
       "boardConnections",
+      "textBoards",
+      "textBoardPositions",
       "areas",
       "areaPositions",
       "comments",
@@ -112,6 +118,8 @@ export function applyYjsToState(
     tasks: new Set(syncedEntitiesMetadata.tasks),
     boardPositions: new Set(syncedEntitiesMetadata.boardPositions),
     boardConnections: new Set(syncedEntitiesMetadata.boardConnections),
+    textBoards: new Set(syncedEntitiesMetadata.textBoards),
+    textBoardPositions: new Set(syncedEntitiesMetadata.textBoardPositions),
     areas: new Set(syncedEntitiesMetadata.areas),
     areaPositions: new Set(syncedEntitiesMetadata.areaPositions),
     comments: new Set(syncedEntitiesMetadata.comments),
@@ -125,6 +133,8 @@ export function applyYjsToState(
     tasks: new Set<string>(),
     boardPositions: new Set<string>(),
     boardConnections: new Set<string>(),
+    textBoards: new Set<string>(),
+    textBoardPositions: new Set<string>(),
     areas: new Set<string>(),
     areaPositions: new Set<string>(),
     comments: new Set<string>(),
@@ -187,6 +197,12 @@ export function applyYjsToState(
     boardPositionSync.applyFromYjs(boardPositionsYjsMap);
   const syncedBoardConnections = boardConnectionSync.applyFromYjs(
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS)
+  );
+  const syncedTextBoards = textBoardSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS)
+  );
+  const syncedTextBoardPositions = textBoardPositionSync.applyFromYjs(
+    doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS)
   );
   const syncedAreas = areaSync.applyFromYjs(doc.getMap(YJS_MAP_NAMES.AREAS));
   const syncedAreaPositions = areaPositionSync.applyFromYjs(
@@ -458,6 +474,50 @@ export function applyYjsToState(
       rawYjsMap: doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
       previouslySyncedIds: previouslySyncedIds.boardConnections,
       newSyncedIds: newSyncedIds.boardConnections,
+    }
+  );
+
+  // STRICT: Area belongs to synced workspace
+  // Text boards follow the same pattern as boards: strict workspace filtering
+  const textBoardBelongsToSyncedWorkspace = (textBoard: {
+    workspace_id?: string;
+  }): boolean => textBoard.workspace_id === currentWorkspaceId;
+
+  const textBoardIdsSet = new Set(
+    syncedTextBoards.allIds.filter((id) => {
+      const textBoard = syncedTextBoards.byId[id];
+      return textBoard && textBoardBelongsToSyncedWorkspace(textBoard);
+    })
+  );
+
+  const textBoards = mergeEntityMaps(
+    currentState?.textBoards,
+    syncedTextBoards,
+    {
+      filterFn: textBoardBelongsToSyncedWorkspace,
+      belongsToWorkspaceFn: textBoardBelongsToSyncedWorkspace,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS),
+      previouslySyncedIds: previouslySyncedIds.textBoards,
+      newSyncedIds: newSyncedIds.textBoards,
+    }
+  );
+
+  const textBoardPositionBelongsToSyncedWorkspace = (pos: {
+    id: string;
+  }): boolean => {
+    const textBoard = textBoards.byId[pos.id];
+    return textBoard?.workspace_id === currentWorkspaceId;
+  };
+
+  const textBoardPositions = mergeEntityMaps(
+    currentState?.textBoardPositions,
+    syncedTextBoardPositions,
+    {
+      filterFn: (pos) => !currentWorkspaceId || textBoardIdsSet.has(pos.id),
+      belongsToWorkspaceFn: textBoardPositionBelongsToSyncedWorkspace,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS),
+      previouslySyncedIds: previouslySyncedIds.textBoardPositions,
+      newSyncedIds: newSyncedIds.textBoardPositions,
     }
   );
 
@@ -790,6 +850,18 @@ export function applyYjsToState(
         ...newSyncedIds.boardConnections,
       ]),
     ],
+    textBoards: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.textBoards || []),
+        ...newSyncedIds.textBoards,
+      ]),
+    ],
+    textBoardPositions: [
+      ...new Set([
+        ...(syncedEntitiesMetadata.textBoardPositions || []),
+        ...newSyncedIds.textBoardPositions,
+      ]),
+    ],
     areas: [
       ...new Set([
         ...(syncedEntitiesMetadata.areas || []),
@@ -827,6 +899,8 @@ export function applyYjsToState(
     const tasksSet = new Set(tasks.allIds);
     const boardPositionsSet = new Set(boardPositions.allIds);
     const boardConnectionsSet = new Set(boardConnections.allIds);
+    const textBoardsSet = new Set(textBoards.allIds);
+    const textBoardPositionsSet = new Set(textBoardPositions.allIds);
     const areasSet = new Set(areas.allIds);
     const areaPositionsSet = new Set(areaPositions.allIds);
     const commentsSet = new Set(comments.allIds);
@@ -841,6 +915,12 @@ export function applyYjsToState(
       ),
       boardConnections: updatedSyncedEntities.boardConnections.filter((id) =>
         boardConnectionsSet.has(id)
+      ),
+      textBoards: updatedSyncedEntities.textBoards.filter((id) =>
+        textBoardsSet.has(id)
+      ),
+      textBoardPositions: updatedSyncedEntities.textBoardPositions.filter(
+        (id) => textBoardPositionsSet.has(id)
       ),
       areas: updatedSyncedEntities.areas.filter((id) => areasSet.has(id)),
       areaPositions: updatedSyncedEntities.areaPositions.filter((id) =>
@@ -863,6 +943,8 @@ export function applyYjsToState(
     tasks,
     boardPositions,
     boardConnections,
+    textBoards,
+    textBoardPositions,
     areas,
     areaPositions,
     comments,
@@ -915,6 +997,8 @@ export function applyYjsToStateWithRepair(
       tasks: repairedState.tasks,
       boardPositions: repairedState.boardPositions,
       boardConnections: repairedState.boardConnections,
+      textBoards: repairedState.textBoards,
+      textBoardPositions: repairedState.textBoardPositions,
       areas: repairedState.areas,
       areaPositions: repairedState.areaPositions,
       areaDragOrigins: yjsState.areaDragOrigins,
@@ -943,6 +1027,8 @@ export function initializeYjsFromState(doc: Y.Doc, state: KanbanState): void {
   taskSync.initializeYjs(doc, state.tasks);
   boardPositionSync.initializeYjs(doc, state.boardPositions);
   boardConnectionSync.initializeYjs(doc, state.boardConnections);
+  textBoardSync.initializeYjs(doc, state.textBoards);
+  textBoardPositionSync.initializeYjs(doc, state.textBoardPositions);
   areaSync.initializeYjs(doc, state.areas);
   areaPositionSync.initializeYjs(doc, state.areaPositions);
   commentSync.initializeYjs(doc, state.comments);
@@ -1088,6 +1174,56 @@ export function initializeYjsForWorkspace(
     });
   }
 
+  // Only sync text boards that belong to this workspace
+  const workspaceTextBoards =
+    state.textBoards?.allIds
+      ?.map((id) => state.textBoards.byId[id])
+      .filter(
+        (textBoard) => textBoard && textBoard.workspace_id === workspaceId
+      ) ?? [];
+
+  const textBoardsMap = doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS);
+  if (textBoardsMap.size === 0 && workspaceTextBoards.length > 0) {
+    doc.transact(() => {
+      for (const textBoard of workspaceTextBoards) {
+        if (textBoard) {
+          textBoardsMap.set(
+            textBoard.id,
+            JSON.parse(JSON.stringify(textBoard))
+          );
+        }
+      }
+    });
+    logger.debug("Initialized text boards in Yjs", {
+      count: workspaceTextBoards.length,
+    });
+  }
+
+  const workspaceTextBoardIds = new Set(
+    workspaceTextBoards.map((tb) => tb?.id).filter(Boolean)
+  );
+  const workspaceTextBoardPositions =
+    state.textBoardPositions?.allIds
+      ?.map((id) => state.textBoardPositions.byId[id])
+      .filter((pos) => pos && workspaceTextBoardIds.has(pos.id)) ?? [];
+
+  const textBoardPositionsMap = doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS);
+  if (
+    textBoardPositionsMap.size === 0 &&
+    workspaceTextBoardPositions.length > 0
+  ) {
+    doc.transact(() => {
+      for (const pos of workspaceTextBoardPositions) {
+        if (pos) {
+          textBoardPositionsMap.set(pos.id, JSON.parse(JSON.stringify(pos)));
+        }
+      }
+    });
+    logger.debug("Initialized text board positions in Yjs", {
+      count: workspaceTextBoardPositions.length,
+    });
+  }
+
   // Only sync areas that belong to this workspace
   const workspaceAreas = state.areas.allIds
     .map((id) => state.areas.byId[id])
@@ -1169,6 +1305,7 @@ export function initializeYjsForWorkspace(
     boards: workspaceBoards.length,
     columns: workspaceColumns.length,
     tasks: workspaceTasks.length,
+    textBoards: workspaceTextBoards.length,
   });
 }
 
@@ -1184,6 +1321,8 @@ export function observeYjsChanges(
     doc.getMap(YJS_MAP_NAMES.TASKS),
     doc.getMap(YJS_MAP_NAMES.BOARD_POSITIONS),
     doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
+    doc.getMap(YJS_MAP_NAMES.TEXT_BOARDS),
+    doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS),
     doc.getMap(YJS_MAP_NAMES.AREAS),
     doc.getMap(YJS_MAP_NAMES.AREA_POSITIONS),
     doc.getMap(YJS_MAP_NAMES.AREA_DRAG_ORIGINS),
