@@ -42,6 +42,7 @@ export const TaskCard = memo(
     );
     const draggedTaskId = useKanbanStore((state) => state.draggedTaskId);
     const setDraggedTask = useKanbanStore((state) => state.setDraggedTask);
+    const isGuestMode = useKanbanStore((state) => state.isGuestMode);
     const { getViewport, setViewport } = useReactFlow();
 
     const {
@@ -592,54 +593,58 @@ export const TaskCard = memo(
             <GripVertical className="h-5 w-5 animate-pulse text-primary" />
           </div>
         )}
-        <div className="absolute inset-y-0 left-0 flex w-9 flex-col border-border/40 border-r opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            className={`flex flex-1 items-center justify-center rounded-tl transition-all active:scale-95 ${
-              task.status === "trash"
-                ? "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
-                : task.status === "done"
-                  ? "text-muted-foreground/70 hover:bg-primary hover:text-white"
-                  : "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
-            }`}
-            onClick={handleStatusToggle}
-            title={
-              task.status === "trash"
-                ? "Restore task"
-                : task.status === "done"
-                  ? "Mark as to do"
-                  : "Mark as done"
-            }
-            type="button"
-          >
-            {task.status === "trash" || task.status === "done" ? (
-              <RotateCcw className="h-4 w-4" />
-            ) : (
-              <Check className="h-4 w-4" />
-            )}
-          </button>
-          <div className="h-px w-full bg-border/40" />
-          <button
-            className="flex flex-1 items-center justify-center rounded-bl text-muted-foreground/70 transition-all hover:bg-red-500 hover:text-white active:scale-95"
-            onClick={handleDelete}
-            title={
-              task.status === "trash" ? "Delete permanently" : "Move to trash"
-            }
-            type="button"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        {!isGuestMode && (
+          <div className="absolute inset-y-0 left-0 flex w-9 flex-col border-border/40 border-r opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              className={`flex flex-1 items-center justify-center rounded-tl transition-all active:scale-95 ${
+                task.status === "trash"
+                  ? "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
+                  : task.status === "done"
+                    ? "text-muted-foreground/70 hover:bg-primary hover:text-white"
+                    : "text-muted-foreground/70 hover:bg-green-500 hover:text-white"
+              }`}
+              onClick={handleStatusToggle}
+              title={
+                task.status === "trash"
+                  ? "Restore task"
+                  : task.status === "done"
+                    ? "Mark as to do"
+                    : "Mark as done"
+              }
+              type="button"
+            >
+              {task.status === "trash" || task.status === "done" ? (
+                <RotateCcw className="h-4 w-4" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+            </button>
+            <div className="h-px w-full bg-border/40" />
+            <button
+              className="flex flex-1 items-center justify-center rounded-bl text-muted-foreground/70 transition-all hover:bg-red-500 hover:text-white active:scale-95"
+              onClick={handleDelete}
+              title={
+                task.status === "trash" ? "Delete permanently" : "Move to trash"
+              }
+              type="button"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/** biome-ignore lint/a11y/noStaticElementInteractions: TODO: i'll check later */}
         {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: TODO: i'll check later */}
         <div
-          className="relative h-full w-full bg-inherit p-2 transition-transform duration-300 ease-out group-hover:translate-x-9"
-          draggable
-          onClick={handleClick}
-          onContextMenu={handleContextMenu}
-          onDrag={handleDrag}
-          onDragEnd={handleDragEnd}
-          onDragStart={handleDragStart}
+          className={`relative h-full w-full bg-inherit p-2 transition-transform duration-300 ease-out ${
+            isGuestMode ? "" : "group-hover:translate-x-9"
+          }`}
+          draggable={!isGuestMode}
+          onClick={isGuestMode ? undefined : handleClick}
+          onContextMenu={isGuestMode ? undefined : handleContextMenu}
+          onDrag={isGuestMode ? undefined : handleDrag}
+          onDragEnd={isGuestMode ? undefined : handleDragEnd}
+          onDragStart={isGuestMode ? undefined : handleDragStart}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();

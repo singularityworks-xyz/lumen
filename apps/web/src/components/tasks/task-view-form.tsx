@@ -54,6 +54,7 @@ export const TaskViewForm = memo(
     const closeTaskDetailModal = useKanbanStore(
       (state) => state.closeTaskDetailModal
     );
+    const isGuestMode = useKanbanStore((state) => state.isGuestMode);
     const moveTask = useKanbanStore((state) => state.moveTask);
     const board = useKanbanStore((state) => state.boards.byId[boardId]);
     const columnsById = useKanbanStore((state) => state.columns.byId);
@@ -301,35 +302,37 @@ export const TaskViewForm = memo(
         </div>
 
         {/* Footer Actions */}
-        <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
-          <Button
-            className="h-7 rounded-md bg-destructive/90 text-destructive-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-destructive dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-            onClick={handleDelete}
-            type="button"
-            variant="destructive"
-          >
-            <Trash2 className="mr-1 h-3 w-3" />
-            Delete
-          </Button>
-          <div className="flex-1" />
-          <Button
-            className="h-7 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
-            onClick={() => closeTaskDetailModal(modalId)}
-            type="button"
-            variant="ghost"
-          >
-            Close
-          </Button>
-          <Button
-            className="h-7 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-            data-testid="task-detail-edit-button"
-            onClick={onEdit}
-            type="button"
-          >
-            <Edit2 className="mr-1 h-3 w-3" />
-            Edit
-          </Button>
-        </div>
+        {!isGuestMode && (
+          <div className="flex gap-2 border-t bg-muted/95 px-3 py-2 dark:bg-secondary/95">
+            <Button
+              className="h-7 rounded-md bg-destructive/90 text-destructive-foreground text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-destructive dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+              onClick={handleDelete}
+              type="button"
+              variant="destructive"
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              Delete
+            </Button>
+            <div className="flex-1" />
+            <Button
+              className="h-7 rounded-md bg-card/80 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+              onClick={() => closeTaskDetailModal(modalId)}
+              type="button"
+              variant="ghost"
+            >
+              Close
+            </Button>
+            <Button
+              className="h-7 rounded-md bg-primary/90 text-xs shadow-[0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+              data-testid="task-detail-edit-button"
+              onClick={onEdit}
+              type="button"
+            >
+              <Edit2 className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

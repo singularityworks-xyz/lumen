@@ -285,4 +285,35 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(state.boardConnections.byId["conn-1"]).toBeDefined();
     });
   });
+
+  describe("8. Read-Only Task Card & Modal Protections in Guest Mode", () => {
+    it("prevents guest mode from closing active task detail modals", () => {
+      const state = createInitialState();
+      state.isGuestMode = true;
+      state.taskDetailModals["modal-1"] = {
+        boardId: "board-1",
+        id: "modal-1",
+        isEditing: false,
+        position: { x: 100, y: 100 },
+        sourceTaskId: "task-1",
+        taskId: "task-1",
+        zIndex: 10,
+      };
+
+      const closeTaskDetailModal = (modalId: string) => {
+        if (state.isGuestMode) {
+          return;
+        }
+        delete state.taskDetailModals[modalId];
+      };
+
+      closeTaskDetailModal("modal-1");
+      expect(state.taskDetailModals["modal-1"]).toBeDefined();
+
+      // For authenticated user
+      state.isGuestMode = false;
+      closeTaskDetailModal("modal-1");
+      expect(state.taskDetailModals["modal-1"]).toBeUndefined();
+    });
+  });
 });

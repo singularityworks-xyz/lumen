@@ -221,6 +221,9 @@ export const createModalSlice: SliceCreator = (set, get) => ({
 
   closeTaskDetailModal: (modalId) =>
     set((state) => {
+      if (state.isGuestMode) {
+        return;
+      }
       delete state.taskDetailModals[modalId];
     }),
 
