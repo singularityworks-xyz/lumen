@@ -6,7 +6,7 @@ import {
   SortableContext,
 } from "@dnd-kit/sortable";
 import { memo, useMemo } from "react";
-import { useColumnDragContext } from "@/src/components/core/canvas";
+import { useColumnDragContext } from "@/src/components/core/helpers/canvas-types";
 import type { DenormalizedBoard } from "../types";
 import { KanbanColumn } from "./kanban-column";
 

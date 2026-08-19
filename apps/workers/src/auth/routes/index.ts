@@ -16,6 +16,13 @@ const logger = createLogger({ name: "auth:routes" });
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
 const SESSION_LOOKUP_PATH = "/api/auth/get-session";
 
+// Health probes (Dokploy polls every ~30s) are not auth traffic — logging
+// them at info spams the logs. Skip them entirely.
+const HEALTH_PROBE_PATHS = new Set(["/", "/health", "/instance-id"]);
+
+const isHealthProbe = (pathname: string): boolean =>
+  HEALTH_PROBE_PATHS.has(pathname);
+
 const parseCookieName = (cookieString: string): string => {
   // biome-ignore lint/performance/useTopLevelRegex: does not hurt here
   const match = cookieString.match(/^([^=]+)=/);
@@ -61,7 +68,7 @@ if (typeof process !== "undefined") {
 export const authRoutes = new Elysia({ name: "auth-routes" })
   .onRequest(({ request }) => {
     const url = new URL(request.url);
-    if (!url.pathname.includes("/token")) {
+    if (!(url.pathname.includes("/token") || isHealthProbe(url.pathname))) {
       if (url.pathname === SESSION_LOOKUP_PATH) {
         logger.debug("Auth request received", {
           method: request.method,
@@ -77,7 +84,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   })
   .onAfterHandle(({ request }) => {
     const url = new URL(request.url);
-    if (!url.pathname.includes("/token")) {
+    if (!(url.pathname.includes("/token") || isHealthProbe(url.pathname))) {
       if (url.pathname === SESSION_LOOKUP_PATH) {
         logger.debug("Auth response sent", {
           method: request.method,

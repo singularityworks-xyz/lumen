@@ -26,7 +26,11 @@ defmodule PresenceWeb.Endpoint do
   end
 
   plug(Plug.RequestId)
-  plug(Plug.Telemetry, event_prefix: [:phoenix, :endpoint])
+
+  plug(Plug.Telemetry,
+    event_prefix: [:phoenix, :endpoint],
+    log: {__MODULE__, :log_level, []}
+  )
 
   plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -38,4 +42,9 @@ defmodule PresenceWeb.Endpoint do
   plug(Plug.Head)
   plug(Plug.Session, @session_options)
   plug(PresenceWeb.Router)
+
+  # Health probes (Dokploy polls every ~30s) are not request traffic —
+  # silence their request logs while keeping everything else at info.
+  def log_level(%{path_info: ["health" | _]}), do: false
+  def log_level(_), do: :info
 end

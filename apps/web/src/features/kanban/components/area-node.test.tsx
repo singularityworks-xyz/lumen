@@ -69,6 +69,15 @@ mock.module("../store/kanban-store", () => ({
         byId: Record<string, typeof mockAreaPosition | null>;
         allIds: string[];
       };
+      boards: { byId: Record<string, unknown>; allIds: string[] };
+      columns: { byId: Record<string, unknown>; allIds: string[] };
+      tasks: { byId: Record<string, unknown>; allIds: string[] };
+      boardPositions: { byId: Record<string, unknown>; allIds: string[] };
+      columnUi: Record<string, unknown>;
+      selectedTaskIds: string[];
+      selectedBoardIds: string[];
+      areaDialogs: Record<string, unknown>;
+      dialogFocusStack: string[];
       updateArea: typeof mockUpdateArea;
       removeArea: typeof mockRemoveArea;
       openAreaDialog: typeof mockOpenAreaDialog;
@@ -85,6 +94,21 @@ mock.module("../store/kanban-store", () => ({
         byId: { "area-1": mockAreaPosition },
         allIds: ["area-1"],
       },
+      boards: {
+        byId: {
+          "board-1": { id: "board-1", name: "Board 1", column_ids: [] },
+          "board-2": { id: "board-2", name: "Board 2", column_ids: [] },
+        },
+        allIds: ["board-1", "board-2"],
+      },
+      columns: { byId: {}, allIds: [] },
+      tasks: { byId: {}, allIds: [] },
+      boardPositions: { byId: {}, allIds: [] },
+      columnUi: {},
+      selectedTaskIds: [],
+      selectedBoardIds: [],
+      areaDialogs: {},
+      dialogFocusStack: [],
       updateArea: mockUpdateArea,
       removeArea: mockRemoveArea,
       openAreaDialog: mockOpenAreaDialog,

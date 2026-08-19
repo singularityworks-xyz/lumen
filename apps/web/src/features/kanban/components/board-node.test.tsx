@@ -140,6 +140,13 @@ const mockStore = {
   columns: mockColumns,
   tasks: mockTasks,
   boardPositions: mockBoardPositions,
+  areas: { byId: {}, allIds: [] },
+  areaPositions: { byId: {}, allIds: [] },
+  areaDialogs: {},
+  dialogFocusStack: [] as string[],
+  registerDialog: mock(() => undefined),
+  unregisterDialog: mock(() => undefined),
+  bringDialogToFront: mock(() => undefined),
   columnUi: {},
   selectedTaskIds: [] as string[],
 };

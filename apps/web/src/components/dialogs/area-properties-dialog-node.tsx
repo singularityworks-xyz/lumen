@@ -2,7 +2,7 @@
 
 import type { Node, NodeProps } from "@xyflow/react";
 import { GripHorizontal, X } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
@@ -11,6 +11,7 @@ import {
   COLUMN_ICONS,
 } from "@/src/features/kanban/utils/color-icon-utils";
 import { useDialogPresenceLifecycle } from "@/src/hooks/use-dialog-presence";
+import { useImperativeConnector } from "@/src/hooks/use-imperative-connector";
 import { cn } from "@/src/lib/utils";
 
 export interface AreaPropertiesDialogNodeData {
@@ -37,6 +38,19 @@ export const AreaPropertiesDialogNodeComponent =
       areaDialog ? state.areas.byId[areaDialog.areaId] : null
     );
 
+    const registerDialog = useKanbanStore((state) => state.registerDialog);
+    const unregisterDialog = useKanbanStore((state) => state.unregisterDialog);
+    const bringDialogToFront = useKanbanStore(
+      (state) => state.bringDialogToFront
+    );
+    const dialogFocusStack = useKanbanStore((state) => state.dialogFocusStack);
+    const zIndexDialogId = `area-properties-dialog-${dialogId}`;
+
+    useEffect(() => {
+      registerDialog(zIndexDialogId);
+      return () => unregisterDialog(zIndexDialogId);
+    }, [zIndexDialogId, registerDialog, unregisterDialog]);
+
     const { dialogCollaborator, handleDialogPointerDown } =
       useDialogPresenceLifecycle(
         dialogId,
@@ -44,9 +58,36 @@ export const AreaPropertiesDialogNodeComponent =
         areaDialog?.areaId ?? ""
       );
 
+    const connectorZIndex = useMemo(() => {
+      const index = dialogFocusStack.indexOf(zIndexDialogId);
+      if (index === -1) {
+        return 1000;
+      }
+      return 1000 + (index + 1) * 10;
+    }, [dialogFocusStack, zIndexDialogId]);
+
+    useImperativeConnector({
+      customColor: area?.color,
+      endOffsetY: 20,
+      hideStartNode: true,
+      sourceSelector: `.react-flow__node[data-id="${areaDialog?.areaId}"] .area-drag-handle`,
+      targetNodeId: `area-dialog-${dialogId}`,
+      zIndex: connectorZIndex,
+    });
+
     const handleClose = useCallback(() => {
       closeAreaDialog(dialogId);
     }, [closeAreaDialog, dialogId]);
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          handleClose();
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [handleClose]);
 
     const handleColorChange = useCallback(
       (color: string) => {
@@ -66,6 +107,11 @@ export const AreaPropertiesDialogNodeComponent =
       [areaDialog?.areaId, updateArea]
     );
 
+    const handlePointerDown = useCallback(() => {
+      bringDialogToFront(zIndexDialogId);
+      handleDialogPointerDown();
+    }, [bringDialogToFront, handleDialogPointerDown, zIndexDialogId]);
+
     if (!(areaDialog && area)) {
       return null;
     }
@@ -76,7 +122,7 @@ export const AreaPropertiesDialogNodeComponent =
     return (
       <div
         className="relative"
-        onPointerDown={handleDialogPointerDown}
+        onPointerDown={handlePointerDown}
         style={{ width: DIALOG_WIDTH }}
       >
         {dialogCollaborator && (
@@ -87,7 +133,7 @@ export const AreaPropertiesDialogNodeComponent =
         <div
           aria-labelledby="area-dialog-title"
           className={cn(
-            "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
+            "flex flex-col rounded-lg bg-card transition-all",
             selected || isFocused
               ? "shadow-[0_0_0_2px_var(--primary),0_8px_24px_rgba(0,0,0,0.25)]"
               : "border-2 border-border/50 shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
@@ -101,9 +147,9 @@ export const AreaPropertiesDialogNodeComponent =
           role="dialog"
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-border border-b bg-muted/50 px-3 py-2">
+          <div className="area-dialog-drag-handle flex cursor-move select-none items-center justify-between border-border border-b bg-muted/50 px-3 py-2">
             <div className="flex items-center gap-2">
-              <GripHorizontal className="h-4 w-4 cursor-move text-muted-foreground" />
+              <GripHorizontal className="h-4 w-4 text-muted-foreground" />
               <span
                 className="font-medium text-foreground text-xs"
                 id="area-dialog-title"
@@ -113,8 +159,9 @@ export const AreaPropertiesDialogNodeComponent =
             </div>
             <button
               aria-label="Close area properties dialog"
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="nodrag flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               onClick={handleClose}
+              onPointerDown={(e) => e.stopPropagation()}
               type="button"
             >
               <X className="h-3 w-3" />

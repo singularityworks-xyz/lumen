@@ -682,8 +682,7 @@ export function useCanvasNodes() {
         style: {
           zIndex: computeZIndex(`area-properties-dialog-${dialog.id}`),
         },
-        width: 300,
-        height: 400,
+        dragHandle: ".area-dialog-drag-handle",
         draggable: true,
       })),
     [areaDialogs, computeZIndex]

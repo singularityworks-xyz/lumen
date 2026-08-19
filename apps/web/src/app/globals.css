@@ -198,7 +198,7 @@
 }
 
 .react-flow__node.selected {
-  contain: layout style paint;
+  contain: layout style;
 }
 
 /* Board node content containment to reduce layout recalculation scope */

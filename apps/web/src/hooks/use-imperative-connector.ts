@@ -19,7 +19,8 @@ const FILL_MAP: Record<string, string> = {
 function computePath(sx: number, sy: number, ex: number, ey: number): string {
   const dx = Math.abs(ex - sx);
   const co = Math.min(dx * 0.4, 60);
-  return `M ${sx} ${sy} C ${sx + co} ${sy}, ${ex - co} ${ey}, ${ex} ${ey}`;
+  const dir = ex >= sx ? 1 : -1;
+  return `M ${sx} ${sy} C ${sx + dir * co} ${sy}, ${ex - dir * co} ${ey}, ${ex} ${ey}`;
 }
 
 interface UseImperativeConnectorOptions {
@@ -170,7 +171,22 @@ export function useImperativeConnector(options: UseImperativeConnectorOptions) {
           return;
         }
         const targetRect = targetEl.getBoundingClientRect();
-        endX = targetRect.left;
+        if (targetRect.right < startX) {
+          // Target is to the left of source
+          if (currentOpts.sourceElement) {
+            startX = currentOpts.sourceElement.getBoundingClientRect().left;
+          } else if (currentOpts.sourceSelector) {
+            const el = document.querySelector(
+              currentOpts.sourceSelector
+            ) as HTMLElement;
+            if (el) {
+              startX = el.getBoundingClientRect().left;
+            }
+          }
+          endX = targetRect.right;
+        } else {
+          endX = targetRect.left;
+        }
         endY = targetRect.top + (currentOpts.endOffsetY ?? 24);
       } else {
         path.setAttribute("d", "");

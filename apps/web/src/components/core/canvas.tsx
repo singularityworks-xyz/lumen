@@ -31,13 +31,13 @@ import {
   type BoardEdge,
   BoardEdgeComponent,
 } from "@/src/components/core/board-edge";
+import { nodeTypes } from "@/src/components/core/node-types";
 import { CustomControls } from "@/src/components/custom-controls";
 import { EdgeContextMenu } from "@/src/components/edge-context-menu";
 import { RightControls } from "@/src/components/right-controls";
 import { TaskDragOverlayContainer } from "@/src/components/tasks/task-drag-overlay-container";
 import { CursorOverlay, useCollaboration } from "@/src/features/collab";
 import { CommentClusterNode } from "@/src/features/comments/components/comment-cluster-node";
-import { nodeTypes } from "@/src/features/kanban/components/board-node";
 import { BulkActionsBar } from "@/src/features/kanban/components/bulk-actions-bar";
 import { CollaboratorSelectionOverlayScreen } from "@/src/features/kanban/components/collaborator-selection-overlay-screen";
 import { ColumnDragOverlayContainer } from "@/src/features/kanban/components/column-drag-overlay-container";
