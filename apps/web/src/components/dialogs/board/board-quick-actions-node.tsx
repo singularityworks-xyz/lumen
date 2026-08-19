@@ -14,7 +14,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlockingDialogsManager } from "@/src/components/dialogs/blocking-dialogs-manager";
 import { ColumnCreateDialog } from "@/src/components/dialogs/column/column-create-dialog";
 import { DialogPresenceIndicator } from "@/src/components/dialogs/dialog-presence-indicator";
@@ -43,8 +43,15 @@ const DIALOG_CENTER_OFFSET = 150;
 
 export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
   ({ id, data, selected }) => {
-    const { getNode, setCenter, getViewport, setViewport } = useReactFlow();
+    const {
+      getNode,
+      setCenter,
+      getViewport,
+      setViewport,
+      flowToScreenPosition,
+    } = useReactFlow();
     const [isFocused, setIsFocused] = useState(false);
+    const addColumnButtonRef = useRef<HTMLButtonElement>(null);
 
     const boardId = data.boardId;
     const board = useKanbanStore((state) => state.boards.byId[boardId]);
@@ -418,13 +425,20 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
       }
       const myNode = getNode(id);
       if (myNode) {
-        const dialogX = myNode.position.x + DIALOG_WIDTH + 40;
-        const dialogY = myNode.position.y;
-        setCreateColumnPos({ x: dialogX, y: dialogY });
+        const dialogFlowX = myNode.position.x + DIALOG_WIDTH + 40;
+        const dialogFlowY = myNode.position.y;
+        const screenPos = flowToScreenPosition({
+          x: dialogFlowX,
+          y: dialogFlowY,
+        });
+        setCreateColumnPos(screenPos);
         setIsCreateColumnOpen(true);
-        setTimeout(() => ensureDialogVisible(dialogX, dialogY, 320, 200), 50);
+        setTimeout(
+          () => ensureDialogVisible(dialogFlowX, dialogFlowY, 320, 200),
+          50
+        );
       }
-    }, [board, getNode, id, ensureDialogVisible]);
+    }, [board, getNode, id, flowToScreenPosition, ensureDialogVisible]);
 
     const handleCloseCreateColumn = useCallback(() => {
       setIsCreateColumnOpen(false);
@@ -799,6 +813,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
                     onClick={handleAddColumn}
+                    ref={addColumnButtonRef}
                     type="button"
                   >
                     <Columns className="h-3.5 w-3.5" />
@@ -926,6 +941,7 @@ export const BoardQuickActionsNodeComponent = memo<BoardQuickActionsNodeProps>(
           onClose={handleCloseCreateColumn}
           onSubmit={handleSubmitCreateColumn}
           position={createColumnPos ?? undefined}
+          sourceElement={addColumnButtonRef.current}
         />
       </div>
     );

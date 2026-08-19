@@ -1,8 +1,44 @@
-const WEB_VERSION = "1.1.32";
+const WEB_VERSION = "1.1.33";
+
+// Production startup gate: the container refuses to boot without the
+// observability stack it is configured to export to. Runs here (server
+// boot only) — this file is never bundled client-side, so process.exit is
+// safe. Vars required by the env schema with defaults (org/streams) are
+// excluded; these three have no meaningful default.
+const PRODUCTION_REQUIRED_ENV: Array<{ key: string; purpose: string }> = [
+  {
+    key: "OTEL_EXPORTER_OTLP_ENDPOINT",
+    purpose: "OpenTelemetry export (OpenObserve)",
+  },
+  { key: "OPENOBSERVE_USER", purpose: "OpenObserve auth" },
+  { key: "OPENOBSERVE_PASSWORD", purpose: "OpenObserve auth" },
+];
 
 export async function register() {
   // Only initialize OTEL on the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    if (process.env.NODE_ENV === "production") {
+      const missing = PRODUCTION_REQUIRED_ENV.filter(
+        ({ key }) => !process.env[key]
+      );
+      if (missing.length > 0) {
+        const detail = missing
+          .map(({ key, purpose }) => `  - ${key} (${purpose})`)
+          .join("\n");
+        console.error(
+          [
+            "",
+            "Production startup check failed:",
+            `${missing.length} required environment variable(s) are missing.`,
+            detail,
+            "Set them in the deployment environment (Dokploy) before starting the container.",
+            "",
+          ].join("\n")
+        );
+        process.exit(1);
+      }
+    }
+
     try {
       const { initOtel } = await import("@lumen/logger/server");
       const { createLogger } = await import("@lumen/logger");
