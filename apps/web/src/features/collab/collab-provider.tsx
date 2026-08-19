@@ -326,7 +326,19 @@ export function CollaborationProvider({
         });
       }
 
-      if (sessionUser) {
+      const { isGuestMode, guestToken } = (
+        await import("../kanban/store/kanban-store")
+      ).useKanbanStore.getState();
+
+      if (isGuestMode && guestToken) {
+        localUserInfoRef.current = {
+          id: `guest-${Math.random().toString(36).slice(2, 9)}`,
+          name: "Guest Viewer",
+          color: "#6b7280",
+          role: "viewer",
+          image: null,
+        };
+      } else if (sessionUser) {
         const userColor = getColorForUser(sessionUser.id);
         localUserInfoRef.current = {
           id: sessionUser.id,
@@ -363,7 +375,9 @@ export function CollaborationProvider({
       wsEndpoint.protocol = toWebSocketProtocol(wsEndpoint.protocol);
       wsEndpoint.pathname = `/ws/collab/${workspaceId}`;
       wsEndpoint.searchParams.set("stateVector", stateVectorBase64);
-      if (token) {
+      if (isGuestMode && guestToken) {
+        wsEndpoint.searchParams.set("guestToken", guestToken);
+      } else if (token) {
         wsEndpoint.searchParams.set("token", token);
       }
 

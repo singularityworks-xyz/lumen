@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
 import type { EntityMap } from "@/src/features/kanban/types";
+import { resolveCanvasEntityKind } from "./canvas-nodes";
 
 // ──────────────────────────────────────────────────────────────
 // canvas-nodes.ts exports a single React hook (useCanvasNodes)
@@ -503,12 +504,118 @@ describe("columnDialog type mapping", () => {
   });
 });
 
-// ─── quickActions node ID generation ───────────────────────────
+// ─── entity kind resolution (board vs text board) ──────────────
+
+describe("resolveCanvasEntityKind", () => {
+  const boards = { byId: { "board-1": { id: "board-1" } } };
+  const textBoards = { byId: { "tb-1": { id: "tb-1" } } };
+
+  it("resolves kanban board ids to 'board'", () => {
+    expect(resolveCanvasEntityKind(boards, textBoards, "board-1")).toBe(
+      "board"
+    );
+  });
+
+  it("resolves text board ids to 'textBoard'", () => {
+    expect(resolveCanvasEntityKind(boards, textBoards, "tb-1")).toBe(
+      "textBoard"
+    );
+  });
+
+  it("returns null for unknown ids", () => {
+    expect(resolveCanvasEntityKind(boards, textBoards, "missing")).toBeNull();
+  });
+
+  it("prefers kanban boards when an id exists in both maps", () => {
+    const both = {
+      boards: { byId: { "x-1": {} } },
+      textBoards: { byId: { "x-1": {} } },
+    };
+    expect(resolveCanvasEntityKind(both.boards, both.textBoards, "x-1")).toBe(
+      "board"
+    );
+  });
+});
+
+// ─── text board aware dialog type resolution ────────────────────
+
+// Mirrors the logic in canvas-nodes.ts dialogNodes factory
+function resolveDialogNodeTypeWithEntity(
+  dialogType: BoardDialogType,
+  boardId: string,
+  boards: { byId: Record<string, unknown> },
+  textBoards: { byId: Record<string, unknown> }
+): string {
+  const isTextBoardEntity =
+    resolveCanvasEntityKind(boards, textBoards, boardId) === "textBoard";
+  switch (dialogType) {
+    case "rename":
+      return isTextBoardEntity ? "textBoardRenameDialog" : "boardRenameDialog";
+    case "duplicate":
+      return "boardDuplicateDialog";
+    case "properties":
+      return "boardPropertiesDialog";
+    case "color-icon-picker":
+      return "colorIconPickerDialog";
+    case "delete":
+      return isTextBoardEntity ? "textBoardDeleteDialog" : "boardDeleteDialog";
+    default:
+      return "boardDeleteDialog";
+  }
+}
+
+describe("text board aware dialog type resolution", () => {
+  const boards = { byId: { "board-1": {} } };
+  const textBoards = { byId: { "tb-1": {} } };
+
+  it("maps rename for a text board to textBoardRenameDialog", () => {
+    expect(
+      resolveDialogNodeTypeWithEntity("rename", "tb-1", boards, textBoards)
+    ).toBe("textBoardRenameDialog");
+  });
+
+  it("maps delete for a text board to textBoardDeleteDialog", () => {
+    expect(
+      resolveDialogNodeTypeWithEntity("delete", "tb-1", boards, textBoards)
+    ).toBe("textBoardDeleteDialog");
+  });
+
+  it("keeps kanban dialog types for kanban boards", () => {
+    expect(
+      resolveDialogNodeTypeWithEntity("rename", "board-1", boards, textBoards)
+    ).toBe("boardRenameDialog");
+    expect(
+      resolveDialogNodeTypeWithEntity("delete", "board-1", boards, textBoards)
+    ).toBe("boardDeleteDialog");
+  });
+
+  it("falls back to kanban dialog types for unknown entities", () => {
+    expect(
+      resolveDialogNodeTypeWithEntity("rename", "missing", boards, textBoards)
+    ).toBe("boardRenameDialog");
+  });
+
+  it("keeps board-only dialog types for text boards", () => {
+    expect(
+      resolveDialogNodeTypeWithEntity("properties", "tb-1", boards, textBoards)
+    ).toBe("boardPropertiesDialog");
+    expect(
+      resolveDialogNodeTypeWithEntity("duplicate", "tb-1", boards, textBoards)
+    ).toBe("boardDuplicateDialog");
+  });
+});
+
+// ─── quick actions node ID generation ───────────────────────────
 
 describe("quickActions node ID generation", () => {
   it("generates board quick-actions ID with prefix", () => {
     const id = "quick-actions-board-1";
     expect(id).toBe("quick-actions-board-1");
+  });
+
+  it("generates text board quick-actions ID with distinct prefix", () => {
+    const id = "text-quick-actions-tb-1";
+    expect(id).toBe("text-quick-actions-tb-1");
   });
 
   it("generates task quick-actions ID with prefix", () => {

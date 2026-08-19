@@ -8,12 +8,9 @@ const TAG_LENGTH = 128; // Authentication tag length in bits
 const ENCRYPTED_PREFIX = "enc:v1:";
 
 let cachedKey: CryptoKey | null = null;
+let cachedKeyMaterial: string | null = null;
 
 async function getEncryptionKey(): Promise<CryptoKey> {
-  if (cachedKey) {
-    return cachedKey;
-  }
-
   const keyMaterial = process.env.AI_ENCRYPTION_KEY;
 
   if (!keyMaterial) {
@@ -23,22 +20,33 @@ async function getEncryptionKey(): Promise<CryptoKey> {
     );
   }
 
-  const keyBytes = Buffer.from(keyMaterial, "base64");
+  if (cachedKey && cachedKeyMaterial === keyMaterial) {
+    return cachedKey;
+  }
+
+  let keyBytes = Buffer.from(keyMaterial, "base64");
 
   if (keyBytes.length < 32) {
-    throw new Error(
-      "AI_ENCRYPTION_KEY must be at least 32 bytes (256 bits). " +
-        "Generate one with: openssl rand -base64 32"
-    );
+    const utf8Bytes = Buffer.from(keyMaterial, "utf-8");
+    if (utf8Bytes.length >= 32) {
+      keyBytes = utf8Bytes;
+    } else {
+      const hash = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(keyMaterial)
+      );
+      keyBytes = Buffer.from(hash);
+    }
   }
 
   cachedKey = await crypto.subtle.importKey(
     "raw",
-    keyBytes.slice(0, 32), // Use first 32 bytes
+    keyBytes.subarray(0, 32),
     { name: ALGORITHM, length: KEY_LENGTH },
-    false, // Not extractable
+    false,
     ["encrypt", "decrypt"]
   );
+  cachedKeyMaterial = keyMaterial;
 
   return cachedKey;
 }

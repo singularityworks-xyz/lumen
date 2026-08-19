@@ -144,6 +144,61 @@ describe("executeGetBoardDetails", () => {
     expect(result.error).toBe("Board not found");
   });
 
+  it("returns text board details with todo content for text board IDs", () => {
+    const snapshot: WorkspaceSnapshot = {
+      name: "W",
+      boards: [],
+      textBoards: [
+        {
+          id: "tb-1",
+          name: "Launch todos",
+          description: "Todo list for launch",
+          text: "# Launch\n\n- [ ] Ship it\n- [x] Test it\n- [x] Deploy\nSome note",
+          createdAt: "2024-01-01T00:00:00Z",
+          updatedAt: "2024-01-02T00:00:00Z",
+        },
+      ],
+    };
+    const ctx = makeCtx({ snapshot });
+    const result = executeGetBoardDetails({ boardId: "tb-1" }, ctx);
+
+    expect(result.success).toBe(true);
+    const data = result.data as {
+      completedTasks: number;
+      content: string;
+      description?: string;
+      name: string;
+      taskCount: number;
+      type: string;
+    };
+    expect(data.type).toBe("textBoard");
+    expect(data.name).toBe("Launch todos");
+    expect(data.description).toBe("Todo list for launch");
+    expect(data.taskCount).toBe(3);
+    expect(data.completedTasks).toBe(2);
+    expect(data.content).toContain("- [ ] Ship it");
+  });
+
+  it("returns text board details with zero task stats for empty content", () => {
+    const snapshot: WorkspaceSnapshot = {
+      name: "W",
+      boards: [],
+      textBoards: [{ id: "tb-2", name: "Empty notes", text: "" }],
+    };
+    const ctx = makeCtx({ snapshot });
+    const result = executeGetBoardDetails({ boardId: "tb-2" }, ctx);
+
+    expect(result.success).toBe(true);
+    const data = result.data as {
+      completedTasks: number;
+      taskCount: number;
+      type: string;
+    };
+    expect(data.type).toBe("textBoard");
+    expect(data.taskCount).toBe(0);
+    expect(data.completedTasks).toBe(0);
+  });
+
   it("returns error when snapshot is missing", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => undefined);
     const ctx = makeCtx({ snapshot: undefined });

@@ -5,8 +5,10 @@ import {
   createBoardSchema,
   createColumnSchema,
   createTaskSchema,
+  createTextBoardSchema,
   deleteBoardSchema,
   deleteTaskSchema,
+  deleteTextBoardSchema,
   getBoardDetailsSchema,
   getRecentActivitySchema,
   getTaskDetailsSchema,
@@ -15,6 +17,7 @@ import {
   searchTasksSchema,
   updateBoardSchema,
   updateTaskSchema,
+  updateTextBoardSchema,
 } from "./schemas";
 
 // Tool category and destructive level types
@@ -34,7 +37,7 @@ const DESCRIPTIONS = {
   getWorkspaceOverview:
     "Get high-level overview of the workspace including boards and task counts",
   getBoardDetails:
-    "Get detailed information about a specific board including columns and tasks",
+    "Get detailed information about a specific board (kanban columns and tasks, or a text board's todo list content)",
   getTaskDetails: "Get detailed information about a specific task",
   searchTasks: "Search for tasks by query, status, priority, or board",
   getRecentActivity: "Get recent activity and changes in the workspace",
@@ -45,6 +48,11 @@ const DESCRIPTIONS = {
   moveTask: "Move a task to a different column or board",
   createBoard: "Create a new board in the workspace",
   updateBoard: "Update a board's name or description",
+  createTextBoard:
+    "Create a new text board (todo list / notes board) in the workspace",
+  updateTextBoard:
+    "Update a text board's name, description or todo list content",
+  deleteTextBoard: "Delete a text board and all its content permanently",
   createColumn: "Create a new column in a board",
   bulkUpdateTasks: "Update multiple tasks at once",
   deleteTask: "Delete a task permanently",
@@ -130,6 +138,27 @@ export const toolMetadata = {
     destructive: "low",
     requiresConfirmation: false,
     description: DESCRIPTIONS.updateBoard,
+  },
+  createTextBoard: {
+    name: "createTextBoard",
+    category: "action",
+    destructive: "none",
+    requiresConfirmation: false,
+    description: DESCRIPTIONS.createTextBoard,
+  },
+  updateTextBoard: {
+    name: "updateTextBoard",
+    category: "action",
+    destructive: "low",
+    requiresConfirmation: false,
+    description: DESCRIPTIONS.updateTextBoard,
+  },
+  deleteTextBoard: {
+    name: "deleteTextBoard",
+    category: "action",
+    destructive: "high",
+    requiresConfirmation: true,
+    description: DESCRIPTIONS.deleteTextBoard,
   },
   createColumn: {
     name: "createColumn",
@@ -230,6 +259,21 @@ export const deleteBoardTool = tool({
   inputSchema: deleteBoardSchema,
 });
 
+export const createTextBoardTool = tool({
+  description: DESCRIPTIONS.createTextBoard,
+  inputSchema: createTextBoardSchema,
+});
+
+export const updateTextBoardTool = tool({
+  description: DESCRIPTIONS.updateTextBoard,
+  inputSchema: updateTextBoardSchema,
+});
+
+export const deleteTextBoardTool = tool({
+  description: DESCRIPTIONS.deleteTextBoard,
+  inputSchema: deleteTextBoardSchema,
+});
+
 export const createColumnTool = tool({
   description: DESCRIPTIONS.createColumn,
   inputSchema: createColumnSchema,
@@ -263,6 +307,9 @@ export const actionTools = {
   createBoard: createBoardTool,
   updateBoard: updateBoardTool,
   deleteBoard: deleteBoardTool,
+  createTextBoard: createTextBoardTool,
+  updateTextBoard: updateTextBoardTool,
+  deleteTextBoard: deleteTextBoardTool,
   createColumn: createColumnTool,
   bulkUpdateTasks: bulkUpdateTasksTool,
   bulkDeleteTasks: bulkDeleteTasksTool,

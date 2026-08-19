@@ -30,6 +30,6 @@ ENV PHX_SERVER=true
 COPY --from=builder --chown=nobody:root /app/_build/prod/rel/presence ./
 USER nobody
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-4000}/health || exit 1
+    CMD curl -f -H "Origin: http://localhost:3000" http://localhost:${PORT:-4000}/health || exit 1
 EXPOSE 4000
 CMD ["bin/presence", "start"]

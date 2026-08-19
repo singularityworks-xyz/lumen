@@ -39,13 +39,23 @@ export class FilteredDiagLogger implements DiagLogger {
   }
 
   error(message: string, ...args: unknown[]): void {
+    if (
+      typeof message === "string" &&
+      (message.includes("Inconsistent start and end time") ||
+        message.includes("Export failed with non-retryable error") ||
+        message.includes("OTLPExporterError"))
+    ) {
+      return;
+    }
     this.logger.error(message, ...args);
   }
 
   warn(message: string, ...args: unknown[]): void {
     if (
       typeof message === "string" &&
-      message.includes("Inconsistent start and end time")
+      (message.includes("Inconsistent start and end time") ||
+        message.includes("[OTEL] Trace export error") ||
+        message.includes("OTLPExporterError"))
     ) {
       return;
     }

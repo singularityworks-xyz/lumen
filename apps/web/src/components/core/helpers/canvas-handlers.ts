@@ -521,6 +521,9 @@ export function useNodeDragHandlers({
         for (const [nid, pos] of pending) {
           if (nid.startsWith("area_")) {
             state.updateAreaPosition(nid, pos);
+          } else if (nid.startsWith("tb_")) {
+            // Text boards are standalone nodes (not area-attachable)
+            state.updateTextBoardPosition(nid, pos);
           } else if (nid.startsWith("modal-")) {
             state.updateModalPosition(nid.replace("modal-", ""), pos);
           } else if (nid.startsWith("task-detail-modal-")) {
@@ -632,6 +635,8 @@ export function useNodeDragHandlers({
         finalizeAreaDrag(node.id);
       } else if (node.id.startsWith("board_")) {
         finalizeBoardDrag(node.id);
+      } else if (node.id.startsWith("tb_")) {
+        useKanbanStore.getState().finalizeTextBoardDrag(node.id);
       } else if (node.id.startsWith("cluster-")) {
         const cluster = commentClusters.find((c) => c.id === node.id);
         if (cluster) {

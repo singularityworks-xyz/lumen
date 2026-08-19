@@ -2,20 +2,22 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
 
 export type GeneralComputeModel =
+  | "gemma-4-31B-it"
   | "minimax-m2.7"
   | "deepseek-v3.2"
   | "deepseek-v3.1"
   | "gpt-oss-120b";
 
-export const DEFAULT_PRIMARY_MODEL: GeneralComputeModel = "deepseek-v3.2";
+export const DEFAULT_PRIMARY_MODEL: GeneralComputeModel = "gemma-4-31B-it";
 
 // Fast/cheap model for classification, titles, and summarization
-export const FAST_MODEL: GeneralComputeModel = "deepseek-v3.1";
+export const FAST_MODEL: GeneralComputeModel = "minimax-m2.7";
 
 export const FALLBACK_MODELS: GeneralComputeModel[] = [
+  "minimax-m2.7",
   "gpt-oss-120b",
   "deepseek-v3.1",
-  "minimax-m2.7",
+  "deepseek-v3.2",
 ];
 
 export function getModelFallbackChain(

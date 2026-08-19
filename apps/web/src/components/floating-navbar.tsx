@@ -2,6 +2,7 @@
 
 import {
   // Command, // Disabled: Search functionality temporarily disabled
+  ClipboardList,
   Layers,
   LayoutGrid,
   MousePointer2,
@@ -49,6 +50,7 @@ export const FloatingNavbar = memo(() => {
     (state) => state.setInteractionMode
   );
   const addBoard = useKanbanStore((state) => state.addBoard);
+  const addTextBoard = useKanbanStore((state) => state.addTextBoard);
   const addArea = useKanbanStore((state) => state.addArea);
   const currentWorkspace = useCurrentWorkspace();
 
@@ -60,6 +62,13 @@ export const FloatingNavbar = memo(() => {
       return;
     }
     addBoard("New Board", undefined, "New project board");
+  };
+
+  const handleNewTextBoard = () => {
+    if (!currentWorkspace) {
+      return;
+    }
+    addTextBoard("New Text Board", undefined, "A todo / text board");
   };
 
   const handleNewArea = () => {
@@ -183,6 +192,18 @@ export const FloatingNavbar = memo(() => {
         >
           <PlusIcon size={14} />
           <span className="hidden text-[11px] sm:inline">New</span>
+        </Button>
+
+        <Button
+          className="gap-1.5 rounded-full bg-card/50 text-foreground shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] hover:bg-secondary/70 dark:shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)]"
+          data-testid="new-text-board-button"
+          onClick={handleNewTextBoard}
+          size="sm"
+          title="New Text Board"
+          variant="ghost"
+        >
+          <ClipboardList className="h-3.5 w-3.5" />
+          <span className="hidden text-[11px] sm:inline">Text</span>
         </Button>
 
         <Button

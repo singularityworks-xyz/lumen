@@ -199,17 +199,27 @@ export function checkWorkspaceExistence(idToCheck: string): Promise<boolean> {
 export function createShareToken(
   workspaceId: string,
   createdBy: string,
-  expiresAt?: Date
+  roleOrExpiresAt?: Role | Date,
+  isGuest = false,
+  expiresAtParam?: Date
 ): Promise<string> {
+  const isExpiresAtThird = roleOrExpiresAt instanceof Date;
+  const role: Role = isExpiresAtThird
+    ? "EDITOR"
+    : (roleOrExpiresAt ?? "EDITOR");
+  const expiresAt = isExpiresAtThird ? roleOrExpiresAt : expiresAtParam;
+
   return withSpanAsync("db.createShareToken", async (span) => {
-    const token = generateId(16);
-    setSpanAttributes({ workspaceId, createdBy });
+    const token = isGuest ? `guest_${generateId(16)}` : generateId(16);
+    setSpanAttributes({ workspaceId, createdBy, role, isGuest });
 
     try {
       await prisma.workspaceShare.create({
         data: {
           workspaceId,
           token,
+          role,
+          isGuest,
           createdBy,
           expiresAt,
         },
@@ -220,6 +230,28 @@ export function createShareToken(
       logger.error("Failed to create share token", {
         workspaceId,
         createdBy,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  });
+}
+
+export function revokeGuestShareToken(workspaceId: string): Promise<boolean> {
+  return withSpanAsync("db.revokeGuestShareToken", async (span) => {
+    setSpanAttributes({ workspaceId });
+    try {
+      await prisma.workspaceShare.deleteMany({
+        where: {
+          workspaceId,
+          OR: [{ isGuest: true }, { role: "VIEWER" }],
+        },
+      });
+      return true;
+    } catch (error) {
+      recordSpanError(span, error);
+      logger.error("Failed to revoke guest share token", {
+        workspaceId,
         error: error instanceof Error ? error.message : "Unknown error",
       });
       throw error;
@@ -313,6 +345,8 @@ export function getShareInfo(token: string): Promise<{
   workspaceId: string;
   createdBy: string;
   expiresAt: Date | null;
+  role?: Role;
+  isGuest?: boolean;
   workspaceName?: string | null;
   owner?: {
     id: string;
@@ -340,6 +374,8 @@ export function getShareInfo(token: string): Promise<{
         workspaceId: share.workspaceId,
         createdBy: share.createdBy,
         expiresAt: share.expiresAt,
+        role: share.role,
+        isGuest: share.isGuest,
         workspaceName,
         owner: owner || undefined,
       };

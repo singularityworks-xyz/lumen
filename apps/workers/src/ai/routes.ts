@@ -18,7 +18,8 @@ import {
 } from "@lumen/logger/tracer";
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
-import { getCollaborator } from "../collab/helpers";
+import { getCollaborator, getShareInfo } from "../collab/helpers";
+import { serverGuestRateLimiter } from "../common/guest-rate-limit";
 import { env } from "../env";
 import { toHeaders } from "../utils/headers";
 import {
@@ -82,7 +83,66 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
         const session = await auth.api.getSession({
           headers: toHeaders(headers),
         });
-        if (!session) {
+
+        const guestToken =
+          (body as { guestToken?: string })?.guestToken ||
+          (headers["x-guest-token"] as string | undefined);
+
+        let effectiveUserId: string;
+        let effectiveUserName: string | undefined;
+        let isGuest = false;
+
+        if (session) {
+          effectiveUserId = session.user.id;
+          effectiveUserName = session.user.name ?? undefined;
+          span.setAttribute("ai.user_id", session.user.id);
+        } else if (guestToken) {
+          const shareInfo = await getShareInfo(guestToken);
+          if (
+            !shareInfo ||
+            (shareInfo.expiresAt && shareInfo.expiresAt < new Date())
+          ) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "Unauthorized: Invalid or expired guest token",
+            });
+            span.end();
+            set.status = 401;
+            return { error: "Unauthorized: Invalid or expired guest token" };
+          }
+          if (shareInfo.workspaceId !== workspaceId) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "Forbidden: Guest token does not match workspace",
+            });
+            span.end();
+            set.status = 403;
+            return { error: "Forbidden: Guest token does not match workspace" };
+          }
+          effectiveUserId = `guest:${guestToken.slice(0, 12)}`;
+          effectiveUserName = "Guest Viewer";
+          isGuest = true;
+          span.setAttribute("ai.guest_token", guestToken);
+          span.setAttribute("ai.is_guest", true);
+
+          const guestIdentifier = guestToken || effectiveUserId;
+          const rateLimitCheck =
+            serverGuestRateLimiter.checkLarityRateLimit(guestIdentifier);
+          if (!rateLimitCheck.allowed) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: rateLimitCheck.message || "Guest rate limit reached",
+            });
+            span.end();
+            set.status = 429;
+            return {
+              error: rateLimitCheck.message,
+              isRateLimit: true,
+              retryAfterSeconds: rateLimitCheck.retryAfterSeconds,
+            };
+          }
+          serverGuestRateLimiter.recordLarityMessage(guestIdentifier);
+        } else {
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: "Unauthorized",
@@ -92,9 +152,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           return { error: "Unauthorized" };
         }
 
-        span.setAttribute("ai.user_id", session.user.id);
+        const effectiveEphemeral = ephemeral || isGuest;
 
-        if (!ephemeral) {
+        if (!effectiveEphemeral) {
           const workspaceAccess = await prisma.workspace.findUnique({
             where: { id: workspaceId },
             select: { ownerId: true },
@@ -110,11 +170,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             return { error: "Workspace not found" };
           }
 
-          const isOwner = workspaceAccess.ownerId === session.user.id;
+          const isOwner = workspaceAccess.ownerId === effectiveUserId;
           if (!isOwner) {
             const collaborator = await getCollaborator(
               workspaceId,
-              session.user.id
+              effectiveUserId
             );
             if (!collaborator) {
               span.setStatus({
@@ -124,7 +184,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               span.end();
               set.status = 403;
               logger.warn("Unauthorized workspace access attempt", {
-                userId: session.user.id,
+                userId: effectiveUserId,
                 workspaceId,
                 operation: "ai.chat",
               });
@@ -164,14 +224,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
         logger.info("Starting AI chat", {
           workspaceId,
-          userId: session.user.id,
+          userId: effectiveUserId,
           messageId,
           messageLength: message.length,
           historyLength: history?.length ?? 0,
         });
 
         try {
-          const workspaceName = ephemeral
+          const workspaceName = effectiveEphemeral
             ? workspaceSnapshot?.name
             : (
                 await prisma.workspace.findUnique({
@@ -187,7 +247,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             role: "owner" | "admin" | "member" | "viewer";
           }> = [];
 
-          if (!ephemeral) {
+          if (!effectiveEphemeral) {
             const collaborators = await prisma.workspaceCollaborator.findMany({
               where: { workspaceId },
               select: {
@@ -203,7 +263,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             isShared = totalMembers > 1;
 
             collaboratorList = collaborators
-              .filter((c) => c.user.id !== session.user.id)
+              .filter((c) => c.user.id !== effectiveUserId)
               .map((c) => ({
                 name: c.user.name ?? "Unknown",
                 role: c.role as "owner" | "admin" | "member" | "viewer",
@@ -214,8 +274,8 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           // into the system prompt. Fails soft: an empty block means no memory.
           const memoryContext = await recallMemory({
             query: message,
-            userId: session.user.id,
-            workspaceId: ephemeral ? undefined : workspaceId,
+            userId: effectiveUserId,
+            workspaceId: effectiveEphemeral ? undefined : workspaceId,
           });
           if (!memoryContext.isEmpty) {
             span.setAttribute(
@@ -225,7 +285,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           }
 
           const systemPrompt = buildSystemPrompt({
-            userName: session.user.name ?? undefined,
+            userName: effectiveUserName,
             workspaceId,
             workspaceName: workspaceName ?? undefined,
             isShared,
@@ -240,7 +300,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
           // Only persist conversation for non-ephemeral (shared) workspaces
           let conversation: { id: string } | null = null;
-          if (ephemeral) {
+          if (effectiveEphemeral) {
             span.setAttribute("ai.ephemeral", true);
             logger.debug("Ephemeral mode - skipping conversation persistence", {
               workspaceId,
@@ -248,7 +308,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           } else {
             conversation = await getOrCreateConversation(
               workspaceId,
-              session.user.id
+              effectiveUserId
             );
             span.setAttribute("ai.conversation_id", conversation.id);
 
@@ -384,9 +444,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
                 const streamCtx = {
                   workspaceId,
-                  userId: session.user.id,
+                  userId: effectiveUserId,
                   snapshot: workspaceSnapshot,
-                  ephemeral: ephemeral ?? false,
+                  ephemeral: effectiveEphemeral,
                 };
 
                 for await (const part of streamWithFallback({
@@ -604,7 +664,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 // Retain this turn into long-term memory (fire-and-forget,
                 // failures are logged and swallowed by the service)
                 retainConversationTurn({
-                  userId: session.user.id,
+                  userId: effectiveUserId,
                   workspaceId,
                   conversationId: conversation.id,
                   userMessage: message,
@@ -627,23 +687,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               });
 
               span.setAttribute("ai.model_used", modelUsed);
-              span.setAttribute("ai.response_length", fullContent.length);
-              span.setAttribute("ai.stream_duration_seconds", streamDuration);
-              span.addEvent("ai.stream_complete");
               span.setStatus({ code: SpanStatusCode.OK });
               span.end();
-
-              logger.info("AI chat completed", {
-                workspaceId,
-                messageId,
-                modelUsed,
-                responseLength: fullContent.length,
-                streamDurationSeconds: streamDuration.toFixed(3),
-              });
             } catch (error) {
-              recordSpanError(span, error);
-              span.end();
-
               const parsedError = parseRateLimitError(error);
               const streamDuration =
                 (performance.now() - streamStartTime) / 1000;
@@ -660,8 +706,6 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
 
               logger.error("AI streaming error", {
                 workspaceId,
-                messageId,
-                modelUsed,
                 error: error instanceof Error ? error.message : "Unknown",
                 isRateLimit: parsedError.isRateLimit,
                 retryAfterSeconds: parsedError.retryAfterSeconds,
@@ -686,7 +730,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             status: parsedError.isRateLimit ? "rate_limited" : "error",
           });
 
-          logger.error("AI chat error", {
+          logger.error("AI chat failed", {
             workspaceId,
             error: error instanceof Error ? error.message : "Unknown",
             isRateLimit: parsedError.isRateLimit,
@@ -706,6 +750,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       body: t.Object({
         workspaceId: t.String(),
         message: t.String(),
+        guestToken: t.Optional(t.String()),
         context: t.Optional(
           t.Object({
             currentBoardId: t.Union([t.String(), t.Null()]),
@@ -765,6 +810,18 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 ),
               })
             ),
+            textBoards: t.Optional(
+              t.Array(
+                t.Object({
+                  id: t.String(),
+                  name: t.String(),
+                  description: t.Optional(t.String()),
+                  text: t.Optional(t.String()),
+                  createdAt: t.Optional(t.String()),
+                  updatedAt: t.Optional(t.String()),
+                })
+              )
+            ),
           })
         ),
         history: t.Optional(
@@ -802,16 +859,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
     async ({ params, headers, set, query }) => {
       const { workspaceId } = params;
       const ephemeral = query.ephemeral === "true";
+      const guestToken =
+        (query as { guestToken?: string })?.guestToken ||
+        (headers["x-guest-token"] as string | undefined);
 
       const session = await auth.api.getSession({
         headers: toHeaders(headers),
       });
-      if (!session) {
+
+      if (!(session || guestToken)) {
         set.status = 401;
         return { error: "Unauthorized" };
       }
 
-      if (ephemeral) {
+      if (ephemeral || (!session && guestToken)) {
         return {
           id: `ephemeral-${workspaceId}`,
           workspaceId,
@@ -821,6 +882,11 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           lastActiveAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
         };
+      }
+
+      if (!session) {
+        set.status = 401;
+        return { error: "Unauthorized" };
       }
 
       const workspaceAccess = await prisma.workspace.findUnique({

@@ -36,6 +36,10 @@ let mockStoreState: {
     >;
     allIds: string[];
   };
+  textBoards: {
+    byId: Record<string, { id: string; name: string }>;
+    allIds: string[];
+  };
 } = {
   currentWorkspaceId: "ws-1",
   boards: {
@@ -63,6 +67,10 @@ let mockStoreState: {
       },
     },
     allIds: ["conn-1"],
+  },
+  textBoards: {
+    byId: {},
+    allIds: [],
   },
 };
 
@@ -102,6 +110,10 @@ describe("useCanvasEdges", () => {
           },
         },
         allIds: ["conn-1"],
+      },
+      textBoards: {
+        byId: {},
+        allIds: [],
       },
     };
   });

@@ -7,11 +7,14 @@ export {
   buildCreateBoardInstruction,
   buildCreateColumnInstruction,
   buildCreateTaskInstruction,
+  buildCreateTextBoardInstruction,
   buildDeleteBoardInstruction,
   buildDeleteTaskInstruction,
+  buildDeleteTextBoardInstruction,
   buildMoveTaskInstruction,
   buildUpdateBoardInstruction,
   buildUpdateTaskInstruction,
+  buildUpdateTextBoardInstruction,
 } from "./action-builders";
 // Action instruction types (for client-side execution on local workspaces)
 export type {
@@ -22,11 +25,14 @@ export type {
   CreateBoardInstruction,
   CreateColumnInstruction,
   CreateTaskInstruction,
+  CreateTextBoardInstruction,
   DeleteBoardInstruction,
   DeleteTaskInstruction,
+  DeleteTextBoardInstruction,
   MoveTaskInstruction,
   UpdateBoardInstruction,
   UpdateTaskInstruction,
+  UpdateTextBoardInstruction,
 } from "./action-instructions";
 export { executeGetBoardDetails } from "./get-board-details";
 export { executeGetTaskDetails } from "./get-task-details";

@@ -69,6 +69,7 @@ const SOURCE_HANDLE_SUFFIX = /-source$/;
 
 export function KanbanCanvas() {
   const currentWorkspaceId = useKanbanStore((s) => s.currentWorkspaceId);
+  const isGuestMode = useKanbanStore((s) => s.isGuestMode);
   const boards = useKanbanStore((s) => s.boards);
   const workspaces = useKanbanStore((s) => s.workspaces);
   const showMiniMap = useKanbanStore((s) => s.showMiniMap);
@@ -351,6 +352,10 @@ export function KanbanCanvas() {
 
           if (change.id.startsWith("area_")) {
             updateAreaDimensions(change.id, change.dimensions);
+          } else if (change.id.startsWith("tb_")) {
+            useKanbanStore
+              .getState()
+              .updateTextBoardDimensions(change.id, change.dimensions, true);
           } else if ("resizing" in change && change.resizing === false) {
             const board = useKanbanStore.getState().boards.byId[change.id];
             const columnCount = board?.column_ids.length ?? 0;
@@ -609,7 +614,7 @@ export function KanbanCanvas() {
             defaultViewport={canvas.viewport}
             edges={localEdges}
             edgeTypes={edgeTypes}
-            elementsSelectable={interactionMode === "select"}
+            elementsSelectable={!isGuestMode && interactionMode === "select"}
             fitView={!hasBoardsInCurrentWorkspace}
             fitViewOptions={{
               nodes: [{ id: WELCOME_NODE_ID }],
@@ -622,32 +627,36 @@ export function KanbanCanvas() {
             nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
             nodes={localNodes}
-            nodesConnectable
-            nodesDraggable={interactionMode === "drag"}
+            nodesConnectable={!isGuestMode}
+            nodesDraggable={!isGuestMode && interactionMode === "drag"}
             nodeTypes={{
               ...nodeTypes,
               commentCluster: CommentClusterNode,
               welcome: WelcomeNode,
             }}
-            onConnect={handleConnect}
-            onEdgeContextMenu={handleEdgeContextMenu}
-            onEdgesChange={handleEdgesChange}
+            onConnect={isGuestMode ? undefined : handleConnect}
+            onEdgeContextMenu={isGuestMode ? undefined : handleEdgeContextMenu}
+            onEdgesChange={isGuestMode ? undefined : handleEdgesChange}
             onMoveEnd={handleMoveEnd}
-            onNodeDrag={handleNodeDrag}
-            onNodeDragStart={handleNodeDragStart}
-            onNodeDragStop={handleNodeDragStop}
-            onNodesChange={handleNodesChange}
-            onPaneClick={handlePaneClick}
-            onSelectionEnd={onSelectionEndWrapper}
-            onSelectionStart={handleSelectionStart}
-            panOnDrag={interactionMode === "drag"}
-            panOnScroll={interactionMode === "drag"}
+            onNodeDrag={isGuestMode ? undefined : handleNodeDrag}
+            onNodeDragStart={isGuestMode ? undefined : handleNodeDragStart}
+            onNodeDragStop={isGuestMode ? undefined : handleNodeDragStop}
+            onNodesChange={isGuestMode ? undefined : handleNodesChange}
+            onPaneClick={isGuestMode ? undefined : handlePaneClick}
+            onSelectionEnd={isGuestMode ? undefined : onSelectionEndWrapper}
+            onSelectionStart={isGuestMode ? undefined : handleSelectionStart}
+            panOnDrag={true}
+            panOnScroll={true}
             proOptions={{ hideAttribution: true }}
-            selectionKeyCode={interactionMode === "select" ? null : "Meta"}
-            selectionMode={
-              interactionMode === "select" ? SelectionMode.Partial : undefined
+            selectionKeyCode={
+              !isGuestMode && interactionMode === "select" ? null : "Meta"
             }
-            selectionOnDrag={interactionMode === "select"}
+            selectionMode={
+              !isGuestMode && interactionMode === "select"
+                ? SelectionMode.Partial
+                : undefined
+            }
+            selectionOnDrag={!isGuestMode && interactionMode === "select"}
             zoomActivationKeyCode="Control"
             zoomOnScroll
           >
@@ -663,8 +672,8 @@ export function KanbanCanvas() {
               variant={BackgroundVariant.Dots}
             />
             <TaskConnectionLayer />
-            <CustomControls />
-            {showMiniMap && (
+            {!isGuestMode && <CustomControls />}
+            {!isGuestMode && showMiniMap && (
               <MiniMap
                 className="rounded-lg! border-2! border-border/50! bg-card/95! shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]! backdrop-blur-md! dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]!"
                 maskColor="var(--background)"
@@ -681,9 +690,9 @@ export function KanbanCanvas() {
               />
             )}
           </ReactFlow>
-          <WorkspaceSelector />
-          <RightControls />
-          <BulkActionsBar />
+          {!isGuestMode && <WorkspaceSelector />}
+          {!isGuestMode && <RightControls />}
+          {!isGuestMode && <BulkActionsBar />}
           {isCollaborating && collaborators.length > 0 && (
             <CursorOverlay
               collaborators={collaborators}
@@ -691,7 +700,7 @@ export function KanbanCanvas() {
               onNavigateToUser={handleNavigateToUser}
             />
           )}
-          {edgeContextMenu && (
+          {!isGuestMode && edgeContextMenu && (
             <EdgeContextMenu
               edgeId={edgeContextMenu.edgeId}
               onClose={() => setEdgeContextMenu(null)}
@@ -699,7 +708,7 @@ export function KanbanCanvas() {
               y={edgeContextMenu.y}
             />
           )}
-          {selectionBox && selectionMenuProps && (
+          {!isGuestMode && selectionBox && selectionMenuProps && (
             <SelectionContextMenu
               height={selectionMenuProps.height}
               onClose={handleCloseSelectionMenu}
@@ -710,7 +719,7 @@ export function KanbanCanvas() {
               y={selectionMenuProps.y}
             />
           )}
-          {selectionMenuProps && (
+          {!isGuestMode && selectionMenuProps && (
             <div
               className="pointer-events-none absolute z-10 rounded border-2 border-dashed bg-primary/10"
               style={{
@@ -722,19 +731,19 @@ export function KanbanCanvas() {
               }}
             />
           )}
-          {isCollaborating && (
+          {!isGuestMode && isCollaborating && (
             <CollaboratorSelectionOverlayScreen
               collaborators={collaborators}
               containerRef={containerRef}
               flowToScreenPosition={flowToScreenPosition}
             />
           )}
-          <TaskDragOverlayContainer />
-          <ColumnDragOverlayContainer />
+          {!isGuestMode && <TaskDragOverlayContainer />}
+          {!isGuestMode && <ColumnDragOverlayContainer />}
         </div>
       </ColumnDragContext.Provider>
       <DragOverlay dropAnimation={null}>
-        {activeColumnData && (
+        {!isGuestMode && activeColumnData && (
           <ColumnDragOverlay
             columnName={activeColumnData.columnName}
             taskCount={activeColumnData.taskCount}

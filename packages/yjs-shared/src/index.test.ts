@@ -32,6 +32,8 @@ import {
   TaskQuickActionsSchema,
   TaskSchema,
   TaskStatusSchema,
+  TextBoardPositionSchema,
+  TextBoardSchema,
   ViewportStateSchema,
   validateEntity,
   WorkspaceSchema,
@@ -224,9 +226,88 @@ describe("yjs-shared schemas", () => {
     });
   });
 
+  describe("TextBoardSchema", () => {
+    it("accepts a valid text board", () => {
+      const textBoard = {
+        id: "tb-1",
+        workspace_id: "ws-1",
+        name: "Launch todos",
+        created_by: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
+      };
+      expect(TextBoardSchema.parse(textBoard)).toEqual(textBoard);
+    });
+
+    it("rejects text board with empty name", () => {
+      const textBoard = {
+        id: "tb-1",
+        workspace_id: "ws-1",
+        name: "",
+        created_by: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
+      };
+      expect(() => TextBoardSchema.parse(textBoard)).toThrow();
+    });
+
+    it("accepts optional content, description, and style fields", () => {
+      const textBoard = {
+        id: "tb-1",
+        workspace_id: "ws-1",
+        name: "Notes",
+        description: "Some notes",
+        content: JSON.stringify({ type: "doc", content: [] }),
+        created_by: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-02T00:00:00Z",
+        accentColor: "#ff0000",
+        icon: "star",
+      };
+      const parsed = TextBoardSchema.parse(textBoard);
+      expect(parsed.content).toContain("doc");
+      expect(parsed.accentColor).toBe("#ff0000");
+      expect(parsed.updated_at).toBeDefined();
+    });
+  });
+
+  describe("TextBoardPositionSchema", () => {
+    it("accepts valid position", () => {
+      const pos = { id: "tb-1", x: 100, y: 200, zIndex: 1 };
+      expect(TextBoardPositionSchema.parse(pos)).toEqual(pos);
+    });
+
+    it("accepts optional resize fields", () => {
+      const pos = {
+        id: "tb-1",
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 420,
+        zIndex: 0,
+        userResized: true,
+        lastUserWidth: 320,
+        lastUserHeight: 420,
+      };
+      const parsed = TextBoardPositionSchema.parse(pos);
+      expect(parsed.userResized).toBe(true);
+      expect(parsed.width).toBe(320);
+    });
+  });
+
   describe("WorkspaceSchema", () => {
     it("accepts a valid workspace", () => {
       expect(WorkspaceSchema.parse(validWorkspace())).toBeTruthy();
+    });
+
+    it("accepts optional text_board_ids", () => {
+      const ws = validWorkspace();
+      ws.text_board_ids = ["tb-1", "tb-2"];
+      const parsed = WorkspaceSchema.parse(ws);
+      expect(parsed.text_board_ids).toEqual(["tb-1", "tb-2"]);
+    });
+
+    it("accepts a legacy workspace without text_board_ids", () => {
+      const parsed = WorkspaceSchema.parse(validWorkspace());
+      expect(parsed.text_board_ids).toBeUndefined();
     });
 
     it("rejects workspace with empty name", () => {
@@ -592,9 +673,11 @@ describe("yjs-shared schemas", () => {
       expect(keys).toContain("BOARDS");
       expect(keys).toContain("COLUMNS");
       expect(keys).toContain("TASKS");
+      expect(keys).toContain("TEXT_BOARDS");
+      expect(keys).toContain("TEXT_BOARD_POSITIONS");
       expect(keys).toContain("COMMENTS");
       expect(keys).toContain("CHAT_MESSAGES");
-      expect(keys.length).toBeGreaterThanOrEqual(18);
+      expect(keys.length).toBeGreaterThanOrEqual(20);
     });
 
     it("has unique string values", () => {

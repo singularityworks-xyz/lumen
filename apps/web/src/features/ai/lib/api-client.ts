@@ -7,9 +7,15 @@ import {
 } from "@microsoft/fetch-event-source";
 import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 
 const logger = createLogger({ name: "[client] ai/api-client" });
-const API_BASE = env.NEXT_PUBLIC_API_URL;
+
+function getApiBaseUrl(): string {
+  return normalizeApiUrlForCurrentHost(
+    env.NEXT_PUBLIC_API_URL || "http://localhost:3002"
+  );
+}
 
 export interface ChatStreamCallbacks {
   onActionInstruction?: (
@@ -65,9 +71,20 @@ export interface BoardSnapshot {
   name: string;
 }
 
+export interface TextBoardSnapshot {
+  createdAt?: string;
+  description?: string;
+  id: string;
+  name: string;
+  // Plain-text rendering of the TipTap document for AI consumption
+  text?: string;
+  updatedAt?: string;
+}
+
 export interface WorkspaceSnapshot {
   boards: BoardSnapshot[];
   name: string;
+  textBoards?: TextBoardSnapshot[];
 }
 
 export function buildWorkspaceSnapshot(
@@ -143,10 +160,98 @@ export function buildWorkspaceSnapshot(
     });
   }
 
+  const textBoards: TextBoardSnapshot[] = [];
+
+  for (const textBoardId of workspace.text_board_ids ?? []) {
+    const textBoard = state.textBoards.byId[textBoardId];
+    if (!textBoard) {
+      continue;
+    }
+
+    textBoards.push({
+      id: textBoard.id,
+      name: textBoard.name,
+      description: textBoard.description,
+      text: textBoard.content ? tiptapJsonToPlainText(textBoard.content) : "",
+      createdAt: textBoard.created_at,
+      updatedAt: textBoard.updated_at,
+    });
+  }
+
   return {
     name: workspace.name,
     boards,
+    textBoards,
   };
+}
+
+// Extract readable plain text from a serialized TipTap JSON document.
+// Falls back to returning the raw string when it is not valid TipTap JSON.
+function tiptapJsonToPlainText(content: string): string {
+  let doc: {
+    content?: Array<{ type: string; content?: unknown; text?: string }>;
+  };
+  try {
+    doc = JSON.parse(content) as typeof doc;
+  } catch {
+    return content;
+  }
+
+  const lines: string[] = [];
+
+  const renderNodes = (
+    nodes: Array<{ type: string; content?: unknown; text?: string }> | undefined
+  ): string[] => {
+    const result: string[] = [];
+    for (const node of nodes ?? []) {
+      if (node.type === "text") {
+        result.push(node.text ?? "");
+        continue;
+      }
+      if (node.type === "paragraph") {
+        const text = renderNodes(node.content as typeof nodes).join("");
+        result.push(text);
+        continue;
+      }
+      if (node.type === "taskList") {
+        for (const item of (node.content as typeof nodes) ?? []) {
+          const checked =
+            (item as { attrs?: { checked?: boolean } }).attrs?.checked === true;
+          const text = renderNodes(
+            (item as { content?: unknown }).content as typeof nodes
+          ).join("");
+          result.push(`- [${checked ? "x" : " "}] ${text}`);
+        }
+        continue;
+      }
+      if (node.type === "bulletList" || node.type === "orderedList") {
+        for (const item of (node.content as typeof nodes) ?? []) {
+          const text = renderNodes(
+            (item as { content?: unknown }).content as typeof nodes
+          ).join("");
+          result.push(`- ${text}`);
+        }
+        continue;
+      }
+      if (node.type === "heading") {
+        result.push(renderNodes(node.content as typeof nodes).join(""));
+        continue;
+      }
+      if (node.type === "codeBlock") {
+        const text = renderNodes(node.content as typeof nodes).join("");
+        result.push("```", text, "```");
+        continue;
+      }
+      // Fallback: recurse into any other container node
+      result.push(
+        ...renderNodes((node as { content?: unknown }).content as typeof nodes)
+      );
+    }
+    return result;
+  };
+
+  lines.push(...renderNodes(doc.content));
+  return lines.join("\n").trim();
 }
 
 // Builds workspace snapshot only if the message might need tools.
@@ -168,6 +273,7 @@ export interface ChatRequest {
   context?: ContextSnapshot;
   // If true, don't persist conversation to database (for local workspaces)
   ephemeral?: boolean;
+  guestToken?: string;
   history?: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
   message: string;
   workspaceId: string;
@@ -186,18 +292,25 @@ export function streamChat(
   callbacks: ChatStreamCallbacks
 ): AbortController {
   const controller = new AbortController();
+  const guestToken = request.guestToken || useKanbanStore.getState().guestToken;
+  const isGuestMode = useKanbanStore.getState().isGuestMode;
 
   // Fire and forget - the promise is handled internally via callbacks
-  fetchEventSource(`${API_BASE}/api/ai/chat`, {
+  fetchEventSource(`${getApiBaseUrl()}/api/ai/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(request.assistantMessageId
         ? { "x-assistant-message-id": request.assistantMessageId }
         : {}),
+      ...(guestToken ? { "x-guest-token": guestToken } : {}),
     },
     credentials: "include",
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      ephemeral: isGuestMode || request.ephemeral,
+      guestToken: guestToken || undefined,
+    }),
     signal: controller.signal,
 
     async onopen(response) {
@@ -215,6 +328,10 @@ export function streamChat(
           (errorData as { error?: string; message?: string }).error ||
           (errorData as { error?: string; message?: string }).message ||
           `HTTP error ${response.status}`;
+        logger.error(
+          { error: errorMessage, status: response.status },
+          "AI chat stream rejected"
+        );
         callbacks.onError?.(errorMessage);
         throw new FatalError(errorMessage);
       }
@@ -258,6 +375,8 @@ export function streamChat(
         throw error;
       }
 
+      logger.error({ error }, "AI chat stream error");
+
       // Report the error to the callback
       callbacks.onError?.(
         error instanceof Error ? error.message : "Stream error"
@@ -275,6 +394,7 @@ export function streamChat(
       error.name !== "AbortError" &&
       !(error instanceof FatalError)
     ) {
+      logger.error({ error }, "AI stream fetch failed");
       callbacks.onError?.(error.message || "Request failed");
     }
   });
@@ -336,7 +456,7 @@ export async function checkAiHealth(): Promise<{
   status: string;
 }> {
   try {
-    const response = await fetch(`${API_BASE}/api/ai/health`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/ai/health`, {
       credentials: "include",
     });
     if (!response.ok) {
@@ -363,7 +483,7 @@ export async function fetchConversation(
 ): Promise<ConversationResponse | null> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}`,
       {
         credentials: "include",
       }
@@ -389,7 +509,7 @@ export async function deleteServerMessage(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
       {
         method: "DELETE",
         credentials: "include",
@@ -408,7 +528,7 @@ export async function clearServerConversation(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}`,
       {
         method: "DELETE",
         credentials: "include",

@@ -48,6 +48,16 @@ export interface WorkspaceSnapshot {
     }>;
   }>;
   name: string;
+  // Todo / text boards (TipTap docs serialized as JSON strings)
+  textBoards?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    // Plain text rendering of the TipTap document (for AI consumption)
+    text?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
 }
 
 // Context passed to all tool executors.

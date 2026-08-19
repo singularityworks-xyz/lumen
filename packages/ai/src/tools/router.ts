@@ -61,7 +61,17 @@ const QUERY_KEYWORDS = [
   "give",
 ];
 
-const BOARD_KEYWORDS = ["board", "boards", "kanban"];
+const BOARD_KEYWORDS = [
+  "board",
+  "boards",
+  "kanban",
+  "text board",
+  "text boards",
+  "textboard",
+  "textboards",
+  "notes",
+  "note",
+];
 const TASK_KEYWORDS = [
   "task",
   "tasks",

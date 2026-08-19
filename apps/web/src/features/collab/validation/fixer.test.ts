@@ -56,11 +56,15 @@ const createMinimalState = (): KanbanState => ({
   taskDetailModals: {},
   taskQuickActions: {},
   tasks: { byId: {}, allIds: [] },
+  textBoardPositions: { byId: {}, allIds: [] },
+  textBoards: { byId: {}, allIds: [] },
   welcomeDismissed: false,
   workspaceDialog: null,
   workspaceQuickActions: null,
   workspaceShareUrls: {},
   workspaces: { byId: {}, allIds: [] },
+  isGuestMode: false,
+  guestToken: null,
 });
 
 describe("fixer", () => {

@@ -45,6 +45,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
       (state) => state.updateConnectionDialogConfig
     );
     const boards = useKanbanStore((state) => state.boards);
+    const textBoards = useKanbanStore((state) => state.textBoards);
     const currentWorkspaceId = useKanbanStore(
       (state) => state.currentWorkspaceId
     );
@@ -126,11 +127,25 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
       }
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, zIndexDialogId]);
-    const sourceBoard = boards.byId[boardId];
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
-    const workspaceBoardIds = currentWorkspace?.board_ids ?? boards.allIds;
+
+    // Resolve an entity (kanban board OR text board) by id so connections
+    // can flow between both kinds in any direction.
+    const getEntity = useCallback(
+      (id: string): { accentColor?: string; name: string } | null =>
+        boards.byId[id] ?? textBoards.byId[id] ?? null,
+      [boards, textBoards]
+    );
+
+    const sourceBoard = getEntity(boardId);
+    const sourceIsTextBoard = textBoards.byId[boardId] != null;
+
+    const workspaceBoardIds = [
+      ...(currentWorkspace?.board_ids ?? boards.allIds),
+      ...(currentWorkspace?.text_board_ids ?? textBoards.allIds),
+    ];
 
     const existingConnections = boardConnections.allIds
       .map((connId) => boardConnections.byId[connId])
@@ -141,23 +156,35 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
     );
 
     const availableBoards = workspaceBoardIds
-      .map((id) => boards.byId[id])
-      .filter((board) => {
-        if (!board || board.id === boardId) {
+      .map((id) => ({ id, entity: getEntity(id) }))
+      .filter(
+        (
+          entry
+        ): entry is {
+          entity: { accentColor?: string; name: string };
+          id: string;
+        } => entry.entity !== null
+      )
+      .filter((entry) => {
+        if (entry.id === boardId) {
           return false;
         }
-        if (existingTargetIds.has(board.id)) {
+        if (existingTargetIds.has(entry.id)) {
           return false;
         }
         if (searchQuery) {
-          return board.name.toLowerCase().includes(searchQuery.toLowerCase());
+          return entry.entity.name
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase());
         }
         return true;
       });
 
     useImperativeConnector({
       customColor: sourceBoard?.accentColor,
-      sourceSelector: `.react-flow__node[data-id="quick-actions-${boardId}"]`,
+      sourceSelector: `.react-flow__node[data-id="${
+        sourceIsTextBoard ? "text-quick-actions" : "quick-actions"
+      }-${boardId}"]`,
       targetNodeId: `connection-dialog-${boardId}`,
       zIndex: connectorZIndex,
     });
@@ -330,7 +357,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
                   <div className="flex items-center gap-2">
                     <Link2 className="h-3.5 w-3.5 text-primary" />
                     <span className="font-medium text-sm">
-                      {boards.byId[selectedTargetId]?.name}
+                      {getEntity(selectedTargetId)?.name}
                     </span>
                   </div>
                   <button
@@ -384,24 +411,19 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
                     </div>
                   ) : (
                     <div className="space-y-0.5">
-                      {availableBoards.map((board) => {
-                        if (!board) {
-                          return null;
-                        }
-                        return (
-                          <button
-                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
-                            key={board.id}
-                            onClick={() => handleQuickConnect(board.id)}
-                            type="button"
-                          >
-                            <Link2 className="h-3 w-3 text-muted-foreground" />
-                            <span className="truncate text-xs">
-                              {board.name}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {availableBoards.map((entry) => (
+                        <button
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+                          key={entry.id}
+                          onClick={() => handleQuickConnect(entry.id)}
+                          type="button"
+                        >
+                          <Link2 className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate text-xs">
+                            {entry.entity.name}
+                          </span>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -434,7 +456,7 @@ export const ConnectionDialogNodeComponent = memo<ConnectionDialogNodeProps>(
                     if (!conn) {
                       return null;
                     }
-                    const targetBoard = boards.byId[conn.target_board_id];
+                    const targetBoard = getEntity(conn.target_board_id);
                     const isEditing = editingConnectionId === conn.id;
 
                     return (

@@ -59,6 +59,29 @@ export interface DeleteBoardInstruction {
   type: "deleteBoard";
 }
 
+export interface CreateTextBoardInstruction {
+  content?: string;
+  description?: string;
+  name: string;
+  position?: { x: number; y: number };
+  type: "createTextBoard";
+}
+
+export interface UpdateTextBoardInstruction {
+  textBoardId: string;
+  type: "updateTextBoard";
+  updates: {
+    name?: string;
+    description?: string | null;
+    content?: string;
+  };
+}
+
+export interface DeleteTextBoardInstruction {
+  textBoardId: string;
+  type: "deleteTextBoard";
+}
+
 export interface CreateColumnInstruction {
   boardId: string;
   name: string;
@@ -90,6 +113,9 @@ export type ActionInstruction =
   | CreateBoardInstruction
   | UpdateBoardInstruction
   | DeleteBoardInstruction
+  | CreateTextBoardInstruction
+  | UpdateTextBoardInstruction
+  | DeleteTextBoardInstruction
   | CreateColumnInstruction
   | BulkUpdateTasksInstruction
   | BulkDeleteTasksInstruction;

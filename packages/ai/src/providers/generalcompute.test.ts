@@ -14,6 +14,7 @@ import {
 } from "./generalcompute";
 
 const ALL_MODELS: GeneralComputeModel[] = [
+  "gemma-4-31B-it",
   "minimax-m2.7",
   "deepseek-v3.2",
   "deepseek-v3.1",

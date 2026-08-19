@@ -550,13 +550,16 @@ const CommentsDrawerContent = memo(
         data-testid="comments-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
+        style={{
+          willChange: "transform, opacity",
+        }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
       >
         <div
           className={cn(
             "flex h-full w-full flex-col",
             "overflow-hidden rounded-2xl",
-            "bg-card/98 backdrop-blur-xl",
+            "bg-card/98",
             "border-2 border-border/50",
             "shadow-[0_8px_40px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05),inset_0_2px_8px_rgba(0,0,0,0.15),inset_0_-2px_6px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
@@ -883,6 +886,7 @@ export interface CommentsDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSwitchToAi?: () => void;
   onSwitchToBoards?: () => void;
+  showTrigger?: boolean;
 }
 
 export const CommentsDrawer = memo(
@@ -893,6 +897,7 @@ export const CommentsDrawer = memo(
     onSwitchToAi,
     boardCount = 0,
     onCommentClick,
+    showTrigger = true,
   }: CommentsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const [commentInputValue, setCommentInputValue] = useState("");
@@ -994,35 +999,39 @@ export const CommentsDrawer = memo(
 
     return createPortal(
       <>
-        <FloatingIndicator
-          badgeCount={workspaceComments.filter((c) => !c.parentId).length}
-          icon={<MessageCircle className="h-5 w-5" />}
-          isOpen={isOpen}
-          label="Comments"
-          onClick={handleOpen}
-          testId="comments-drawer-trigger"
-          verticalOffset={-100}
-        />
+        {showTrigger && (
+          <>
+            <FloatingIndicator
+              badgeCount={workspaceComments.filter((c) => !c.parentId).length}
+              icon={<MessageCircle className="h-5 w-5" />}
+              isOpen={isOpen}
+              label="Comments"
+              onClick={handleOpen}
+              testId="comments-drawer-trigger"
+              verticalOffset={-165}
+            />
 
-        <FloatingIndicator
-          badgeCount={discussionCount}
-          icon={<Users className="h-5 w-5" />}
-          isOpen={isOpen}
-          label="Chat"
-          onClick={() => {
-            onOpenChange(true);
-            setLastActiveDrawerTab("discussion");
-          }}
-          testId="chat-drawer-trigger"
-          verticalOffset={-16}
-        />
+            <FloatingIndicator
+              badgeCount={discussionCount}
+              icon={<Users className="h-5 w-5" />}
+              isOpen={isOpen}
+              label="Chat"
+              onClick={() => {
+                onOpenChange(true);
+                setLastActiveDrawerTab("discussion");
+              }}
+              testId="chat-drawer-trigger"
+              verticalOffset={-55}
+            />
+          </>
+        )}
 
         <AnimatePresence>
           {isOpen && (
             <>
               <motion.div
                 animate={{ opacity: 1 }}
-                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+                className="fixed inset-0 z-40 bg-black/20"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}
                 onClick={handleClose}

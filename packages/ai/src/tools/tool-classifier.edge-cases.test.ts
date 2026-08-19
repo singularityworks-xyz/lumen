@@ -54,7 +54,7 @@ describe("classifyToolIntentSync edge cases", () => {
       const toolNames = Object.keys(result.tools);
       expect(toolNames).toContain("deleteTask");
       expect(toolNames).toContain("searchTasks");
-      expect(toolNames.length).toBe(15);
+      expect(toolNames.length).toBe(18);
     }
   });
 

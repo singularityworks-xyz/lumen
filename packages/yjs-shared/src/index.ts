@@ -62,6 +62,8 @@ export const YJS_MAP_NAMES = {
   TASKS: "tasks",
   BOARD_POSITIONS: "boardPositions",
   BOARD_CONNECTIONS: "boardConnections",
+  TEXT_BOARDS: "textBoards",
+  TEXT_BOARD_POSITIONS: "textBoardPositions",
   AREAS: "areas",
   AREA_POSITIONS: "areaPositions",
   AREA_DIALOGS: "areaDialogs",
@@ -166,12 +168,42 @@ export const ViewportStateSchema = z.object({
   zoom: z.number().min(0.1).max(4),
 });
 
+// Text board schema - a TipTap powered todo/text board on the canvas.
+// Content is serialized TipTap JSON (string) so rich text + task lists sync
+// through the same Y.Map pipeline as every other entity.
+export const TextBoardSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  // Serialized TipTap JSON document. Empty string means a fresh board.
+  content: z.string().optional(),
+  created_by: z.string(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+  accentColor: z.string().optional(),
+  icon: z.string().optional(),
+});
+
+export const TextBoardPositionSchema = z.object({
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  zIndex: z.number(),
+  userResized: z.boolean().optional(),
+  lastUserWidth: z.number().optional(),
+  lastUserHeight: z.number().optional(),
+});
+
 export const WorkspaceSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   description: z.string().optional(),
   created_at: z.string(),
   board_ids: z.array(z.string()),
+  text_board_ids: z.array(z.string()).optional(),
   lastFocusedBoardId: z.string().nullable().optional(),
   lastViewport: ViewportStateSchema.nullable().optional(),
   showMiniMap: z.boolean().optional(),
@@ -436,6 +468,8 @@ export const ChatMessageSchema = z.object({
 export type Task = z.infer<typeof TaskSchema>;
 export type Column = z.infer<typeof ColumnSchema>;
 export type Board = z.infer<typeof BoardSchema>;
+export type TextBoard = z.infer<typeof TextBoardSchema>;
+export type TextBoardPosition = z.infer<typeof TextBoardPositionSchema>;
 export type BoardPosition = z.infer<typeof BoardPositionSchema>;
 export type BoardConnection = z.infer<typeof BoardConnectionSchema>;
 export type Workspace = z.infer<typeof WorkspaceSchema>;

@@ -3,6 +3,7 @@
 import { useReactFlow } from "@xyflow/react";
 import {
   CheckCircle2,
+  ClipboardList,
   Layout,
   LayoutGrid,
   Link2,
@@ -14,16 +15,84 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
-import type { Board, Task } from "@/src/features/kanban/types";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
+import {
+  type ComputedBoardStats,
+  computeAllBoardStats,
+  type RawBoardData,
+  type RawColumnData,
+  type RawConnectionData,
+  type RawTaskData,
+  type RawTextBoardData,
+  runBoardStatsWorker,
+} from "@/src/workers/worker-client";
 import LarityOrb from "../../ai/components/animations/larity-orb";
 
+// Shared display shape for kanban boards and text boards in the sidebar
+interface DrawerBoard {
+  accentColor?: string;
+  description?: string;
+  icon?: string;
+  id: string;
+  name: string;
+}
+
+type BoardKind = "board" | "textBoard";
+
 interface BoardStats {
-  board: Board;
+  board: DrawerBoard;
   completedTasks: number;
   connections: number;
+  kind: BoardKind;
   totalTasks: number;
+}
+
+// Count todo items inside a serialized TipTap document (text boards).
+// taskItems carry attrs.checked, so we can show real task stats.
+function _countTextBoardTasks(content: string | undefined): {
+  completedTasks: number;
+  totalTasks: number;
+} {
+  if (!content) {
+    return { completedTasks: 0, totalTasks: 0 };
+  }
+  try {
+    const doc = JSON.parse(content) as {
+      content?: Array<{
+        attrs?: { checked?: boolean };
+        content?: unknown;
+        type: string;
+      }>;
+    };
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    const walk = (
+      nodes:
+        | Array<{
+            attrs?: { checked?: boolean };
+            content?: unknown;
+            type: string;
+          }>
+        | undefined
+    ): void => {
+      for (const node of nodes ?? []) {
+        if (node.type === "taskItem") {
+          totalTasks += 1;
+          if (node.attrs?.checked === true) {
+            completedTasks += 1;
+          }
+        }
+        walk(node.content as typeof nodes);
+      }
+    };
+
+    walk(doc.content);
+    return { completedTasks, totalTasks };
+  } catch {
+    return { completedTasks: 0, totalTasks: 0 };
+  }
 }
 
 interface BoardCardProps {
@@ -33,10 +102,15 @@ interface BoardCardProps {
 }
 
 const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
-  const { board, totalTasks, completedTasks, connections } = stats;
+  const { board, totalTasks, completedTasks, connections, kind } = stats;
   const completionPercent =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const IconComponent = board.icon ? ICON_MAP[board.icon] : Layout;
+  const IconComponent =
+    kind === "textBoard"
+      ? ClipboardList
+      : board.icon
+        ? ICON_MAP[board.icon]
+        : Layout;
   const accentColor = board.accentColor || "#6e6e6e";
 
   return (
@@ -197,10 +271,16 @@ interface FloatingIndicatorProps {
   boardCount: number;
   isOpen: boolean;
   onClick: () => void;
+  verticalOffset?: number;
 }
 
 const FloatingIndicator = memo(
-  ({ onClick, boardCount, isOpen }: FloatingIndicatorProps) => (
+  ({
+    onClick,
+    boardCount,
+    isOpen,
+    verticalOffset = 55,
+  }: FloatingIndicatorProps) => (
     <motion.button
       animate={{
         x: isOpen ? 100 : 0,
@@ -222,7 +302,7 @@ const FloatingIndicator = memo(
       )}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "8px" }}
+      style={{ marginTop: `${verticalOffset}px` }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
@@ -289,13 +369,16 @@ const BoardsDrawerContent = memo(
         )}
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
+        style={{
+          willChange: "transform, opacity",
+        }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
       >
         <div
           className={cn(
             "flex h-full w-full flex-col",
             "overflow-hidden rounded-2xl",
-            "bg-card/98 backdrop-blur-xl",
+            "bg-card/98",
             "border-2 border-border/50",
             "shadow-[0_8px_40px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05),inset_0_2px_8px_rgba(0,0,0,0.15),inset_0_-2px_6px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
@@ -475,6 +558,8 @@ export interface BoardsDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSwitchToAi?: () => void;
   onSwitchToComments?: () => void;
+  showTrigger?: boolean;
+  verticalOffset?: number;
 }
 
 export const BoardsDrawer = memo(
@@ -484,9 +569,12 @@ export const BoardsDrawer = memo(
     onSwitchToComments,
     onSwitchToAi,
     commentCount = 0,
+    showTrigger = true,
+    verticalOffset = 55,
   }: BoardsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const boards = useKanbanStore((state) => state.boards);
+    const textBoards = useKanbanStore((state) => state.textBoards);
     const columns = useKanbanStore((state) => state.columns);
     const tasks = useKanbanStore((state) => state.tasks);
     const boardConnections = useKanbanStore((state) => state.boardConnections);
@@ -495,11 +583,15 @@ export const BoardsDrawer = memo(
     );
     const workspaces = useKanbanStore((state) => state.workspaces);
     const boardPositions = useKanbanStore((state) => state.boardPositions);
+    const textBoardPositions = useKanbanStore(
+      (state) => state.textBoardPositions
+    );
     const { setCenter } = useReactFlow();
 
     const handleBoardClick = useCallback(
       (boardId: string) => {
-        const position = boardPositions.byId[boardId];
+        const position =
+          boardPositions.byId[boardId] ?? textBoardPositions.byId[boardId];
         if (position) {
           const centerX = position.x + (position.width ?? 400) / 2;
           const centerY = position.y + (position.height ?? 300) / 2;
@@ -507,71 +599,124 @@ export const BoardsDrawer = memo(
           onOpenChange(false);
         }
       },
-      [boardPositions, setCenter, onOpenChange]
+      [boardPositions, textBoardPositions, setCenter, onOpenChange]
     );
 
-    const boardStats = useMemo((): BoardStats[] => {
+    const currentWorkspace = currentWorkspaceId
+      ? workspaces.byId[currentWorkspaceId]
+      : null;
+    const workspaceBoardIds = useMemo(
+      () => currentWorkspace?.board_ids ?? [],
+      [currentWorkspace]
+    );
+    const workspaceTextBoardIds = useMemo(
+      () => currentWorkspace?.text_board_ids ?? [],
+      [currentWorkspace]
+    );
+
+    const rawConnections = useMemo(
+      (): RawConnectionData[] =>
+        boardConnections.allIds
+          .map((id) => {
+            const c = boardConnections.byId[id];
+            return c
+              ? {
+                  source_board_id: c.source_board_id,
+                  target_board_id: c.target_board_id,
+                }
+              : null;
+          })
+          .filter((c): c is RawConnectionData => c !== null),
+      [boardConnections]
+    );
+
+    const initialComputedStats = useMemo(() => {
       if (!currentWorkspaceId) {
         return [];
       }
+      return computeAllBoardStats(
+        workspaceBoardIds,
+        workspaceTextBoardIds,
+        boards.byId as unknown as Record<string, RawBoardData>,
+        textBoards.byId as unknown as Record<string, RawTextBoardData>,
+        columns.byId as unknown as Record<string, RawColumnData>,
+        tasks.byId as unknown as Record<string, RawTaskData>,
+        rawConnections
+      );
+    }, [
+      currentWorkspaceId,
+      workspaceBoardIds,
+      workspaceTextBoardIds,
+      boards.byId,
+      textBoards.byId,
+      columns.byId,
+      tasks.byId,
+      rawConnections,
+    ]);
 
-      const workspace = workspaces.byId[currentWorkspaceId];
-      if (!workspace) {
-        return [];
+    const mapStats = useCallback(
+      (computed: ComputedBoardStats[]): BoardStats[] =>
+        computed.map((c) => ({
+          board: {
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            accentColor: c.accentColor,
+            icon: c.icon,
+          },
+          totalTasks: c.totalTasks,
+          completedTasks: c.completedTasks,
+          connections: c.connections,
+          kind: c.kind,
+        })),
+      []
+    );
+
+    const [boardStats, setBoardStats] = useState<BoardStats[]>(() =>
+      mapStats(initialComputedStats)
+    );
+
+    useEffect(() => {
+      let active = true;
+      if (!currentWorkspaceId) {
+        setBoardStats([]);
+        return;
       }
 
-      const workspaceBoardIds = workspace.board_ids || [];
-
-      return workspaceBoardIds
-        .map((boardId) => {
-          const board = boards.byId[boardId];
-          if (!board) {
-            return null;
+      runBoardStatsWorker(
+        workspaceBoardIds,
+        workspaceTextBoardIds,
+        boards.byId as unknown as Record<string, RawBoardData>,
+        textBoards.byId as unknown as Record<string, RawTextBoardData>,
+        columns.byId as unknown as Record<string, RawColumnData>,
+        tasks.byId as unknown as Record<string, RawTaskData>,
+        rawConnections
+      )
+        .then((computed) => {
+          if (active) {
+            setBoardStats(mapStats(computed));
           }
-
-          const boardColumnIds = board.column_ids || [];
-          const boardTasks: Task[] = [];
-
-          for (const colId of boardColumnIds) {
-            const column = columns.byId[colId];
-            if (column) {
-              for (const taskId of column.task_ids || []) {
-                const task = tasks.byId[taskId];
-                if (task) {
-                  boardTasks.push(task);
-                }
-              }
-            }
-          }
-
-          const completedTasks = boardTasks.filter(
-            (t) => t.status === "done"
-          ).length;
-
-          const connections = boardConnections.allIds.filter((connId) => {
-            const conn = boardConnections.byId[connId];
-            return (
-              conn &&
-              (conn.source_board_id === boardId ||
-                conn.target_board_id === boardId)
-            );
-          }).length;
-
-          return {
-            board,
-            totalTasks: boardTasks.length,
-            completedTasks,
-            connections,
-          };
         })
-        .filter((s): s is BoardStats => s !== null);
+        .catch(() => {
+          if (active) {
+            setBoardStats(mapStats(initialComputedStats));
+          }
+        });
+
+      return () => {
+        active = false;
+      };
     }, [
-      boards,
-      columns,
-      tasks,
-      boardConnections,
       currentWorkspaceId,
-      workspaces,
+      workspaceBoardIds,
+      workspaceTextBoardIds,
+      boards.byId,
+      textBoards.byId,
+      columns.byId,
+      tasks.byId,
+      rawConnections,
+      mapStats,
+      initialComputedStats,
     ]);
 
     useEffect(() => {
@@ -598,18 +743,21 @@ export const BoardsDrawer = memo(
 
     return createPortal(
       <>
-        <FloatingIndicator
-          boardCount={boardStats.length}
-          isOpen={isOpen}
-          onClick={handleOpen}
-        />
+        {showTrigger && (
+          <FloatingIndicator
+            boardCount={boardStats.length}
+            isOpen={isOpen}
+            onClick={handleOpen}
+            verticalOffset={verticalOffset}
+          />
+        )}
 
         <AnimatePresence>
           {isOpen && (
             <>
               <motion.div
                 animate={{ opacity: 1 }}
-                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+                className="fixed inset-0 z-40 bg-black/20"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}
                 onClick={handleClose}

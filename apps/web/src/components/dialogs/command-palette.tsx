@@ -9,6 +9,12 @@ import {
   useKanbanStore,
 } from "@/src/features/kanban/store/kanban-store";
 import { useCurrentWorkspace } from "@/src/features/kanban/store/selectors";
+import {
+  runSearchWorker,
+  type SearchTaskItem,
+  type SearchTaskResult,
+  searchTasks,
+} from "@/src/workers/worker-client";
 
 interface Command {
   action: () => void;
@@ -174,59 +180,71 @@ export const CommandPalette = memo(() => {
     cmd.label.toLowerCase().includes(query.toLowerCase())
   );
 
-  const workspaceBoardIds = currentWorkspace?.board_ids ?? [];
+  const workspaceBoardIds = useMemo(
+    () => currentWorkspace?.board_ids ?? [],
+    [currentWorkspace]
+  );
 
-  const searchResults = useMemo(() => {
-    if (query.trim().length === 0) {
-      return [];
-    }
-
-    const q = query.toLowerCase();
-    const results: Array<{
-      boardName: string;
-      columnName: string;
-      taskTitle: string;
-      taskId: string;
-    }> = [];
-
+  const searchItems = useMemo((): SearchTaskItem[] => {
+    const items: SearchTaskItem[] = [];
     for (const boardId of workspaceBoardIds) {
       const board = boards.byId[boardId];
       if (!board) {
         continue;
       }
-
       for (const columnId of board.column_ids) {
         const column = columns.byId[columnId];
         if (!column) {
           continue;
         }
-
         for (const taskId of column.task_ids) {
           const task = tasks.byId[taskId];
           if (!task) {
             continue;
           }
-
-          const titleMatch = task.title.toLowerCase().includes(q);
-          const descMatch = (task.description || "").toLowerCase().includes(q);
-          const tagMatch = (task.tags || []).some((tag) =>
-            tag.toLowerCase().includes(q)
-          );
-
-          if (titleMatch || descMatch || tagMatch) {
-            results.push({
-              boardName: board.name,
-              columnName: column.name,
-              taskTitle: task.title,
-              taskId: task.id,
-            });
-          }
+          items.push({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            tags: task.tags,
+            boardId: board.id,
+            boardName: board.name,
+            columnId: column.id,
+            columnName: column.name,
+          });
         }
       }
     }
+    return items;
+  }, [workspaceBoardIds, boards.byId, columns.byId, tasks.byId]);
 
-    return results;
-  }, [query, workspaceBoardIds, boards.byId, columns.byId, tasks.byId]);
+  const [searchResults, setSearchResults] = useState<SearchTaskResult[]>(() =>
+    searchTasks(query, searchItems)
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (query.trim().length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    runSearchWorker(query, searchItems)
+      .then((results) => {
+        if (active) {
+          setSearchResults(results);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSearchResults(searchTasks(query, searchItems));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [query, searchItems]);
 
   if (!showCommandPalette) {
     return null;

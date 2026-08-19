@@ -38,7 +38,7 @@ type TaskModalNodeProps = NodeProps<Node<TaskModalNodeData>>;
 const MODAL_WIDTH = 400;
 
 export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
-  ({ data, selected }) => {
+  ({ id, data, selected }) => {
     const modalBoardId = useKanbanStore(
       (state) => state.createTaskModals[data.modalId]?.boardId
     );
@@ -94,9 +94,6 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     const closeCreateTaskModal = useKanbanStore(
       (state) => state.closeCreateTaskModal
     );
-    const bringModalToFront = useKanbanStore(
-      (state) => state.bringModalToFront
-    );
     const columns = useKanbanStore((state) => state.columns);
     const boards = useKanbanStore((state) => state.boards);
 
@@ -143,7 +140,7 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     useImperativeConnector({
       customColor: accentColor,
       sourceSelector,
-      targetNodeId: `task-detail-modal-${data.modalId}`,
+      targetNodeId: id,
       zIndex: connectorZIndex,
     });
 
@@ -162,9 +159,9 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
     );
 
     const handleMouseDown = useCallback(() => {
-      bringModalToFront(data.modalId);
       bringDialogToFront(zIndexDialogId);
-    }, [data.modalId, bringModalToFront, bringDialogToFront, zIndexDialogId]);
+      handleDialogPointerDown();
+    }, [bringDialogToFront, handleDialogPointerDown, zIndexDialogId]);
 
     const updatedModalState = useMemo(() => {
       if (!modalFormData) {
@@ -203,23 +200,14 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Node wrapper needs mouse handler
       // biome-ignore lint/a11y/noStaticElementInteractions: Node wrapper needs mouse handler
       <div
-        className={cn(
-          "relative rounded-lg transition-all duration-200",
-          selected || isFocused || isTopmost
-            ? "scale-[1.02] shadow-xl"
-            : "shadow-lg",
-          "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
-        )}
+        className="relative rounded-lg"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) {
             setIsFocused(false);
           }
         }}
         onFocus={() => setIsFocused(true)}
-        onPointerDown={() => {
-          handleMouseDown();
-          handleDialogPointerDown();
-        }}
+        onMouseDown={handleMouseDown}
         style={{
           width: MODAL_WIDTH,
         }}
@@ -230,10 +218,11 @@ export const TaskModalNodeComponent = memo<TaskModalNodeProps>(
 
         <div
           className={cn(
-            "flex flex-col overflow-hidden rounded-lg bg-card",
+            "flex flex-col overflow-hidden rounded-lg bg-card transition-all",
             selected || isFocused || isTopmost
-              ? "ring-2 ring-primary/50"
-              : "ring-1 ring-border/50"
+              ? "shadow-xl ring-2 ring-primary/50"
+              : "shadow-lg ring-1 ring-border/50",
+            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.05)]"
           )}
         >
           <div

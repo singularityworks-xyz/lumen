@@ -380,7 +380,7 @@ describe("streamWithFallback", () => {
     });
   });
 
-  it("handles non-rate-limit errors by throwing immediately", async () => {
+  it("handles non-rate-limit errors by throwing when all models are exhausted", async () => {
     mockStreamText.mockImplementation(() => {
       throw new Error("API error");
     });
@@ -392,6 +392,43 @@ describe("streamWithFallback", () => {
         // consume
       }
     }).toThrow("API error");
+  });
+
+  it("falls back to next model on general API error", async () => {
+    mockGetModelChain.mockImplementation(() => ["model-1", "model-2"]);
+
+    let callCount = 0;
+    mockStreamText.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error("500 Internal Server Error");
+      }
+      return {
+        fullStream: createMockStream([
+          { type: "text-delta", text: "Fallback response from API error" },
+        ]),
+        usage: Promise.resolve({
+          inputTokens: 5,
+          outputTokens: 3,
+          totalTokens: 8,
+        }),
+      };
+    });
+
+    mockIsRateLimitError.mockImplementation(() => false);
+
+    const results: StreamResult[] = [];
+    for await (const result of streamWithFallback(makeOpts())) {
+      results.push(result);
+    }
+
+    const chunks = results.filter((r) => r.type === "chunk");
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toEqual({
+      type: "chunk",
+      chunk: "Fallback response from API error",
+      modelUsed: "model-2",
+    });
   });
 
   it("throws when all models are rate limited", async () => {

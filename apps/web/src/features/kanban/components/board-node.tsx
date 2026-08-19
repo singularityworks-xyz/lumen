@@ -797,24 +797,43 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
               // Also open rename dialog alongside quick-actions so that
               // workspace switch-and-back restores the dialog context.
-              const QUICK_ACTIONS_WIDTH = 220;
-              const renamePos = {
-                x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
-                y: flowPos.y,
-              };
-              openBoardDialog({
-                type: "rename",
-                boardId,
-                boardName: board.name,
-                boardDescription: board.description,
-                inputValue: board.name,
-                descriptionValue: board.description,
-                position: renamePos,
-              });
-              setTimeout(
-                () => ensureDialogVisible(renamePos.x, renamePos.y, 320, 280),
-                100
-              );
+              // If one is already open, bring it to front and pan to it
+              // instead of creating a duplicate.
+              const existingRenameDialog = Object.values(
+                useKanbanStore.getState().boardDialogs
+              ).find((d) => d.boardId === boardId && d.type === "rename");
+
+              if (existingRenameDialog) {
+                useKanbanStore
+                  .getState()
+                  .bringDialogToFront(
+                    `rename-board-dialog-${existingRenameDialog.id}`
+                  );
+                setCenter(
+                  existingRenameDialog.position.x + 150,
+                  existingRenameDialog.position.y + 150,
+                  { duration: 500, zoom: 1 }
+                );
+              } else {
+                const QUICK_ACTIONS_WIDTH = 220;
+                const renamePos = {
+                  x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
+                  y: flowPos.y,
+                };
+                openBoardDialog({
+                  type: "rename",
+                  boardId,
+                  boardName: board.name,
+                  boardDescription: board.description,
+                  inputValue: board.name,
+                  descriptionValue: board.description,
+                  position: renamePos,
+                });
+                setTimeout(
+                  () => ensureDialogVisible(renamePos.x, renamePos.y, 320, 280),
+                  100
+                );
+              }
             }}
             ref={headerRef}
             style={

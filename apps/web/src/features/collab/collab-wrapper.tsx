@@ -18,13 +18,16 @@ function YjsSyncEnabler({ children }: { children: ReactNode }) {
   const shareUrl = useKanbanStore((s) =>
     s.currentWorkspaceId ? s.workspaceShareUrls[s.currentWorkspaceId] : null
   );
+  const isGuestMode = useKanbanStore((s) => s.isGuestMode);
   const isConnected = connectionState === "connected";
 
-  // Only auto-connect when workspace is shared:
+  // Only auto-connect when workspace is shared or in guest mode:
+  // - isGuestMode: true means connected as read-only public guest
   // - isShared: true means the workspace was joined via share link (editor)
   // - shareUrl set in state means owner has shared this workspace
   // - shareToken on workspace means owner has shared (persisted token)
   const isSharedWorkspace =
+    isGuestMode ||
     currentWorkspace?.isShared === true ||
     !!shareUrl ||
     !!currentWorkspace?.shareToken;

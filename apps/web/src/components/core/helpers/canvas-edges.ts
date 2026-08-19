@@ -10,7 +10,9 @@ export function useCanvasEdges() {
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
   const boards = useKanbanStore((state) => state.boards);
+  const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
   const boardConnections = useKanbanStore((state) => state.boardConnections);
 
@@ -18,7 +20,26 @@ export function useCanvasEdges() {
     const currentWorkspace = currentWorkspaceId
       ? workspaces.byId[currentWorkspaceId]
       : null;
-    const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+    // Both kanban boards and text boards participate in connections, so a
+    // connection between a board and a text board stays visible.
+    const boardIds = new Set(
+      isGuestMode
+        ? [...boards.allIds, ...textBoards.allIds]
+        : [
+            ...(currentWorkspace?.board_ids ?? boards.allIds),
+            ...(currentWorkspace?.text_board_ids ?? textBoards.allIds),
+            ...boards.allIds.filter(
+              (id) =>
+                !currentWorkspaceId ||
+                boards.byId[id]?.workspace_id === currentWorkspaceId
+            ),
+            ...textBoards.allIds.filter(
+              (id) =>
+                !currentWorkspaceId ||
+                textBoards.byId[id]?.workspace_id === currentWorkspaceId
+            ),
+          ]
+    );
 
     return boardConnections.allIds
       .map((connectionId) => {
@@ -27,8 +48,8 @@ export function useCanvasEdges() {
           return null;
         }
 
-        const isSourceVisible = boardIds.includes(connection.source_board_id);
-        const isTargetVisible = boardIds.includes(connection.target_board_id);
+        const isSourceVisible = boardIds.has(connection.source_board_id);
+        const isTargetVisible = boardIds.has(connection.target_board_id);
         const bothVisible = isSourceVisible && isTargetVisible;
         if (!bothVisible) {
           return null;
@@ -66,7 +87,16 @@ export function useCanvasEdges() {
         return edge;
       })
       .filter((edge): edge is BoardEdge => edge !== null);
-  }, [boardConnections, currentWorkspaceId, workspaces, boards.allIds]);
+  }, [
+    isGuestMode,
+    boardConnections,
+    currentWorkspaceId,
+    workspaces,
+    boards.allIds,
+    textBoards.allIds,
+    textBoards.byId,
+    boards.byId,
+  ]);
 
   return edges;
 }

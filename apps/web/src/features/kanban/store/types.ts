@@ -16,6 +16,8 @@ import type {
   InteractionMode,
   Task,
   TaskDetailModalState,
+  TextBoard,
+  TextBoardPosition,
   ViewportState,
   Workspace,
 } from "../types";
@@ -99,7 +101,9 @@ export interface KanbanState {
   // Z-index management
   dialogFocusStack: string[];
   draggedTaskId: string | null;
+  guestToken: string | null;
   interactionMode: InteractionMode;
+  isGuestMode: boolean;
   isProfileModalOpen: boolean;
   lastActiveDrawerTab: "comments" | "discussion";
   lastTaskModalPositions: Record<string, { x: number; y: number }>;
@@ -125,6 +129,8 @@ export interface KanbanState {
     }
   >;
   tasks: EntityMap<Task>;
+  textBoardPositions: EntityMap<TextBoardPosition>;
+  textBoards: EntityMap<TextBoard>;
   welcomeDismissed: boolean;
   workspaceDialog: {
     type: "rename" | "reset" | "delete" | "duplicate";
@@ -194,6 +200,11 @@ export interface KanbanActions {
       Pick<Task, "description" | "priority" | "progress" | "due_date" | "tags">
     >
   ) => string;
+  addTextBoard: (
+    name: string,
+    position?: { x: number; y: number },
+    description?: string
+  ) => string;
   addWorkspace: (name: string, description?: string) => string;
   attachBoardToArea: (areaId: string, boardId: string) => void;
   bringBoardToFront: (boardId: string) => void;
@@ -202,6 +213,7 @@ export interface KanbanActions {
   bringDialogToFront: (dialogId: string) => void;
   bringModalToFront: (modalId: string) => void;
   bringTaskDetailModalToFront: (modalId: string) => void;
+  bringTextBoardToFront: (textBoardId: string) => void;
   bulkDeleteTasks: (taskIds: string[]) => void;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => void;
   clearBoardSelection: () => void;
@@ -253,6 +265,7 @@ export interface KanbanActions {
   finalizeAreaDrag: (areaId: string) => void;
   finalizeBoardDrag: (boardId: string) => void;
   finalizeCommentsDrag: (commentIds: string[]) => void;
+  finalizeTextBoardDrag: (textBoardId: string) => void;
   getChatMessagesForWorkspace: (workspaceId: string) => ChatMessage[];
   getConnectionsByBoardId: (boardId: string) => BoardConnection[];
   getDenormalizedBoard: (
@@ -380,6 +393,7 @@ export interface KanbanActions {
   removeBoard: (boardId: string) => void;
   removeComment: (id: string) => void;
   removeConnection: (connectionId: string) => void;
+  removeTextBoard: (textBoardId: string) => void;
   resetWorkspace: (
     workspaceId: string,
     options?: { clearBoardsAndColumns?: boolean }
@@ -406,6 +420,7 @@ export interface KanbanActions {
   setDeletedSharedWorkspace: (workspaceId: string | null) => void;
   setDraggedTask: (taskId: string | null) => void;
   setFocusedBoard: (boardId: string | null) => void;
+  setGuestMode: (isGuestMode: boolean, guestToken?: string | null) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setLastActiveDrawerTab: (tab: "comments" | "discussion") => void;
   setSelectedBoard: (boardId: string | null) => void;
@@ -594,6 +609,24 @@ export interface KanbanActions {
   ) => void;
   updateTaskQuickActionsPosition: (
     taskId: string,
+    position: { x: number; y: number }
+  ) => void;
+  updateTextBoard: (
+    textBoardId: string,
+    updates: Partial<
+      Pick<
+        TextBoard,
+        "name" | "description" | "content" | "accentColor" | "icon"
+      >
+    >
+  ) => void;
+  updateTextBoardDimensions: (
+    textBoardId: string,
+    dimensions: { width: number; height: number },
+    isUserResize?: boolean
+  ) => void;
+  updateTextBoardPosition: (
+    textBoardId: string,
     position: { x: number; y: number }
   ) => void;
   updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;

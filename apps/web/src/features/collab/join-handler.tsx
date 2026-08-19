@@ -2,7 +2,7 @@
 
 import { createLogger } from "@lumen/logger";
 import { withSpanAsync } from "@lumen/logger/tracer";
-import { User } from "lucide-react";
+import { Globe, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { env } from "@/src/env";
@@ -24,6 +24,7 @@ async function hashString(str: string): Promise<string> {
 }
 
 export interface JoinSuccessData {
+  isGuest?: boolean;
   owner?: {
     id: string;
     name: string | null;
@@ -36,15 +37,17 @@ export interface JoinSuccessData {
 }
 
 interface JoinHandlerProps {
+  guestToken?: string | null;
   onJoinError?: (error: string) => void;
   onJoinSuccess?: (data: JoinSuccessData) => void;
-  shareToken: string | null;
+  shareToken?: string | null;
 }
 
 type JoinState = "idle" | "validating" | "joining" | "success" | "error";
 
 export function useJoinWorkspace({
   shareToken,
+  guestToken,
   onJoinSuccess,
   onJoinError,
 }: JoinHandlerProps) {
@@ -60,12 +63,15 @@ export function useJoinWorkspace({
       image: string | null;
       email: string;
     };
+    isGuest?: boolean;
   } | null>(null);
 
   const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
+  const effectiveToken = guestToken || shareToken;
+  const isGuest = !!guestToken;
 
   const validateToken = useCallback(() => {
-    if (!shareToken) {
+    if (!effectiveToken) {
       return;
     }
 
@@ -73,11 +79,15 @@ export function useJoinWorkspace({
     setError(null);
 
     return withSpanAsync("share.validateToken", async (span) => {
-      const tokenHash = await hashString(shareToken);
+      const tokenHash = await hashString(effectiveToken);
       span.setAttribute("share.token_fingerprint", tokenHash);
+      span.setAttribute("share.is_guest", isGuest);
 
       try {
-        const response = await fetch(`${apiUrl}/api/share/${shareToken}`);
+        const endpoint = isGuest
+          ? `${apiUrl}/api/share/guest/${effectiveToken}`
+          : `${apiUrl}/api/share/${effectiveToken}`;
+        const response = await fetch(endpoint);
         const data = await response.json();
 
         span.setAttribute("http.status_code", response.status);
@@ -94,11 +104,27 @@ export function useJoinWorkspace({
           workspaceId: data.workspaceId,
           workspaceName: data.workspaceName,
           owner: data.owner,
+          isGuest,
         });
         span.setAttribute("share.validate.success", true);
         span.setAttribute("workspace.id", data.workspaceId);
-        logger.info("Share token validated", { workspaceId: data.workspaceId });
-        // Stay in "validating" state - the useEffect will trigger join if authenticated
+        logger.info("Share token validated", {
+          workspaceId: data.workspaceId,
+          isGuest,
+        });
+
+        if (isGuest) {
+          // Guest view mode requires no authentication
+          useKanbanStore.getState().setGuestMode(true, effectiveToken);
+          setJoinState("success");
+          onJoinSuccess?.({
+            workspaceId: data.workspaceId,
+            workspaceName: data.workspaceName,
+            owner: data.owner,
+            role: "VIEWER",
+            isGuest: true,
+          });
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to validate share link";
@@ -109,10 +135,10 @@ export function useJoinWorkspace({
         span.setStatus({ code: 2, message });
       }
     });
-  }, [shareToken, onJoinError, apiUrl]);
+  }, [effectiveToken, isGuest, onJoinSuccess, onJoinError, apiUrl]);
 
   const joinWorkspace = useCallback(() => {
-    if (!(shareToken && isAuthenticated && workspaceInfo)) {
+    if (!(shareToken && isAuthenticated && workspaceInfo && !isGuest)) {
       return;
     }
 
@@ -169,6 +195,7 @@ export function useJoinWorkspace({
     });
   }, [
     shareToken,
+    isGuest,
     isAuthenticated,
     workspaceInfo,
     onJoinSuccess,
@@ -176,16 +203,17 @@ export function useJoinWorkspace({
     apiUrl,
   ]);
 
-  // Start validation when share token is present
+  // Start validation when token is present
   useEffect(() => {
-    if (shareToken && joinState === "idle") {
+    if (effectiveToken && joinState === "idle") {
       validateToken();
     }
-  }, [shareToken, joinState, validateToken]);
+  }, [effectiveToken, joinState, validateToken]);
 
-  // Auto-join when authenticated and workspace info is available
+  // Auto-join collaborator when authenticated and workspace info is available
   useEffect(() => {
     if (
+      !isGuest &&
       isAuthenticated &&
       !authLoading &&
       workspaceInfo &&
@@ -193,7 +221,14 @@ export function useJoinWorkspace({
     ) {
       joinWorkspace();
     }
-  }, [isAuthenticated, authLoading, workspaceInfo, joinState, joinWorkspace]);
+  }, [
+    isGuest,
+    isAuthenticated,
+    authLoading,
+    workspaceInfo,
+    joinState,
+    joinWorkspace,
+  ]);
 
   return {
     joinState,
@@ -201,7 +236,7 @@ export function useJoinWorkspace({
     workspaceInfo,
     isAuthenticated,
     needsLogin:
-      !(isAuthenticated || authLoading) &&
+      !(isGuest || isAuthenticated || authLoading) &&
       workspaceInfo !== null &&
       joinState === "validating",
     validateToken,
@@ -211,13 +246,16 @@ export function useJoinWorkspace({
 
 export function JoinWorkspaceHandler({
   shareToken,
+  guestToken,
   onComplete,
 }: {
-  shareToken: string | null;
+  guestToken?: string | null;
   onComplete?: (data: JoinSuccessData | null) => void;
+  shareToken?: string | null;
 }) {
   const { joinState, error, needsLogin, workspaceInfo } = useJoinWorkspace({
     shareToken,
+    guestToken,
     onJoinSuccess: (data) => {
       onComplete?.(data);
     },
@@ -232,7 +270,21 @@ export function JoinWorkspaceHandler({
     openProfileModal();
   };
 
-  if (!shareToken) {
+  const handleContinueAsGuest = () => {
+    const effectiveToken = shareToken || guestToken;
+    if (workspaceInfo && effectiveToken) {
+      useKanbanStore.getState().setGuestMode(true, effectiveToken);
+      onComplete?.({
+        workspaceId: workspaceInfo.workspaceId,
+        workspaceName: workspaceInfo.workspaceName,
+        owner: workspaceInfo.owner,
+        role: "VIEWER",
+        isGuest: true,
+      });
+    }
+  };
+
+  if (!(shareToken || guestToken)) {
     return null;
   }
 
@@ -272,15 +324,27 @@ export function JoinWorkspaceHandler({
             Please login to join this workspace collaboration.
           </p>
           <p className="text-muted-foreground text-xs">
-            After logging in, you'll automatically join the workspace.
+            After logging in, you'll automatically join the workspace as an
+            editor.
           </p>
-          <Button
-            className="mt-6 w-full gap-2 rounded-xl bg-[#1a1a1a] font-medium text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_4px_8px_rgba(0,0,0,0.15)] transition-all hover:bg-[#000000] hover:shadow-[inset_0_1px_3px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.2)] active:scale-[0.98] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] dark:bg-[#e0e0e0] dark:text-black dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(255,255,255,0.1)] dark:active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] dark:hover:bg-[#ffffff] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.2)]"
-            onClick={handleLogin}
-          >
-            <User className="h-4 w-4" />
-            Continue to Lumen
-          </Button>
+          <div className="mt-6 flex flex-col gap-2.5">
+            <Button
+              className="w-full gap-2 rounded-xl bg-[#1a1a1a] font-medium text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_4px_8px_rgba(0,0,0,0.15)] transition-all hover:bg-[#000000] hover:shadow-[inset_0_1px_3px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.2)] active:scale-[0.98] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] dark:bg-[#e0e0e0] dark:text-black dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(255,255,255,0.1)] dark:active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] dark:hover:bg-[#ffffff] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.2)]"
+              onClick={handleLogin}
+            >
+              <User className="h-4 w-4" />
+              Continue to Lumen
+            </Button>
+            <Button
+              className="w-full gap-2 rounded-xl border border-border/70 bg-secondary/50 font-medium text-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-[0.98]"
+              data-testid="continue-as-guest-button"
+              onClick={handleContinueAsGuest}
+              variant="outline"
+            >
+              <Globe className="h-4 w-4 text-white" />
+              Continue as Guest
+            </Button>
+          </div>
         </div>
       </div>
     );

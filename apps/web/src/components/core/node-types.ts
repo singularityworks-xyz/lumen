@@ -5,6 +5,9 @@ import { ConnectionDialogNodeComponent } from "@/src/components/dialogs/board/co
 import { DeleteBoardDialogNodeComponent } from "@/src/components/dialogs/board/delete-board-dialog-node";
 import { DuplicateBoardDialogNodeComponent } from "@/src/components/dialogs/board/duplicate-board-dialog-node";
 import { RenameBoardDialogNodeComponent } from "@/src/components/dialogs/board/rename-board-dialog-node";
+import { TextBoardDeleteDialogNodeComponent } from "@/src/components/dialogs/board/text-board-delete-dialog-node";
+import { TextBoardQuickActionsNodeComponent } from "@/src/components/dialogs/board/text-board-quick-actions-node";
+import { TextBoardRenameDialogNodeComponent } from "@/src/components/dialogs/board/text-board-rename-dialog-node";
 import { ColorIconPickerDialogNodeComponent } from "@/src/components/dialogs/color-icon-picker-dialog-node";
 import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column/column-quick-actions-node";
 import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/column/delete-column-dialog-node";
@@ -16,14 +19,19 @@ import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
 import { TaskQuickActionsNodeComponent } from "@/src/components/tasks/task-quick-actions-node";
 import { AreaNodeComponent } from "@/src/features/kanban/components/area-node";
 import { BoardNodeComponent } from "@/src/features/kanban/components/board-node";
+import { TextBoardNodeComponent } from "@/src/features/kanban/components/text-board-node";
 
 export const nodeTypes = {
   area: AreaNodeComponent,
   areaPropertiesDialog: AreaPropertiesDialogNodeComponent,
   board: BoardNodeComponent,
+  textBoard: TextBoardNodeComponent,
   taskModal: TaskModalNodeComponent,
   taskDetailModal: TaskDetailModalNodeComponent,
   boardQuickActions: BoardQuickActionsNodeComponent,
+  textBoardQuickActions: TextBoardQuickActionsNodeComponent,
+  textBoardRenameDialog: TextBoardRenameDialogNodeComponent,
+  textBoardDeleteDialog: TextBoardDeleteDialogNodeComponent,
   taskQuickActions: TaskQuickActionsNodeComponent,
   columnQuickActions: ColumnQuickActionsNodeComponent,
   boardRenameDialog: RenameBoardDialogNodeComponent,

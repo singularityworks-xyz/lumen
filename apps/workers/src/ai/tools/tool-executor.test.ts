@@ -80,7 +80,8 @@ mock.module("./executors/yjs-accessor", () => ({
 
 // Mock query executors and utilities from @lumen/ai/tools
 mock.module("@lumen/ai/tools", () => ({
-  requiresConfirmation: (name: string) => name === "deleteBoard",
+  requiresConfirmation: (name: string) =>
+    name === "deleteBoard" || name === "deleteTextBoard",
   executeGetWorkspaceOverview: mock(() =>
     Promise.resolve({ success: true, data: { overview: true } })
   ),
@@ -130,6 +131,12 @@ describe("tool-executor", () => {
   describe("executeTool", () => {
     it("returns requiresConfirmation for deleteBoard", async () => {
       const result = await executeTool("deleteBoard", {}, baseCtx);
+      expect(result.success).toBe(false);
+      expect(result.requiresConfirmation).toBe(true);
+    });
+
+    it("returns requiresConfirmation for deleteTextBoard", async () => {
+      const result = await executeTool("deleteTextBoard", {}, baseCtx);
       expect(result.success).toBe(false);
       expect(result.requiresConfirmation).toBe(true);
     });
@@ -283,6 +290,47 @@ describe("tool-executor", () => {
       const result = await executeToolDirect(
         "deleteBoard",
         { boardId: "b-1" },
+        baseCtx
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("executes createTextBoard action tool", async () => {
+      const result = await executeToolDirect(
+        "createTextBoard",
+        { name: "Notes", content: "- [ ] a" },
+        baseCtx
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("executes updateTextBoard action tool", async () => {
+      mockState.doc.getMap("textBoards").set("tb-1", {
+        id: "tb-1",
+        workspace_id: "ws-1",
+        name: "Notes",
+        created_by: "user-1",
+        created_at: "2023-01-01T00:00:00Z",
+      });
+      const result = await executeToolDirect(
+        "updateTextBoard",
+        { textBoardId: "tb-1", updates: { name: "X" } },
+        baseCtx
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("executes deleteTextBoard action directly", async () => {
+      mockState.doc.getMap("textBoards").set("tb-1", {
+        id: "tb-1",
+        workspace_id: "ws-1",
+        name: "Notes",
+        created_by: "user-1",
+        created_at: "2023-01-01T00:00:00Z",
+      });
+      const result = await executeToolDirect(
+        "deleteTextBoard",
+        { textBoardId: "tb-1" },
         baseCtx
       );
       expect(result).toBeDefined();

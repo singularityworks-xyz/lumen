@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { MessageCircle, Plus } from "lucide-react";
+import { ClipboardList, MessageCircle, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "@/src/features/kanban";
@@ -38,6 +38,23 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
     onClose();
   }, [x, y, onClose, screenToFlowPosition]);
 
+  const handleNewTextBoard = useCallback(() => {
+    const defaultWidth = 320;
+    const defaultHeight = 420;
+
+    const flowPos = screenToFlowPosition({ x, y });
+
+    useKanbanStore.getState().addTextBoard(
+      "New Text Board",
+      {
+        x: flowPos.x - defaultWidth / 2,
+        y: flowPos.y - defaultHeight / 2,
+      },
+      "A todo / text board"
+    );
+    onClose();
+  }, [x, y, onClose, screenToFlowPosition]);
+
   const handleAddComment = useCallback(() => {
     if (!localUser) {
       return;
@@ -69,6 +86,15 @@ const ContextMenuContent = memo(({ x, y, onClose }: ContextMenuProps) => {
       >
         <Plus className="h-3.5 w-3.5" />
         New Board
+      </button>
+      <button
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-foreground text-xs shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-colors hover:bg-secondary/70 dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
+        data-testid="context-new-text-board"
+        onClick={handleNewTextBoard}
+        type="button"
+      >
+        <ClipboardList className="h-3.5 w-3.5" />
+        New Text Board
       </button>
       {isCollaborating && (
         <button

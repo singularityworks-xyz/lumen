@@ -42,6 +42,8 @@ export function createInitialState(): KanbanState {
     chatMessages: { byId: {}, allIds: [] },
     boardPositions: { byId: {}, allIds: [] },
     boardConnections: { byId: {}, allIds: [] },
+    textBoards: { byId: {}, allIds: [] },
+    textBoardPositions: { byId: {}, allIds: [] },
     areas: { byId: {}, allIds: [] },
     areaPositions: { byId: {}, allIds: [] },
     selectionBox: null,
@@ -80,5 +82,7 @@ export function createInitialState(): KanbanState {
     lastTaskModalPositions: {},
     areaDragOrigins: {},
     lastActiveDrawerTab: "comments",
+    isGuestMode: false,
+    guestToken: null,
   };
 }

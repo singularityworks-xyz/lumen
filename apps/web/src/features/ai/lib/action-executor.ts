@@ -2,6 +2,7 @@
 // Executes action instructions returned from the AI server.
 // This is used when the server can't execute actions via Yjs (local workspaces).
 
+import { textToTiptapJson } from "@lumen/ai";
 import type { ActionInstruction } from "@lumen/ai/tools";
 import { createLogger } from "@lumen/logger";
 import type { KanbanStore } from "../../kanban/store/types";
@@ -31,6 +32,12 @@ export function executeActionInstruction(
       return executeUpdateBoard(store, instruction);
     case "deleteBoard":
       return executeDeleteBoard(store, instruction);
+    case "createTextBoard":
+      return executeCreateTextBoard(store, instruction);
+    case "updateTextBoard":
+      return executeUpdateTextBoard(store, instruction);
+    case "deleteTextBoard":
+      return executeDeleteTextBoard(store, instruction);
     case "createColumn":
       return executeCreateColumn(store, instruction);
     case "bulkUpdateTasks":
@@ -197,6 +204,65 @@ function executeDeleteBoard(
 
   logger.info({ boardId, name }, "Deleted board via AI action");
   return `Deleted board "${name}"`;
+}
+
+function executeCreateTextBoard(
+  store: KanbanStore,
+  instruction: ActionInstruction & { type: "createTextBoard" }
+): string {
+  const { name, description, content, position } = instruction;
+
+  const textBoardId = store.addTextBoard(name, position, description);
+
+  if (content) {
+    store.updateTextBoard(textBoardId, {
+      content: textToTiptapJson(content),
+    });
+  }
+
+  logger.info({ textBoardId, name }, "Created text board via AI action");
+  return `Created text board "${name}"`;
+}
+
+function executeUpdateTextBoard(
+  store: KanbanStore,
+  instruction: ActionInstruction & { type: "updateTextBoard" }
+): string {
+  const { textBoardId, updates } = instruction;
+
+  const textBoard = store.textBoards.byId[textBoardId];
+  if (!textBoard) {
+    logger.warn({ textBoardId }, "Text board not found for updateTextBoard");
+    return "Failed to update text board: text board not found";
+  }
+
+  store.updateTextBoard(textBoardId, {
+    name: updates.name,
+    description: updates.description === null ? undefined : updates.description,
+    content: updates.content ? textToTiptapJson(updates.content) : undefined,
+  });
+
+  logger.info({ textBoardId }, "Updated text board via AI action");
+  return `Updated text board "${textBoard.name}"`;
+}
+
+function executeDeleteTextBoard(
+  store: KanbanStore,
+  instruction: ActionInstruction & { type: "deleteTextBoard" }
+): string {
+  const { textBoardId } = instruction;
+
+  const textBoard = store.textBoards.byId[textBoardId];
+  if (!textBoard) {
+    logger.warn({ textBoardId }, "Text board not found for deleteTextBoard");
+    return "Failed to delete text board: text board not found";
+  }
+
+  const name = textBoard.name;
+  store.removeTextBoard(textBoardId);
+
+  logger.info({ textBoardId, name }, "Deleted text board via AI action");
+  return `Deleted text board "${name}"`;
 }
 
 function executeCreateColumn(

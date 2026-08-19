@@ -2,7 +2,7 @@
 
 import type { Node } from "@xyflow/react";
 import { createContext, useContext } from "react";
-import type { BoardNode } from "@/src/features/kanban/types";
+import type { BoardNode, TextBoardNode } from "@/src/features/kanban/types";
 
 interface ColumnDragContextType {
   activeColumnData: {
@@ -17,6 +17,7 @@ export const ColumnDragContext = createContext<ColumnDragContextType>({
 
 export const useColumnDragContext = () => useContext(ColumnDragContext);
 export type KanbanNode = Node<BoardNode["data"]>;
+export type TextBoardCanvasNode = Node<TextBoardNode["data"]>;
 export type AreaNode = Node<{ areaId: string; [key: string]: unknown }>;
 export type TaskModalNode = Node<{ modalId: string; [key: string]: unknown }>;
 export type EditBoardModalNode = Node<{
@@ -28,6 +29,10 @@ export type TaskDetailModalNode = Node<{
   [key: string]: unknown;
 }>;
 export type BoardQuickActionsNode = Node<{
+  boardId: string;
+  [key: string]: unknown;
+}>;
+export type TextBoardQuickActionsNode = Node<{
   boardId: string;
   [key: string]: unknown;
 }>;
@@ -61,6 +66,7 @@ export type WelcomeNode = Node<{ [key: string]: unknown }>;
 export type CanvasNode =
   | AreaNode
   | KanbanNode
+  | TextBoardCanvasNode
   | TaskModalNode
   | EditBoardModalNode
   | TaskDetailModalNode
@@ -68,6 +74,7 @@ export type CanvasNode =
   | TaskQuickActionsNode
   | ColumnQuickActionsNode
   | BoardDialogNode
+  | TextBoardQuickActionsNode
   | ConnectionDialogNode
   | ShareDialogNode
   | ColumnDialogNode

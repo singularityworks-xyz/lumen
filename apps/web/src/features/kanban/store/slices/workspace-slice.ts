@@ -39,6 +39,7 @@ type SliceCreator = (
   | "setWorkspaceShareUrl"
   | "clearWorkspaceShareUrl"
   | "markWorkspaceDeleted"
+  | "setGuestMode"
 >;
 
 export const createWorkspaceSlice: SliceCreator = (set, get) => ({
@@ -670,10 +671,27 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
   setWorkspaceShareUrl: (workspaceId, url) =>
     set((state) => {
       state.workspaceShareUrls[workspaceId] = url;
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.isShared = true;
+      }
     }),
 
   clearWorkspaceShareUrl: (workspaceId) =>
     set((state) => {
       delete state.workspaceShareUrls[workspaceId];
+      const workspace = state.workspaces.byId[workspaceId];
+      if (workspace) {
+        workspace.isShared = false;
+      }
+    }),
+
+  setGuestMode: (isGuestMode, guestToken = null) =>
+    set((state) => {
+      state.isGuestMode = isGuestMode;
+      state.guestToken = guestToken;
+      if (isGuestMode) {
+        state.interactionMode = "drag";
+      }
     }),
 });

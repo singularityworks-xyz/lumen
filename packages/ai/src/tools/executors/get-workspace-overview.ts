@@ -35,6 +35,11 @@ export function executeGetWorkspaceOverview(
 
   const totalTasks = boards.reduce((acc, b) => acc + b.taskCount, 0);
 
+  const textBoards = (snapshot.textBoards ?? []).map((textBoard) => ({
+    id: textBoard.id,
+    name: textBoard.name,
+  }));
+
   return {
     success: true,
     data: {
@@ -42,7 +47,9 @@ export function executeGetWorkspaceOverview(
       name: snapshot.name,
       boardCount: boards.length,
       totalTasks,
+      textBoardCount: textBoards.length,
       boards,
+      textBoards,
     },
   };
 }

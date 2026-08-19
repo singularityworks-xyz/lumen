@@ -4,7 +4,6 @@ import type { ActionInstruction } from "@lumen/ai/tools";
 import type { ContextSnapshot, PendingAction } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
 import { createLogger } from "@lumen/logger";
-import { PulsingBorder } from "@paper-design/shaders-react";
 import {
   ChevronRight,
   Info,
@@ -16,6 +15,11 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SwitchButtons } from "@/src/components/ui/switch-buttons";
+import {
+  checkGuestLarityRateLimit,
+  getGuestLarityStats,
+  recordGuestLarityMessage,
+} from "@/src/features/comments/lib/guest-rate-limit";
 import { useAuth } from "@/src/hooks/use-auth";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../../kanban";
@@ -103,6 +107,12 @@ export const AiDrawerContent = memo(
     const isClearingRef = useRef(false);
     const { isAuthenticated } = useAuth();
     const openProfileModal = useKanbanStore((state) => state.openProfileModal);
+    const isGuestMode = useKanbanStore((state) => state.isGuestMode);
+    const guestToken = useKanbanStore((state) => state.guestToken);
+    const [larityLimitError, setLarityLimitError] = useState<string | null>(
+      null
+    );
+    const [larityStats, setLarityStats] = useState(() => getGuestLarityStats());
 
     // Check if workspace has AI enabled (for local workspaces)
     const workspace = useKanbanStore(
@@ -114,14 +124,19 @@ export const AiDrawerContent = memo(
     const isSharedWorkspace =
       workspace?.isShared === true ||
       !!workspaceShareUrl ||
-      !!workspace?.shareToken;
+      !!workspace?.shareToken ||
+      isGuestMode;
     // For shared workspaces, AI is always enabled
     // For local workspaces, user must explicitly opt-in
     const isAiEnabled = isSharedWorkspace || workspace?.aiEnabled === true;
     const isE2ETestRun =
       typeof window !== "undefined" &&
       (window as Window & { __E2E__?: boolean }).__E2E__ === true;
-    const shouldShowAuthOverlay = !(isAuthenticated || isE2ETestRun);
+    const shouldShowAuthOverlay = !(
+      isAuthenticated ||
+      isE2ETestRun ||
+      isGuestMode
+    );
     const shouldShowOptInOverlay =
       isAuthenticated && !isAiEnabled && !isE2ETestRun;
 
@@ -465,6 +480,20 @@ export const AiDrawerContent = memo(
         return;
       }
 
+      if (isGuestMode) {
+        const check = checkGuestLarityRateLimit();
+        if (!check.allowed) {
+          setLarityLimitError(
+            check.message ||
+              "Guest limit reached (20 messages/day). Please log in to chat more with Larity."
+          );
+          return;
+        }
+        setLarityLimitError(null);
+        recordGuestLarityMessage();
+        setLarityStats(getGuestLarityStats());
+      }
+
       setInputValue("");
       setClassifying(workspaceId, true);
       sendMessage(workspaceId, content, currentContext);
@@ -502,8 +531,9 @@ export const AiDrawerContent = memo(
               content
             ),
             history,
-            // For local workspaces, don't persist conversation to server DB
-            ephemeral: !isSharedWorkspace,
+            // For local workspaces or guest mode, don't persist conversation to server DB
+            ephemeral: isGuestMode || !isSharedWorkspace,
+            guestToken: guestToken || undefined,
             assistantMessageId: assistantId,
           },
           {
@@ -618,6 +648,8 @@ export const AiDrawerContent = memo(
       setTitle,
       setClassifying,
       setRequiresConfirmation,
+      isGuestMode,
+      guestToken,
     ]);
 
     const handleSuggestionClick = useCallback((prompt: string) => {
@@ -676,13 +708,16 @@ export const AiDrawerContent = memo(
         data-testid="ai-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
+        style={{
+          willChange: "transform, opacity",
+        }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
       >
         <div
           className={cn(
             "relative z-10 flex h-full w-full flex-col",
             "overflow-hidden rounded-2xl",
-            "bg-card/98 backdrop-blur-xl",
+            "bg-card/98",
             "border-2 border-border/50",
             "shadow-[0_8px_40px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05),inset_0_2px_8px_rgba(0,0,0,0.15),inset_0_-2px_6px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
@@ -852,45 +887,13 @@ export const AiDrawerContent = memo(
                 initial={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                {(() => {
-                  try {
-                    return (
-                      <PulsingBorder
-                        aspectRatio="auto"
-                        bloom={0.25}
-                        colorBack="#00000000"
-                        colors={["#ffffff", "#a0a0a0", "#ffffff", "#c0c0c0"]}
-                        intensity={0.25}
-                        margin={0}
-                        pulse={0.5}
-                        roundness={0.08}
-                        scale={1}
-                        smoke={0.3}
-                        smokeSize={0.5}
-                        softness={0.6}
-                        speed={0.7}
-                        spotSize={0.35}
-                        spots={5}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          borderRadius: "1rem",
-                        }}
-                        thickness={0.02}
-                      />
-                    );
-                  } catch {
-                    // Fallback: render a simple animated border if shader fails
-                    return (
-                      <div
-                        className="h-full w-full animate-pulse rounded-2xl border-2 border-white/20"
-                        style={{
-                          boxShadow: "0 0 20px rgba(255, 255, 255, 0.1)",
-                        }}
-                      />
-                    );
-                  }
-                })()}
+                <div
+                  className="h-full w-full animate-pulse rounded-2xl border-2 border-primary/40"
+                  style={{
+                    boxShadow:
+                      "0 0 20px rgba(59, 130, 246, 0.2), inset 0 0 15px rgba(59, 130, 246, 0.15)",
+                  }}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1156,6 +1159,18 @@ export const AiDrawerContent = memo(
           />
 
           <div className={cn("border-border/30 border-t px-3 py-2")}>
+            {isGuestMode && larityLimitError && (
+              <div className="mb-2 flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-600 text-xs dark:text-amber-400">
+                <span className="mr-2 flex-1">{larityLimitError}</span>
+                <button
+                  className="shrink-0 rounded-lg bg-primary px-2.5 py-1 font-medium text-primary-foreground text-xs shadow-sm transition-colors hover:bg-primary/90"
+                  onClick={() => openProfileModal()}
+                  type="button"
+                >
+                  Log In
+                </button>
+              </div>
+            )}
             {messagesList.length > 0 &&
             messagesList.at(-1)?.requiresConfirmation &&
             !messagesList.at(-1)?.confirmedAt ? (
@@ -1244,7 +1259,21 @@ export const AiDrawerContent = memo(
               </div>
             )}
             <p className="mt-1.5 text-center text-[9px] text-muted-foreground/40">
-              Enter to send · Shift+Enter for new line · AI can make mistakes
+              {isGuestMode ? (
+                <>
+                  Guest mode · {larityStats.dailyRemaining}/20 msgs remaining
+                  today ·{" "}
+                  <button
+                    className="text-primary underline hover:text-primary/80"
+                    onClick={() => openProfileModal()}
+                    type="button"
+                  >
+                    Log in for unlimited
+                  </button>
+                </>
+              ) : (
+                "Enter to send · Shift+Enter for new line · AI can make mistakes"
+              )}
             </p>
           </div>
         </div>

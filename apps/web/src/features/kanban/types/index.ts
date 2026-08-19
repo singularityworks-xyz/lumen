@@ -159,6 +159,31 @@ export interface WorkspaceDialogState {
   >;
 }
 
+export interface TextBoard {
+  accentColor?: string;
+  content?: string;
+  created_at: string;
+  created_by: string;
+  description?: string;
+  icon?: string;
+  id: string;
+  name: string;
+  updated_at?: string;
+  workspace_id: string;
+}
+
+export interface TextBoardPosition {
+  height?: number;
+  id: string;
+  lastUserHeight?: number;
+  lastUserWidth?: number;
+  userResized?: boolean;
+  width?: number;
+  x: number;
+  y: number;
+  zIndex: number;
+}
+
 export interface Workspace {
   aiEnabled?: boolean;
   board_ids: string[];
@@ -179,6 +204,7 @@ export interface Workspace {
   savedDialogState?: WorkspaceDialogState;
   shareToken?: string;
   showMiniMap?: boolean;
+  text_board_ids?: string[];
 }
 
 export interface EntityMap<T> {
@@ -350,6 +376,8 @@ export interface PersistedState {
   comments: EntityMap<Comment>;
   currentWorkspaceId: string | null;
   tasks: EntityMap<Task>;
+  textBoardPositions: EntityMap<TextBoardPosition>;
+  textBoards: EntityMap<TextBoard>;
   workspaces: EntityMap<Workspace>;
 }
 
@@ -388,4 +416,17 @@ export interface DenormalizedColumn {
   position: number;
   progressValue?: number;
   tasks: Task[];
+}
+
+export interface TextBoardNode {
+  data: {
+    isSelected: boolean;
+    textBoardId: string;
+    [key: string]: unknown;
+  };
+  height?: number;
+  id: string;
+  position: { x: number; y: number };
+  type: "textBoard";
+  width?: number;
 }

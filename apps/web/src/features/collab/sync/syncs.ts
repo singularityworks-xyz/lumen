@@ -18,6 +18,8 @@ import {
   TaskDetailModalSchema,
   TaskQuickActionsSchema,
   TaskSchema,
+  TextBoardPositionSchema,
+  TextBoardSchema,
   WorkspaceSchema,
 } from "@/src/features/collab/validation/schema";
 import type {
@@ -34,6 +36,8 @@ import type {
   CreateTaskModalState,
   Task,
   TaskDetailModalState,
+  TextBoard,
+  TextBoardPosition,
   Workspace,
 } from "@/src/features/kanban/types";
 import { createEntitySync, YJS_MAP_NAMES } from "./entity-sync";
@@ -73,6 +77,18 @@ export const boardConnectionSync = createEntitySync<BoardConnection>({
   mapName: YJS_MAP_NAMES.BOARD_CONNECTIONS,
   schema: BoardConnectionSchema,
   entityName: "boardConnection",
+});
+
+export const textBoardSync = createEntitySync<TextBoard>({
+  mapName: YJS_MAP_NAMES.TEXT_BOARDS,
+  schema: TextBoardSchema,
+  entityName: "textBoard",
+});
+
+export const textBoardPositionSync = createEntitySync<TextBoardPosition>({
+  mapName: YJS_MAP_NAMES.TEXT_BOARD_POSITIONS,
+  schema: TextBoardPositionSchema,
+  entityName: "textBoardPosition",
 });
 
 export const areaSync = createEntitySync<Area>({
@@ -216,6 +232,8 @@ export const allSyncs = {
   tasks: taskSync,
   boardPositions: boardPositionSync,
   boardConnections: boardConnectionSync,
+  textBoards: textBoardSync,
+  textBoardPositions: textBoardPositionSync,
   areas: areaSync,
   areaPositions: areaPositionSync,
   areaDialogs: areaDialogSync,

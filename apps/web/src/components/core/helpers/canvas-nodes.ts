@@ -7,7 +7,12 @@ import {
 import { useCommentClusters } from "@/src/features/comments/hooks/use-comment-clusters";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
+import { TEXT_BOARD_DEFAULT_WIDTH } from "@/src/features/kanban/store/slices/text-board-slice";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import type {
+  BoardPosition,
+  TextBoardPosition,
+} from "@/src/features/kanban/types";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
   AreaNode,
@@ -22,6 +27,8 @@ import type {
   TaskDetailModalNode,
   TaskModalNode,
   TaskQuickActionsNode,
+  TextBoardCanvasNode,
+  TextBoardQuickActionsNode,
   WelcomeNode,
 } from "./canvas-types";
 
@@ -118,6 +125,23 @@ function nodeDataEqual(a: CanvasNode, b: CanvasNode): boolean {
   return true;
 }
 
+// Resolve what kind of canvas entity an id refers to.
+// Used to pick node types for dialogs/quick actions that both kanban boards
+// and text boards share (rename/delete dialogs, quick actions menus).
+export function resolveCanvasEntityKind(
+  boards: { byId: Record<string, unknown> },
+  textBoards: { byId: Record<string, unknown> },
+  id: string
+): "board" | "textBoard" | null {
+  if (boards.byId[id]) {
+    return "board";
+  }
+  if (textBoards.byId[id]) {
+    return "textBoard";
+  }
+  return null;
+}
+
 function useStableNodeFactory<T extends CanvasNode>(
   factory: () => T[],
   deps: React.DependencyList
@@ -177,7 +201,9 @@ export function useCanvasNodes() {
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
   const boards = useKanbanStore((state) => state.boards);
+  const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
   const areas = useKanbanStore((state) => state.areas);
   // Only subscribe to area position IDs, not the full positions object.
@@ -253,6 +279,17 @@ export function useCanvasNodes() {
     )
   );
 
+  const textBoardStructuralSig = useKanbanStore(
+    useShallow((state) =>
+      (currentWorkspace?.text_board_ids ?? state.textBoards.allIds)
+        .map((id) => {
+          const bp = state.textBoardPositions.byId[id];
+          return `${id}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+        })
+        .join("|")
+    )
+  );
+
   const areaNodes = useStableNodeFactory<AreaNode>(() => {
     // Read areaPositions lazily to avoid subscribing to position changes
     const areaPositions = useKanbanStore.getState().areaPositions;
@@ -311,7 +348,9 @@ export function useCanvasNodes() {
     [showWelcomeScreen]
   );
 
-  const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+  const boardIds = isGuestMode
+    ? boards.allIds
+    : (currentWorkspace?.board_ids ?? boards.allIds);
 
   const boardNodes = useStableNodeFactory<KanbanNode>(
     () =>
@@ -320,16 +359,20 @@ export function useCanvasNodes() {
           const board = boards.byId[boardId];
           return (
             board &&
-            (!currentWorkspaceId || board.workspace_id === currentWorkspaceId)
+            (isGuestMode ||
+              !currentWorkspaceId ||
+              board.workspace_id === currentWorkspaceId)
           );
         })
         .map((boardId) => {
           // Read boardPositions lazily to avoid subscribing to position changes
-          const position =
-            useKanbanStore.getState().boardPositions.byId[boardId];
-          if (!position) {
-            return null as unknown as KanbanNode;
-          }
+          const position: BoardPosition = useKanbanStore.getState()
+            .boardPositions.byId[boardId] ?? {
+            id: boardId,
+            x: 80,
+            y: 80,
+            zIndex: 1,
+          };
 
           const board = boards.byId[boardId];
           const columnCount = board?.column_ids?.length ?? 0;
@@ -365,9 +408,9 @@ export function useCanvasNodes() {
             }
           }
 
-          return {
+          const node: KanbanNode = {
             id: boardId,
-            type: "board" as const,
+            type: "board",
             position: pPos,
             data: {
               boardId,
@@ -378,9 +421,10 @@ export function useCanvasNodes() {
             height: position.height,
             parentId,
           };
-        })
-        .filter((node): node is KanbanNode => node != null),
+          return node;
+        }),
     [
+      isGuestMode,
       boardStructuralSig,
       boardIds.join(","),
       boards,
@@ -388,6 +432,56 @@ export function useCanvasNodes() {
       areas,
       areaPositionIds.join(","),
       areaDragOrigins,
+      currentWorkspaceId,
+      selectedBoardId,
+    ]
+  );
+
+  const textBoardIds = isGuestMode
+    ? textBoards.allIds
+    : (currentWorkspace?.text_board_ids ?? textBoards.allIds);
+
+  const textBoardNodes = useStableNodeFactory<TextBoardCanvasNode>(
+    () =>
+      textBoardIds
+        .filter((textBoardId) => {
+          const textBoard = textBoards.byId[textBoardId];
+          return (
+            textBoard &&
+            (isGuestMode ||
+              !currentWorkspaceId ||
+              textBoard.workspace_id === currentWorkspaceId)
+          );
+        })
+        .map((textBoardId) => {
+          const position: TextBoardPosition = useKanbanStore.getState()
+            .textBoardPositions.byId[textBoardId] ?? {
+            id: textBoardId,
+            x: 400,
+            y: 80,
+            zIndex: 1,
+            width: TEXT_BOARD_DEFAULT_WIDTH,
+          };
+
+          const node: TextBoardCanvasNode = {
+            id: textBoardId,
+            type: "textBoard",
+            position: { x: position.x, y: position.y },
+            data: {
+              textBoardId,
+              isSelected: textBoardId === selectedBoardId,
+            },
+            style: { zIndex: position.zIndex },
+            width: position.width ?? TEXT_BOARD_DEFAULT_WIDTH,
+            height: position.height,
+          };
+          return node;
+        }),
+    [
+      isGuestMode,
+      textBoardStructuralSig,
+      textBoardIds.join(","),
+      textBoards,
       currentWorkspaceId,
       selectedBoardId,
     ]
@@ -411,7 +505,7 @@ export function useCanvasNodes() {
           };
         })
         .filter((node): node is TaskModalNode => node != null),
-    [modalIds.join(","), createTaskModals, computeZIndex]
+    [modalIds.join(","), computeZIndex]
   );
 
   const commentClusterNodes = useStableNodeFactory(
@@ -450,35 +544,46 @@ export function useCanvasNodes() {
               zIndex: computeZIndex(`task-detail-modal-${modal.id}`),
             },
             draggable: true,
-            width: 400,
-            height: 1,
           };
         })
         .filter((node): node is TaskDetailModalNode => node != null),
-    [taskDetailModalIds.join(","), taskDetailModals, computeZIndex]
+    [taskDetailModalIds.join(","), computeZIndex]
   );
 
-  const quickActionsNodes = useStableNodeFactory<BoardQuickActionsNode>(
+  const quickActionsNodes = useStableNodeFactory<
+    BoardQuickActionsNode | TextBoardQuickActionsNode
+  >(
     () =>
       Object.values(boardQuickActions)
         .filter(
           (qa): qa is NonNullable<typeof qa> =>
             qa != null && qa.position != null
         )
-        .map((qa) => ({
-          id: `quick-actions-${qa.boardId}`,
-          type: "boardQuickActions" as const,
-          position: {
-            x: qa.position.x,
-            y: qa.position.y,
-          },
-          data: { boardId: qa.boardId },
-          style: {
-            zIndex: computeZIndex(`board-quick-actions-${qa.boardId}`),
-          },
-          draggable: true,
-        })),
-    [boardQuickActions, computeZIndex]
+        .map((qa) => {
+          const isTextBoard =
+            resolveCanvasEntityKind(boards, textBoards, qa.boardId) ===
+            "textBoard";
+          return {
+            id: `${
+              isTextBoard ? "text-quick-actions" : "quick-actions"
+            }-${qa.boardId}`,
+            type: isTextBoard
+              ? ("textBoardQuickActions" as const)
+              : ("boardQuickActions" as const),
+            position: {
+              x: qa.position.x,
+              y: qa.position.y,
+            },
+            data: { boardId: qa.boardId },
+            style: {
+              zIndex: computeZIndex(
+                `${isTextBoard ? "text-board-quick-actions" : "board-quick-actions"}-${qa.boardId}`
+              ),
+            },
+            draggable: true,
+          };
+        }),
+    [boardQuickActions, boards, textBoards, computeZIndex]
   );
 
   const dialogNodes = useStableNodeFactory<BoardDialogNode>(
@@ -489,16 +594,23 @@ export function useCanvasNodes() {
           if (!dialog) {
             return null as unknown as BoardDialogNode;
           }
+          const isTextBoardEntity =
+            resolveCanvasEntityKind(boards, textBoards, dialog.boardId) ===
+            "textBoard";
           const nodeType =
             dialog.type === "rename"
-              ? "boardRenameDialog"
+              ? isTextBoardEntity
+                ? "textBoardRenameDialog"
+                : "boardRenameDialog"
               : dialog.type === "duplicate"
                 ? "boardDuplicateDialog"
                 : dialog.type === "properties"
                   ? "boardPropertiesDialog"
                   : dialog.type === "color-icon-picker"
                     ? "colorIconPickerDialog"
-                    : "boardDeleteDialog";
+                    : isTextBoardEntity
+                      ? "textBoardDeleteDialog"
+                      : "boardDeleteDialog";
 
           const dialogZIndexId = `${dialog.type}-board-dialog-${dialog.id}`;
           const computedZIndex = computeZIndex(dialogZIndexId);
@@ -688,10 +800,14 @@ export function useCanvasNodes() {
     [areaDialogs, computeZIndex]
   );
 
-  const nodes: CanvasNode[] = useMemo(
-    () => [
+  const nodes: CanvasNode[] = useMemo(() => {
+    if (isGuestMode) {
+      return [...boardNodes, ...textBoardNodes, ...taskDetailModalNodes];
+    }
+    return [
       ...areaNodes,
       ...boardNodes,
+      ...textBoardNodes,
       ...welcomeNodes,
       ...modalNodes,
       ...taskDetailModalNodes,
@@ -704,24 +820,25 @@ export function useCanvasNodes() {
       ...columnDialogNodes,
       ...areaDialogNodes,
       ...commentClusterNodes,
-    ],
-    [
-      areaNodes,
-      boardNodes,
-      welcomeNodes,
-      modalNodes,
-      taskDetailModalNodes,
-      quickActionsNodes,
-      taskQuickActionsNodes,
-      columnQuickActionsNodes,
-      dialogNodes,
-      connectionDialogNodes,
-      shareDialogNodes,
-      columnDialogNodes,
-      areaDialogNodes,
-      commentClusterNodes,
-    ]
-  );
+    ];
+  }, [
+    isGuestMode,
+    areaNodes,
+    boardNodes,
+    textBoardNodes,
+    welcomeNodes,
+    modalNodes,
+    taskDetailModalNodes,
+    quickActionsNodes,
+    taskQuickActionsNodes,
+    columnQuickActionsNodes,
+    dialogNodes,
+    connectionDialogNodes,
+    shareDialogNodes,
+    columnDialogNodes,
+    areaDialogNodes,
+    commentClusterNodes,
+  ]);
 
-  return { nodes, commentClusters };
+  return { nodes, commentClusters: isGuestMode ? [] : commentClusters };
 }
