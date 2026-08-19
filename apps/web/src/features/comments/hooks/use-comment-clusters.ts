@@ -1,6 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import type { Comment } from "@/src/features/kanban/types";
+import {
+  computeCommentClusters,
+  runClusterWorker,
+} from "@/src/workers/worker-client";
 
 export interface CommentCluster {
   centroid: { x: number; y: number };
@@ -17,84 +21,41 @@ export function useCommentClusters(): CommentCluster[] {
     (state) => state.currentWorkspaceId
   );
 
-  return useMemo(() => {
-    const workspaceComments = comments.allIds
-      .map((id) => comments.byId[id])
-      .filter(
-        (c): c is Comment =>
-          !!c && c.workspaceId === currentWorkspaceId && !c.parentId
-      );
+  const workspaceComments = useMemo(
+    () =>
+      comments.allIds
+        .map((id) => comments.byId[id])
+        .filter(
+          (c): c is Comment =>
+            !!c && c.workspaceId === currentWorkspaceId && !c.parentId
+        ),
+    [comments, currentWorkspaceId]
+  );
 
-    if (workspaceComments.length === 0) {
-      return [];
-    }
+  const [clusters, setClusters] = useState<CommentCluster[]>(() =>
+    computeCommentClusters(workspaceComments, CLUSTER_RADIUS)
+  );
 
-    const assigned = new Set<string>();
-    const clusters: CommentCluster[] = [];
-
-    const distance = (a: Comment, b: Comment) =>
-      Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-
-    const getNeighbors = (comment: Comment): Comment[] =>
-      workspaceComments.filter(
-        (c) => c.id !== comment.id && distance(comment, c) <= CLUSTER_RADIUS
-      );
-
-    const expandCluster = (seed: Comment): Comment[] => {
-      const cluster: Comment[] = [seed];
-      const queue = [seed];
-      assigned.add(seed.id);
-
-      while (queue.length > 0) {
-        // biome-ignore lint/style/noNonNullAssertion: This is safe due to the loop condition
-        const current = queue.shift()!;
-        const neighbors = getNeighbors(current);
-
-        for (const neighbor of neighbors) {
-          if (!assigned.has(neighbor.id)) {
-            assigned.add(neighbor.id);
-            cluster.push(neighbor);
-            queue.push(neighbor);
-          }
+  useEffect(() => {
+    let active = true;
+    runClusterWorker(workspaceComments, CLUSTER_RADIUS)
+      .then((res) => {
+        if (active) {
+          setClusters(res);
         }
-      }
-
-      return cluster;
-    };
-
-    for (const comment of workspaceComments) {
-      if (assigned.has(comment.id)) {
-        continue;
-      }
-
-      const clusterComments = expandCluster(comment);
-
-      const centroid = {
-        x:
-          clusterComments.reduce((sum, c) => sum + c.x, 0) /
-          clusterComments.length,
-        y:
-          clusterComments.reduce((sum, c) => sum + c.y, 0) /
-          clusterComments.length,
-      };
-
-      clusterComments.sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-
-      // Use the oldest comment's ID as a stable cluster identifier
-      // This prevents the cluster from being recreated when comments are deleted
-      const oldestCommentId = clusterComments[0]?.id ?? "unknown";
-
-      clusters.push({
-        id: `cluster-${oldestCommentId}`,
-        comments: clusterComments,
-        centroid,
-        isSingle: clusterComments.length === 1,
+      })
+      .catch(() => {
+        if (active) {
+          setClusters(
+            computeCommentClusters(workspaceComments, CLUSTER_RADIUS)
+          );
+        }
       });
-    }
 
-    return clusters;
-  }, [comments, currentWorkspaceId]);
+    return () => {
+      active = false;
+    };
+  }, [workspaceComments]);
+
+  return clusters;
 }

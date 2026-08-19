@@ -103,7 +103,7 @@ export const AiDrawer = memo(
             <>
               <motion.div
                 animate={{ opacity: 1 }}
-                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+                className="fixed inset-0 z-40 bg-black/20"
                 data-testid="ai-drawer-backdrop"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}

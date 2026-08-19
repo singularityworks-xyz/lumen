@@ -3,7 +3,7 @@
 import { useReactFlow } from "@xyflow/react";
 import { LayoutGrid, MessageCircle, Users, WifiOff } from "lucide-react";
 import { motion } from "motion/react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AiDrawer } from "@/src/features/ai/components/ai-drawer";
 import LarityOrb from "@/src/features/ai/components/animations/larity-orb";
@@ -35,18 +35,69 @@ export const RightDrawers = memo(() => {
   const { setCenter, getZoom } = useReactFlow();
   const clusters = useCommentClusters();
 
-  const comments = useKanbanStore((state) => state.comments);
-  const chatMessages = useKanbanStore((state) => state.chatMessages);
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
-  const workspaces = useKanbanStore((state) => state.workspaces);
-  const boards = useKanbanStore((state) => state.boards);
   const setLastActiveDrawerTab = useKanbanStore(
     (state) => state.setLastActiveDrawerTab
   );
-  const shareUrl = useKanbanStore((state) =>
-    currentWorkspaceId ? state.workspaceShareUrls[currentWorkspaceId] : null
+
+  const commentCount = useKanbanStore(
+    useCallback(
+      (state) =>
+        currentWorkspaceId
+          ? state.comments.allIds.filter((id) => {
+              const c = state.comments.byId[id];
+              return !!c && c.workspaceId === currentWorkspaceId && !c.parentId;
+            }).length
+          : 0,
+      [currentWorkspaceId]
+    )
+  );
+
+  const discussionCount = useKanbanStore(
+    useCallback(
+      (state) =>
+        currentWorkspaceId
+          ? state.chatMessages.allIds.filter(
+              (id) =>
+                state.chatMessages.byId[id]?.workspaceId === currentWorkspaceId
+            ).length
+          : 0,
+      [currentWorkspaceId]
+    )
+  );
+
+  const boardCount = useKanbanStore(
+    useCallback(
+      (state) => {
+        if (!currentWorkspaceId) {
+          return 0;
+        }
+        const ws = state.workspaces.byId[currentWorkspaceId];
+        return (
+          ws?.board_ids?.filter((id) => state.boards.byId[id])?.length ?? 0
+        );
+      },
+      [currentWorkspaceId]
+    )
+  );
+
+  const isSharedWorkspace = useKanbanStore(
+    useCallback(
+      (state) => {
+        if (!currentWorkspaceId) {
+          return false;
+        }
+        const ws = state.workspaces.byId[currentWorkspaceId];
+        return (
+          ws?.isShared === true ||
+          !!ws?.shareToken ||
+          !!state.workspaceShareUrls[currentWorkspaceId]
+        );
+      },
+      [currentWorkspaceId]
+    )
   );
 
   const hasAiMessages = useAiStore(
@@ -58,41 +109,6 @@ export const RightDrawers = memo(() => {
     )
   );
   const isAiOffline = useAiStore((state) => state.isOffline);
-
-  const currentWorkspace = currentWorkspaceId
-    ? workspaces.byId[currentWorkspaceId]
-    : null;
-  const isSharedWorkspace =
-    currentWorkspace?.isShared === true ||
-    !!currentWorkspace?.shareToken ||
-    !!shareUrl;
-
-  const commentCount = useMemo(
-    () =>
-      comments.allIds
-        .map((id) => comments.byId[id])
-        .filter(
-          (c): c is Comment =>
-            !!c && c.workspaceId === currentWorkspaceId && !c.parentId
-        ).length,
-    [comments, currentWorkspaceId]
-  );
-
-  const discussionCount = useMemo(
-    () =>
-      chatMessages.allIds.filter(
-        (id) => chatMessages.byId[id]?.workspaceId === currentWorkspaceId
-      ).length,
-    [chatMessages, currentWorkspaceId]
-  );
-
-  const boardCount = useMemo(() => {
-    if (!currentWorkspaceId) {
-      return 0;
-    }
-    const workspace = workspaces.byId[currentWorkspaceId];
-    return workspace?.board_ids?.filter((id) => boards.byId[id])?.length ?? 0;
-  }, [currentWorkspaceId, workspaces, boards]);
 
   const handleSwitchToComments = useCallback(() => {
     setActiveDrawer("comments");
@@ -158,6 +174,7 @@ export const RightDrawers = memo(() => {
           }}
           className="pointer-events-auto flex flex-col items-end gap-2.5"
           initial={{ x: 100, opacity: 0 }}
+          style={{ willChange: "transform, opacity" }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         >
           {isSharedWorkspace && (

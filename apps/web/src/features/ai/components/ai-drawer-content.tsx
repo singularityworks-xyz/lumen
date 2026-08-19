@@ -675,13 +675,16 @@ export const AiDrawerContent = memo(
         data-testid="ai-drawer"
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
+        style={{
+          willChange: "transform, opacity",
+        }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
       >
         <div
           className={cn(
             "relative z-10 flex h-full w-full flex-col",
             "overflow-hidden rounded-2xl",
-            "bg-card/98 backdrop-blur-xl",
+            "bg-card/98",
             "border-2 border-border/50",
             "shadow-[0_8px_40px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05),inset_0_2px_8px_rgba(0,0,0,0.15),inset_0_-2px_6px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"

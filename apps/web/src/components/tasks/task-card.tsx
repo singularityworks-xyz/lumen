@@ -34,7 +34,9 @@ export const TaskCard = memo(
     );
     const updateTask = useKanbanStore((state) => state.updateTask);
     const deleteTask = useKanbanStore((state) => state.deleteTask);
-    const selectedTaskIds = useKanbanStore((state) => state.selectedTaskIds);
+    const hasSelectedTasks = useKanbanStore(
+      (state) => state.selectedTaskIds.length > 0
+    );
     const openTaskQuickActions = useKanbanStore(
       (state) => state.openTaskQuickActions
     );
@@ -54,8 +56,7 @@ export const TaskCard = memo(
     );
 
     const interactionMode = useKanbanStore((state) => state.interactionMode);
-    const showCheckbox =
-      selectedTaskIds.length > 0 || interactionMode === "select";
+    const showCheckbox = hasSelectedTasks || interactionMode === "select";
     const isBeingDragged = draggedTaskId === task.id;
 
     const VIEWPORT_PADDING = 100;

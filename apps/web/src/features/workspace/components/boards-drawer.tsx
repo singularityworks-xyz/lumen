@@ -15,9 +15,18 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
-import type { Task } from "@/src/features/kanban/types";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
+import {
+  type ComputedBoardStats,
+  computeAllBoardStats,
+  type RawBoardData,
+  type RawColumnData,
+  type RawConnectionData,
+  type RawTaskData,
+  type RawTextBoardData,
+  runBoardStatsWorker,
+} from "@/src/workers/worker-client";
 import LarityOrb from "../../ai/components/animations/larity-orb";
 
 // Shared display shape for kanban boards and text boards in the sidebar
@@ -41,7 +50,7 @@ interface BoardStats {
 
 // Count todo items inside a serialized TipTap document (text boards).
 // taskItems carry attrs.checked, so we can show real task stats.
-function countTextBoardTasks(content: string | undefined): {
+function _countTextBoardTasks(content: string | undefined): {
   completedTasks: number;
   totalTasks: number;
 } {
@@ -360,13 +369,16 @@ const BoardsDrawerContent = memo(
         )}
         exit={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
         initial={{ opacity: 0, x: "100%", scale: 0.98, y: "-50%" }}
+        style={{
+          willChange: "transform, opacity",
+        }}
         transition={{ type: "spring", stiffness: 350, damping: 35 }}
       >
         <div
           className={cn(
             "flex h-full w-full flex-col",
             "overflow-hidden rounded-2xl",
-            "bg-card/98 backdrop-blur-xl",
+            "bg-card/98",
             "border-2 border-border/50",
             "shadow-[0_8px_40px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05),inset_0_2px_8px_rgba(0,0,0,0.15),inset_0_-2px_6px_rgba(255,255,255,0.05)]",
             "dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05),inset_0_2px_8px_rgba(255,255,255,0.1),inset_0_-2px_6px_rgba(0,0,0,0.4)]"
@@ -590,98 +602,121 @@ export const BoardsDrawer = memo(
       [boardPositions, textBoardPositions, setCenter, onOpenChange]
     );
 
-    const countConnections = useCallback(
-      (boardId: string): number =>
-        boardConnections.allIds.filter((connId) => {
-          const conn = boardConnections.byId[connId];
-          return (
-            conn &&
-            (conn.source_board_id === boardId ||
-              conn.target_board_id === boardId)
-          );
-        }).length,
+    const currentWorkspace = currentWorkspaceId
+      ? workspaces.byId[currentWorkspaceId]
+      : null;
+    const workspaceBoardIds = useMemo(
+      () => currentWorkspace?.board_ids ?? [],
+      [currentWorkspace]
+    );
+    const workspaceTextBoardIds = useMemo(
+      () => currentWorkspace?.text_board_ids ?? [],
+      [currentWorkspace]
+    );
+
+    const rawConnections = useMemo(
+      (): RawConnectionData[] =>
+        boardConnections.allIds
+          .map((id) => {
+            const c = boardConnections.byId[id];
+            return c
+              ? {
+                  source_board_id: c.source_board_id,
+                  target_board_id: c.target_board_id,
+                }
+              : null;
+          })
+          .filter((c): c is RawConnectionData => c !== null),
       [boardConnections]
     );
 
-    const boardStats = useMemo((): BoardStats[] => {
+    const initialComputedStats = useMemo(() => {
       if (!currentWorkspaceId) {
         return [];
       }
+      return computeAllBoardStats(
+        workspaceBoardIds,
+        workspaceTextBoardIds,
+        boards.byId as unknown as Record<string, RawBoardData>,
+        textBoards.byId as unknown as Record<string, RawTextBoardData>,
+        columns.byId as unknown as Record<string, RawColumnData>,
+        tasks.byId as unknown as Record<string, RawTaskData>,
+        rawConnections
+      );
+    }, [
+      currentWorkspaceId,
+      workspaceBoardIds,
+      workspaceTextBoardIds,
+      boards.byId,
+      textBoards.byId,
+      columns.byId,
+      tasks.byId,
+      rawConnections,
+    ]);
 
-      const workspace = workspaces.byId[currentWorkspaceId];
-      if (!workspace) {
-        return [];
+    const mapStats = useCallback(
+      (computed: ComputedBoardStats[]): BoardStats[] =>
+        computed.map((c) => ({
+          board: {
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            accentColor: c.accentColor,
+            icon: c.icon,
+          },
+          totalTasks: c.totalTasks,
+          completedTasks: c.completedTasks,
+          connections: c.connections,
+          kind: c.kind,
+        })),
+      []
+    );
+
+    const [boardStats, setBoardStats] = useState<BoardStats[]>(() =>
+      mapStats(initialComputedStats)
+    );
+
+    useEffect(() => {
+      let active = true;
+      if (!currentWorkspaceId) {
+        setBoardStats([]);
+        return;
       }
 
-      const workspaceBoardIds = workspace.board_ids || [];
-      const workspaceTextBoardIds = workspace.text_board_ids || [];
-
-      const kanbanStats: BoardStats[] = workspaceBoardIds
-        .map((boardId): BoardStats | null => {
-          const board = boards.byId[boardId];
-          if (!board) {
-            return null;
+      runBoardStatsWorker(
+        workspaceBoardIds,
+        workspaceTextBoardIds,
+        boards.byId as unknown as Record<string, RawBoardData>,
+        textBoards.byId as unknown as Record<string, RawTextBoardData>,
+        columns.byId as unknown as Record<string, RawColumnData>,
+        tasks.byId as unknown as Record<string, RawTaskData>,
+        rawConnections
+      )
+        .then((computed) => {
+          if (active) {
+            setBoardStats(mapStats(computed));
           }
-
-          const boardColumnIds = board.column_ids || [];
-          const boardTasks: Task[] = [];
-
-          for (const colId of boardColumnIds) {
-            const column = columns.byId[colId];
-            if (column) {
-              for (const taskId of column.task_ids || []) {
-                const task = tasks.byId[taskId];
-                if (task) {
-                  boardTasks.push(task);
-                }
-              }
-            }
-          }
-
-          const completedTasks = boardTasks.filter(
-            (t) => t.status === "done"
-          ).length;
-
-          return {
-            board,
-            totalTasks: boardTasks.length,
-            completedTasks,
-            connections: countConnections(boardId),
-            kind: "board" as const,
-          };
         })
-        .filter((s): s is BoardStats => s !== null);
-
-      const textBoardStats: BoardStats[] = workspaceTextBoardIds
-        .map((textBoardId): BoardStats | null => {
-          const textBoard = textBoards.byId[textBoardId];
-          if (!textBoard) {
-            return null;
+        .catch(() => {
+          if (active) {
+            setBoardStats(mapStats(initialComputedStats));
           }
+        });
 
-          const { completedTasks, totalTasks } = countTextBoardTasks(
-            textBoard.content
-          );
-
-          return {
-            board: textBoard,
-            totalTasks,
-            completedTasks,
-            connections: countConnections(textBoardId),
-            kind: "textBoard" as const,
-          };
-        })
-        .filter((s): s is BoardStats => s !== null);
-
-      return [...kanbanStats, ...textBoardStats];
+      return () => {
+        active = false;
+      };
     }, [
-      boards,
-      textBoards,
-      columns,
-      tasks,
       currentWorkspaceId,
-      workspaces,
-      countConnections,
+      workspaceBoardIds,
+      workspaceTextBoardIds,
+      boards.byId,
+      textBoards.byId,
+      columns.byId,
+      tasks.byId,
+      rawConnections,
+      mapStats,
+      initialComputedStats,
     ]);
 
     useEffect(() => {
@@ -722,7 +757,7 @@ export const BoardsDrawer = memo(
             <>
               <motion.div
                 animate={{ opacity: 1 }}
-                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+                className="fixed inset-0 z-40 bg-black/20"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}
                 onClick={handleClose}

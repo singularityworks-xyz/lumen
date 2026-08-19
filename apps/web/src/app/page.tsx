@@ -8,6 +8,7 @@ import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightDrawers } from "@/src/components/right-drawers";
+import { TooltipProvider } from "@/src/components/ui/tooltip";
 import {
   type JoinSuccessData,
   JoinWorkspaceHandler,
@@ -161,7 +162,7 @@ function KanbanPageContent() {
     <div className="relative h-screen w-screen overflow-hidden bg-background">
       <WorkspaceDeletedBanner />
       {isReady ? (
-        <>
+        <TooltipProvider delayDuration={200}>
           <JoinWorkspaceHandler
             onComplete={handleJoinComplete}
             shareToken={shareToken}
@@ -176,7 +177,7 @@ function KanbanPageContent() {
           <RightControls />
           <CommandPalette />
           <BulkActionsBar />
-        </>
+        </TooltipProvider>
       ) : null}
     </div>
   );
