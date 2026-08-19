@@ -13,6 +13,7 @@ import {
   recordModelFallback,
   recordRateLimitHit,
 } from "./metrics";
+import { aiRequestQueue } from "./request-queue";
 import type {
   AiSdkMessage,
   StreamOptions,
@@ -27,8 +28,53 @@ const tracer = getTracer("lumen-ai");
 
 const MAX_STEPS = 5;
 
+// Conservative token estimate for capacity reservation:
+// ~3 chars per token for prompts, plus headroom for the completion.
+const CHARS_PER_TOKEN = 3;
+const COMPLETION_TOKEN_RESERVE = 2048;
+
+function estimateTokens(
+  systemPrompt: string,
+  messages: AiSdkMessage[]
+): number {
+  let charCount = systemPrompt.length;
+  for (const message of messages) {
+    charCount += JSON.stringify(message)?.length ?? 0;
+  }
+  return Math.ceil(charCount / CHARS_PER_TOKEN) + COMPLETION_TOKEN_RESERVE;
+}
+
 export async function* streamWithFallback(
   opts: StreamOptions
+): AsyncGenerator<StreamResult, void, unknown> {
+  const { systemPrompt, ctx } = opts;
+  const messages: AiSdkMessage[] = [...opts.messages];
+
+  // Acquire a request slot and token budget before talking to the model, so
+  // concurrent users are queued within GeneralCompute's 100 req/min and
+  // 200k tokens/min limits. Released with real usage once the stream ends.
+  const { reservation } = await aiRequestQueue.reserveCapacity({
+    priority: "normal",
+    workspaceId: ctx.workspaceId,
+    estimatedTokens: estimateTokens(systemPrompt, messages),
+  });
+
+  let actualTokens = 0;
+
+  try {
+    yield* streamSteps(opts, (usage) => {
+      if (usage.totalTokens > 0) {
+        actualTokens = usage.totalTokens;
+      }
+    });
+  } finally {
+    await reservation?.releaseTokens(actualTokens);
+  }
+}
+
+async function* streamSteps(
+  opts: StreamOptions,
+  onUsage: (usage: { totalTokens: number }) => void
 ): AsyncGenerator<StreamResult, void, unknown> {
   const { systemPrompt, messageId, tools, ctx } = opts;
   const messages: AiSdkMessage[] = [...opts.messages];
@@ -181,12 +227,14 @@ export async function* streamWithFallback(
 
         try {
           const usage = await result.usage;
+          const totalTokens = usage.totalTokens ?? 0;
+          onUsage({ totalTokens });
           yield {
             type: "usage",
             usage: {
               promptTokens: usage.inputTokens ?? 0,
               completionTokens: usage.outputTokens ?? 0,
-              totalTokens: usage.totalTokens ?? 0,
+              totalTokens,
             },
             modelUsed: modelName,
           };

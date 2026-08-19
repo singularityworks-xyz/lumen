@@ -1,45 +1,50 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
 
-export type CerebrasModel =
-  | "gpt-oss-120b"
-  | "llama-3.3-70b"
-  | "llama3.1-8b"
-  | "qwen-3-32b";
+export type GeneralComputeModel =
+  | "minimax-m2.7"
+  | "deepseek-v3.2"
+  | "deepseek-v3.1"
+  | "gpt-oss-120b";
 
-export const DEFAULT_PRIMARY_MODEL: CerebrasModel = "gpt-oss-120b";
+export const DEFAULT_PRIMARY_MODEL: GeneralComputeModel = "deepseek-v3.2";
 
-export const FALLBACK_MODELS: CerebrasModel[] = [
-  "llama-3.3-70b",
-  "qwen-3-32b",
-  "llama3.1-8b",
+// Fast/cheap model for classification, titles, and summarization
+export const FAST_MODEL: GeneralComputeModel = "deepseek-v3.1";
+
+export const FALLBACK_MODELS: GeneralComputeModel[] = [
+  "gpt-oss-120b",
+  "deepseek-v3.1",
+  "minimax-m2.7",
 ];
 
 export function getModelFallbackChain(
-  primary: CerebrasModel = DEFAULT_PRIMARY_MODEL
-): CerebrasModel[] {
+  primary: GeneralComputeModel = DEFAULT_PRIMARY_MODEL
+): GeneralComputeModel[] {
   return [primary, ...FALLBACK_MODELS.filter((m) => m !== primary)];
 }
 
-export interface CerebrasProviderOptions {
+export interface GeneralComputeProviderOptions {
   apiKey: string;
 }
 
-export function createCerebrasProvider(options: CerebrasProviderOptions) {
+export function createGeneralComputeProvider(
+  options: GeneralComputeProviderOptions
+) {
   const provider = createOpenAICompatible({
-    name: "cerebras",
+    name: "generalcompute",
     apiKey: options.apiKey,
-    baseURL: "https://api.cerebras.ai/v1",
+    baseURL: "https://api.generalcompute.com/v1",
   });
 
   return provider;
 }
 
-export function getCerebrasModel(
+export function getGeneralComputeModel(
   apiKey: string,
-  model: CerebrasModel = DEFAULT_PRIMARY_MODEL
+  model: GeneralComputeModel = DEFAULT_PRIMARY_MODEL
 ): LanguageModel {
-  const provider = createCerebrasProvider({ apiKey });
+  const provider = createGeneralComputeProvider({ apiKey });
   return provider.chatModel(model);
 }
 
@@ -57,7 +62,9 @@ export function isRateLimitError(error: unknown): boolean {
   );
 }
 
-export function isCerebrasConfigured(apiKey: string | undefined): boolean {
+export function isGeneralComputeConfigured(
+  apiKey: string | undefined
+): boolean {
   return !!apiKey && apiKey.length > 0;
 }
 

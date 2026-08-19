@@ -1,6 +1,6 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createLogger } from "@lumen/logger";
 import { generateText } from "ai";
+import { createGeneralComputeProvider, FAST_MODEL } from "../providers";
 import { actionTools, allTools, queryTools, toolMetadata } from "./definitions";
 import type { ClassificationResult, QueueStatus, ToolSelection } from "./types";
 
@@ -10,7 +10,7 @@ const logger = createLogger({ name: "ai:tool-classifier" });
 export type { ClassificationResult, QueueStatus } from "./types";
 
 // Fast model for classification
-const CLASSIFIER_MODEL = "llama3.1-8b";
+const CLASSIFIER_MODEL = FAST_MODEL;
 
 // Keyword lists for fallback detection
 const ACTION_KEYWORDS = [
@@ -365,11 +365,7 @@ class ClassifierQueue {
       hasContext: !!previousMessage,
     });
 
-    const provider = createOpenAICompatible({
-      name: "cerebras",
-      apiKey,
-      baseURL: "https://api.cerebras.ai/v1",
-    });
+    const provider = createGeneralComputeProvider({ apiKey });
 
     const model = provider.chatModel(CLASSIFIER_MODEL);
 
@@ -431,11 +427,19 @@ If the previous message asked for confirmation and the user says "yes" or "confi
 
       try {
         const parsed = JSON.parse(jsonStr) as ClassificationResult;
+        const usage = result.usage;
         const classification = {
           intent: parsed.intent || "none",
           confidence: parsed.confidence || "medium",
           reason: parsed.reason || "LLM classification",
           suggestedTools: parsed.suggestedTools,
+          usage: usage
+            ? {
+                promptTokens: usage.inputTokens ?? 0,
+                completionTokens: usage.outputTokens ?? 0,
+                totalTokens: usage.totalTokens ?? 0,
+              }
+            : undefined,
         };
 
         logger.info("LLM classification completed", {

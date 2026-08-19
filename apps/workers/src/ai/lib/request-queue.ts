@@ -2,9 +2,19 @@ import { createLogger } from "@lumen/logger";
 import { createClient } from "redis";
 
 const logger = createLogger({ name: "ai:request-queue" });
-const RATE_LIMIT_PER_MINUTE = 30;
+
+// GeneralCompute rate limits (https://docs.generalcompute.com):
+// - 100 requests per minute
+// - 200,000 tokens per minute
+export const RATE_LIMIT_PER_MINUTE = 100;
+export const TOKEN_LIMIT_PER_MINUTE = 200_000;
 const WINDOW_SIZE_MS = 60_000;
 const REDIS_KEY_PREFIX = "lumen:ai:ratelimit";
+
+// Default token reservation for calls that don't pass an explicit estimate.
+// Callers that know their real usage should pass estimatedTokens and release
+// with actual tokens afterwards.
+const DEFAULT_TOKEN_ESTIMATE = 4096;
 
 export type Priority = "high" | "normal" | "low";
 
@@ -16,50 +26,103 @@ interface QueueStatus {
   queueLength: number;
 }
 
-interface QueuedRequest<T> {
+interface QueuedRequest {
   addedAt: number;
-  execute: () => Promise<T>;
+  estimatedTokens: number;
   id: string;
+  onCapacity: (reservation: CapacityReservation) => void;
+  onReject: (error: Error) => void;
   priority: Priority;
-  reject: (error: Error) => void;
-  resolve: (value: T) => void;
   workspaceId?: string;
+}
+
+export interface CapacityReservation {
+  releaseTokens: (actualTokens: number) => Promise<void>;
+}
+
+interface CapacityResult {
+  releaseTokens: (actualTokens: number) => Promise<void>;
 }
 
 const REDIS_URL = process.env.REDIS_URL;
 
-if (!REDIS_URL) {
-  throw new Error("REDIS_URL environment variable is required");
-}
-
 let redisClient: RedisClient | null = null;
 let redisConnectPromise: Promise<void> | null = null;
 let redisReady = false;
+let redisInitialized = false;
 let lastKnownRemaining = RATE_LIMIT_PER_MINUTE;
+let lastKnownTokensRemaining = TOKEN_LIMIT_PER_MINUTE;
 
-const REDIS_SLIDING_WINDOW_SCRIPT = `
-local key = KEYS[1]
+// Atomically checks the request slot AND token budgets and reserves both
+// together, so a request slot is never consumed when the token budget is
+// exhausted (and vice versa).
+const REDIS_CAPACITY_SCRIPT = `
+local slotKey = KEYS[1]
+local tokenKey = KEYS[2]
 local now = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
-local limit = tonumber(ARGV[3])
-local member = ARGV[4]
+local slotLimit = tonumber(ARGV[3])
+local tokenLimit = tonumber(ARGV[4])
+local slotMember = ARGV[5]
+local tokenMember = ARGV[6]
+local estimatedTokens = tonumber(ARGV[7])
 
-redis.call("ZREMRANGEBYSCORE", key, 0, now - window)
+redis.call("ZREMRANGEBYSCORE", slotKey, 0, now - window)
+redis.call("ZREMRANGEBYSCORE", tokenKey, 0, now - window)
 
-local count = redis.call("ZCARD", key)
-if count >= limit then
-  local oldest = redis.call("ZRANGE", key, 0, 0, "WITHSCORES")
+local slotCount = redis.call("ZCARD", slotKey)
+if slotCount >= slotLimit then
+  local oldest = redis.call("ZRANGE", slotKey, 0, 0, "WITHSCORES")
   local reset = now + window
   if oldest[2] ~= nil then
     reset = tonumber(oldest[2]) + window
   end
-  return {0, 0, reset}
+  return {0, slotCount, 0, reset}
 end
 
-redis.call("ZADD", key, now, member)
-redis.call("PEXPIRE", key, window)
+local totalTokens = 0
+local members = redis.call("ZRANGE", tokenKey, 0, -1)
+for i = 1, #members do
+  local _, _, count = string.find(members[i], ":(%-?%d+)$")
+  if count ~= nil then
+    totalTokens = totalTokens + tonumber(count)
+  end
+end
 
-return {1, limit - count - 1, now + window}
+if totalTokens + estimatedTokens > tokenLimit then
+  local oldest = redis.call("ZRANGE", tokenKey, 0, 0, "WITHSCORES")
+  local reset = now + window
+  if oldest[2] ~= nil then
+    reset = tonumber(oldest[2]) + window
+  end
+  return {0, slotCount, 1, reset}
+end
+
+redis.call("ZADD", slotKey, now, slotMember)
+redis.call("PEXPIRE", slotKey, window)
+redis.call("ZADD", tokenKey, now, tokenMember)
+redis.call("PEXPIRE", tokenKey, window)
+
+return {1, slotLimit - slotCount - 1, 2, now + window}
+`;
+
+// Releases a token reservation. If actualTokens > 0 the reservation is
+// re-added with the real token count (refunding the over-estimate);
+// otherwise it is removed entirely.
+const REDIS_TOKEN_RELEASE_SCRIPT = `
+local tokenKey = KEYS[1]
+local storedMember = ARGV[1]
+local bareMember = ARGV[2]
+local actualTokens = tonumber(ARGV[3])
+local now = tonumber(ARGV[4])
+local window = tonumber(ARGV[5])
+
+redis.call("ZREM", tokenKey, storedMember)
+if actualTokens > 0 then
+  redis.call("ZADD", tokenKey, now, bareMember .. ":" .. actualTokens)
+  redis.call("PEXPIRE", tokenKey, window)
+end
+return 1
 `;
 
 function parseInteger(value: unknown): number | null {
@@ -75,70 +138,94 @@ function parseInteger(value: unknown): number | null {
   return null;
 }
 
-function updateRateLimiterState(remaining: number): void {
+function updateRateLimiterState(remaining: number, tokensRemaining: number) {
   lastKnownRemaining = remaining;
+  lastKnownTokensRemaining = tokensRemaining;
 }
 
-function createRateLimitMember(now: number): string {
+function createMember(now: number): string {
   return `${now}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-try {
-  const client = createClient({
-    url: REDIS_URL,
-    socket: {
-      connectTimeout: 1000,
-    },
-  });
+// Redis is initialized lazily on first use so importing this module (and the
+// AI routes) never requires Redis to be reachable at load time.
+function ensureRedisInitialized(): void {
+  if (redisInitialized) {
+    return;
+  }
+  redisInitialized = true;
 
-  client.on("error", (error) => {
-    redisReady = false;
-    logger.error("Redis rate limiter error", {
-      error: error instanceof Error ? error.message : "Unknown",
+  if (!REDIS_URL) {
+    logger.error(
+      "REDIS_URL environment variable is required for AI rate limiting"
+    );
+    return;
+  }
+
+  try {
+    const client = createClient({
+      url: REDIS_URL,
+      socket: {
+        connectTimeout: 1000,
+      },
     });
-  });
 
-  client.on("ready", () => {
-    redisReady = true;
-    logger.info("Redis rate limiter ready", {
-      rateLimit: RATE_LIMIT_PER_MINUTE,
-      windowSize: "60s",
-    });
-  });
-
-  redisClient = client;
-  redisConnectPromise = client
-    .connect()
-    .then(() => {
-      redisReady = true;
-      logger.info("Redis rate limiter initialized", {
-        rateLimit: RATE_LIMIT_PER_MINUTE,
-        windowSize: "60s",
-      });
-    })
-    .catch((error) => {
-      redisClient = null;
+    client.on("error", (error) => {
       redisReady = false;
-      logger.error("Failed to connect to Redis", {
+      logger.error("Redis rate limiter error", {
         error: error instanceof Error ? error.message : "Unknown",
       });
-      throw new Error("Redis connection failed");
     });
-} catch (error) {
-  logger.error("Failed to initialize Redis client", {
-    error: error instanceof Error ? error.message : "Unknown",
-  });
-  throw new Error("Redis initialization failed");
+
+    client.on("ready", () => {
+      redisReady = true;
+      logger.info("Redis rate limiter ready", {
+        rateLimit: RATE_LIMIT_PER_MINUTE,
+        tokenLimit: TOKEN_LIMIT_PER_MINUTE,
+        windowSize: "60s",
+      });
+    });
+
+    redisClient = client;
+    redisConnectPromise = client
+      .connect()
+      .then(() => {
+        redisReady = true;
+        logger.info("Redis rate limiter initialized", {
+          rateLimit: RATE_LIMIT_PER_MINUTE,
+          tokenLimit: TOKEN_LIMIT_PER_MINUTE,
+          windowSize: "60s",
+        });
+      })
+      .catch((error) => {
+        redisClient = null;
+        redisReady = false;
+        logger.error("Failed to connect to Redis", {
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+      });
+  } catch (error) {
+    redisClient = null;
+    redisReady = false;
+    logger.error("Failed to initialize Redis client", {
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+  }
 }
 
-// Rate limiter that uses Redis
-async function checkRateLimit(identifier = "global"): Promise<{
-  success: boolean;
-  remaining: number;
-  resetMs: number;
-}> {
+// Attempts to acquire a request slot and a token reservation together.
+// Returns { result: null, resetMs } when either limit is currently exhausted.
+async function tryAcquireCapacity(
+  estimatedTokens: number
+): Promise<{ result: CapacityResult | null; resetMs: number }> {
+  ensureRedisInitialized();
+
   if (!redisClient) {
-    throw new Error("Redis client not initialized");
+    throw new Error(
+      REDIS_URL
+        ? "Redis rate limiter is not initialized"
+        : "REDIS_URL environment variable is required"
+    );
   }
 
   try {
@@ -151,26 +238,63 @@ async function checkRateLimit(identifier = "global"): Promise<{
     }
 
     const now = Date.now();
-    const rawResult = await redisClient.eval(REDIS_SLIDING_WINDOW_SCRIPT, {
-      keys: [`${REDIS_KEY_PREFIX}:${identifier}`],
+    const slotMember = createMember(now);
+    const tokenBare = `tok_${now}_${Math.random().toString(36).slice(2, 9)}`;
+    const tokenStored = `${tokenBare}:${estimatedTokens}`;
+
+    const rawResult = await redisClient.eval(REDIS_CAPACITY_SCRIPT, {
+      keys: [
+        `${REDIS_KEY_PREFIX}:ai-requests`,
+        `${REDIS_KEY_PREFIX}:ai-tokens`,
+      ],
       arguments: [
         String(now),
         String(WINDOW_SIZE_MS),
         String(RATE_LIMIT_PER_MINUTE),
-        createRateLimitMember(now),
+        String(TOKEN_LIMIT_PER_MINUTE),
+        slotMember,
+        tokenStored,
+        String(estimatedTokens),
       ],
     });
 
-    if (Array.isArray(rawResult) && rawResult.length >= 3) {
+    if (Array.isArray(rawResult) && rawResult.length >= 4) {
       const successFlag = parseInteger(rawResult[0]);
       const remaining = parseInteger(rawResult[1]);
-      const resetAt = parseInteger(rawResult[2]);
+      const tokensRemaining = parseInteger(rawResult[2]);
+      const resetAt = parseInteger(rawResult[3]);
 
-      if (successFlag !== null && remaining !== null && resetAt !== null) {
-        updateRateLimiterState(remaining);
+      if (
+        successFlag !== null &&
+        remaining !== null &&
+        tokensRemaining !== null &&
+        resetAt !== null
+      ) {
+        updateRateLimiterState(remaining, tokensRemaining);
+
+        if (successFlag === 1) {
+          return {
+            result: {
+              releaseTokens: async (actualTokens: number) => {
+                try {
+                  await releaseTokenReservation(
+                    tokenStored,
+                    tokenBare,
+                    actualTokens
+                  );
+                } catch (error) {
+                  logger.warn("Failed to release token reservation", {
+                    error: error instanceof Error ? error.message : "Unknown",
+                  });
+                }
+              },
+            },
+            resetMs: Math.max(0, resetAt - now),
+          };
+        }
+
         return {
-          success: successFlag === 1,
-          remaining,
+          result: null,
           resetMs: Math.max(0, resetAt - now),
         };
       }
@@ -181,16 +305,50 @@ async function checkRateLimit(identifier = "global"): Promise<{
     redisReady = false;
     logger.error("Redis rate limit check failed", {
       error: error instanceof Error ? error.message : "Unknown",
-      identifier,
     });
     throw new Error("Redis rate limit check failed");
   }
 }
 
+async function releaseTokenReservation(
+  storedMember: string,
+  bareMember: string,
+  actualTokens: number
+): Promise<void> {
+  ensureRedisInitialized();
+
+  if (!redisClient) {
+    return;
+  }
+
+  try {
+    if (redisConnectPromise) {
+      await redisConnectPromise;
+    }
+
+    if (redisClient.isReady && redisReady) {
+      await redisClient.eval(REDIS_TOKEN_RELEASE_SCRIPT, {
+        keys: [`${REDIS_KEY_PREFIX}:ai-tokens`],
+        arguments: [
+          storedMember,
+          bareMember,
+          String(Math.max(0, Math.floor(actualTokens))),
+          String(Date.now()),
+          String(WINDOW_SIZE_MS),
+        ],
+      });
+    }
+  } catch (error) {
+    logger.warn("Failed to release token reservation", {
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+  }
+}
+
 // Rate-limited request queue with priority support
-// Uses Redis for distributed rate limiting (mandatory)
+// Uses Redis for distributed rate limiting (request slots + token budget)
 class RateLimitedQueue {
-  private readonly queue: QueuedRequest<unknown>[] = [];
+  private readonly queue: QueuedRequest[] = [];
   private processing = false;
   private activeRequests = 0;
 
@@ -214,6 +372,7 @@ class RateLimitedQueue {
     activeRequests: number;
     isProcessing: boolean;
     remaining: number;
+    tokensRemaining: number;
     usingRedis: boolean;
   } {
     return {
@@ -221,59 +380,96 @@ class RateLimitedQueue {
       activeRequests: this.activeRequests,
       isProcessing: this.processing,
       remaining: lastKnownRemaining,
+      tokensRemaining: lastKnownTokensRemaining,
       usingRedis: isRedisEnabled(),
     };
   }
 
   // Enqueue a request with priority
-  // Returns a promise that resolves when the request completes
+  // Returns a promise that resolves when the request completes.
+  // The returned releaseTokens(actualTokens) should be called with the real
+  // token usage so over-estimated reservations are refunded.
   async enqueue<T>(
     execute: () => Promise<T>,
     options: {
       priority?: Priority;
       workspaceId?: string;
+      estimatedTokens?: number;
     } = {}
-  ): Promise<{ result: T; wasQueued: boolean; waitTimeMs?: number }> {
-    const { priority = "normal", workspaceId } = options;
+  ): Promise<{
+    result: T;
+    wasQueued: boolean;
+    waitTimeMs?: number;
+    releaseTokens: (actualTokens: number) => Promise<void>;
+  }> {
+    const {
+      priority = "normal",
+      workspaceId,
+      estimatedTokens = DEFAULT_TOKEN_ESTIMATE,
+    } = options;
     const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const rateLimitResult = await checkRateLimit("ai-requests");
 
-    if (rateLimitResult.success) {
+    const acquired = await tryAcquireCapacity(estimatedTokens);
+    if (acquired?.result) {
       logger.debug("Executing request immediately", {
         requestId,
         priority,
         workspaceId,
-        remaining: rateLimitResult.remaining,
+        remaining: lastKnownRemaining,
       });
 
       this.activeRequests += 1;
       try {
         const result = await execute();
-        return { result, wasQueued: false };
+        return {
+          result,
+          wasQueued: false,
+          releaseTokens: acquired.result.releaseTokens,
+        };
       } finally {
         this.activeRequests -= 1;
       }
     }
 
     const startTime = Date.now();
+    const resetMs = acquired?.resetMs ?? WINDOW_SIZE_MS;
 
     return new Promise((resolve, reject) => {
-      const queuedRequest: QueuedRequest<T> = {
+      const queuedRequest: QueuedRequest = {
         id: requestId,
         priority,
-        execute,
-        resolve: (result: T) =>
-          resolve({
-            result,
-            wasQueued: true,
-            waitTimeMs: Date.now() - startTime,
-          }),
-        reject,
-        addedAt: startTime,
+        estimatedTokens,
         workspaceId,
+        addedAt: startTime,
+        onCapacity: (reservation) => {
+          this.activeRequests += 1;
+          try {
+            execute()
+              .then((result) =>
+                resolve({
+                  result,
+                  wasQueued: true,
+                  waitTimeMs: Date.now() - startTime,
+                  releaseTokens: reservation.releaseTokens,
+                })
+              )
+              .catch((error) =>
+                reject(
+                  error instanceof Error ? error : new Error("Unknown error")
+                )
+              )
+              .finally(() => {
+                this.activeRequests -= 1;
+              });
+          } catch (error) {
+            this.activeRequests -= 1;
+            reject(error instanceof Error ? error : new Error("Unknown error"));
+          }
+        },
+        onReject: reject,
       };
 
-      this.addToQueue(queuedRequest as QueuedRequest<unknown>);
+      this.addToQueue(queuedRequest);
 
       const position = this.queue.findIndex((r) => r.id === requestId) + 1;
       logger.info("Request queued", {
@@ -282,38 +478,95 @@ class RateLimitedQueue {
         workspaceId,
         position,
         queueLength: this.queue.length,
-        estimatedWaitMs: rateLimitResult.resetMs,
+        estimatedWaitMs: resetMs,
       });
 
       this.processQueue();
     });
   }
 
-  // Enqueue a request but don't wait for it (fire and forget with callback)
-  enqueueAsync<T>(
-    execute: () => Promise<T>,
+  // Reserve capacity (request slot + token budget) without running anything.
+  // Intended for streaming callers: acquire capacity, run the stream, then
+  // call reservation.releaseTokens(actualTokens) in a finally block.
+  // The reservation counts as an active request until released.
+  async reserveCapacity(
     options: {
       priority?: Priority;
       workspaceId?: string;
-      onComplete?: (result: T, wasQueued: boolean) => void;
-      onError?: (error: Error) => void;
+      estimatedTokens?: number;
     } = {}
-  ): { requestId: string; getStatus: () => QueueStatus | null } {
-    const { priority = "normal", workspaceId, onComplete, onError } = options;
+  ): Promise<{
+    reservation: CapacityReservation | null;
+    wasQueued: boolean;
+    waitTimeMs?: number;
+  }> {
+    const {
+      priority = "normal",
+      workspaceId,
+      estimatedTokens = DEFAULT_TOKEN_ESTIMATE,
+    } = options;
     const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-    // Start the enqueue process
-    this.enqueue(execute, { priority, workspaceId })
-      .then(({ result, wasQueued }) => onComplete?.(result, wasQueued))
-      .catch((error) => onError?.(error));
+    const acquired = await tryAcquireCapacity(estimatedTokens);
+    if (acquired?.result) {
+      this.activeRequests += 1;
+      const reservation = acquired.result;
+      const originalRelease = reservation.releaseTokens;
+      return {
+        reservation: {
+          releaseTokens: async (actualTokens: number) => {
+            this.activeRequests -= 1;
+            await originalRelease(actualTokens);
+          },
+        },
+        wasQueued: false,
+      };
+    }
 
-    return {
-      requestId,
-      getStatus: () => this.getQueueStatus(requestId),
-    };
+    const startTime = Date.now();
+    const resetMs = acquired?.resetMs ?? WINDOW_SIZE_MS;
+
+    return new Promise((resolve, reject) => {
+      const queuedRequest: QueuedRequest = {
+        id: requestId,
+        priority,
+        estimatedTokens,
+        workspaceId,
+        addedAt: startTime,
+        onCapacity: (reservation) => {
+          this.activeRequests += 1;
+          const originalRelease = reservation.releaseTokens;
+          resolve({
+            reservation: {
+              releaseTokens: async (actualTokens: number) => {
+                this.activeRequests -= 1;
+                await originalRelease(actualTokens);
+              },
+            },
+            wasQueued: true,
+            waitTimeMs: Date.now() - startTime,
+          });
+        },
+        onReject: reject,
+      };
+
+      this.addToQueue(queuedRequest);
+
+      const position = this.queue.findIndex((r) => r.id === requestId) + 1;
+      logger.info("Capacity request queued", {
+        requestId,
+        priority,
+        workspaceId,
+        position,
+        queueLength: this.queue.length,
+        estimatedWaitMs: resetMs,
+      });
+
+      this.processQueue();
+    });
   }
 
-  private addToQueue(request: QueuedRequest<unknown>): void {
+  private addToQueue(request: QueuedRequest): void {
     // Insert based on priority (high > normal > low)
     const priorityOrder: Record<Priority, number> = {
       high: 0,
@@ -347,19 +600,20 @@ class RateLimitedQueue {
           continue;
         }
 
+        let reservation: CapacityReservation;
         try {
-          await this.waitForSlot();
+          reservation = await this.acquireWithRetry(request.estimatedTokens);
         } catch (error) {
           // Reject current request and all remaining on rate limit failure
           const queueError =
             error instanceof Error
               ? error
               : new Error("Unknown rate limit error");
-          request.reject(queueError);
+          request.onReject(queueError);
           while (this.queue.length > 0) {
             const remainingRequest = this.queue.shift();
             if (remainingRequest) {
-              remainingRequest.reject(queueError);
+              remainingRequest.onReject(queueError);
             }
           }
           return;
@@ -374,39 +628,35 @@ class RateLimitedQueue {
           remainingInQueue: this.queue.length,
         });
 
-        this.activeRequests += 1;
-        try {
-          const result = await request.execute();
-          request.resolve(result);
-        } catch (error) {
-          request.reject(
-            error instanceof Error ? error : new Error("Unknown error")
-          );
-        } finally {
-          this.activeRequests -= 1;
-        }
+        request.onCapacity(reservation);
       }
     } finally {
       this.processing = false;
     }
   }
 
-  private async waitForSlot(): Promise<void> {
+  private async acquireWithRetry(
+    estimatedTokens: number,
+    maxAttempts = 60
+  ): Promise<CapacityReservation> {
     let attempts = 0;
-    const maxAttempts = 60;
 
     while (attempts < maxAttempts) {
-      const result = await checkRateLimit("ai-requests");
+      const acquired = await tryAcquireCapacity(estimatedTokens);
 
-      if (result.success) {
-        return;
+      if (acquired?.result) {
+        return acquired.result;
       }
 
-      // Wait until reset time (with a minimum of 1 second)
-      const waitTime = Math.max(1000, Math.min(result.resetMs, 5000));
-      logger.debug("Rate limit reached, waiting for slot", {
+      // Wait until the oldest reservation expires (with a minimum of 1 second)
+      const waitTime = Math.max(
+        1000,
+        Math.min(acquired?.resetMs ?? WINDOW_SIZE_MS, 5000)
+      );
+      logger.debug("Rate limit reached, waiting for capacity", {
         waitTimeMs: waitTime,
-        remaining: result.remaining,
+        remaining: lastKnownRemaining,
+        tokensRemaining: lastKnownTokensRemaining,
         attempt: attempts + 1,
       });
 

@@ -16,8 +16,10 @@ const mockLoggerDebug = mock(() => {
   // intentionally empty mock
 });
 
-const mockEval = mock(() =>
-  Promise.resolve([1, 29, Date.now() + 60_000] as const)
+// Redis eval result shape: [success, slotsRemaining, tokensRemaining, resetAt]
+const mockEval = mock(
+  (): Promise<readonly [number, number, number, number]> =>
+    Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const)
 );
 const mockConnect = mock(() => Promise.resolve());
 const mockOn = mock(() => {
@@ -51,8 +53,14 @@ const requestQueueModule = (await import(
   `./request-queue?${Date.now()}`
 )) as RequestQueueModule;
 
-const { aiRequestQueue, getQueueStats, getQueueStatus, isRedisEnabled } =
-  requestQueueModule;
+const {
+  aiRequestQueue,
+  getQueueStats,
+  getQueueStatus,
+  isRedisEnabled,
+  RATE_LIMIT_PER_MINUTE,
+  TOKEN_LIMIT_PER_MINUTE,
+} = requestQueueModule;
 
 beforeEach(() => {
   mockLoggerInfo.mockClear();
@@ -64,7 +72,7 @@ beforeEach(() => {
   mockConnect.mockClear();
   // Reset mock to ensure fresh state for each test
   mockEval.mockImplementation(() =>
-    Promise.resolve([1, 29, Date.now() + 60_000] as const)
+    Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const)
   );
 });
 
@@ -97,6 +105,71 @@ describe("RateLimitedQueue - immediate execution", () => {
     const stats = getQueueStats();
     expect(stats.activeRequests).toBe(0);
   });
+
+  it("returns a releaseTokens function that refunds the token reservation", async () => {
+    const execute = mock(() => Promise.resolve("ok"));
+
+    const { releaseTokens } = await aiRequestQueue.enqueue(execute, {
+      estimatedTokens: 4096,
+    });
+
+    // releaseTokens re-runs eval (the release script)
+    await releaseTokens(1000);
+    expect(mockEval).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("RateLimitedQueue - capacity exhaustion", () => {
+  it("queues the request when the request slot limit is reached", async () => {
+    // Simulate the slot limit being hit on first attempt, then succeeding on retry
+    let callCount = 0;
+    mockEval.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve([
+          0,
+          RATE_LIMIT_PER_MINUTE,
+          0,
+          Date.now() + 10,
+        ] as const);
+      }
+      return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
+    });
+
+    const execute = mock(() => Promise.resolve("queued-ok"));
+    const { result, wasQueued, waitTimeMs } = await aiRequestQueue.enqueue(
+      execute,
+      { priority: "high" }
+    );
+
+    expect(result).toBe("queued-ok");
+    expect(wasQueued).toBe(true);
+    expect(waitTimeMs).toBeGreaterThanOrEqual(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  }, 15_000);
+
+  it("queues the request when the token budget is exhausted", async () => {
+    // Simulate the token budget being hit on first attempt, then succeeding on retry
+    let callCount = 0;
+    mockEval.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve([
+          0,
+          0,
+          TOKEN_LIMIT_PER_MINUTE,
+          Date.now() + 10,
+        ] as const);
+      }
+      return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
+    });
+
+    const execute = mock(() => Promise.resolve("token-queued"));
+    const { result, wasQueued } = await aiRequestQueue.enqueue(execute);
+
+    expect(result).toBe("token-queued");
+    expect(wasQueued).toBe(true);
+  }, 15_000);
 });
 
 describe("RateLimitedQueue - priority queue insertion", () => {
@@ -153,6 +226,46 @@ describe("RateLimitedQueue - priority queue insertion", () => {
   });
 });
 
+describe("RateLimitedQueue - reserveCapacity", () => {
+  it("reserves capacity without executing and releases on demand", async () => {
+    const { reservation, wasQueued } = await aiRequestQueue.reserveCapacity({
+      estimatedTokens: 2048,
+    });
+
+    expect(wasQueued).toBe(false);
+    expect(reservation).not.toBeNull();
+
+    await reservation?.releaseTokens(500);
+    // 1 eval for reserve + 1 eval for release
+    expect(mockEval).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues capacity reservation when the token budget is exhausted", async () => {
+    let callCount = 0;
+    mockEval.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve([
+          0,
+          0,
+          TOKEN_LIMIT_PER_MINUTE,
+          Date.now() + 10,
+        ] as const);
+      }
+      return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
+    });
+
+    const { reservation, wasQueued } = await aiRequestQueue.reserveCapacity({
+      priority: "high",
+      estimatedTokens: 4096,
+    });
+
+    expect(wasQueued).toBe(true);
+    expect(reservation).not.toBeNull();
+    await reservation?.releaseTokens(0);
+  }, 15_000);
+});
+
 describe("RateLimitedQueue - status reporting", () => {
   it("WORKERS-U-05: returns null status for unknown request ID", () => {
     const status = getQueueStatus("nonexistent-id");
@@ -182,12 +295,19 @@ describe("RateLimitedQueue - stats", () => {
     expect(stats).toHaveProperty("activeRequests");
     expect(stats).toHaveProperty("isProcessing");
     expect(stats).toHaveProperty("remaining");
+    expect(stats).toHaveProperty("tokensRemaining");
     expect(stats).toHaveProperty("usingRedis");
     expect(typeof stats.queueLength).toBe("number");
     expect(typeof stats.activeRequests).toBe("number");
     expect(typeof stats.isProcessing).toBe("boolean");
     expect(typeof stats.remaining).toBe("number");
+    expect(typeof stats.tokensRemaining).toBe("number");
     expect(typeof stats.usingRedis).toBe("boolean");
+  });
+
+  it("exposes the GeneralCompute rate limits", () => {
+    expect(RATE_LIMIT_PER_MINUTE).toBe(100);
+    expect(TOKEN_LIMIT_PER_MINUTE).toBe(200_000);
   });
 });
 

@@ -4,7 +4,7 @@ import { getTracer, SpanStatusCode } from "@lumen/logger/tracer";
 import { generateText } from "ai";
 import { decryptContent, encryptContent } from "../lib/encryption";
 import { aiRequestQueue } from "../lib/request-queue";
-import { getModel } from "../providers";
+import { getFastModel } from "../providers";
 
 const logger = createLogger({ name: "ai:summarization" });
 const tracer = getTracer("lumen-ai");
@@ -97,9 +97,9 @@ export async function summarizeConversation(
       .join("\n\n");
 
     // Generate summary using the queue for rate limiting
-    const { result: summary } = await aiRequestQueue.enqueue(
+    const { result: summary, releaseTokens } = await aiRequestQueue.enqueue(
       async () => {
-        const model = getModel("llama3.1-8b");
+        const model = getFastModel();
         const result = await generateText({
           model,
           system: SUMMARIZATION_PROMPT,
@@ -114,8 +114,15 @@ export async function summarizeConversation(
         });
         return result.text.trim();
       },
-      { priority: "low", workspaceId: conversationId }
+      {
+        priority: "low",
+        workspaceId: conversationId,
+        estimatedTokens: 4096,
+      }
     );
+
+    // Summary output is capped at 500 tokens; refund the over-reservation.
+    await releaseTokens(summary ? 1024 : 0);
 
     if (!summary) {
       logger.warn("Failed to generate summary", { conversationId });

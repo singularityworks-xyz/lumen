@@ -21,7 +21,7 @@ const TEST_ENV: Record<string, string> = {
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   AI_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  CEREBRAS_API_KEY: "test-cerebras-api-key",
+  GENERALCOMPUTE_API_KEY: "test-generalcompute-api-key",
   LOG_LEVEL: "error",
 };
 

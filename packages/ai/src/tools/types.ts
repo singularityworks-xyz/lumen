@@ -13,6 +13,11 @@ export interface ClassificationResult {
   intent: ToolIntent;
   reason: string;
   suggestedTools?: string[];
+  usage?: {
+    completionTokens: number;
+    promptTokens: number;
+    totalTokens: number;
+  };
 }
 
 export interface QueueStatus {

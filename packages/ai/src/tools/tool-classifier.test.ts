@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Set up environment variables before importing the module
-process.env.CEREBRAS_API_KEY = "test-api-key";
-process.env.CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1";
+process.env.GENERALCOMPUTE_API_KEY = "test-api-key";
+process.env.GENERALCOMPUTE_BASE_URL = "https://api.generalcompute.com/v1";
 
 // Mock generateText to eliminate network dependency
 mock.module("ai", () => {

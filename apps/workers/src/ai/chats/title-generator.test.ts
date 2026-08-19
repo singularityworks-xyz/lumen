@@ -41,6 +41,7 @@ mock.module("ai", () => ({
 }));
 
 mock.module("../providers", () => ({
+  getFastModel: mockGetModel,
   getModel: mockGetModel,
   isRateLimitError: mockIsRateLimitError,
 }));
@@ -49,7 +50,11 @@ mock.module("../lib/request-queue", () => ({
   aiRequestQueue: {
     enqueue: mock(async (fn: () => Promise<unknown>) => {
       const result = await fn();
-      return { result, wasQueued: false };
+      return {
+        result,
+        wasQueued: false,
+        releaseTokens: mock(() => Promise.resolve()),
+      };
     }),
   },
 }));
@@ -237,7 +242,7 @@ describe("generateConversationTitle", () => {
     expect(content).not.toContain("Message 7");
   });
 
-  it("calls getModel with llama3.1-8b", async () => {
+  it("calls getFastModel for title generation", async () => {
     mockGenerateText.mockImplementation(() =>
       Promise.resolve({ text: "Test Title" })
     );
@@ -249,7 +254,7 @@ describe("generateConversationTitle", () => {
       ],
     });
 
-    expect(mockGetModel).toHaveBeenCalledWith("llama3.1-8b");
+    expect(mockGetModel).toHaveBeenCalled();
   });
 
   it("sets generation options correctly", async () => {

@@ -41,8 +41,8 @@
     "postinstall": "bun run db:gen",
     "prepare": "bun ./scripts/install/prepare.ts",
     "dev": "turbo run dev",
-    "infra:up": "docker compose -f local/docker/docker-compose.dev.yml up -d",
-    "infra:down": "docker compose -f local/docker/docker-compose.dev.yml down",
+    "infra:up": "bash scripts/dev/infra.sh up",
+    "infra:down": "bash scripts/dev/infra.sh down",
     "dev:web": "concurrently --names \"web,workers\" --prefix-colors \"blue,red\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\"",
     "dev:linux": "concurrently --names \"native,workers\" --prefix-colors \"yellow,red\" \"cd apps/native && bun run dev:linux\" \"cd apps/workers && bun run dev\"",
     "dev:full": "concurrently --names \"web,workers,presence\" --prefix-colors \"blue,red,green\" \"cd apps/web && bun run dev\" \"cd apps/workers && bun run dev\" \"cd apps/presence && mix phx.server\"",
@@ -73,7 +73,7 @@
     "generate:k6-fixtures": "bun run packages/yjs-shared/src/scripts/generate-k6-collab-fixtures.ts",
     "seed:e2e-auth": "bun run packages/db/src/scripts/seed-e2e-auth.ts"
   },
-  "version": "0.6.60",
+  "version": "0.6.61",
   "workspaces": [
     "apps/*",
     "packages/*"

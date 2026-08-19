@@ -6,7 +6,7 @@ import {
 } from "@lumen/logger/tracer";
 import { generateText } from "ai";
 import { aiRequestQueue } from "../lib/request-queue";
-import { getModel, isRateLimitError } from "../providers";
+import { getFastModel, isRateLimitError } from "../providers";
 
 const logger = createLogger({ name: "ai:title-generator" });
 const tracer = getTracer("lumen-ai");
@@ -50,7 +50,7 @@ async function generateTitleInternal(
   conversationText: string,
   messageCount: number
 ): Promise<string | null> {
-  const model = getModel("llama3.1-8b");
+  const model = getFastModel();
 
   const result = await generateText({
     model,
@@ -111,10 +111,21 @@ export async function generateConversationTitle(
       }
 
       // Use the queue for rate limiting - title generation is low priority
-      const { result: title, wasQueued } = await aiRequestQueue.enqueue(
+      const {
+        result: title,
+        wasQueued,
+        releaseTokens,
+      } = await aiRequestQueue.enqueue(
         () => generateTitleInternal(conversationText, input.messages.length),
-        { priority: "low", workspaceId: "title-generation" }
+        {
+          priority: "low",
+          workspaceId: "title-generation",
+          estimatedTokens: 1024,
+        }
       );
+
+      // Title output is capped at 50 tokens; refund the over-reservation.
+      await releaseTokens(title ? 256 : 0);
 
       if (wasQueued) {
         logger.info("Title generation was queued due to rate limiting");

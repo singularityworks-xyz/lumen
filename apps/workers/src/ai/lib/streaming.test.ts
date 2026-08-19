@@ -8,7 +8,7 @@ process.env.BETTER_AUTH_TRUSTED_ORIGINS = "";
 process.env.GITHUB_CLIENT_ID = "test-github-client-id";
 process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
 process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
-process.env.CEREBRAS_API_KEY = "test-cerebras-api-key";
+process.env.GENERALCOMPUTE_API_KEY = "test-generalcompute-api-key";
 
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
@@ -61,6 +61,25 @@ mock.module("./metrics", () => ({
   recordAiError: mockRecordAiError,
   recordModelFallback: mockRecordModelFallback,
   recordRateLimitHit: mockRecordRateLimitHit,
+}));
+
+const mockReleaseTokens = mock(() => Promise.resolve());
+const mockReserveCapacity = mock(
+  (_opts?: {
+    estimatedTokens: number;
+    priority: string;
+    workspaceId: string;
+  }) =>
+    Promise.resolve({
+      reservation: { releaseTokens: mockReleaseTokens },
+      wasQueued: false,
+    })
+);
+
+mock.module("./request-queue", () => ({
+  aiRequestQueue: {
+    reserveCapacity: mockReserveCapacity,
+  },
 }));
 
 const mockStreamText = mock(() => ({
@@ -136,6 +155,15 @@ beforeEach(() => {
   mockRecordAiError.mockClear();
   mockRecordModelFallback.mockClear();
   mockRecordRateLimitHit.mockClear();
+  mockReserveCapacity.mockClear();
+  mockReleaseTokens.mockClear();
+  mockReserveCapacity.mockImplementation(() =>
+    Promise.resolve({
+      reservation: { releaseTokens: mockReleaseTokens },
+      wasQueued: false,
+    })
+  );
+  mockReleaseTokens.mockImplementation(() => Promise.resolve());
 });
 
 describe("streamWithFallback", () => {
@@ -379,6 +407,40 @@ describe("streamWithFallback", () => {
         // consume
       }
     }).toThrow("Rate limited");
+  });
+
+  it("reserves capacity before streaming and releases tokens with actual usage", async () => {
+    setMockStream([{ type: "text-delta", text: "Hello" }], {
+      inputTokens: 100,
+      outputTokens: 40,
+      totalTokens: 140,
+    });
+
+    const results: StreamResult[] = [];
+    for await (const result of streamWithFallback(makeOpts())) {
+      results.push(result);
+    }
+
+    expect(mockReserveCapacity).toHaveBeenCalledTimes(1);
+    const reserveOptions = mockReserveCapacity.mock.calls[0]?.[0];
+    expect(reserveOptions?.priority).toBe("normal");
+    expect(reserveOptions?.workspaceId).toBe("ws_1");
+    expect(reserveOptions?.estimatedTokens).toBeGreaterThan(0);
+    expect(mockReleaseTokens).toHaveBeenCalledWith(140);
+  });
+
+  it("releases capacity when the model throws", async () => {
+    mockStreamText.mockImplementation(() => {
+      throw new Error("API error");
+    });
+
+    await expect(async () => {
+      for await (const _result of streamWithFallback(makeOpts())) {
+        // consume
+      }
+    }).toThrow("API error");
+
+    expect(mockReleaseTokens).toHaveBeenCalledWith(0);
   });
 });
 

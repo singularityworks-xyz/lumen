@@ -6,6 +6,10 @@
 }:
 
 {
+  # Load the gitignored root .env (secrets: API keys, OAuth client secrets)
+  # into the dev shell so every process spawned from it gets them.
+  dotenv.enable = true;
+
   env.PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_7}/bin/schema-engine";
 
   languages.javascript = {
