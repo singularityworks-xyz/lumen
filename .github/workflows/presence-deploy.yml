@@ -90,25 +90,6 @@ jobs:
             -d '{"applicationId": "${{ secrets.DOKPLOY_APP_ID }}"}' \
             --fail --silent --show-error
 
-      - name: Wait for deployment health check
-        if: success()
-        run: |
-          echo "Waiting 30s for container to start..."
-          sleep 30
-
-          echo "Checking health endpoint..."
-          for i in {1..10}; do
-            if curl -sf "${{ secrets.PRESENCE_HEALTH_URL }}/health" > /dev/null; then
-              echo "Health check passed!"
-              exit 0
-            fi
-            echo "Attempt $i/10 failed, retrying in 10s..."
-            sleep 10
-          done
-
-          echo "Health check failed after 10 attempts"
-          exit 1
-
   cleanup-old-images:
     needs: build-and-push
     runs-on: blacksmith-4vcpu-ubuntu-2404

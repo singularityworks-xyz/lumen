@@ -14,7 +14,7 @@ defmodule PresenceWeb.Endpoint do
   socket("/socket", PresenceWeb.UserSocket,
     websocket: [
       connect_info: [:peer_data, :x_headers],
-      check_origin: false
+      check_origin: {__MODULE__, :check_websocket_origin, []}
     ],
     longpoll: false
   )
@@ -41,7 +41,14 @@ defmodule PresenceWeb.Endpoint do
   plug(Plug.MethodOverride)
   plug(Plug.Head)
   plug(Plug.Session, @session_options)
+  plug(PresenceWeb.Plugs.OriginGuard)
   plug(PresenceWeb.Router)
+
+  def check_websocket_origin(%URI{} = uri) do
+    PresenceWeb.Plugs.OriginGuard.allowed_origin?(URI.to_string(uri))
+  end
+
+  def check_websocket_origin(_), do: false
 
   # Health probes (Dokploy polls every ~30s) are not request traffic —
   # silence their request logs while keeping everything else at info.

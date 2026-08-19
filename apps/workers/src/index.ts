@@ -8,6 +8,7 @@ import { authMacro } from "./auth/middleware/auth-macro";
 import { authRoutes } from "./auth/routes";
 import { collabRoutes } from "./collab";
 import { env } from "./env";
+import { originGuard } from "./middleware/origin-guard";
 import { otelMetrics } from "./middleware/otel-metrics";
 import { WORKERS_VERSION } from "./version";
 
@@ -35,10 +36,12 @@ const app = new Elysia()
         "x-assistant-message-id",
         "x-e2e-bypass",
         "x-e2e-user-id",
+        "x-internal-key",
       ],
       exposeHeaders: ["Set-Cookie"],
     })
   )
+  .use(originGuard)
   .use(authMacro)
   .use(authRoutes)
   .use(collabRoutes)

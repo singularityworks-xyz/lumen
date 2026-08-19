@@ -65,6 +65,7 @@ export const env = createEnv({
     AI_ENCRYPTION_KEY: AI_ENCRYPTION_KEY_SCHEMA,
     SUPERMEMORY_API_URL: z.url().optional(),
     SUPERMEMORY_API_KEY: z.string().optional(),
+    INTERNAL_API_KEY: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -91,6 +92,7 @@ export const env = createEnv({
     AI_ENCRYPTION_KEY: process.env.AI_ENCRYPTION_KEY,
     SUPERMEMORY_API_URL: process.env.SUPERMEMORY_API_URL,
     SUPERMEMORY_API_KEY: process.env.SUPERMEMORY_API_KEY,
+    INTERNAL_API_KEY: process.env.INTERNAL_API_KEY,
   },
   onValidationError: (error) => {
     console.error("Environment validation failed:", error);

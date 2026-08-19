@@ -213,19 +213,50 @@ defmodule Presence.Token do
 
   defp verify_issuer(claims, expected_issuer) do
     case Map.get(claims, "iss") do
-      ^expected_issuer -> {:ok}
-      nil -> {:error, :missing_issuer}
-      actual -> {:error, {:invalid_issuer, actual, expected_issuer}}
+      nil ->
+        {:error, :missing_issuer}
+
+      actual ->
+        if urls_match?(actual, expected_issuer) do
+          {:ok}
+        else
+          {:error, {:invalid_issuer, actual, expected_issuer}}
+        end
     end
   end
 
   defp verify_audience(claims, expected_audience) do
     case Map.get(claims, "aud") do
-      ^expected_audience -> {:ok}
-      nil -> {:error, :missing_audience}
-      actual -> {:error, {:invalid_audience, actual, expected_audience}}
+      nil ->
+        {:error, :missing_audience}
+
+      actual ->
+        if urls_match?(actual, expected_audience) do
+          {:ok}
+        else
+          {:error, {:invalid_audience, actual, expected_audience}}
+        end
     end
   end
+
+  defp urls_match?(url1, url2) when is_binary(url1) and is_binary(url2) do
+    if url1 == url2 do
+      true
+    else
+      uri1 = URI.parse(url1)
+      uri2 = URI.parse(url2)
+
+      uri1.scheme == uri2.scheme and
+        uri1.port == uri2.port and
+        (uri1.path || "") == (uri2.path || "") and
+        loopback_host?(uri1.host) and loopback_host?(uri2.host)
+    end
+  end
+
+  defp urls_match?(_, _), do: false
+
+  defp loopback_host?(host) when host in ["localhost", "127.0.0.1", "::1", "0.0.0.0"], do: true
+  defp loopback_host?(_), do: false
 
   defp verify_expiration(claims) do
     now = System.system_time(:second)

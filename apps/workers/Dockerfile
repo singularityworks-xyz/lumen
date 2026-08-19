@@ -37,7 +37,7 @@ COPY --from=builder --chown=appuser:appgroup /app/apps/workers/package.json ./ap
 WORKDIR /app/apps/workers
 ENV NODE_ENV=production PORT=3002
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3002/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider --header="Origin: http://localhost:3000" http://127.0.0.1:3002/health || exit 1
 EXPOSE 3002
 USER appuser
 CMD ["bun", "run", "dist/index.js"]

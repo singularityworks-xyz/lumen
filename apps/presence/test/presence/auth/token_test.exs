@@ -68,6 +68,21 @@ defmodule Presence.TokenTest do
       assert {:ok, verified_claims} = Token.verify(token)
       assert verified_claims["sub"] == "minimal_user"
     end
+
+    test "verifies token when issuer and base_url are loopback aliases" do
+      Application.put_env(:presence, :better_auth_url, "http://127.0.0.1:3002")
+
+      {token, claims, jwks} =
+        valid_jwt_token_with_jwks(
+          issuer: "http://localhost:3002",
+          audience: "http://localhost:3002"
+        )
+
+      Token.set_jwks_for_test(jwks)
+
+      assert {:ok, verified_claims} = Token.verify(token)
+      assert verified_claims["sub"] == claims["sub"]
+    end
   end
 
   describe "verify/1 with invalid tokens" do
