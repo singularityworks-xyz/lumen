@@ -60,15 +60,35 @@ export async function* streamWithFallback(
   });
 
   let actualTokens = 0;
+  let producedOutput = false;
 
   try {
-    yield* streamSteps(opts, (usage) => {
+    // Manual iteration so we can tell whether the stream produced anything
+    // before being aborted (e.g. the client disconnected mid-stream, which
+    // never emits the usage part)
+    const steps = streamSteps(opts, (usage) => {
       if (usage.totalTokens > 0) {
-        actualTokens = usage.totalTokens;
+        actualTokens += usage.totalTokens;
       }
     });
+    let next = await steps.next();
+    while (!next.done) {
+      producedOutput = true;
+      yield next.value;
+      next = await steps.next();
+    }
   } finally {
-    await reservation?.releaseTokens(actualTokens);
+    // Prefer provider-reported usage; fall back to the initial estimate when
+    // output was produced but no usage event arrived (aborted stream), so
+    // real consumption is never released as zero. Zero is only used when the
+    // stream failed before producing anything (no tokens were consumed).
+    const tokensToRelease =
+      actualTokens > 0
+        ? actualTokens
+        : producedOutput
+          ? estimateTokens(systemPrompt, messages)
+          : 0;
+    await reservation?.releaseTokens(tokensToRelease);
   }
 }
 

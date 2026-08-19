@@ -97,7 +97,7 @@ export async function summarizeConversation(
       .join("\n\n");
 
     // Generate summary using the queue for rate limiting
-    const { result: summary, releaseTokens } = await aiRequestQueue.enqueue(
+    const { result, releaseTokens } = await aiRequestQueue.enqueue(
       async () => {
         const model = getFastModel();
         const result = await generateText({
@@ -112,7 +112,10 @@ export async function summarizeConversation(
           maxOutputTokens: 500,
           temperature: 0.3,
         });
-        return result.text.trim();
+        return {
+          summary: result.text.trim(),
+          totalTokens: result.usage?.totalTokens ?? 0,
+        };
       },
       {
         priority: "low",
@@ -121,8 +124,10 @@ export async function summarizeConversation(
       }
     );
 
-    // Summary output is capped at 500 tokens; refund the over-reservation.
-    await releaseTokens(summary ? 1024 : 0);
+    const { summary, totalTokens } = result;
+
+    // Refund the over-reservation with the reported usage
+    await releaseTokens(totalTokens);
 
     if (!summary) {
       logger.warn("Failed to generate summary", { conversationId });

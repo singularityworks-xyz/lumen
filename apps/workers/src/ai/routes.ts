@@ -1,6 +1,7 @@
 import {
   type ActionInstructionData,
   buildSystemPrompt,
+  CLASSIFIER_MODEL,
   classifyToolIntent,
   getToolsForMessage,
   type StreamEvent,
@@ -317,6 +318,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   let releaseClassifierTokens:
                     | ((actualTokens: number) => Promise<void>)
                     | undefined;
+                  let classifierActualTokens = 0;
                   try {
                     const { result, releaseTokens } =
                       await aiRequestQueue.enqueue(
@@ -335,10 +337,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     releaseClassifierTokens = releaseTokens;
                     const { selection, classification, queueStatus } = result;
                     tools = selection.tools;
+                    classifierActualTokens =
+                      classification.usage?.totalTokens ?? 150;
                     classificationInfo = {
                       intent: classification.intent,
                       confidence: classification.confidence,
-                      model: "deepseek-v3.1",
+                      model: CLASSIFIER_MODEL,
                     };
 
                     // Notify frontend if request was queued
@@ -356,15 +360,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     tools = getToolsForMessage(message);
                   } finally {
                     // Refund the classifier's token reservation with actual
-                    // usage (or release it entirely on failure)
-                    await releaseClassifierTokens?.(
-                      classificationInfo
-                        ? // classifier usage isn't exposed on failure; the
-                          // output is capped at 150 tokens, so count a
-                          // conservative actual
-                          (undefined as unknown as number)
-                        : 0
-                    );
+                    // usage (output is capped at 150 tokens, so that is the
+                    // fallback when usage isn't reported), or release it
+                    // entirely (0) when classification never completed
+                    await releaseClassifierTokens?.(classifierActualTokens);
                   }
                 } else {
                   tools = getToolsForMessage(message);

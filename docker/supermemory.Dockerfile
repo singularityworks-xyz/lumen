@@ -56,14 +56,22 @@ COPY --from=download /out/supermemory-server /usr/local/bin/supermemory-server
 ENV SUPERMEMORY_DATA_DIR=/data \
     PORT=6767
 
+# Run as an unprivileged user — the graph engine's data lives in /data
+RUN useradd --create-home --uid 10001 supermemory \
+  && mkdir -p /data \
+  && chown -R supermemory:supermemory /data \
+  && chmod -R u+rwX,go-rwx /data
+
 # Graph engine data, auth secret, embedding model cache
 VOLUME ["/data"]
 
+USER supermemory
+
 EXPOSE 6767
 
-# Same semantics as `supermemory local status`: any HTTP response means the
-# server is up (the API requires auth, so don't check for a 2xx).
+# Same semantics as `supermemory local status`: any HTTP response (including
+# 401/404) means the server is up; only connection failures fail the check.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
-  CMD curl -fsS -o /dev/null http://127.0.0.1:6767/ || exit 1
+  CMD curl -sS -o /dev/null http://127.0.0.1:6767/ || exit 1
 
 CMD ["supermemory-server"]

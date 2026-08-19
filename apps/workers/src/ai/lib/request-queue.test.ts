@@ -117,6 +117,38 @@ describe("RateLimitedQueue - immediate execution", () => {
     await releaseTokens(1000);
     expect(mockEval).toHaveBeenCalledTimes(2);
   });
+
+  it("releases the token reservation when execution fails", async () => {
+    const execute = mock(() => Promise.reject(new Error("boom")));
+
+    // 1 eval for capacity acquisition + 1 for the automatic release
+    await expect(
+      aiRequestQueue.enqueue(execute, { estimatedTokens: 4096 })
+    ).rejects.toThrow("boom");
+    expect(mockEval).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not leak reservations when queued execution fails", async () => {
+    // Force the queued path (slot limit hit on first attempts), then succeed
+    let callCount = 0;
+    mockEval.mockImplementation(() => {
+      callCount += 1;
+      if (callCount <= 2) {
+        return Promise.resolve([0, 0, 199_000, Date.now() + 10] as const);
+      }
+      return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
+    });
+
+    const execute = mock(() => Promise.reject(new Error("queued-boom")));
+
+    await expect(
+      aiRequestQueue.enqueue(execute, { priority: "high" })
+    ).rejects.toThrow("queued-boom");
+
+    // acquire attempts + the automatic release (fire-and-forget in the
+    // queued path) — the reservation must not be left charged
+    expect(mockEval.mock.calls.length).toBeGreaterThanOrEqual(3);
+  }, 15_000);
 });
 
 describe("RateLimitedQueue - capacity exhaustion", () => {
@@ -126,12 +158,7 @@ describe("RateLimitedQueue - capacity exhaustion", () => {
     mockEval.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve([
-          0,
-          RATE_LIMIT_PER_MINUTE,
-          0,
-          Date.now() + 10,
-        ] as const);
+        return Promise.resolve([0, 0, 199_000, Date.now() + 10] as const);
       }
       return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
     });
@@ -154,12 +181,7 @@ describe("RateLimitedQueue - capacity exhaustion", () => {
     mockEval.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve([
-          0,
-          0,
-          TOKEN_LIMIT_PER_MINUTE,
-          Date.now() + 10,
-        ] as const);
+        return Promise.resolve([0, 99, 0, Date.now() + 10] as const);
       }
       return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
     });
@@ -245,12 +267,7 @@ describe("RateLimitedQueue - reserveCapacity", () => {
     mockEval.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve([
-          0,
-          0,
-          TOKEN_LIMIT_PER_MINUTE,
-          Date.now() + 10,
-        ] as const);
+        return Promise.resolve([0, 99, 0, Date.now() + 10] as const);
       }
       return Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const);
     });

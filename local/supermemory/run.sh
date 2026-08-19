@@ -33,5 +33,6 @@ fi
 
 export PORT="${SUPERMEMORY_PORT:-6767}"
 
-cd "${SCRIPT_DIR}"
-bunx supermemory local start -- --data-dir "${SUPERMEMORY_DATA_DIR:-.supermemory}"
+# Data lives under this script's directory unless the user overrides it
+DEFAULT_DATA_DIR="${SCRIPT_DIR}/.supermemory"
+bunx supermemory local start -- --data-dir "${SUPERMEMORY_DATA_DIR:-${DEFAULT_DATA_DIR}}"

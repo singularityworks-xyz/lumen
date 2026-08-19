@@ -131,6 +131,8 @@ function createFakeClient(): FakeClient {
 
 beforeEach(() => {
   mockIsMemoryEnabled.mockImplementation(() => true);
+  mockGetSupermemoryClient.mockImplementation(() => null);
+  mockGetSupermemoryClient.mockClear();
   mockLogger.mockClear();
 });
 
@@ -284,12 +286,8 @@ describe("recallMemory", () => {
 
   it("fails soft when a container query times out", async () => {
     const client = createFakeClient();
-    client.search.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => resolve({ results: [] }), 10_000);
-        })
-    );
+    // Never-settling promise: the service's withTimeout must reject it
+    client.search.mockImplementation(() => new Promise<never>(() => undefined));
     mockGetSupermemoryClient.mockImplementation(() => client);
 
     const result = await recallMemory({
@@ -323,13 +321,15 @@ describe("retainConversationTurn", () => {
     expect(client.add).not.toHaveBeenCalled();
   });
 
-  it("adds the turn to the user and workspace containers", async () => {
+  it("adds the turn to the user container only", async () => {
     const client = createFakeClient();
     mockGetSupermemoryClient.mockImplementation(() => client);
 
     await retainConversationTurn(input);
 
-    expect(client.add).toHaveBeenCalledTimes(2);
+    // Per-user conversations must never be mirrored into the shared
+    // workspace container — that would leak into collaborators' context
+    expect(client.add).toHaveBeenCalledTimes(1);
 
     const userCall = client.add.mock.calls[0]?.[0];
     expect(userCall?.containerTag).toBe("user_user_1");
@@ -341,19 +341,19 @@ describe("retainConversationTurn", () => {
     );
     expect(userCall?.content).toContain("assistant: Moved it. Done.");
     expect(userCall?.content).toContain('moveTask({"taskId":"t_1"})');
-
-    const workspaceCall = client.add.mock.calls[1]?.[0];
-    expect(workspaceCall?.containerTag).toBe("workspace_ws_2");
   });
 
-  it("only retains under the user container when there is no workspace", async () => {
+  it("never writes to the workspace container even for shared workspaces", async () => {
     const client = createFakeClient();
     mockGetSupermemoryClient.mockImplementation(() => client);
 
-    await retainConversationTurn({ ...input, workspaceId: undefined });
+    await retainConversationTurn(input);
 
-    expect(client.add).toHaveBeenCalledTimes(1);
-    expect(client.add.mock.calls[0]?.[0]?.containerTag).toBe("user_user_1");
+    const calls = client.add.mock.calls.map(
+      (call: unknown[]) => (call[0] as { containerTag: string }).containerTag
+    );
+    expect(calls).toEqual(["user_user_1"]);
+    expect(calls).not.toContain("workspace_ws_2");
   });
 
   it("never throws when the client fails", async () => {

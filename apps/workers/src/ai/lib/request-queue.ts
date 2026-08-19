@@ -71,14 +71,7 @@ redis.call("ZREMRANGEBYSCORE", slotKey, 0, now - window)
 redis.call("ZREMRANGEBYSCORE", tokenKey, 0, now - window)
 
 local slotCount = redis.call("ZCARD", slotKey)
-if slotCount >= slotLimit then
-  local oldest = redis.call("ZRANGE", slotKey, 0, 0, "WITHSCORES")
-  local reset = now + window
-  if oldest[2] ~= nil then
-    reset = tonumber(oldest[2]) + window
-  end
-  return {0, slotCount, 0, reset}
-end
+local slotRemaining = slotLimit - slotCount
 
 local totalTokens = 0
 local members = redis.call("ZRANGE", tokenKey, 0, -1)
@@ -89,13 +82,23 @@ for i = 1, #members do
   end
 end
 
+-- Result shape (every branch): {success, slotsRemaining, tokensRemaining, resetAt}
+if slotCount >= slotLimit then
+  local oldest = redis.call("ZRANGE", slotKey, 0, 0, "WITHSCORES")
+  local reset = now + window
+  if oldest[2] ~= nil then
+    reset = tonumber(oldest[2]) + window
+  end
+  return {0, 0, tokenLimit - totalTokens, reset}
+end
+
 if totalTokens + estimatedTokens > tokenLimit then
   local oldest = redis.call("ZRANGE", tokenKey, 0, 0, "WITHSCORES")
   local reset = now + window
   if oldest[2] ~= nil then
     reset = tonumber(oldest[2]) + window
   end
-  return {0, slotCount, 1, reset}
+  return {0, slotRemaining, 0, reset}
 end
 
 redis.call("ZADD", slotKey, now, slotMember)
@@ -103,7 +106,7 @@ redis.call("PEXPIRE", slotKey, window)
 redis.call("ZADD", tokenKey, now, tokenMember)
 redis.call("PEXPIRE", tokenKey, window)
 
-return {1, slotLimit - slotCount - 1, 2, now + window}
+return {1, slotRemaining - 1, tokenLimit - totalTokens - estimatedTokens, now + window}
 `;
 
 // Releases a token reservation. If actualTokens > 0 the reservation is
@@ -200,6 +203,9 @@ function ensureRedisInitialized(): void {
       .catch((error) => {
         redisClient = null;
         redisReady = false;
+        // Reset so the next tryAcquireCapacity retries initialization
+        // instead of being permanently stuck on the failed attempt
+        redisInitialized = false;
         logger.error("Failed to connect to Redis", {
           error: error instanceof Error ? error.message : "Unknown",
         });
@@ -207,6 +213,7 @@ function ensureRedisInitialized(): void {
   } catch (error) {
     redisClient = null;
     redisReady = false;
+    redisInitialized = false;
     logger.error("Failed to initialize Redis client", {
       error: error instanceof Error ? error.message : "Unknown",
     });
@@ -426,6 +433,12 @@ class RateLimitedQueue {
           wasQueued: false,
           releaseTokens: acquired.result.releaseTokens,
         };
+      } catch (error) {
+        // The caller never receives releaseTokens on failure, so release the
+        // reservation here (0 = no tokens actually consumed) to avoid
+        // charging the full estimate until the window expires
+        await acquired.result.releaseTokens(0).catch(() => undefined);
+        throw error;
       } finally {
         this.activeRequests -= 1;
       }
@@ -443,28 +456,26 @@ class RateLimitedQueue {
         addedAt: startTime,
         onCapacity: (reservation) => {
           this.activeRequests += 1;
-          try {
-            execute()
-              .then((result) =>
-                resolve({
-                  result,
-                  wasQueued: true,
-                  waitTimeMs: Date.now() - startTime,
-                  releaseTokens: reservation.releaseTokens,
-                })
-              )
-              .catch((error) =>
-                reject(
-                  error instanceof Error ? error : new Error("Unknown error")
-                )
-              )
-              .finally(() => {
-                this.activeRequests -= 1;
-              });
-          } catch (error) {
-            this.activeRequests -= 1;
-            reject(error instanceof Error ? error : new Error("Unknown error"));
-          }
+          execute()
+            .then((result) =>
+              resolve({
+                result,
+                wasQueued: true,
+                waitTimeMs: Date.now() - startTime,
+                releaseTokens: reservation.releaseTokens,
+              })
+            )
+            .catch((error) => {
+              // The caller never receives releaseTokens on failure, so
+              // release the reservation here (0 = no tokens consumed)
+              reservation.releaseTokens(0).catch(() => undefined);
+              reject(
+                error instanceof Error ? error : new Error("Unknown error")
+              );
+            })
+            .finally(() => {
+              this.activeRequests -= 1;
+            });
         },
         onReject: reject,
       };
@@ -510,15 +521,8 @@ class RateLimitedQueue {
     const acquired = await tryAcquireCapacity(estimatedTokens);
     if (acquired?.result) {
       this.activeRequests += 1;
-      const reservation = acquired.result;
-      const originalRelease = reservation.releaseTokens;
       return {
-        reservation: {
-          releaseTokens: async (actualTokens: number) => {
-            this.activeRequests -= 1;
-            await originalRelease(actualTokens);
-          },
-        },
+        reservation: this.wrapReservation(acquired.result),
         wasQueued: false,
       };
     }
@@ -535,14 +539,8 @@ class RateLimitedQueue {
         addedAt: startTime,
         onCapacity: (reservation) => {
           this.activeRequests += 1;
-          const originalRelease = reservation.releaseTokens;
           resolve({
-            reservation: {
-              releaseTokens: async (actualTokens: number) => {
-                this.activeRequests -= 1;
-                await originalRelease(actualTokens);
-              },
-            },
+            reservation: this.wrapReservation(reservation),
             wasQueued: true,
             waitTimeMs: Date.now() - startTime,
           });
@@ -564,6 +562,28 @@ class RateLimitedQueue {
 
       this.processQueue();
     });
+  }
+
+  // Wraps a reservation so its release is idempotent: activeRequests is
+  // decremented at most once per reservation, and the underlying Redis
+  // release runs at most once. Double releases (buggy callers, finally
+  // blocks that also release explicitly) cannot corrupt the counters.
+  private wrapReservation(
+    reservation: CapacityReservation
+  ): CapacityReservation {
+    let released = false;
+    const originalRelease = reservation.releaseTokens;
+
+    return {
+      releaseTokens: async (actualTokens: number) => {
+        if (released) {
+          return;
+        }
+        released = true;
+        this.activeRequests -= 1;
+        await originalRelease(actualTokens);
+      },
+    };
   }
 
   private addToQueue(request: QueuedRequest): void {

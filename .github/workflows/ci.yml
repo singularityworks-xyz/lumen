@@ -81,7 +81,7 @@ jobs:
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
+          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|package\.json$|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
             echo "supermemory=true" >> "$GITHUB_OUTPUT"
           else
             echo "supermemory=false" >> "$GITHUB_OUTPUT"

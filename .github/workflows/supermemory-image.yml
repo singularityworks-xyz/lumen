@@ -25,8 +25,13 @@ jobs:
         shell: bash
         run: |
           ROOT_VERSION=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
-          # Single source of truth for the bundled server version lives in the Dockerfile
-          SUPERMEMORY_VERSION=$(grep -oE '^ARG SUPERMEMORY_VERSION=.*' docker/supermemory.Dockerfile | cut -d= -f2)
+          # Single source of truth for the bundled server version lives in the
+          # Dockerfile (already prefixed, e.g. server-v0.0.8)
+          SUPERMEMORY_VERSION=$(grep -oE '^ARG SUPERMEMORY_VERSION=.*' docker/supermemory.Dockerfile | cut -d= -f2-)
+          if [ -z "${SUPERMEMORY_VERSION}" ]; then
+            echo "Could not resolve SUPERMEMORY_VERSION from docker/supermemory.Dockerfile" >&2
+            exit 1
+          fi
 
           {
             echo "root_version=${ROOT_VERSION}"
@@ -57,9 +62,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.tag_name }}
-            type=raw,value=server-${{ steps.version.outputs.supermemory_version }}
+            type=raw,value=${{ steps.version.outputs.supermemory_version }}
             type=sha,prefix=supermemory-sha-
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
           labels: |
             org.opencontainers.image.title=lumen-supermemory
             org.opencontainers.image.version=${{ steps.version.outputs.root_version }}
@@ -86,7 +91,7 @@ jobs:
       - name: Output image reference
         run: |
           echo "Published: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          echo "  tags: ${{ steps.version.outputs.tag_name }}, server-${{ steps.version.outputs.supermemory_version }}, latest"
+          echo "  tags: ${{ steps.version.outputs.tag_name }}, ${{ steps.version.outputs.supermemory_version }}, latest"
           echo "  platforms: linux/amd64,linux/arm64"
 
   cleanup-old-images:
@@ -96,10 +101,11 @@ jobs:
       packages: write
 
     steps:
-      - name: Delete old package versions (keep last 3)
+      - name: Delete old untagged package versions
+        # Tagged versions (supermemory-vX, server-vY, sha) are kept — Dokploy
+        # may pin a specific tag — only untagged builds are pruned.
         uses: actions/delete-package-versions@v5
         with:
           package-name: lumen-supermemory
           package-type: container
-          min-versions-to-keep: 3
-          delete-only-untagged-versions: false
+          delete-only-untagged-versions: true

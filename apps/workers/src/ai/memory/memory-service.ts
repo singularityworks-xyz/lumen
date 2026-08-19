@@ -4,6 +4,7 @@ import {
   recordSpanError,
   SpanStatusCode,
 } from "@lumen/logger/tracer";
+import type Supermemory from "supermemory";
 import {
   recordMemoryRecall,
   recordMemoryRecallDuration,
@@ -22,7 +23,12 @@ export const USER_CONTAINER_PREFIX = "user";
 export const WORKSPACE_CONTAINER_PREFIX = "workspace";
 export const CONVERSATION_CUSTOM_ID_PREFIX = "conv";
 
+// Response types derived from the SDK so they stay in sync with its API
+type ProfileResponse = Awaited<ReturnType<Supermemory["profile"]>>;
+type SearchResponse = Awaited<ReturnType<Supermemory["search"]>>;
+
 const RECALL_TIMEOUT_MS = 2000;
+const RETAIN_TIMEOUT_MS = 2000;
 const SEARCH_LIMIT = 8;
 const MAX_PROFILE_LINES = 6;
 const MAX_MEMORY_RESULTS = 6;
@@ -43,28 +49,30 @@ export function conversationCustomId(conversationId: string): string {
   return `${CONVERSATION_CUSTOM_ID_PREFIX}_${conversationId}`;
 }
 
-interface ProfileResult {
-  profile?: { static: string[]; dynamic: string[] };
-}
-
-interface SearchResultEntry {
-  context?: {
-    related?: Array<{ memory: string; relation: string }>;
-  };
-  memory?: string;
-}
-
-interface SearchResults {
-  results: SearchResultEntry[];
-}
-
+// Rejects with a timeout error if the promise does not settle in time.
+// The timer is cleared on every settle so no handle is leaked.
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms)
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out after ${ms}ms`)),
+          ms
+        );
+      }),
+    ]).finally(() => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    });
+  } catch (error) {
+    if (timer) {
+      clearTimeout(timer);
+    }
+    throw error;
+  }
 }
 
 function trimList(lines: string[], maxLines: number): string[] {
@@ -89,7 +97,9 @@ function dedupe(lines: string[]): string[] {
   return result;
 }
 
-function formatProfile(profile: ProfileResult["profile"]): string[] {
+function formatProfile(
+  profile: ProfileResponse["profile"] | undefined
+): string[] {
   if (!profile) {
     return [];
   }
@@ -107,9 +117,9 @@ function formatProfile(profile: ProfileResult["profile"]): string[] {
   return lines;
 }
 
-function formatSearchResults(search: SearchResults): string[] {
+function formatSearchResults(search: SearchResponse | undefined): string[] {
   const lines: string[] = [];
-  for (const entry of search.results ?? []) {
+  for (const entry of search?.results ?? []) {
     if (entry.memory) {
       lines.push(`- ${entry.memory}`);
     }
@@ -175,6 +185,7 @@ export async function recallMemory(
     recordMemoryRecallDuration(durationSeconds, {
       status,
       containers: containerCount,
+      workspaceId: input.workspaceId,
     });
     recordMemoryRecall({
       status,
@@ -229,17 +240,17 @@ export async function recallMemory(
 
         const profile =
           profileSettled.status === "fulfilled"
-            ? (profileSettled.value as ProfileResult)
+            ? (profileSettled.value as ProfileResponse)
             : null;
         const search =
           searchSettled.status === "fulfilled"
-            ? (searchSettled.value as SearchResults)
+            ? (searchSettled.value as SearchResponse)
             : null;
 
         return {
           kind: container.kind,
           profileLines: formatProfile(profile?.profile),
-          memoryLines: formatSearchResults(search ?? { results: [] }),
+          memoryLines: formatSearchResults(search ?? undefined),
           failed:
             profileSettled.status === "rejected" ||
             searchSettled.status === "rejected",
@@ -359,14 +370,18 @@ function buildTurnContent(input: RetainConversationTurnInput): string {
 }
 
 // Retains a conversation turn into long-term memory. The turn is added as a
-// conversation document (one per conversation, upserted by customId) under the
-// user's container, and mirrored under the workspace container so collaborators
-// share workspace context. Never throws — failures are logged and swallowed.
-// Instrumented as an ai.memory.retain span with retain metrics.
+// conversation document (one per conversation, upserted by customId) under
+// the user's container only. Turns are intentionally NOT mirrored into the
+// workspace container: conversations are per-user (AiConversation is keyed by
+// workspaceId_userId), so writing them to the shared workspace container
+// would leak private conversation content into every collaborator's context.
+// The workspace container is still recalled from — it is populated by
+// workspace-level context only. Never throws — failures are logged and
+// swallowed. Instrumented as an ai.memory.retain span with retain metrics.
 export async function retainConversationTurn(
   input: RetainConversationTurnInput
 ): Promise<void> {
-  const containerCount = input.workspaceId ? 2 : 1;
+  const containerCount = 1;
   const span = tracer.startSpan("ai.memory.retain", {
     attributes: {
       "ai.user_id": input.userId,
@@ -397,9 +412,6 @@ export async function retainConversationTurn(
     };
 
     const containers = [userContainerTag(input.userId)];
-    if (input.workspaceId) {
-      containers.push(workspaceContainerTag(input.workspaceId));
-    }
 
     let succeeded = 0;
 
@@ -413,7 +425,7 @@ export async function retainConversationTurn(
             metadata,
             taskType: "memory",
           }),
-          RECALL_TIMEOUT_MS
+          RETAIN_TIMEOUT_MS
         );
         succeeded += 1;
         logger.debug("Conversation turn retained", {

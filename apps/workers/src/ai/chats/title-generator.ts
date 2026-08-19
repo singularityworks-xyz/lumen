@@ -49,7 +49,7 @@ export interface TitleGenerationInput {
 async function generateTitleInternal(
   conversationText: string,
   messageCount: number
-): Promise<string | null> {
+): Promise<{ title: string | null; totalTokens: number }> {
   const model = getFastModel();
 
   const result = await generateText({
@@ -66,6 +66,7 @@ async function generateTitleInternal(
   });
 
   const title = result.text.trim();
+  const totalTokens = result.usage?.totalTokens ?? 0;
 
   // Validate the title
   if (!title || title.length < 2 || title.length > 100) {
@@ -73,10 +74,10 @@ async function generateTitleInternal(
       title,
       messageCount,
     });
-    return null;
+    return { title: null, totalTokens };
   }
 
-  return title;
+  return { title, totalTokens };
 }
 
 export async function generateConversationTitle(
@@ -112,7 +113,7 @@ export async function generateConversationTitle(
 
       // Use the queue for rate limiting - title generation is low priority
       const {
-        result: title,
+        result: { title, totalTokens },
         wasQueued,
         releaseTokens,
       } = await aiRequestQueue.enqueue(
@@ -124,8 +125,8 @@ export async function generateConversationTitle(
         }
       );
 
-      // Title output is capped at 50 tokens; refund the over-reservation.
-      await releaseTokens(title ? 256 : 0);
+      // Refund the over-reservation with the reported usage
+      await releaseTokens(totalTokens);
 
       if (wasQueued) {
         logger.info("Title generation was queued due to rate limiting");

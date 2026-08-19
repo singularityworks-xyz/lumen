@@ -35,13 +35,20 @@ sync_supermemory_key() {
   # user-managed key (e.g. pointing at a remote Supermemory) is never clobbered
   local current
   current="$(grep '^SUPERMEMORY_API_KEY=' "${env_file}" | head -1 | cut -d= -f2- || true)"
-  if [ -n "${current}" ] && [ "${current}" != "sm_..." ]; then
+  case "${current}" in
+    "" | "sm_..." | "your-supermemory-api-key") ;;
+    *) return 0 ;;
+  esac
+
+  # Bail out immediately when the container is not present at all
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "${container_name}"; then
+    echo "infra: supermemory container not found — start it with 'docker compose up -d' first"
     return 0
   fi
 
   local key=""
-  local attempt
-  for attempt in $(seq 1 30); do
+  local _
+  for _ in $(seq 1 30); do
     key="$(docker logs "${container_name}" 2>/dev/null \
       | grep -oE 'sm_[A-Za-z0-9_-]{20,}' | head -1 || true)"
     if [ -n "${key}" ]; then
@@ -55,11 +62,17 @@ sync_supermemory_key() {
     return 0
   fi
 
+  # Portable in-place rewrite that preserves the file's permissions
+  local tmp_file
+  tmp_file="${env_file}.tmp.$$"
   if grep -q '^SUPERMEMORY_API_KEY=' "${env_file}"; then
-    sed -i "s|^SUPERMEMORY_API_KEY=.*|SUPERMEMORY_API_KEY=${key}|" "${env_file}"
+    sed "s|^SUPERMEMORY_API_KEY=.*|SUPERMEMORY_API_KEY=${key}|" "${env_file}" > "${tmp_file}"
   else
-    printf '\n# Auto-synced from the supermemory container by infra:up\nSUPERMEMORY_API_KEY=%s\n' "${key}" >> "${env_file}"
+    cp "${env_file}" "${tmp_file}"
+    printf '\n# Auto-synced from the supermemory container by infra:up\nSUPERMEMORY_API_KEY=%s\n' "${key}" >> "${tmp_file}"
   fi
+  chmod --reference="${env_file}" "${tmp_file}" 2>/dev/null || true
+  mv "${tmp_file}" "${env_file}"
   echo "infra: synced SUPERMEMORY_API_KEY into .env (restart the workers server to pick it up)"
 }
 

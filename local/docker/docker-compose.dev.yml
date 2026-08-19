@@ -51,11 +51,11 @@ services:
       SUPERMEMORY_EMBEDDING_DIMENSIONS: "1024"
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
-      - "6767:6767"
+      - "127.0.0.1:6767:6767"
     volumes:
       - supermemory-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:6767/"]
+      test: ["CMD", "curl", "-sS", "-o", "/dev/null", "http://127.0.0.1:6767/"]
       interval: 30s
       timeout: 5s
       retries: 5

@@ -9,8 +9,19 @@ import { config as loadDotenv } from "dotenv";
 // (Dokploy, etc.) set env natively.
 const REPO_ROOT = path.resolve(import.meta.dir, "../../..");
 
+// Bun test runs each test file in its own process with the test file as
+// argv[1] — use it to keep real secrets out of test processes even when a
+// test sets NODE_ENV=development (this repo's tests do).
+const BUN_TEST_FILE_REGEX = /\.test\.[cm]?[jt]sx?$/;
+
+function isBunTest(): boolean {
+  const target = process.argv[1];
+  return typeof target === "string" && BUN_TEST_FILE_REGEX.test(target);
+}
+
 export function loadLocalEnvFiles(): void {
   if (
+    isBunTest() ||
     process.env.NODE_ENV === "production" ||
     process.env.NODE_ENV === "test"
   ) {

@@ -10,7 +10,7 @@ const logger = createLogger({ name: "ai:tool-classifier" });
 export type { ClassificationResult, QueueStatus } from "./types";
 
 // Fast model for classification
-const CLASSIFIER_MODEL = FAST_MODEL;
+export const CLASSIFIER_MODEL = FAST_MODEL;
 
 // Keyword lists for fallback detection
 const ACTION_KEYWORDS = [

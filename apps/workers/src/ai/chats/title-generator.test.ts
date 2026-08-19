@@ -33,7 +33,7 @@ mock.module("@lumen/logger/tracer", () => ({
 }));
 
 const mockGenerateText = mock(() => Promise.resolve({ text: "Test Title" }));
-const mockGetModel = mock(() => ({}));
+const mockGetFastModel = mock(() => ({}));
 const mockIsRateLimitError = mock(() => false);
 
 mock.module("ai", () => ({
@@ -41,8 +41,7 @@ mock.module("ai", () => ({
 }));
 
 mock.module("../providers", () => ({
-  getFastModel: mockGetModel,
-  getModel: mockGetModel,
+  getFastModel: mockGetFastModel,
   isRateLimitError: mockIsRateLimitError,
 }));
 
@@ -67,11 +66,12 @@ const { shouldGenerateTitle, generateConversationTitle } = await import(
 
 beforeEach(() => {
   mockGenerateText.mockClear();
-  mockGetModel.mockClear();
+  mockGetFastModel.mockClear();
   mockIsRateLimitError.mockClear();
   mockGenerateText.mockImplementation(() =>
-    Promise.resolve({ text: "Test Title" })
+    Promise.resolve({ text: "Test Title", usage: { totalTokens: 100 } })
   );
+  mockGetFastModel.mockImplementation(() => ({}));
 });
 
 describe("shouldGenerateTitle", () => {
@@ -244,7 +244,7 @@ describe("generateConversationTitle", () => {
 
   it("calls getFastModel for title generation", async () => {
     mockGenerateText.mockImplementation(() =>
-      Promise.resolve({ text: "Test Title" })
+      Promise.resolve({ text: "Test Title", usage: { totalTokens: 100 } })
     );
 
     await generateConversationTitle({
@@ -254,7 +254,7 @@ describe("generateConversationTitle", () => {
       ],
     });
 
-    expect(mockGetModel).toHaveBeenCalled();
+    expect(mockGetFastModel).toHaveBeenCalledTimes(1);
   });
 
   it("sets generation options correctly", async () => {

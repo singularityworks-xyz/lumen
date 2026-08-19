@@ -63,7 +63,7 @@ mock.module("./metrics", () => ({
   recordRateLimitHit: mockRecordRateLimitHit,
 }));
 
-const mockReleaseTokens = mock(() => Promise.resolve());
+const mockReleaseTokens = mock((_actualTokens?: number) => Promise.resolve());
 const mockReserveCapacity = mock(
   (_opts?: {
     estimatedTokens: number;
@@ -434,13 +434,74 @@ describe("streamWithFallback", () => {
       throw new Error("API error");
     });
 
-    await expect(async () => {
+    const collect = async () => {
       for await (const _result of streamWithFallback(makeOpts())) {
         // consume
       }
-    }).toThrow("API error");
+    };
 
+    await expect(collect()).rejects.toThrow("API error");
+    // Nothing was produced, so nothing was consumed — release zero
     expect(mockReleaseTokens).toHaveBeenCalledWith(0);
+  });
+
+  it("releases the estimate when the stream is aborted after producing output", async () => {
+    setMockStream([{ type: "text-delta", text: "Hello" }]);
+
+    const collect = async () => {
+      for await (const _result of streamWithFallback(makeOpts())) {
+        // break before the stream finishes — no usage event ever arrives
+        break;
+      }
+    };
+
+    await collect();
+
+    // Output was produced but usage was never reported: the initial estimate
+    // is released instead of zero so real consumption stays on the budget
+    expect(mockReleaseTokens).toHaveBeenCalled();
+    const released = mockReleaseTokens.mock.calls[0]?.[0];
+    expect(typeof released).toBe("number");
+    expect((released as number | undefined) ?? 0).toBeGreaterThan(0);
+  });
+
+  it("accumulates token usage across multi-step tool-calling generations", async () => {
+    let callCount = 0;
+    mockStreamText.mockImplementation(() => {
+      callCount += 1;
+      return {
+        fullStream: createMockStream(
+          callCount === 1
+            ? [
+                {
+                  type: "tool-call",
+                  toolCallId: "tc_1",
+                  toolName: "getBoardDetails",
+                  input: {},
+                },
+              ]
+            : []
+        ),
+        usage: Promise.resolve({
+          inputTokens: 100,
+          outputTokens: 40,
+          totalTokens: 140,
+        }),
+      };
+    });
+    mockExecuteTool.mockImplementation(() =>
+      Promise.resolve({ success: true, data: {} })
+    );
+
+    const results: StreamResult[] = [];
+    for await (const result of streamWithFallback(makeOpts())) {
+      results.push(result);
+    }
+
+    // Multiple generation steps ran (tool call followed by the final answer)
+    expect(callCount).toBeGreaterThan(1);
+    // Usage from EVERY step counts toward the released total
+    expect(mockReleaseTokens).toHaveBeenCalledWith(140 * callCount);
   });
 });
 

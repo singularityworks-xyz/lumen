@@ -21,7 +21,7 @@ export const FALLBACK_MODELS: GeneralComputeModel[] = [
 export function getModelFallbackChain(
   primary: GeneralComputeModel = DEFAULT_PRIMARY_MODEL
 ): GeneralComputeModel[] {
-  return [primary, ...FALLBACK_MODELS.filter((m) => m !== primary)];
+  return [primary, ...FALLBACK_MODELS.filter((model) => model !== primary)];
 }
 
 export interface GeneralComputeProviderOptions {

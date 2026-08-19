@@ -50,7 +50,7 @@ describe("getModelFallbackChain", () => {
   it("includes remaining FALLBACK_MODELS when primary is already in FALLBACK_MODELS", () => {
     const primary: GeneralComputeModel = "deepseek-v3.1";
     const chain = getModelFallbackChain(primary);
-    const remaining = FALLBACK_MODELS.filter((m) => m !== primary);
+    const remaining = FALLBACK_MODELS.filter((model) => model !== primary);
     expect(chain).toHaveLength(1 + remaining.length);
     for (const fb of remaining) {
       expect(chain).toContain(fb);
@@ -60,7 +60,9 @@ describe("getModelFallbackChain", () => {
   it("chain length is 1 + (fallbackModels minus primary) for all primaries", () => {
     for (const primary of ALL_MODELS) {
       const chain = getModelFallbackChain(primary);
-      const expectedFallbacks = FALLBACK_MODELS.filter((m) => m !== primary);
+      const expectedFallbacks = FALLBACK_MODELS.filter(
+        (model) => model !== primary
+      );
       expect(chain).toHaveLength(1 + expectedFallbacks.length);
     }
   });

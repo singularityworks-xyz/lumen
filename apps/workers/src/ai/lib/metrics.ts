@@ -163,12 +163,14 @@ export function recordMemoryRecallDuration(
   attributes: {
     status: "disabled" | "empty" | "error" | "success";
     containers: number;
+    workspaceId?: string;
   }
 ): void {
   ensureAiMetrics();
   aiMemoryRecallDurationHistogram?.record(durationSeconds, {
     status: attributes.status,
     containers: String(attributes.containers),
+    workspace_id: attributes.workspaceId ?? "",
   });
 }
 
