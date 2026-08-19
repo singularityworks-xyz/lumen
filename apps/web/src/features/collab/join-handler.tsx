@@ -2,7 +2,7 @@
 
 import { createLogger } from "@lumen/logger";
 import { withSpanAsync } from "@lumen/logger/tracer";
-import { Eye, User } from "lucide-react";
+import { Globe, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { env } from "@/src/env";
@@ -341,7 +341,7 @@ export function JoinWorkspaceHandler({
               onClick={handleContinueAsGuest}
               variant="outline"
             >
-              <Eye className="h-4 w-4 text-emerald-500" />
+              <Globe className="h-4 w-4 text-white" />
               Continue as Guest
             </Button>
           </div>
