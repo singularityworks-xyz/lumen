@@ -237,6 +237,13 @@ function stageFiles(files: string[]) {
     return;
   }
 
+  Bun.spawnSync({
+    cmd: ["bun", "x", "ultracite", "fix", ...files],
+    cwd: ROOT_DIR,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
   git(["add", "--", ...files]);
 }
 

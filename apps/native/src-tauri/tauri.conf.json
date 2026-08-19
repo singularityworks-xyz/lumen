@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "lumen-singularityworks",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "identifier": "com.itssingularity.lumen",
   "build": {
     "beforeDevCommand": "cd ../web && bun run dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cd ../web && npx next build",
+    "beforeBuildCommand": "cd ../web && bun run build",
     "frontendDist": "../../web/out"
   },
   "app": {
