@@ -1006,4 +1006,40 @@ describe("BoardNodeComponent", () => {
     expect(addColumnBtn).not.toBeNull();
     expect(addColumnBtn?.textContent).toContain("Add Column");
   });
+
+  it("renders all source and target handles for connections", () => {
+    setupStore({
+      columnIds: ["col-1"],
+    });
+
+    const { container } = render(
+      React.createElement(BoardNodeComponent as any, {
+        id: "node-1",
+        data: { boardId: "board-1", isSelected: false },
+        selected: false,
+        dragging: false,
+        type: "board",
+        position: { x: 0, y: 0 },
+        zIndex: 1,
+      })
+    );
+
+    const expectedHandleIds = [
+      "top",
+      "right",
+      "bottom",
+      "left",
+      "top-target",
+      "right-target",
+      "bottom-target",
+      "left-target",
+    ];
+
+    for (const handleId of expectedHandleIds) {
+      const handleEl = container.querySelector(
+        `[data-handle-id="${handleId}"]`
+      );
+      expect(handleEl).not.toBeNull();
+    }
+  });
 });

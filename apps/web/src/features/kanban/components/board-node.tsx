@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Handle,
   type Node,
   type NodeProps,
+  Position,
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
@@ -44,7 +46,7 @@ import styles from "./styles/board-node.module.css";
 type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
 
 export const BoardNodeComponent = memo<BoardNodeProps>(
-  ({ id, data, selected }) => {
+  ({ id, data, selected, isConnectable }) => {
     const setSelectedBoard = useKanbanStore((state) => state.setSelectedBoard);
     const bringBoardToFront = useKanbanStore(
       (state) => state.bringBoardToFront
@@ -676,7 +678,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         {/** biome-ignore lint/a11y/useSemanticElements: skip */}
         <div
           aria-pressed={isSelected || selected || isMultiSelected}
-          className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
+          className={`group/board relative h-full w-full rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
               : isSelected || selected
@@ -706,6 +708,73 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }}
           tabIndex={0}
         >
+          {/* Target Connection Handles */}
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-top-target"
+            id="top-target"
+            isConnectable={isConnectable}
+            position={Position.Top}
+            type="target"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-right-target"
+            id="right-target"
+            isConnectable={isConnectable}
+            position={Position.Right}
+            type="target"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-bottom-target"
+            id="bottom-target"
+            isConnectable={isConnectable}
+            position={Position.Bottom}
+            type="target"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-left-target"
+            id="left-target"
+            isConnectable={isConnectable}
+            position={Position.Left}
+            type="target"
+          />
+
+          {/* Source Connection Handles */}
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-top"
+            id="top"
+            isConnectable={isConnectable}
+            position={Position.Top}
+            type="source"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-right"
+            id="right"
+            isConnectable={isConnectable}
+            position={Position.Right}
+            type="source"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-bottom"
+            id="bottom"
+            isConnectable={isConnectable}
+            position={Position.Bottom}
+            type="source"
+          />
+          <Handle
+            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            data-testid="board-handle-left"
+            id="left"
+            isConnectable={isConnectable}
+            position={Position.Left}
+            type="source"
+          />
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
           <div

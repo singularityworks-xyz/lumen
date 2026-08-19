@@ -3,6 +3,9 @@ import { useMemo } from "react";
 import type { BoardEdge } from "@/src/components/core/board-edge";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 
+const SOURCE_HANDLE_SUFFIX = /-source$/;
+const TARGET_HANDLE_SUFFIX = /-target$/;
+
 export function useCanvasEdges() {
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
@@ -31,12 +34,21 @@ export function useCanvasEdges() {
           return null;
         }
 
+        const rawSourceHandle = (connection.sourceHandle ?? "bottom").replace(
+          SOURCE_HANDLE_SUFFIX,
+          ""
+        );
+        const rawTargetHandle = (connection.targetHandle ?? "top").replace(
+          TARGET_HANDLE_SUFFIX,
+          ""
+        );
+
         const edge: BoardEdge = {
           id: connectionId,
           source: connection.source_board_id,
           target: connection.target_board_id,
-          sourceHandle: connection.sourceHandle,
-          targetHandle: `${connection.targetHandle}-target`,
+          sourceHandle: rawSourceHandle,
+          targetHandle: `${rawTargetHandle}-target`,
           type: "default",
           data: {
             label: connection.label,
