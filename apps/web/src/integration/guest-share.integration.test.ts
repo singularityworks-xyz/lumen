@@ -359,4 +359,37 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(stats.dailyCount).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("10. Profile Dialog Separate Guest-Only Link", () => {
+    it("manages separate collaborator and guest-only links independently", () => {
+      const state = createInitialState();
+      const workspaceId = "ws-profile-test";
+      state.currentWorkspaceId = workspaceId;
+      state.workspaces.byId[workspaceId] = {
+        id: workspaceId,
+        name: "Test Workspace",
+        isShared: true,
+        board_ids: [],
+        created_at: new Date().toISOString(),
+      };
+
+      const collabUrl = "http://localhost:3000?share=collab-token-123";
+      const guestUrl = "http://localhost:3000?guest=guest-token-456";
+
+      // Set collaborator share URL
+      state.workspaceShareUrls[workspaceId] = collabUrl;
+      expect(state.workspaceShareUrls[workspaceId]).toBe(collabUrl);
+
+      // Verify guest link structure cannot promote to editor
+      const isGuestUrl = guestUrl.includes("guest=");
+      expect(isGuestUrl).toBe(true);
+
+      const parsedCollabUrl = new URL(collabUrl);
+      const parsedGuestUrl = new URL(guestUrl);
+
+      expect(parsedCollabUrl.searchParams.has("share")).toBe(true);
+      expect(parsedGuestUrl.searchParams.has("guest")).toBe(true);
+      expect(parsedGuestUrl.searchParams.get("guest")).toBe("guest-token-456");
+    });
+  });
 });

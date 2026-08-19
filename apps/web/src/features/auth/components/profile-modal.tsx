@@ -5,12 +5,14 @@ import {
   ChevronDown,
   Copy,
   GitBranchPlusIcon,
+  Globe,
   Key,
   Link,
   Loader2,
   LogOut,
   Share2,
   User,
+  Users,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -57,6 +59,10 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const [showShareInput, setShowShareInput] = useState(false);
   const [isLoadingShare, setIsLoadingShare] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [guestShareUrl, setGuestShareUrl] = useState<string | null>(null);
+  const [isGuestEnabled, setIsGuestEnabled] = useState(false);
+  const [isLoadingGuestShare, setIsLoadingGuestShare] = useState(false);
+  const [copiedGuest, setCopiedGuest] = useState(false);
   const [pendingShareWorkspaceId, setPendingShareWorkspaceId] = useState<
     string | null
   >(null);
@@ -127,11 +133,6 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       return;
     }
 
-    if (shareUrl) {
-      setShowShareInput(true);
-      return;
-    }
-
     if (isDefaultWorkspace) {
       return;
     }
@@ -147,9 +148,17 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
         );
         if (response.ok) {
           const data = await response.json();
-          if (data.url) {
-            setWorkspaceShareUrl(currentWorkspaceId, data.url);
+          const colUrl = data.collaboratorLink?.url || data.url;
+          if (colUrl) {
+            setWorkspaceShareUrl(currentWorkspaceId, colUrl);
             setShowShareInput(true);
+          }
+          if (data.guestLink?.enabled && data.guestLink?.url) {
+            setGuestShareUrl(data.guestLink.url);
+            setIsGuestEnabled(true);
+          } else {
+            setGuestShareUrl(null);
+            setIsGuestEnabled(false);
           }
         }
       } catch {
@@ -163,7 +172,6 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     currentWorkspaceId,
     user,
     apiUrl,
-    shareUrl,
     setWorkspaceShareUrl,
     isDefaultWorkspace,
   ]);
@@ -173,6 +181,9 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   useEffect(() => {
     setShowShareInput(false);
     setIsLoadingShare(false);
+    setIsLoadingGuestShare(false);
+    setGuestShareUrl(null);
+    setIsGuestEnabled(false);
     setError(null);
     setPendingShareWorkspaceId(null); // Clear pending share on workspace change
   }, [currentWorkspaceId]);
@@ -216,9 +227,14 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
           return;
         }
 
-        if (data.url) {
-          setWorkspaceShareUrl(currentWorkspaceId, data.url);
+        const colUrl = data.collaboratorLink?.url || data.url;
+        if (colUrl) {
+          setWorkspaceShareUrl(currentWorkspaceId, colUrl);
           // Note: collab-wrapper will auto-connect when workspaceShareUrls changes
+        }
+        if (data.guestLink?.enabled && data.guestLink?.url) {
+          setGuestShareUrl(data.guestLink.url);
+          setIsGuestEnabled(true);
         }
       } catch {
         setError("Failed to create share link");
@@ -250,6 +266,70 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
       setError("Failed to copy link");
     }
   }, [shareUrl]);
+
+  const handleCopyGuestLink = useCallback(async () => {
+    if (!guestShareUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(guestShareUrl);
+      setCopiedGuest(true);
+      setTimeout(() => setCopiedGuest(false), 2000);
+    } catch {
+      setError("Failed to copy guest link");
+    }
+  }, [guestShareUrl]);
+
+  const handleToggleGuestShare = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      return;
+    }
+
+    setIsLoadingGuestShare(true);
+    setError(null);
+    try {
+      if (isGuestEnabled) {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share/guest`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to disable guest link");
+        }
+        setIsGuestEnabled(false);
+        setGuestShareUrl(null);
+      } else {
+        const response = await fetch(
+          `${apiUrl}/api/workspaces/${currentWorkspaceId}/share/guest`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to create guest link");
+        }
+        if (data.url) {
+          setGuestShareUrl(data.url);
+          setIsGuestEnabled(true);
+        }
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update guest share link"
+      );
+    } finally {
+      setIsLoadingGuestShare(false);
+    }
+  }, [currentWorkspaceId, isGuestEnabled, apiUrl]);
 
   const handleCopyWorkspaceLink = useCallback(
     async (workspaceId: string, url: string) => {
@@ -432,21 +512,38 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                 </div>
 
                 {showShareInput && (
-                  <div className="space-y-2">
-                    {/* Current workspace share link */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
-                          <Share2 className="h-3 w-3" />
-                          {currentWorkspace?.name || "Workspace"}
+                  <div className="space-y-2.5">
+                    {/* Header badge with workspace name */}
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                        <Share2 className="h-3 w-3" />
+                        {currentWorkspace?.name || "Workspace"}
+                      </span>
+                      {totalSharedCount > 0 && (
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {totalSharedCount} shared
                         </span>
-                        {totalSharedCount > 0 && (
-                          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {totalSharedCount} shared
+                      )}
+                    </div>
+
+                    {/* Collaborator Share Link */}
+                    <div className="space-y-1 rounded-lg border border-border/50 bg-muted/20 p-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-primary" />
+                          <span className="font-medium text-foreground text-xs">
+                            Collaborator Link
                           </span>
-                        )}
+                        </div>
+                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-medium text-[9px] text-primary">
+                          Can edit & join
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <p className="text-[10px] text-muted-foreground">
+                        Allows users to join this workspace with full
+                        collaborator editing access.
+                      </p>
+                      <div className="flex items-center gap-1.5 pt-0.5">
                         {isLoadingShare ? (
                           <div className="flex h-7 flex-1 items-center justify-center rounded-md border bg-muted/30">
                             <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -454,7 +551,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                         ) : (
                           <Input
                             className="h-7 flex-1 text-xs"
-                            placeholder="Share link"
+                            placeholder="Collaborator share link"
                             readOnly
                             value={shareUrl || ""}
                           />
@@ -473,6 +570,82 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
                           )}
                         </Button>
                       </div>
+                    </div>
+
+                    {/* Guest-Only Link */}
+                    <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 dark:border-amber-400/20 dark:bg-amber-400/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Globe className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <span className="font-medium text-foreground text-xs">
+                            Guest-Only Link
+                          </span>
+                        </div>
+                        <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-[9px] text-amber-600 dark:text-amber-400">
+                          Cannot be promoted
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Public link for read-only viewing with rate-limited chat
+                        and Larity. Guests{" "}
+                        <strong className="font-medium text-foreground">
+                          cannot be promoted to editor/collaborator
+                        </strong>
+                        .
+                      </p>
+
+                      {isGuestEnabled && guestShareUrl ? (
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Input
+                            className="h-7 flex-1 text-xs"
+                            placeholder="Guest share link"
+                            readOnly
+                            value={guestShareUrl}
+                          />
+                          <Button
+                            className="h-7 w-7 shrink-0 p-0"
+                            disabled={isLoadingGuestShare}
+                            onClick={handleCopyGuestLink}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {copiedGuest ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            className="h-7 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+                            disabled={isLoadingGuestShare}
+                            onClick={handleToggleGuestShare}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            Disable
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="pt-0.5">
+                          <Button
+                            className="h-7 w-full gap-1.5 rounded-md border-amber-500/30 bg-amber-500/10 font-medium text-amber-700 text-xs hover:bg-amber-500/20 dark:text-amber-300"
+                            disabled={
+                              isLoadingGuestShare ||
+                              (!shareUrl && isLoadingShare)
+                            }
+                            onClick={handleToggleGuestShare}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {isLoadingGuestShare ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Globe className="h-3.5 w-3.5" />
+                            )}
+                            Enable Guest-Only Link
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Other shared workspaces */}
