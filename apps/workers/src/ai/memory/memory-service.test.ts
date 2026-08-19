@@ -13,6 +13,29 @@ mock.module("@lumen/logger", () => ({
   }),
 }));
 
+mock.module("@lumen/logger/tracer", () => ({
+  getTracer: () => ({
+    startSpan: () => ({
+      addEvent: mock(),
+      end: mock(),
+      recordException: mock(),
+      setAttribute: mock(),
+      setAttributes: mock(),
+      setStatus: mock(),
+    }),
+  }),
+  recordSpanError: mock(),
+  SpanStatusCode: { ERROR: 2, OK: 0 },
+}));
+
+// Mock the metrics module (re-registering here overrides any mock leaked
+// from other test files in the same process, e.g. streaming.test.ts)
+mock.module("../lib/metrics", () => ({
+  recordMemoryRecall: mock(),
+  recordMemoryRecallDuration: mock(),
+  recordMemoryRetain: mock(),
+}));
+
 interface AddParams {
   containerTag: string;
   content?: string;
@@ -65,9 +88,7 @@ mock.module("./supermemory-client", () => ({
 
 type MemoryServiceModule = typeof import("./memory-service");
 
-const memoryService = (await import(
-  `./memory-service?${Date.now()}`
-)) as MemoryServiceModule;
+const memoryService = (await import("./memory-service")) as MemoryServiceModule;
 
 const {
   conversationCustomId,

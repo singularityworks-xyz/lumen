@@ -22,6 +22,9 @@ export { isEncryptionEnabled } from "./lib/encryption";
 export {
   recordAiError,
   recordAiRequest,
+  recordMemoryRecall,
+  recordMemoryRecallDuration,
+  recordMemoryRetain,
   recordModelFallback,
   recordRateLimitHit,
   recordStreamDuration,

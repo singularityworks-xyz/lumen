@@ -1,7 +1,18 @@
 import { createLogger } from "@lumen/logger";
+import {
+  getTracer,
+  recordSpanError,
+  SpanStatusCode,
+} from "@lumen/logger/tracer";
+import {
+  recordMemoryRecall,
+  recordMemoryRecallDuration,
+  recordMemoryRetain,
+} from "../lib/metrics";
 import { getSupermemoryClient, isMemoryEnabled } from "./supermemory-client";
 
 const logger = createLogger({ name: "ai:memory" });
+const tracer = getTracer("lumen-ai");
 
 // Container tag conventions (see https://supermemory.ai/docs/concepts/container-tags):
 // - user_{userId}      : personal memory across all workspaces
@@ -126,19 +137,60 @@ export interface MemoryContextBlock {
   text: string;
 }
 
+type MemoryRecallStatus = "disabled" | "empty" | "error" | "success";
+
 // Recalls long-term memory for a user (and optionally a workspace) and renders
 // it as a compact markdown block for the system prompt. Fails soft: any
 // Supermemory error or timeout yields an empty block so chat never breaks.
+// Instrumented as a child span of ai.chat with recall metrics.
 export async function recallMemory(
   input: RecallMemoryInput
 ): Promise<MemoryContextBlock> {
+  const containerCount = input.workspaceId ? 2 : 1;
+  const span = tracer.startSpan("ai.memory.recall", {
+    attributes: {
+      "ai.user_id": input.userId,
+      "ai.workspace_id": input.workspaceId ?? "",
+      "ai.query_length": input.query.length,
+      "ai.memory.containers": containerCount,
+    },
+  });
+  const startTime = performance.now();
+  let status: MemoryRecallStatus = "disabled";
+  let failedContainers = 0;
+
+  const finish = (
+    block: MemoryContextBlock,
+    finalStatus: MemoryRecallStatus
+  ) => {
+    status = finalStatus;
+    const durationSeconds = (performance.now() - startTime) / 1000;
+    span.setAttribute("ai.memory.status", status);
+    span.setAttribute("ai.memory.duration_seconds", durationSeconds);
+    span.setAttribute("ai.memory.failed_containers", failedContainers);
+    span.setStatus({
+      code: status === "error" ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+    });
+    span.end();
+    recordMemoryRecallDuration(durationSeconds, {
+      status,
+      containers: containerCount,
+    });
+    recordMemoryRecall({
+      status,
+      containers: containerCount,
+      workspaceId: input.workspaceId,
+    });
+    return block;
+  };
+
   if (!isMemoryEnabled()) {
-    return { text: "", isEmpty: true };
+    return finish({ text: "", isEmpty: true }, "disabled");
   }
 
   const client = getSupermemoryClient();
   if (!client) {
-    return { text: "", isEmpty: true };
+    return finish({ text: "", isEmpty: true }, "disabled");
   }
 
   const containers: Array<{ tag: string; kind: "user" | "workspace" }> = [
@@ -188,17 +240,24 @@ export async function recallMemory(
           kind: container.kind,
           profileLines: formatProfile(profile?.profile),
           memoryLines: formatSearchResults(search ?? { results: [] }),
+          failed:
+            profileSettled.status === "rejected" ||
+            searchSettled.status === "rejected",
         };
       })
     );
 
     for (const result of settled) {
       if (result.status !== "fulfilled") {
+        failedContainers += 1;
         logger.debug("Memory recall failed for a container", {
           error:
             result.reason instanceof Error ? result.reason.message : "Unknown",
         });
         continue;
+      }
+      if (result.value.failed) {
+        failedContainers += 1;
       }
       if (result.value.kind === "user") {
         userProfileLines = result.value.profileLines;
@@ -212,7 +271,7 @@ export async function recallMemory(
     logger.warn("Memory recall failed", {
       error: error instanceof Error ? error.message : "Unknown",
     });
-    return { text: "", isEmpty: true };
+    return finish({ text: "", isEmpty: true }, "error");
   }
 
   const sections: string[] = [];
@@ -234,7 +293,11 @@ export async function recallMemory(
   }
 
   if (sections.length === 0) {
-    return { text: "", isEmpty: true };
+    span.setAttribute(
+      "ai.memory.partial_failure",
+      failedContainers > 0 && failedContainers < containerCount
+    );
+    return finish({ text: "", isEmpty: true }, "empty");
   }
 
   const header = `## Long-Term Memory Context
@@ -245,7 +308,12 @@ Things you recall about this user and workspace from past sessions. Use it to pe
     text = `${text.slice(0, MAX_CONTEXT_CHARS)}\n… (truncated)`;
   }
 
-  return { text, isEmpty: false };
+  span.setAttribute("ai.memory.context_length", text.length);
+  span.setAttribute(
+    "ai.memory.partial_failure",
+    failedContainers > 0 && failedContainers < containerCount
+  );
+  return finish({ text, isEmpty: false }, "success");
 }
 
 export interface RetainConversationTurnInput {
@@ -294,52 +362,96 @@ function buildTurnContent(input: RetainConversationTurnInput): string {
 // conversation document (one per conversation, upserted by customId) under the
 // user's container, and mirrored under the workspace container so collaborators
 // share workspace context. Never throws — failures are logged and swallowed.
+// Instrumented as an ai.memory.retain span with retain metrics.
 export async function retainConversationTurn(
   input: RetainConversationTurnInput
 ): Promise<void> {
-  if (!isMemoryEnabled()) {
-    return;
-  }
+  const containerCount = input.workspaceId ? 2 : 1;
+  const span = tracer.startSpan("ai.memory.retain", {
+    attributes: {
+      "ai.user_id": input.userId,
+      "ai.workspace_id": input.workspaceId ?? "",
+      "ai.conversation_id": input.conversationId,
+      "ai.memory.containers": containerCount,
+      "ai.tool_calls": input.toolCalls?.length ?? 0,
+    },
+  });
+  const startTime = performance.now();
+  let status: "disabled" | "partial" | "error" | "success" = "disabled";
 
-  const client = getSupermemoryClient();
-  if (!client) {
-    return;
-  }
+  try {
+    if (!isMemoryEnabled()) {
+      return;
+    }
 
-  const content = buildTurnContent(input);
-  const customId = conversationCustomId(input.conversationId);
-  const metadata = {
-    type: "conversation",
-    workspaceId: input.workspaceId ?? "",
-  };
+    const client = getSupermemoryClient();
+    if (!client) {
+      return;
+    }
 
-  const containers = [userContainerTag(input.userId)];
-  if (input.workspaceId) {
-    containers.push(workspaceContainerTag(input.workspaceId));
-  }
+    const content = buildTurnContent(input);
+    const customId = conversationCustomId(input.conversationId);
+    const metadata = {
+      type: "conversation",
+      workspaceId: input.workspaceId ?? "",
+    };
 
-  for (const containerTag of containers) {
-    try {
-      await withTimeout(
-        client.add({
-          content,
+    const containers = [userContainerTag(input.userId)];
+    if (input.workspaceId) {
+      containers.push(workspaceContainerTag(input.workspaceId));
+    }
+
+    let succeeded = 0;
+
+    for (const containerTag of containers) {
+      try {
+        await withTimeout(
+          client.add({
+            content,
+            containerTag,
+            customId,
+            metadata,
+            taskType: "memory",
+          }),
+          RECALL_TIMEOUT_MS
+        );
+        succeeded += 1;
+        logger.debug("Conversation turn retained", {
           containerTag,
           customId,
-          metadata,
-          taskType: "memory",
-        }),
-        RECALL_TIMEOUT_MS
-      );
-      logger.debug("Conversation turn retained", {
-        containerTag,
-        customId,
-      });
-    } catch (error) {
-      logger.warn("Failed to retain conversation turn", {
-        containerTag,
-        customId,
-        error: error instanceof Error ? error.message : "Unknown",
-      });
+        });
+      } catch (error) {
+        logger.warn("Failed to retain conversation turn", {
+          containerTag,
+          customId,
+          error: error instanceof Error ? error.message : "Unknown",
+        });
+      }
     }
+
+    status =
+      succeeded === containers.length
+        ? "success"
+        : succeeded > 0
+          ? "partial"
+          : "error";
+    span.setAttribute("ai.memory.containers_succeeded", succeeded);
+  } catch (error) {
+    status = "error";
+    recordSpanError(span, error);
+    logger.warn("Memory retain failed", {
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+  } finally {
+    span.setAttribute("ai.memory.status", status);
+    span.setAttribute(
+      "ai.memory.duration_seconds",
+      (performance.now() - startTime) / 1000
+    );
+    span.setStatus({
+      code: status === "error" ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+    });
+    span.end();
+    recordMemoryRetain({ status, containers: containerCount });
   }
 }
