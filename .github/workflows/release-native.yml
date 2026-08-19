@@ -117,8 +117,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # databaseId is the numeric release ID tauri-action expects;
+          # `id` returns the node ID (RE_...) which Number() turns into NaN
           RELEASE_ID="$(gh release view "${{ steps.release.outputs.tag_name }}" \
-            --repo "${{ github.repository }}" --json id --jq '.id')"
+            --repo "${{ github.repository }}" --json databaseId --jq '.databaseId')"
           echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
 
   # Build and release Tauri app for all platforms
