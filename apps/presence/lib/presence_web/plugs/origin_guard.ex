@@ -30,35 +30,34 @@ defmodule PresenceWeb.Plugs.OriginGuard do
   end
 
   defp check_access(conn) do
-    # Allow internal service authentication via internal_api_key
-    if internal_key_valid?(conn) do
-      conn
-    else
-      # Block direct browser navigation (sec-fetch-dest: document / sec-fetch-mode: navigate)
-      if direct_browser_navigation?(conn) do
+    cond do
+      internal_key_valid?(conn) ->
+        conn
+
+      direct_browser_navigation?(conn) ->
         forbidden(conn, "Direct browser access is blocked")
-      else
-        # Allow test environment bypass if in :test and no invalid origin is explicitly provided
-        if test_env?() and not invalid_origin_supplied?(conn) do
-          conn
-        else
-          # Validate Origin or Referer header against allowed origins
-          origin = get_first_req_header(conn, "origin")
-          referer = get_first_req_header(conn, "referer")
 
-          cond do
-            origin != nil and allowed_origin?(origin) ->
-              conn
+      test_env_bypass?(conn) ->
+        conn
 
-            referer != nil and allowed_origin?(referer) ->
-              conn
+      has_allowed_origin?(conn) ->
+        conn
 
-            true ->
-              forbidden(conn, "Direct access or untrusted origin is blocked")
-          end
-        end
-      end
+      true ->
+        forbidden(conn, "Direct access or untrusted origin is blocked")
     end
+  end
+
+  defp has_allowed_origin?(conn) do
+    origin = get_first_req_header(conn, "origin")
+    referer = get_first_req_header(conn, "referer")
+
+    (origin != nil and allowed_origin?(origin)) or
+      (referer != nil and allowed_origin?(referer))
+  end
+
+  defp test_env_bypass?(conn) do
+    test_env?() and not invalid_origin_supplied?(conn)
   end
 
   defp internal_key_valid?(conn) do
@@ -75,11 +74,9 @@ defmodule PresenceWeb.Plugs.OriginGuard do
   end
 
   defp test_env? do
-    try do
-      Mix.env() == :test
-    rescue
-      _ -> Application.get_env(:presence, :env) == :test
-    end
+    Mix.env() == :test
+  rescue
+    _ -> Application.get_env(:presence, :env) == :test
   end
 
   defp invalid_origin_supplied?(conn) do
@@ -99,36 +96,35 @@ defmodule PresenceWeb.Plugs.OriginGuard do
   def allowed_origin?(origin_or_referer) when is_binary(origin_or_referer) do
     uri = URI.parse(origin_or_referer)
     allowed_list = get_allowed_origins()
+    raw_origin = normalize_origin(uri, origin_or_referer)
 
-    raw_origin =
-      case uri.scheme do
-        scheme when scheme in ["http", "https"] ->
-          port_str = if uri.port && uri.port not in [80, 443], do: ":#{uri.port}", else: ""
-          "#{scheme}://#{uri.host}#{port_str}"
-
-        "tauri" ->
-          "tauri://#{uri.host}"
-
-        _ ->
-          origin_or_referer
-      end
-
-    if raw_origin in allowed_list do
-      true
-    else
-      # Check loopback host aliases
-      Enum.any?(allowed_list, fn allowed ->
-        allowed_uri = URI.parse(allowed)
-
-        allowed_uri.scheme == uri.scheme and
-          allowed_uri.port == uri.port and
-          allowed_uri.host in @loopback_hosts and
-          uri.host in @loopback_hosts
-      end)
-    end
+    raw_origin in allowed_list or matches_loopback_alias?(allowed_list, uri)
   end
 
   def allowed_origin?(_), do: false
+
+  defp normalize_origin(%URI{scheme: scheme, host: host, port: port}, _raw)
+       when scheme in ["http", "https"] do
+    port_str = if port && port not in [80, 443], do: ":#{port}", else: ""
+    "#{scheme}://#{host}#{port_str}"
+  end
+
+  defp normalize_origin(%URI{scheme: "tauri", host: host}, _raw) do
+    "tauri://#{host}"
+  end
+
+  defp normalize_origin(_uri, raw), do: raw
+
+  defp matches_loopback_alias?(allowed_list, uri) do
+    Enum.any?(allowed_list, fn allowed ->
+      allowed_uri = URI.parse(allowed)
+
+      allowed_uri.scheme == uri.scheme and
+        allowed_uri.port == uri.port and
+        allowed_uri.host in @loopback_hosts and
+        uri.host in @loopback_hosts
+    end)
+  end
 
   defp get_allowed_origins do
     case Application.get_env(:presence, :allowed_origins) do

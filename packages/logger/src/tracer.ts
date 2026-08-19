@@ -58,12 +58,38 @@ export function withSpanAsync<T>(
   });
 }
 
-export function setSpanAttributes(
-  attributes: Record<string, string | number | boolean>
-): void {
+export function setSpanAttributes(attributes: Record<string, unknown>): void {
   const span = getActiveSpan();
-  if (span) {
-    span.setAttributes(attributes);
+  if (!span) {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      span.setAttribute(key, value);
+    } else if (Array.isArray(value)) {
+      if (
+        value.every(
+          (v) =>
+            typeof v === "string" ||
+            typeof v === "number" ||
+            typeof v === "boolean"
+        )
+      ) {
+        span.setAttribute(key, value as string[] | number[] | boolean[]);
+      } else {
+        span.setAttribute(key, JSON.stringify(value));
+      }
+    } else {
+      span.setAttribute(key, JSON.stringify(value));
+    }
   }
 }
 
@@ -85,7 +111,7 @@ export function recordSpanError(span: Span, error: unknown): void {
 
 export function recordError(
   error: unknown,
-  attributes?: Record<string, string | number | boolean>
+  attributes?: Record<string, unknown>
 ): void {
   const span = getActiveSpan();
   if (!span) {
@@ -97,7 +123,7 @@ export function recordError(
   span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
 
   if (attributes) {
-    span.setAttributes(attributes);
+    setSpanAttributes(attributes);
   }
 }
 

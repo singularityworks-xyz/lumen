@@ -197,10 +197,16 @@ interface FloatingIndicatorProps {
   boardCount: number;
   isOpen: boolean;
   onClick: () => void;
+  verticalOffset?: number;
 }
 
 const FloatingIndicator = memo(
-  ({ onClick, boardCount, isOpen }: FloatingIndicatorProps) => (
+  ({
+    onClick,
+    boardCount,
+    isOpen,
+    verticalOffset = 55,
+  }: FloatingIndicatorProps) => (
     <motion.button
       animate={{
         x: isOpen ? 100 : 0,
@@ -222,7 +228,7 @@ const FloatingIndicator = memo(
       )}
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "8px" }}
+      style={{ marginTop: `${verticalOffset}px` }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >
@@ -475,6 +481,8 @@ export interface BoardsDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSwitchToAi?: () => void;
   onSwitchToComments?: () => void;
+  showTrigger?: boolean;
+  verticalOffset?: number;
 }
 
 export const BoardsDrawer = memo(
@@ -484,6 +492,8 @@ export const BoardsDrawer = memo(
     onSwitchToComments,
     onSwitchToAi,
     commentCount = 0,
+    showTrigger = true,
+    verticalOffset = 55,
   }: BoardsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const boards = useKanbanStore((state) => state.boards);
@@ -598,11 +608,14 @@ export const BoardsDrawer = memo(
 
     return createPortal(
       <>
-        <FloatingIndicator
-          boardCount={boardStats.length}
-          isOpen={isOpen}
-          onClick={handleOpen}
-        />
+        {showTrigger && (
+          <FloatingIndicator
+            boardCount={boardStats.length}
+            isOpen={isOpen}
+            onClick={handleOpen}
+            verticalOffset={verticalOffset}
+          />
+        )}
 
         <AnimatePresence>
           {isOpen && (

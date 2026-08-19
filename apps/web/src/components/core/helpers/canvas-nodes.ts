@@ -24,6 +24,7 @@ import type {
   TaskModalNode,
   TaskQuickActionsNode,
   TextBoardCanvasNode,
+  TextBoardQuickActionsNode,
   WelcomeNode,
 } from "./canvas-types";
 
@@ -118,6 +119,23 @@ function nodeDataEqual(a: CanvasNode, b: CanvasNode): boolean {
     return false;
   }
   return true;
+}
+
+// Resolve what kind of canvas entity an id refers to.
+// Used to pick node types for dialogs/quick actions that both kanban boards
+// and text boards share (rename/delete dialogs, quick actions menus).
+export function resolveCanvasEntityKind(
+  boards: { byId: Record<string, unknown> },
+  textBoards: { byId: Record<string, unknown> },
+  id: string
+): "board" | "textBoard" | null {
+  if (boards.byId[id]) {
+    return "board";
+  }
+  if (textBoards.byId[id]) {
+    return "textBoard";
+  }
+  return null;
 }
 
 function useStableNodeFactory<T extends CanvasNode>(
@@ -515,27 +533,40 @@ export function useCanvasNodes() {
     [taskDetailModalIds.join(","), taskDetailModals, computeZIndex]
   );
 
-  const quickActionsNodes = useStableNodeFactory<BoardQuickActionsNode>(
+  const quickActionsNodes = useStableNodeFactory<
+    BoardQuickActionsNode | TextBoardQuickActionsNode
+  >(
     () =>
       Object.values(boardQuickActions)
         .filter(
           (qa): qa is NonNullable<typeof qa> =>
             qa != null && qa.position != null
         )
-        .map((qa) => ({
-          id: `quick-actions-${qa.boardId}`,
-          type: "boardQuickActions" as const,
-          position: {
-            x: qa.position.x,
-            y: qa.position.y,
-          },
-          data: { boardId: qa.boardId },
-          style: {
-            zIndex: computeZIndex(`board-quick-actions-${qa.boardId}`),
-          },
-          draggable: true,
-        })),
-    [boardQuickActions, computeZIndex]
+        .map((qa) => {
+          const isTextBoard =
+            resolveCanvasEntityKind(boards, textBoards, qa.boardId) ===
+            "textBoard";
+          return {
+            id: `${
+              isTextBoard ? "text-quick-actions" : "quick-actions"
+            }-${qa.boardId}`,
+            type: isTextBoard
+              ? ("textBoardQuickActions" as const)
+              : ("boardQuickActions" as const),
+            position: {
+              x: qa.position.x,
+              y: qa.position.y,
+            },
+            data: { boardId: qa.boardId },
+            style: {
+              zIndex: computeZIndex(
+                `${isTextBoard ? "text-board-quick-actions" : "board-quick-actions"}-${qa.boardId}`
+              ),
+            },
+            draggable: true,
+          };
+        }),
+    [boardQuickActions, boards, textBoards, computeZIndex]
   );
 
   const dialogNodes = useStableNodeFactory<BoardDialogNode>(
@@ -546,16 +577,23 @@ export function useCanvasNodes() {
           if (!dialog) {
             return null as unknown as BoardDialogNode;
           }
+          const isTextBoardEntity =
+            resolveCanvasEntityKind(boards, textBoards, dialog.boardId) ===
+            "textBoard";
           const nodeType =
             dialog.type === "rename"
-              ? "boardRenameDialog"
+              ? isTextBoardEntity
+                ? "textBoardRenameDialog"
+                : "boardRenameDialog"
               : dialog.type === "duplicate"
                 ? "boardDuplicateDialog"
                 : dialog.type === "properties"
                   ? "boardPropertiesDialog"
                   : dialog.type === "color-icon-picker"
                     ? "colorIconPickerDialog"
-                    : "boardDeleteDialog";
+                    : isTextBoardEntity
+                      ? "textBoardDeleteDialog"
+                      : "boardDeleteDialog";
 
           const dialogZIndexId = `${dialog.type}-board-dialog-${dialog.id}`;
           const computedZIndex = computeZIndex(dialogZIndexId);

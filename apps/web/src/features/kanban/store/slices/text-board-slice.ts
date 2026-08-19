@@ -9,6 +9,9 @@ const logger = createLogger({ name: "[client] kanban/text-board" });
 // Default size for a freshly created text board.
 export const TEXT_BOARD_DEFAULT_WIDTH = 320;
 export const TEXT_BOARD_DEFAULT_HEIGHT = 420;
+// Hard floor for resizing - the board cannot shrink below this width.
+export const TEXT_BOARD_MIN_WIDTH = 280;
+export const TEXT_BOARD_MIN_HEIGHT = 180;
 
 type SliceCreator = (
   set: (fn: (state: KanbanStore) => void) => void,
@@ -182,9 +185,15 @@ export const createTextBoardSlice: SliceCreator = (set, get) => ({
       if (!textBoardPos) {
         return;
       }
+      // Clamp to the hard minimum so synced/remote resizes can never
+      // collapse the board below a usable width.
+      const clampedDimensions = {
+        width: Math.max(TEXT_BOARD_MIN_WIDTH, dimensions.width),
+        height: Math.max(TEXT_BOARD_MIN_HEIGHT, dimensions.height),
+      };
       if (
-        textBoardPos.width === dimensions.width &&
-        textBoardPos.height === dimensions.height
+        textBoardPos.width === clampedDimensions.width &&
+        textBoardPos.height === clampedDimensions.height
       ) {
         if (
           isUserResize &&
@@ -199,13 +208,13 @@ export const createTextBoardSlice: SliceCreator = (set, get) => ({
         return;
       }
 
-      textBoardPos.width = dimensions.width;
-      textBoardPos.height = dimensions.height;
+      textBoardPos.width = clampedDimensions.width;
+      textBoardPos.height = clampedDimensions.height;
 
       if (isUserResize) {
         textBoardPos.userResized = true;
-        textBoardPos.lastUserWidth = dimensions.width;
-        textBoardPos.lastUserHeight = dimensions.height;
+        textBoardPos.lastUserWidth = clampedDimensions.width;
+        textBoardPos.lastUserHeight = clampedDimensions.height;
       }
     }),
 

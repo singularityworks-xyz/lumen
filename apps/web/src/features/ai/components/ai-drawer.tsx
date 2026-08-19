@@ -15,6 +15,8 @@ export interface AiDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSwitchToBoards?: () => void;
   onSwitchToComments?: () => void;
+  showTrigger?: boolean;
+  verticalOffset?: number;
   workspaceId: string;
 }
 
@@ -27,6 +29,8 @@ export const AiDrawer = memo(
     onSwitchToComments,
     boardCount = 0,
     commentCount = 0,
+    showTrigger = true,
+    verticalOffset = 165,
   }: AiDrawerProps) => {
     const [mounted, setMounted] = useState(false);
 
@@ -84,12 +88,15 @@ export const AiDrawer = memo(
 
     return createPortal(
       <>
-        <FloatingIndicator
-          hasMessages={messages.length > 0}
-          isOffline={isOffline}
-          isOpen={isOpen}
-          onClick={handleOpen}
-        />
+        {showTrigger && (
+          <FloatingIndicator
+            hasMessages={messages.length > 0}
+            isOffline={isOffline}
+            isOpen={isOpen}
+            onClick={handleOpen}
+            verticalOffset={verticalOffset}
+          />
+        )}
 
         <AnimatePresence>
           {isOpen && (

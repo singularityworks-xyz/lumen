@@ -4,7 +4,6 @@ import type { ActionInstruction } from "@lumen/ai/tools";
 import type { ContextSnapshot, PendingAction } from "@lumen/ai/types";
 import { getSuggestionsForContext } from "@lumen/ai/types";
 import { createLogger } from "@lumen/logger";
-import { PulsingBorder } from "@paper-design/shaders-react";
 import {
   ChevronRight,
   Info,
@@ -852,45 +851,13 @@ export const AiDrawerContent = memo(
                 initial={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                {(() => {
-                  try {
-                    return (
-                      <PulsingBorder
-                        aspectRatio="auto"
-                        bloom={0.25}
-                        colorBack="#00000000"
-                        colors={["#ffffff", "#a0a0a0", "#ffffff", "#c0c0c0"]}
-                        intensity={0.25}
-                        margin={0}
-                        pulse={0.5}
-                        roundness={0.08}
-                        scale={1}
-                        smoke={0.3}
-                        smokeSize={0.5}
-                        softness={0.6}
-                        speed={0.7}
-                        spotSize={0.35}
-                        spots={5}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          borderRadius: "1rem",
-                        }}
-                        thickness={0.02}
-                      />
-                    );
-                  } catch {
-                    // Fallback: render a simple animated border if shader fails
-                    return (
-                      <div
-                        className="h-full w-full animate-pulse rounded-2xl border-2 border-white/20"
-                        style={{
-                          boxShadow: "0 0 20px rgba(255, 255, 255, 0.1)",
-                        }}
-                      />
-                    );
-                  }
-                })()}
+                <div
+                  className="h-full w-full animate-pulse rounded-2xl border-2 border-primary/40"
+                  style={{
+                    boxShadow:
+                      "0 0 20px rgba(59, 130, 246, 0.2), inset 0 0 15px rgba(59, 130, 246, 0.15)",
+                  }}
+                />
               </motion.div>
             )}
           </AnimatePresence>

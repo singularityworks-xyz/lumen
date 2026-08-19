@@ -883,6 +883,7 @@ export interface CommentsDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSwitchToAi?: () => void;
   onSwitchToBoards?: () => void;
+  showTrigger?: boolean;
 }
 
 export const CommentsDrawer = memo(
@@ -893,6 +894,7 @@ export const CommentsDrawer = memo(
     onSwitchToAi,
     boardCount = 0,
     onCommentClick,
+    showTrigger = true,
   }: CommentsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const [commentInputValue, setCommentInputValue] = useState("");
@@ -994,28 +996,32 @@ export const CommentsDrawer = memo(
 
     return createPortal(
       <>
-        <FloatingIndicator
-          badgeCount={workspaceComments.filter((c) => !c.parentId).length}
-          icon={<MessageCircle className="h-5 w-5" />}
-          isOpen={isOpen}
-          label="Comments"
-          onClick={handleOpen}
-          testId="comments-drawer-trigger"
-          verticalOffset={-100}
-        />
+        {showTrigger && (
+          <>
+            <FloatingIndicator
+              badgeCount={workspaceComments.filter((c) => !c.parentId).length}
+              icon={<MessageCircle className="h-5 w-5" />}
+              isOpen={isOpen}
+              label="Comments"
+              onClick={handleOpen}
+              testId="comments-drawer-trigger"
+              verticalOffset={-165}
+            />
 
-        <FloatingIndicator
-          badgeCount={discussionCount}
-          icon={<Users className="h-5 w-5" />}
-          isOpen={isOpen}
-          label="Chat"
-          onClick={() => {
-            onOpenChange(true);
-            setLastActiveDrawerTab("discussion");
-          }}
-          testId="chat-drawer-trigger"
-          verticalOffset={-16}
-        />
+            <FloatingIndicator
+              badgeCount={discussionCount}
+              icon={<Users className="h-5 w-5" />}
+              isOpen={isOpen}
+              label="Chat"
+              onClick={() => {
+                onOpenChange(true);
+                setLastActiveDrawerTab("discussion");
+              }}
+              testId="chat-drawer-trigger"
+              verticalOffset={-55}
+            />
+          </>
+        )}
 
         <AnimatePresence>
           {isOpen && (

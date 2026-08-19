@@ -76,6 +76,7 @@ export const TextBoardEditor = memo<TextBoardEditorProps>(({ textBoardId }) => {
   const latestDraftRef = useRef<string>(content ?? "");
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {

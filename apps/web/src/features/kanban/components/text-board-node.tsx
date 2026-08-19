@@ -6,6 +6,7 @@ import {
   type NodeProps,
   Position,
   NodeResizer as Resizer,
+  useReactFlow,
 } from "@xyflow/react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { GripVerticalIcon } from "@/src/components/animated/icons/grip-vertical";
@@ -19,6 +20,10 @@ import {
 } from "@/src/components/ui/popover";
 import { useCollaboration } from "@/src/features/collab";
 import { useKanbanStore } from "../store/kanban-store";
+import {
+  TEXT_BOARD_MIN_HEIGHT,
+  TEXT_BOARD_MIN_WIDTH,
+} from "../store/slices/text-board-slice";
 import type { TextBoardNode } from "../types";
 import styles from "./styles/text-board-editor.module.css";
 import { addTextBoardTask, TextBoardEditor } from "./text-board-editor";
@@ -41,8 +46,13 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
     const interactionMode = useKanbanStore((s) => s.interactionMode);
     const selectedBoardIds = useKanbanStore((s) => s.selectedBoardIds);
     const toggleBoardSelection = useKanbanStore((s) => s.toggleBoardSelection);
+    const openBoardQuickActions = useKanbanStore(
+      (s) => s.openBoardQuickActions
+    );
+    const openBoardDialog = useKanbanStore((s) => s.openBoardDialog);
 
     const { isCollaborating, updateSelection } = useCollaboration();
+    const { screenToFlowPosition, setViewport, getViewport } = useReactFlow();
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [nameDraft, setNameDraft] = useState(textBoard?.name ?? "");
@@ -130,6 +140,103 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
       e.stopPropagation();
     }, []);
 
+    // Keep dialogs opened from the context menu inside the viewport
+    const VIEWPORT_PADDING = 100;
+    const ensureDialogVisible = useCallback(
+      (
+        dialogX: number,
+        dialogY: number,
+        dialogWidth: number,
+        dialogHeight: number
+      ) => {
+        const viewport = getViewport();
+        const { x: vpX, y: vpY, zoom } = viewport;
+
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const dialogScreenX = dialogX * zoom + vpX;
+        const dialogScreenY = dialogY * zoom + vpY;
+        const dialogScreenRight = (dialogX + dialogWidth) * zoom + vpX;
+        const dialogScreenBottom = (dialogY + dialogHeight) * zoom + vpY;
+
+        let newVpX = vpX;
+        let newVpY = vpY;
+        let needsPan = false;
+
+        if (dialogScreenX < VIEWPORT_PADDING) {
+          newVpX = vpX + (VIEWPORT_PADDING - dialogScreenX);
+          needsPan = true;
+        } else if (dialogScreenRight > screenWidth - VIEWPORT_PADDING) {
+          newVpX = vpX - (dialogScreenRight - (screenWidth - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (dialogScreenY < VIEWPORT_PADDING) {
+          newVpY = vpY + (VIEWPORT_PADDING - dialogScreenY);
+          needsPan = true;
+        } else if (dialogScreenBottom > screenHeight - VIEWPORT_PADDING) {
+          newVpY =
+            vpY - (dialogScreenBottom - (screenHeight - VIEWPORT_PADDING));
+          needsPan = true;
+        }
+
+        if (needsPan) {
+          setViewport({ x: newVpX, y: newVpY, zoom }, { duration: 0 });
+        }
+      },
+      [getViewport, setViewport]
+    );
+
+    // Right-click opens the same quick actions menu + rename (properties)
+    // dialog that kanban boards open, so text boards get full board parity.
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!textBoard) {
+          return;
+        }
+        const headerRect = headerRef.current?.getBoundingClientRect();
+        const screenX = headerRect ? headerRect.right + 20 : e.clientX;
+        const screenY = headerRect ? headerRect.top : e.clientY;
+        const flowPos = screenToFlowPosition({ x: screenX, y: screenY });
+        openBoardQuickActions(textBoardId, flowPos);
+
+        setTimeout(
+          () => ensureDialogVisible(flowPos.x, flowPos.y, 220, 280),
+          50
+        );
+
+        const QUICK_ACTIONS_WIDTH = 220;
+        const renamePos = {
+          x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
+          y: flowPos.y,
+        };
+        openBoardDialog({
+          type: "rename",
+          boardId: textBoardId,
+          boardName: textBoard.name,
+          boardDescription: textBoard.description,
+          inputValue: textBoard.name,
+          descriptionValue: textBoard.description,
+          position: renamePos,
+        });
+        setTimeout(
+          () => ensureDialogVisible(renamePos.x, renamePos.y, 320, 280),
+          100
+        );
+      },
+      [
+        textBoard,
+        textBoardId,
+        screenToFlowPosition,
+        openBoardQuickActions,
+        openBoardDialog,
+        ensureDialogVisible,
+      ]
+    );
+
     if (!textBoard) {
       return null;
     }
@@ -146,8 +253,8 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
           }}
           maxHeight={1200}
           maxWidth={700}
-          minHeight={180}
-          minWidth={240}
+          minHeight={TEXT_BOARD_MIN_HEIGHT}
+          minWidth={TEXT_BOARD_MIN_WIDTH}
         />
 
         {/** biome-ignore lint/a11y/useSemanticElements: skip */}
@@ -241,9 +348,12 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
             type="source"
           />
 
+          {/** biome-ignore lint/a11y/noStaticElementInteractions: context menu on draggable handle */}
+          {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: context menu on draggable handle */}
           <div
             className="group flex w-full shrink-0 cursor-move items-center justify-between gap-1.5 rounded-t border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors hover:bg-muted dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)] dark:hover:bg-secondary"
             data-testid="text-board-header"
+            onContextMenu={handleContextMenu}
             ref={headerRef}
             style={
               textBoard.accentColor

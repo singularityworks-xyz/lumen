@@ -32,6 +32,10 @@ export type BoardQuickActionsNode = Node<{
   boardId: string;
   [key: string]: unknown;
 }>;
+export type TextBoardQuickActionsNode = Node<{
+  boardId: string;
+  [key: string]: unknown;
+}>;
 export type TaskQuickActionsNode = Node<{
   taskId: string;
   [key: string]: unknown;
@@ -70,6 +74,7 @@ export type CanvasNode =
   | TaskQuickActionsNode
   | ColumnQuickActionsNode
   | BoardDialogNode
+  | TextBoardQuickActionsNode
   | ConnectionDialogNode
   | ShareDialogNode
   | ColumnDialogNode

@@ -11,10 +11,17 @@ interface FloatingIndicatorProps {
   isOffline: boolean;
   isOpen: boolean;
   onClick: () => void;
+  verticalOffset?: number;
 }
 
 export const FloatingIndicator = memo(
-  ({ onClick, isOpen, hasMessages, isOffline }: FloatingIndicatorProps) => (
+  ({
+    onClick,
+    isOpen,
+    hasMessages,
+    isOffline,
+    verticalOffset = 165,
+  }: FloatingIndicatorProps) => (
     <motion.button
       animate={{
         x: isOpen ? 100 : 0,
@@ -37,7 +44,7 @@ export const FloatingIndicator = memo(
       data-testid="ai-floating-indicator"
       initial={{ x: 100, opacity: 0 }}
       onClick={onClick}
-      style={{ marginTop: "100px" }}
+      style={{ marginTop: `${verticalOffset}px` }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       type="button"
     >

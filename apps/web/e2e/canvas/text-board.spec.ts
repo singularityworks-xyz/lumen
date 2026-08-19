@@ -151,4 +151,118 @@ test.describe("E2E: Text Board (Todo / Text)", () => {
       0
     );
   });
+
+  test("right-click opens quick actions and the rename (properties) dialog", async ({
+    page,
+  }) => {
+    const createTextBoardButton = page.locator(
+      '[data-testid="welcome-screen"] button:has-text("Create a Text Board")'
+    );
+    await createTextBoardButton.click();
+    await page.waitForTimeout(600);
+
+    const textBoardNode = page.locator('[data-testid="text-board-node"]');
+    await expect(textBoardNode).toBeVisible();
+
+    // Right-click the header like a kanban board
+    await textBoardNode
+      .locator('[data-testid="text-board-header"]')
+      .dispatchEvent("contextmenu", { button: 2 });
+    await page.waitForTimeout(300);
+
+    // Quick actions menu opens
+    const renameOption = page.locator(
+      '[data-testid="text-board-rename-option"]'
+    );
+    await expect(renameOption).toBeVisible();
+
+    // Rename dialog opens alongside (kanban parity)
+    const renameDialog = page.locator(
+      '[data-testid="text-board-rename-dialog"]'
+    );
+    await expect(renameDialog).toBeVisible();
+    await renameDialog.locator("input").fill("Right Click Renamed");
+    await renameDialog.getByRole("button", { name: "Rename" }).click();
+    await expect(
+      textBoardNode.locator("h3", { hasText: "Right Click Renamed" })
+    ).toBeVisible();
+  });
+
+  test("creates a connection from a text board to a kanban board", async ({
+    page,
+  }) => {
+    // Create a kanban board first
+    const createBoardButton = page.locator(
+      '[data-testid="welcome-screen"] button:has-text("Create Your First Board")'
+    );
+    await createBoardButton.click();
+    await page.waitForTimeout(400);
+
+    // Then a text board via the navbar (stays in view after the viewport moves)
+    await page.locator('[data-testid="new-text-board-button"]').click();
+    await page.waitForTimeout(600);
+
+    const textBoardNode = page.locator('[data-testid="text-board-node"]');
+    await expect(textBoardNode).toBeVisible();
+
+    // Open the text board quick actions and pick Connections
+    await textBoardNode
+      .locator('[data-testid="text-board-header"]')
+      .dispatchEvent("contextmenu", { button: 2 });
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="text-board-connections-option"]').click();
+    await page.waitForTimeout(300);
+
+    // Connection dialog opens with the kanban board listed as a target
+    const connectionDialog = page.locator(
+      '.react-flow__node[data-id^="connection-dialog-"]'
+    );
+    await expect(connectionDialog).toBeVisible();
+    await expect(
+      connectionDialog.getByText("New Board", { exact: true })
+    ).toBeVisible();
+
+    // Select the kanban board and create the connection
+    await connectionDialog.getByText("New Board", { exact: true }).click();
+    await page.locator('[data-testid="connection-style-save"]').click();
+    await page.waitForTimeout(400);
+
+    // Connection is recorded in the store
+    const connectionState = await page.evaluate(() => {
+      const store = (
+        window as unknown as {
+          __KANBAN_STORE__?: {
+            getState: () => {
+              boardConnections: {
+                allIds: string[];
+                byId: Record<
+                  string,
+                  { source_board_id: string; target_board_id: string }
+                >;
+              };
+              textBoards: { allIds: string[] };
+              boards: { allIds: string[] };
+            };
+          };
+        }
+      ).__KANBAN_STORE__;
+      const state = store?.getState();
+      const textBoardId = state?.textBoards.allIds[0];
+      const boardId = state?.boards.allIds[0];
+      const conn = state?.boardConnections.allIds
+        .map((id) => state.boardConnections.byId[id])
+        .find((c) => c?.source_board_id === textBoardId);
+      return conn
+        ? {
+            source: conn.source_board_id,
+            target: conn.target_board_id,
+            expectedSource: textBoardId,
+            expectedTarget: boardId,
+          }
+        : null;
+    });
+    expect(connectionState).not.toBeNull();
+    expect(connectionState?.source).toBe(connectionState?.expectedSource);
+    expect(connectionState?.target).toBe(connectionState?.expectedTarget);
+  });
 });

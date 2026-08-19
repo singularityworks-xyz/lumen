@@ -164,6 +164,20 @@ describe("positions and z-index", () => {
     expect(pos.lastUserHeight).toBe(600);
   });
 
+  it("clamps dimensions below the minimum width/height", () => {
+    const textBoardId = actions.addTextBoard("Clamp me");
+    actions.updateTextBoardDimensions(
+      textBoardId,
+      { width: 100, height: 50 },
+      true
+    );
+    const pos = state.textBoardPositions.byId[textBoardId]!;
+    expect(pos.width).toBe(280);
+    expect(pos.height).toBe(180);
+    expect(pos.lastUserWidth).toBe(280);
+    expect(pos.lastUserHeight).toBe(180);
+  });
+
   it("bringTextBoardToFront increases zIndex above other text boards", () => {
     const firstId = actions.addTextBoard("A", { x: 0, y: 0 });
     const secondId = actions.addTextBoard("B", { x: 0, y: 0 });

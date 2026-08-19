@@ -38,14 +38,16 @@ defmodule PresenceWeb.Endpoint do
     json_decoder: Phoenix.json_library()
   )
 
+  alias PresenceWeb.Plugs.OriginGuard
+
   plug(Plug.MethodOverride)
   plug(Plug.Head)
   plug(Plug.Session, @session_options)
-  plug(PresenceWeb.Plugs.OriginGuard)
+  plug(OriginGuard)
   plug(PresenceWeb.Router)
 
   def check_websocket_origin(%URI{} = uri) do
-    PresenceWeb.Plugs.OriginGuard.allowed_origin?(URI.to_string(uri))
+    OriginGuard.allowed_origin?(URI.to_string(uri))
   end
 
   def check_websocket_origin(_), do: false
