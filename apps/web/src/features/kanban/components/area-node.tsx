@@ -5,8 +5,8 @@ import {
   type NodeProps,
   NodeResizer as Resizer,
 } from "@xyflow/react";
-import { GripVertical, Layout, Palette, Trash2 } from "lucide-react";
-import { memo, useCallback, useRef, useState } from "react";
+import { Edit2, GripVertical, Layout, Palette, Trash2 } from "lucide-react";
+import { memo, useCallback, useState } from "react";
 import { cn } from "@/src/lib/utils";
 import { useKanbanStore } from "../store/kanban-store";
 import { ICON_MAP } from "../utils/color-icon-utils";
@@ -23,18 +23,6 @@ const MIN_HEIGHT = 150;
 const MAX_WIDTH = 3000;
 const MAX_HEIGHT = 3000;
 
-function resetHeaderDragState(
-  element: HTMLDivElement,
-  pointerId: number,
-  isDraggingHeader: React.MutableRefObject<boolean>
-) {
-  isDraggingHeader.current = false;
-
-  if (element.hasPointerCapture(pointerId)) {
-    element.releasePointerCapture(pointerId);
-  }
-}
-
 export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
   const areaId = data.areaId;
   const area = useKanbanStore((state) => state.areas.byId[areaId]);
@@ -44,27 +32,36 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
   const updateArea = useKanbanStore((state) => state.updateArea);
   const removeArea = useKanbanStore((state) => state.removeArea);
   const openAreaDialog = useKanbanStore((state) => state.openAreaDialog);
+  const updateAreaPosition = useKanbanStore(
+    (state) => state.updateAreaPosition
+  );
+  const updateAreaDimensions = useKanbanStore(
+    (state) => state.updateAreaDimensions
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(area?.name ?? "");
-  const isDraggingHeader = useRef(false);
 
-  const handleDoubleClick = useCallback(() => {
+  const handleStartRename = useCallback(() => {
     setEditName(area?.name ?? "");
     setIsEditing(true);
   }, [area?.name]);
 
-  const handleNameSubmit = useCallback(() => {
-    if (editName.trim()) {
-      updateArea(areaId, { name: editName.trim() });
-    }
-    setIsEditing(false);
-  }, [areaId, editName, updateArea]);
+  const handleNameSubmit = useCallback(
+    (customName?: string) => {
+      const finalName = (customName ?? editName).trim();
+      if (finalName) {
+        updateArea(areaId, { name: finalName });
+      }
+      setIsEditing(false);
+    },
+    [areaId, editName, updateArea]
+  );
 
   const handleNameKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
-        handleNameSubmit();
+        handleNameSubmit(e.currentTarget.value);
       } else if (e.key === "Escape") {
         setEditName(area?.name ?? "");
         setIsEditing(false);
@@ -88,8 +85,8 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
         return;
       }
       const dialogPos = {
-        x: areaPosition.x - 320,
-        y: areaPosition.y,
+        x: areaPosition.x + 20,
+        y: areaPosition.y + 40,
       };
 
       openAreaDialog({
@@ -101,6 +98,31 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
     [areaId, area?.name, areaPosition, openAreaDialog]
   );
 
+  const handleResize = useCallback(
+    (
+      _event: unknown,
+      params: { x: number; y: number; width: number; height: number }
+    ) => {
+      updateAreaDimensions(areaId, {
+        width: Math.round(params.width),
+        height: Math.round(params.height),
+      });
+      if (params.x !== areaPosition?.x || params.y !== areaPosition?.y) {
+        updateAreaPosition(areaId, {
+          x: Math.round(params.x),
+          y: Math.round(params.y),
+        });
+      }
+    },
+    [
+      areaId,
+      areaPosition?.x,
+      areaPosition?.y,
+      updateAreaDimensions,
+      updateAreaPosition,
+    ]
+  );
+
   if (!(area && areaPosition)) {
     return null;
   }
@@ -108,22 +130,20 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
   return (
     <>
       <Resizer
-        handleClassName="!w-6 !h-6 !opacity-0"
-        isVisible={selected}
-        lineClassName="!border-0"
-        lineStyle={{
-          borderWidth: 0,
-          opacity: 0,
-        }}
+        handleClassName="!w-3 !h-3 !border-2 !border-background !bg-primary !rounded-xs shadow-md"
+        isVisible={Boolean(selected)}
+        lineClassName="!border-primary/40"
         maxHeight={MAX_HEIGHT}
         maxWidth={MAX_WIDTH}
         minHeight={MIN_HEIGHT}
         minWidth={MIN_WIDTH}
+        onResize={handleResize}
+        onResizeEnd={handleResize}
       />
 
       <div
         className={cn(
-          "relative h-full w-full rounded-lg border-2 transition-all",
+          "nodrag relative h-full w-full rounded-lg border-2 transition-all",
           selected
             ? "border-gray-400 ring-2 ring-gray-400/30"
             : "border-gray-300 dark:border-gray-600"
@@ -135,42 +155,17 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
         }}
       >
         <div
-          className="area-drag-handle absolute top-0 left-0 flex cursor-move items-center gap-2 rounded-br-lg px-3 py-2"
+          className="area-drag-handle absolute top-0 left-0 flex cursor-move select-none items-center gap-1.5 rounded-br-lg px-2.5 py-1.5"
           data-testid="area-header"
-          onLostPointerCapture={(e) => {
-            resetHeaderDragState(
-              e.currentTarget,
-              e.pointerId,
-              isDraggingHeader
-            );
-          }}
-          onPointerCancel={(e) => {
-            resetHeaderDragState(
-              e.currentTarget,
-              e.pointerId,
-              isDraggingHeader
-            );
-          }}
-          onPointerDown={(e) => {
-            isDraggingHeader.current = true;
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerUp={(e) => {
-            resetHeaderDragState(
-              e.currentTarget,
-              e.pointerId,
-              isDraggingHeader
-            );
-          }}
           style={{
             backgroundColor: `${area.color}25`,
           }}
         >
-          <GripVertical className="h-4 w-4 text-gray-500" />
+          <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
 
           {area.icon && (
             <span
-              className="flex h-5 w-5 items-center justify-center rounded"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
               style={{
                 backgroundColor: `${area.color}30`,
                 color: area.color,
@@ -185,23 +180,27 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
 
           {isEditing ? (
             <input
-              className="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 text-sm outline-none focus:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-              onBlur={handleNameSubmit}
+              autoFocus
+              className="nodrag w-32 rounded border border-border bg-background px-2 py-0.5 font-medium text-foreground text-sm outline-none focus:ring-1 focus:ring-primary"
+              data-testid="area-name-input"
+              onBlur={() => handleNameSubmit()}
               onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={handleNameKeyDown}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                handleNameKeyDown(e);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
               value={editName}
             />
           ) : (
-            // biome-ignore lint/a11y/noNoninteractiveElementInteractions:skip
-            // biome-ignore lint/a11y/noStaticElementInteractions:skip
+            // biome-ignore lint/a11y/noNoninteractiveElementInteractions: double click to rename
+            // biome-ignore lint/a11y/noStaticElementInteractions: double click to rename
             <span
-              className="cursor-text select-none font-semibold text-gray-700 text-sm dark:text-gray-300"
+              className="cursor-text font-semibold text-foreground text-sm"
+              data-testid="area-name"
               onDoubleClick={(e) => {
-                if (isDraggingHeader.current) {
-                  e.preventDefault();
-                  return;
-                }
-                handleDoubleClick();
+                e.stopPropagation();
+                handleStartRename();
               }}
             >
               {area.name}
@@ -223,29 +222,49 @@ export const AreaNodeComponent = memo<AreaNodeProps>(({ data, selected }) => {
             </span>
           )}
 
-          <button
-            className="flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
-            onClick={handleOpenProperties}
-            title="Customize area"
-            type="button"
-          >
-            <Palette className="h-3 w-3" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              className="nodrag flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-black/10 hover:text-foreground dark:hover:bg-white/10"
+              data-testid="area-rename-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartRename();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Rename area"
+              type="button"
+            >
+              <Edit2 className="h-3 w-3" />
+            </button>
 
-          <button
-            className="flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-destructive/20 hover:text-destructive"
-            onClick={handleRemove}
-            title="Delete area"
-            type="button"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+            <button
+              className="nodrag flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-black/10 hover:text-foreground dark:hover:bg-white/10"
+              data-testid="area-customize-btn"
+              onClick={handleOpenProperties}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Customize area"
+              type="button"
+            >
+              <Palette className="h-3 w-3" />
+            </button>
+
+            <button
+              className="nodrag flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive"
+              data-testid="area-delete-btn"
+              onClick={handleRemove}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Delete area"
+              type="button"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
 
         {selected && (
-          <div className="pointer-events-none absolute right-1 bottom-1 flex h-5 w-5 items-center justify-center rounded bg-gray-400/50">
+          <div className="pointer-events-none absolute right-1 bottom-1 flex h-5 w-5 items-center justify-center rounded bg-primary/40">
             <svg
-              className="h-3 w-3 text-white"
+              className="h-3 w-3 text-primary-foreground"
               fill="none"
               stroke="currentColor"
               strokeLinecap="round"

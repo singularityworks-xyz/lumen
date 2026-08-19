@@ -189,6 +189,19 @@ export const createAreaSlice: SliceCreator = (set, get) => ({
     }),
 
   openAreaDialog: (options) => {
+    const existingEntry = Object.values(get().areaDialogs).find(
+      (d) => d.areaId === options.areaId
+    );
+    if (existingEntry) {
+      set((state) => {
+        const dialog = state.areaDialogs[existingEntry.id];
+        if (dialog && options.position) {
+          dialog.position = options.position;
+        }
+      });
+      return existingEntry.id;
+    }
+
     const id = generateDialogId();
     set((state) => {
       state.areaDialogs[id] = {
