@@ -10,6 +10,7 @@ export function useCanvasEdges() {
   const currentWorkspaceId = useKanbanStore(
     (state) => state.currentWorkspaceId
   );
+  const isGuestMode = useKanbanStore((state) => state.isGuestMode);
   const boards = useKanbanStore((state) => state.boards);
   const textBoards = useKanbanStore((state) => state.textBoards);
   const workspaces = useKanbanStore((state) => state.workspaces);
@@ -21,20 +22,24 @@ export function useCanvasEdges() {
       : null;
     // Both kanban boards and text boards participate in connections, so a
     // connection between a board and a text board stays visible.
-    const boardIds = new Set([
-      ...(currentWorkspace?.board_ids ?? boards.allIds),
-      ...(currentWorkspace?.text_board_ids ?? textBoards.allIds),
-      ...boards.allIds.filter(
-        (id) =>
-          !currentWorkspaceId ||
-          boards.byId[id]?.workspace_id === currentWorkspaceId
-      ),
-      ...textBoards.allIds.filter(
-        (id) =>
-          !currentWorkspaceId ||
-          textBoards.byId[id]?.workspace_id === currentWorkspaceId
-      ),
-    ]);
+    const boardIds = new Set(
+      isGuestMode
+        ? [...boards.allIds, ...textBoards.allIds]
+        : [
+            ...(currentWorkspace?.board_ids ?? boards.allIds),
+            ...(currentWorkspace?.text_board_ids ?? textBoards.allIds),
+            ...boards.allIds.filter(
+              (id) =>
+                !currentWorkspaceId ||
+                boards.byId[id]?.workspace_id === currentWorkspaceId
+            ),
+            ...textBoards.allIds.filter(
+              (id) =>
+                !currentWorkspaceId ||
+                textBoards.byId[id]?.workspace_id === currentWorkspaceId
+            ),
+          ]
+    );
 
     return boardConnections.allIds
       .map((connectionId) => {
@@ -83,6 +88,7 @@ export function useCanvasEdges() {
       })
       .filter((edge): edge is BoardEdge => edge !== null);
   }, [
+    isGuestMode,
     boardConnections,
     currentWorkspaceId,
     workspaces,

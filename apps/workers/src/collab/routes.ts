@@ -1284,6 +1284,16 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             boardPositions: Object.fromEntries(
               doc.getMap("boardPositions").entries()
             ),
+            textBoards: Object.fromEntries(doc.getMap("textBoards").entries()),
+            textBoardPositions: Object.fromEntries(
+              doc.getMap("textBoardPositions").entries()
+            ),
+            boardConnections: Object.fromEntries(
+              doc.getMap("boardConnections").entries()
+            ),
+            taskDetailModals: Object.fromEntries(
+              doc.getMap("taskDetailModals").entries()
+            ),
           };
         }
 
@@ -1308,6 +1318,18 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
               boardPositions: Object.fromEntries(
                 doc.getMap("boardPositions").entries()
               ),
+              textBoards: Object.fromEntries(
+                doc.getMap("textBoards").entries()
+              ),
+              textBoardPositions: Object.fromEntries(
+                doc.getMap("textBoardPositions").entries()
+              ),
+              boardConnections: Object.fromEntries(
+                doc.getMap("boardConnections").entries()
+              ),
+              taskDetailModals: Object.fromEntries(
+                doc.getMap("taskDetailModals").entries()
+              ),
             };
           }
         } catch (error) {
@@ -1324,6 +1346,10 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
           columns: {},
           tasks: {},
           boardPositions: {},
+          textBoards: {},
+          textBoardPositions: {},
+          boardConnections: {},
+          taskDetailModals: {},
         };
       });
     },

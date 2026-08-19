@@ -19,9 +19,13 @@ import { useWorkspaceSync } from "@/src/features/collab/hooks/use-workspace-sync
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import type {
   Board,
+  BoardConnection,
   BoardPosition,
   Column,
   Task,
+  TaskDetailModalState,
+  TextBoard,
+  TextBoardPosition,
 } from "@/src/features/kanban/types";
 import { WorkspaceDeletedBanner } from "@/src/features/workspace/components/workspace-deleted-banner";
 import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
@@ -42,11 +46,25 @@ function KanbanPageContent() {
 
   const isGuestMode =
     useKanbanStore((state) => state.isGuestMode) || !!guestToken;
+  const currentWorkspaceId = useKanbanStore(
+    (state) => state.currentWorkspaceId
+  );
   const setCurrentWorkspace = useKanbanStore(
     (state) => state.setCurrentWorkspace
   );
   const workspaces = useKanbanStore((state) => state.workspaces);
+  const currentWorkspace = currentWorkspaceId
+    ? workspaces.byId[currentWorkspaceId]
+    : null;
   const apiUrl = normalizeApiUrlForCurrentHost(env.NEXT_PUBLIC_API_URL);
+
+  useEffect(() => {
+    if (currentWorkspace?.name) {
+      document.title = `${currentWorkspace.name} | Lumen`;
+    } else {
+      document.title = "Lumen";
+    }
+  }, [currentWorkspace?.name]);
 
   useEffect(() => {
     if (guestToken) {
@@ -76,6 +94,7 @@ function KanbanPageContent() {
                   : "Joined via share link",
               created_at: new Date().toISOString(),
               board_ids: [],
+              text_board_ids: [],
               isShared: true,
               ownerId: owner?.id,
               ownerName: owner?.name || owner?.email || "Unknown",
@@ -118,6 +137,29 @@ function KanbanPageContent() {
                 }
               }
 
+              // Merge text boards
+              for (const [id, textBoard] of Object.entries(
+                stateData.textBoards || {}
+              )) {
+                state.textBoards.byId[id] = textBoard as TextBoard;
+                if (!state.textBoards.allIds.includes(id)) {
+                  state.textBoards.allIds.push(id);
+                }
+                if (
+                  !state.workspaces.byId[workspaceId]?.text_board_ids?.includes(
+                    id
+                  )
+                ) {
+                  if (!state.workspaces.byId[workspaceId]?.text_board_ids) {
+                    const ws = state.workspaces.byId[workspaceId];
+                    if (ws) {
+                      ws.text_board_ids = [];
+                    }
+                  }
+                  state.workspaces.byId[workspaceId]?.text_board_ids?.push(id);
+                }
+              }
+
               // Merge columns
               for (const [id, column] of Object.entries(
                 stateData.columns || {}
@@ -144,6 +186,33 @@ function KanbanPageContent() {
                 if (!state.boardPositions.allIds.includes(id)) {
                   state.boardPositions.allIds.push(id);
                 }
+              }
+
+              // Merge text board positions
+              for (const [id, pos] of Object.entries(
+                stateData.textBoardPositions || {}
+              )) {
+                state.textBoardPositions.byId[id] = pos as TextBoardPosition;
+                if (!state.textBoardPositions.allIds.includes(id)) {
+                  state.textBoardPositions.allIds.push(id);
+                }
+              }
+
+              // Merge board connections
+              for (const [id, conn] of Object.entries(
+                stateData.boardConnections || {}
+              )) {
+                state.boardConnections.byId[id] = conn as BoardConnection;
+                if (!state.boardConnections.allIds.includes(id)) {
+                  state.boardConnections.allIds.push(id);
+                }
+              }
+
+              // Merge task detail modals
+              for (const [id, modal] of Object.entries(
+                stateData.taskDetailModals || {}
+              )) {
+                state.taskDetailModals[id] = modal as TaskDetailModalState;
               }
             });
           }
