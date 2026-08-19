@@ -710,7 +710,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         >
           {/* Target Connection Handles */}
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-top-target"
             id="top-target"
             isConnectable={isConnectable}
@@ -718,7 +718,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-right-target"
             id="right-target"
             isConnectable={isConnectable}
@@ -726,7 +726,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-bottom-target"
             id="bottom-target"
             isConnectable={isConnectable}
@@ -734,7 +734,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="target"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-left-target"
             id="left-target"
             isConnectable={isConnectable}
@@ -744,7 +744,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 
           {/* Source Connection Handles */}
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-top"
             id="top"
             isConnectable={isConnectable}
@@ -752,7 +752,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-right"
             id="right"
             isConnectable={isConnectable}
@@ -760,7 +760,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-bottom"
             id="bottom"
             isConnectable={isConnectable}
@@ -768,7 +768,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
             type="source"
           />
           <Handle
-            className="!h-2.5 !w-2.5 !border-2 !border-background !bg-primary/80 hover:!opacity-100 opacity-0 transition-opacity group-hover/board:opacity-100"
+            className="!pointer-events-none !border-0 !bg-transparent !opacity-0"
             data-testid="board-handle-left"
             id="left"
             isConnectable={isConnectable}
