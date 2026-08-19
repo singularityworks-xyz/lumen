@@ -303,27 +303,46 @@
 
 [data-testid="text-board-editor"] .tiptap ul[data-type="taskList"] li {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
   align-items: flex-start;
-  margin: 0.15rem 0;
+  margin: 0.2rem 0;
 }
 
 [data-testid="text-board-editor"] .tiptap ul[data-type="taskList"] li > label {
+  display: inline-flex;
   flex: 0 0 auto;
-  margin-top: 0.22rem;
+  align-items: center;
+  justify-content: center;
+  height: 1.6em;
+  margin: 0;
   user-select: none;
-}
-
-[data-testid="text-board-editor"] .tiptap ul[data-type="taskList"] li > div {
-  flex: 1 1 auto;
 }
 
 [data-testid="text-board-editor"]
   .tiptap
   ul[data-type="taskList"]
+  li
+  > label
   input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
   accent-color: hsl(var(--primary));
   cursor: pointer;
+}
+
+[data-testid="text-board-editor"] .tiptap ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+[data-testid="text-board-editor"]
+  .tiptap
+  ul[data-type="taskList"]
+  li
+  > div
+  > p {
+  margin: 0;
 }
 
 [data-testid="text-board-editor"]
@@ -336,7 +355,7 @@
 }
 
 [data-testid="text-board-editor"] .tiptap ul[data-type="taskList"] ul {
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
 }
 
 [data-testid="text-board-editor"] .tiptap ul[data-type="bulletList"],

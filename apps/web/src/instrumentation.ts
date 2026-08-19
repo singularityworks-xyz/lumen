@@ -1,4 +1,4 @@
-const WEB_VERSION = "1.1.48";
+const WEB_VERSION = "1.1.49";
 
 // Production startup gate: the container refuses to boot without the
 // observability stack it is configured to export to. Runs here (server

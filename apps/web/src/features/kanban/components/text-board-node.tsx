@@ -52,7 +52,8 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
     const openBoardDialog = useKanbanStore((s) => s.openBoardDialog);
 
     const { isCollaborating, updateSelection } = useCollaboration();
-    const { screenToFlowPosition, setViewport, getViewport } = useReactFlow();
+    const { screenToFlowPosition, setViewport, getViewport, setCenter } =
+      useReactFlow();
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [nameDraft, setNameDraft] = useState(textBoard?.name ?? "");
@@ -208,6 +209,26 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
           50
         );
 
+        // If a rename dialog is already open for this text board, don't
+        // create a duplicate - bring it to front and pan to it instead.
+        const existingRenameDialog = Object.values(
+          useKanbanStore.getState().boardDialogs
+        ).find((d) => d.boardId === textBoardId && d.type === "rename");
+
+        if (existingRenameDialog) {
+          useKanbanStore
+            .getState()
+            .bringDialogToFront(
+              `text-board-rename-dialog-${existingRenameDialog.id}`
+            );
+          setCenter(
+            existingRenameDialog.position.x + 150,
+            existingRenameDialog.position.y + 150,
+            { duration: 500, zoom: 1 }
+          );
+          return;
+        }
+
         const QUICK_ACTIONS_WIDTH = 220;
         const renamePos = {
           x: flowPos.x + QUICK_ACTIONS_WIDTH + 40,
@@ -234,6 +255,7 @@ export const TextBoardNodeComponent = memo<TextBoardNodeProps>(
         openBoardQuickActions,
         openBoardDialog,
         ensureDialogVisible,
+        setCenter,
       ]
     );
 

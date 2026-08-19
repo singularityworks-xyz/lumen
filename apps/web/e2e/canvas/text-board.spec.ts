@@ -181,6 +181,17 @@ test.describe("E2E: Text Board (Todo / Text)", () => {
       '[data-testid="text-board-rename-dialog"]'
     );
     await expect(renameDialog).toBeVisible();
+
+    // Right-click again: no duplicate dialog is created, the existing one
+    // is reused instead
+    await textBoardNode
+      .locator('[data-testid="text-board-header"]')
+      .dispatchEvent("contextmenu", { button: 2 });
+    await page.waitForTimeout(300);
+    await expect(
+      page.locator('[data-testid="text-board-rename-dialog"]')
+    ).toHaveCount(1);
+
     await renameDialog.locator("input").fill("Right Click Renamed");
     await renameDialog.getByRole("button", { name: "Rename" }).click();
     await expect(

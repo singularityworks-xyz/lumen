@@ -486,7 +486,7 @@ export function useCanvasNodes() {
           };
         })
         .filter((node): node is TaskModalNode => node != null),
-    [modalIds.join(","), createTaskModals, computeZIndex]
+    [modalIds.join(","), computeZIndex]
   );
 
   const commentClusterNodes = useStableNodeFactory(
@@ -525,12 +525,10 @@ export function useCanvasNodes() {
               zIndex: computeZIndex(`task-detail-modal-${modal.id}`),
             },
             draggable: true,
-            width: 400,
-            height: 1,
           };
         })
         .filter((node): node is TaskDetailModalNode => node != null),
-    [taskDetailModalIds.join(","), taskDetailModals, computeZIndex]
+    [taskDetailModalIds.join(","), computeZIndex]
   );
 
   const quickActionsNodes = useStableNodeFactory<
