@@ -36,6 +36,7 @@ import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useNativeTitlebarOffset } from "@/src/hooks/use-native-titlebar";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 import { usePresenceContext } from "../../presence/presence-provider";
 
 const logger = createLogger({ name: "profile-modal" });
@@ -76,7 +77,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const currentWorkspace = useKanbanStore((state) =>
     currentWorkspaceId ? state.workspaces.byId[currentWorkspaceId] : null
   );
-  const defaultWorkspaceId = useKanbanStore(
+  const _defaultWorkspaceId = useKanbanStore(
     (state) => state.workspaces.allIds[0] ?? null
   );
   const shareUrl = useKanbanStore((state) =>
@@ -92,9 +93,9 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   const workspaceShareUrls = useKanbanStore(
     (state) => state.workspaceShareUrls
   );
-  const apiUrl = (env.NEXT_PUBLIC_API_URL || "http://localhost:3002") as string;
-
-  const isDefaultWorkspace = currentWorkspaceId === defaultWorkspaceId;
+  const apiUrl = normalizeApiUrlForCurrentHost(
+    (env.NEXT_PUBLIC_API_URL || "http://localhost:3002") as string
+  );
 
   const sharedWorkspaces = Object.entries(workspaceShareUrls)
     .filter(
@@ -129,11 +130,13 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
   }, [open, workspaces.byId, workspaceShareUrls, clearWorkspaceShareUrl]);
 
   useEffect(() => {
-    if (!(open && currentWorkspaceId && user)) {
-      return;
+    if (shareUrl || currentWorkspace?.isShared) {
+      setShowShareInput(true);
     }
+  }, [shareUrl, currentWorkspace?.isShared]);
 
-    if (isDefaultWorkspace) {
+  useEffect(() => {
+    if (!(open && currentWorkspaceId && user)) {
       return;
     }
 
@@ -156,6 +159,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
           if (data.guestLink?.enabled && data.guestLink?.url) {
             setGuestShareUrl(data.guestLink.url);
             setIsGuestEnabled(true);
+            setShowShareInput(true);
           } else {
             setGuestShareUrl(null);
             setIsGuestEnabled(false);
@@ -167,14 +171,7 @@ export const ProfileModal = memo(({ open, onClose }: ProfileModalProps) => {
     };
 
     fetchExistingShare();
-  }, [
-    open,
-    currentWorkspaceId,
-    user,
-    apiUrl,
-    setWorkspaceShareUrl,
-    isDefaultWorkspace,
-  ]);
+  }, [open, currentWorkspaceId, user, apiUrl, setWorkspaceShareUrl]);
 
   // Reset share input state when workspace changes to prevent auto-sharing new workspace
   // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally trigger on workspace change

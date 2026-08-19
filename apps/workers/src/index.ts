@@ -37,6 +37,11 @@ const app = new Elysia()
         "x-e2e-bypass",
         "x-e2e-user-id",
         "x-internal-key",
+        "x-guest-token",
+        "x-request-id",
+        "traceparent",
+        "tracestate",
+        "baggage",
       ],
       exposeHeaders: ["Set-Cookie"],
     })

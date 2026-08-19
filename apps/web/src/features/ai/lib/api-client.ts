@@ -7,9 +7,15 @@ import {
 } from "@microsoft/fetch-event-source";
 import { env } from "@/src/env";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
+import { normalizeApiUrlForCurrentHost } from "@/src/lib/url";
 
 const logger = createLogger({ name: "[client] ai/api-client" });
-const API_BASE = env.NEXT_PUBLIC_API_URL;
+
+function getApiBaseUrl(): string {
+  return normalizeApiUrlForCurrentHost(
+    env.NEXT_PUBLIC_API_URL || "http://localhost:3002"
+  );
+}
 
 export interface ChatStreamCallbacks {
   onActionInstruction?: (
@@ -290,7 +296,7 @@ export function streamChat(
   const isGuestMode = useKanbanStore.getState().isGuestMode;
 
   // Fire and forget - the promise is handled internally via callbacks
-  fetchEventSource(`${API_BASE}/api/ai/chat`, {
+  fetchEventSource(`${getApiBaseUrl()}/api/ai/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -322,6 +328,10 @@ export function streamChat(
           (errorData as { error?: string; message?: string }).error ||
           (errorData as { error?: string; message?: string }).message ||
           `HTTP error ${response.status}`;
+        logger.error(
+          { error: errorMessage, status: response.status },
+          "AI chat stream rejected"
+        );
         callbacks.onError?.(errorMessage);
         throw new FatalError(errorMessage);
       }
@@ -365,6 +375,8 @@ export function streamChat(
         throw error;
       }
 
+      logger.error({ error }, "AI chat stream error");
+
       // Report the error to the callback
       callbacks.onError?.(
         error instanceof Error ? error.message : "Stream error"
@@ -382,6 +394,7 @@ export function streamChat(
       error.name !== "AbortError" &&
       !(error instanceof FatalError)
     ) {
+      logger.error({ error }, "AI stream fetch failed");
       callbacks.onError?.(error.message || "Request failed");
     }
   });
@@ -443,7 +456,7 @@ export async function checkAiHealth(): Promise<{
   status: string;
 }> {
   try {
-    const response = await fetch(`${API_BASE}/api/ai/health`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/ai/health`, {
       credentials: "include",
     });
     if (!response.ok) {
@@ -470,7 +483,7 @@ export async function fetchConversation(
 ): Promise<ConversationResponse | null> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}`,
       {
         credentials: "include",
       }
@@ -496,7 +509,7 @@ export async function deleteServerMessage(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}/messages/${messageId}`,
       {
         method: "DELETE",
         credentials: "include",
@@ -515,7 +528,7 @@ export async function clearServerConversation(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/ai/conversation/${workspaceId}`,
+      `${getApiBaseUrl()}/api/ai/conversation/${workspaceId}`,
       {
         method: "DELETE",
         credentials: "include",
