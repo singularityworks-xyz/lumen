@@ -21,7 +21,7 @@
 FROM debian:bookworm-slim AS download
 
 ARG SUPERMEMORY_VERSION=server-v0.0.8
-ARG TARGETARCH=amd64
+ARG TARGETARCH
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates \
@@ -29,10 +29,18 @@ RUN apt-get update \
 
 RUN set -eux; \
   mkdir -p /out; \
-  case "${TARGETARCH}" in \
+  target_arch="${TARGETARCH:-}"; \
+  if [ -z "${target_arch}" ]; then \
+    case "$(uname -m)" in \
+      x86_64|amd64) target_arch="amd64" ;; \
+      aarch64|arm64) target_arch="arm64" ;; \
+      *) echo "unsupported host architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+  fi; \
+  case "${target_arch}" in \
     amd64) arch="x64" ;; \
     arm64) arch="arm64" ;; \
-    *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    *) echo "unsupported architecture: ${target_arch}" >&2; exit 1 ;; \
   esac; \
   release_url="https://github.com/supermemoryai/supermemory/releases/download/${SUPERMEMORY_VERSION}"; \
   curl -fsSL "${release_url}/supermemory-server-linux-${arch}" -o /out/supermemory-server; \

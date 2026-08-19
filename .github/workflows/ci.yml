@@ -43,20 +43,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # A merge commit pushed to the release branch (origin) is a release:
-          # build, test, and deploy EVERY target instead of diffing — a merge
-          # brings the whole of dev, and skipping deploys on merges silently
-          # ships nothing.
-          HEAD_MSG="$(git log -1 --format=%s)"
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_name }}" = "origin" ] && [[ "${HEAD_MSG}" == "Merge pull request"* || "${HEAD_MSG}" == "Merge branch"* ]]; then
-            echo "web=true" >> "$GITHUB_OUTPUT"
-            echo "workers=true" >> "$GITHUB_OUTPUT"
-            echo "presence=true" >> "$GITHUB_OUTPUT"
-            echo "db=true" >> "$GITHUB_OUTPUT"
-            echo "native=true" >> "$GITHUB_OUTPUT"
-            echo "supermemory=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BEFORE_SHA="${{ github.event.pull_request.base.sha }}"
             AFTER_SHA="${{ github.event.pull_request.head.sha }}"
@@ -70,32 +56,32 @@ jobs:
           else
             git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > changed-files.txt
           fi
-          if grep -qE '^(apps/web/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/native-bridge/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/web-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/web/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/native-bridge/|packages/yjs-shared/|scripts/install/|turbo\.json$|\.github/workflows/web-deploy\.yml$)' changed-files.txt; then
             echo "web=true" >> "$GITHUB_OUTPUT"
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(apps/workers/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/yjs-shared/|scripts/install/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/workers-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/workers/|packages/ai/|packages/configs/|packages/db/|packages/logger/|packages/yjs-shared/|scripts/install/|turbo\.json$|\.github/workflows/workers-deploy\.yml$)' changed-files.txt; then
             echo "workers=true" >> "$GITHUB_OUTPUT"
           else
             echo "workers=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(apps/presence/|package\.json$|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/presence/|\.github/workflows/presence-deploy\.yml$)' changed-files.txt; then
             echo "presence=true" >> "$GITHUB_OUTPUT"
           else
             echo "presence=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(packages/db/|docker/|package\.json$|bun\.lock$|turbo\.json$|\.github/workflows/prisma-sync\.yml$)' changed-files.txt; then
+          if grep -qE '^(packages/db/|docker/prisma-sync\.dockerfile$|turbo\.json$|\.github/workflows/prisma-sync\.yml$)' changed-files.txt; then
             echo "db=true" >> "$GITHUB_OUTPUT"
           else
             echo "db=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(apps/native/|scripts/install/|package\.json$|bun\.lock$|\.github/workflows/release-native\.yml$)' changed-files.txt; then
+          if grep -qE '^(apps/native/|scripts/install/|\.github/workflows/release-native\.yml$)' changed-files.txt; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
-          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|package\.json$|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
+          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
             echo "supermemory=true" >> "$GITHUB_OUTPUT"
           else
             echo "supermemory=false" >> "$GITHUB_OUTPUT"

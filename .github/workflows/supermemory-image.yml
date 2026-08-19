@@ -76,19 +76,13 @@ jobs:
             io.lumen.app-version=${{ steps.version.outputs.root_version }}
             io.lumen.supermemory-version=${{ steps.version.outputs.supermemory_version }}
 
-      - name: Build and push Docker image
-        # Single-arch (linux/arm64 — the Dokploy VPS target). GHCR has been
-        # sweeping platform manifests out of multi-arch indexes for this org
-        # (manifest unknown on pull minutes after a successful push), so a
-        # single-arch tag — which points directly at the platform manifest,
-        # bypassing the index indirection — is the reliable form until the
-        # registry state is fixed.
+      - name: Build and push Docker image (multi-arch)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/supermemory.Dockerfile
           push: true
-          platforms: linux/arm64
+          platforms: linux/amd64,linux/arm64
           build-args: |
             SUPERMEMORY_VERSION=${{ steps.version.outputs.supermemory_version }}
           cache-from: type=gha,scope=lumen-supermemory
