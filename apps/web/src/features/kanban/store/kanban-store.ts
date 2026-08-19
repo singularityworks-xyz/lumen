@@ -112,6 +112,7 @@ export const useKanbanStore = create<KanbanStore>()(
           areaDialogs: state.areaDialogs,
           selectionBox: state.selectionBox,
           lastTaskModalPositions: state.lastTaskModalPositions,
+          workspaceShareUrls: state.workspaceShareUrls,
         };
         return persisted;
       },
