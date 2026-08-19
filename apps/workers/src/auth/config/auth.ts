@@ -68,7 +68,11 @@ logger.info("Better Auth initialized successfully", {
   jwtEnabled: true,
 });
 
-if (env.NODE_ENV !== "production") {
+// The E2E bypass is gated on an explicit E2E_ENABLED=true flag in addition
+// to a non-production NODE_ENV. NODE_ENV alone is not a safe gate — a
+// misconfigured container (e.g. NODE_ENV=development in prod) would expose
+// session impersonation via the x-e2e-bypass header.
+if (env.NODE_ENV !== "production" && process.env.E2E_ENABLED === "true") {
   const originalGetSession = (
     auth.api as { getSession: (req: unknown) => Promise<unknown> }
   ).getSession;

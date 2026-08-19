@@ -22,6 +22,7 @@ const TEST_ENV: Record<string, string> = {
   AI_ENCRYPTION_KEY:
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   GENERALCOMPUTE_API_KEY: "test-generalcompute-api-key",
+  E2E_ENABLED: "true",
   LOG_LEVEL: "error",
 };
 
