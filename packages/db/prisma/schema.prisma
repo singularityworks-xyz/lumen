@@ -54,6 +54,10 @@ model Account {
   userId                String
   accountId             String
   providerId            String
+  // Better Auth 1.6+ stores the OAuth issuer (e.g. "local:oauth:github")
+  // and the password hash for credential accounts on the account row
+  password              String?
+  issuer                String?
   accessToken           String?
   refreshToken          String?
   accessTokenExpiresAt  DateTime?
@@ -66,6 +70,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, accountId])
+  @@index([issuer, accountId])
   @@index([userId])
   @@map("account")
 }

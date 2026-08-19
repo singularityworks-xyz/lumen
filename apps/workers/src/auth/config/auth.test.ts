@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Set up environment variables BEFORE any imports that use them
 process.env.NODE_ENV = "development";
+process.env.E2E_ENABLED = "true";
 process.env.BETTER_AUTH_URL = "http://localhost:3001";
 process.env.BETTER_AUTH_SECRET = "test-secret-key-min-length-32-abc123";
 process.env.BETTER_AUTH_TRUSTED_ORIGINS = "http://localhost:3000";
