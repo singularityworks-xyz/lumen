@@ -293,13 +293,13 @@ async function* streamSteps(
         modelSpan.setAttribute("ai.rate_limited", rateLimited);
         modelSpan.end();
 
-        logger.warn("Model failed", {
+        logger.warn("Model failed, attempting fallback", {
           workspaceId: ctx.workspaceId,
           messageId,
           model: modelName,
           isRateLimit: rateLimited,
           error: error instanceof Error ? error.message : "Unknown",
-          willTryNext: !isLastModel && rateLimited,
+          willTryNext: !isLastModel,
         });
 
         if (rateLimited) {
@@ -309,7 +309,7 @@ async function* streamSteps(
           recordAiError({ model: modelName, errorType: "api_error" });
         }
 
-        if (!rateLimited || isLastModel) {
+        if (isLastModel) {
           throw error;
         }
 
@@ -318,7 +318,7 @@ async function* streamSteps(
           recordModelFallback({
             fromModel: modelName,
             toModel: nextModel,
-            reason: "rate_limit",
+            reason: rateLimited ? "rate_limit" : "error",
           });
         }
       }
