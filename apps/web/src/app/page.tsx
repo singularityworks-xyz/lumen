@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { KanbanCanvas } from "@/src/components/core/canvas";
 import { CommandPalette } from "@/src/components/dialogs/command-palette";
 import { FloatingNavbar } from "@/src/components/floating-navbar";
+import { GuestViewCounter } from "@/src/components/guest-view-counter";
 import { MobileNavbar } from "@/src/components/mobile-navbar";
 import { RightDrawers } from "@/src/components/right-drawers";
 import { SharedViaLumenWatermark } from "@/src/components/shared-via-lumen-watermark";
@@ -270,6 +271,7 @@ function KanbanPageContent() {
           {!isGuestMode && <CommandPalette />}
           {!isGuestMode && <BulkActionsBar />}
           {isGuestMode && <SharedViaLumenWatermark />}
+          {isGuestMode && <GuestViewCounter />}
         </TooltipProvider>
       ) : null}
     </div>

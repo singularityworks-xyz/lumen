@@ -173,6 +173,7 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
         contextMenu: !isGuest,
         bulkActionsBar: !isGuest,
         sharedViaLumenWatermark: isGuest,
+        guestViewCounter: isGuest,
       });
 
       const guestUi = getUiVisibility(true);
@@ -183,10 +184,12 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(guestUi.contextMenu).toBe(false);
       expect(guestUi.bulkActionsBar).toBe(false);
       expect(guestUi.sharedViaLumenWatermark).toBe(true);
+      expect(guestUi.guestViewCounter).toBe(true);
 
       const collaboratorUi = getUiVisibility(false);
       expect(collaboratorUi.floatingNavbar).toBe(true);
       expect(collaboratorUi.sharedViaLumenWatermark).toBe(false);
+      expect(collaboratorUi.guestViewCounter).toBe(false);
     });
   });
 
