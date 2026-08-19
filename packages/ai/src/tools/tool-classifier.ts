@@ -12,6 +12,61 @@ export type { ClassificationResult, QueueStatus } from "./types";
 // Fast model for classification
 export const CLASSIFIER_MODEL = FAST_MODEL;
 
+// Output cap used for classification requests (maxOutputTokens)
+export const CLASSIFIER_MAX_OUTPUT_TOKENS = 150;
+
+// Conservative chars-per-token for estimating the classification input
+const CLASSIFIER_CHARS_PER_TOKEN = 3;
+
+export function buildClassifierSystemPrompt(previousMessage?: string): string {
+  // Build tool descriptions for the prompt
+  const toolDescriptions = Object.entries(toolMetadata)
+    .map(([name, meta]) => `- ${name}: ${meta.description} [${meta.category}]`)
+    .join("\n");
+
+  return `You are a tool selection classifier for a task management app called Larity.
+Your job is to analyze user messages and determine if they need tools to answer.
+
+Available tools:
+${toolDescriptions}
+
+Respond with ONLY a JSON object (no markdown, no explanation):
+{
+  "intent": "none" | "query" | "action" | "both",
+  "confidence": "high" | "medium" | "low",
+  "reason": "brief explanation",
+  "suggestedTools": ["tool1", "tool2"] // optional, only if intent is not "none"
+}
+
+Guidelines:
+- "none": General chat, greetings, questions about the AI itself, or requests that don't need workspace data
+- "query": Questions about workspace name, ID, members, boards, tasks, columns, activity, or any other workspace details
+- "action": Requests to create, update, delete, or modify anything, or CONFIRMING a previous action request (e.g. "yes", "do it")
+- "both": Complex requests that need both reading and writing
+
+Context:
+Previous Assistant Message: "${previousMessage || "none"}"
+
+Be generous with tool detection - if the user asks about the "workspace", "boards", or anything specific to the current context, use "query".
+If the previous message asked for confirmation and the user says "yes" or "confirm", classify as "action".`;
+}
+
+// Estimates the tokens a classification request will consume from the actual
+// prompt size (system prompt + user message + truncated context) plus the
+// output cap. Use this for capacity reservations so the estimate tracks the
+// input instead of being a fixed value.
+export function estimateClassifierInputTokens(
+  message: string,
+  previousMessage?: string
+): number {
+  const inputChars =
+    buildClassifierSystemPrompt(previousMessage).length + message.length;
+  return (
+    Math.ceil(inputChars / CLASSIFIER_CHARS_PER_TOKEN) +
+    CLASSIFIER_MAX_OUTPUT_TOKENS
+  );
+}
+
 // Keyword lists for fallback detection
 const ACTION_KEYWORDS = [
   "create",
@@ -369,45 +424,14 @@ class ClassifierQueue {
 
     const model = provider.chatModel(CLASSIFIER_MODEL);
 
-    // Build tool descriptions for the prompt
-    const toolDescriptions = Object.entries(toolMetadata)
-      .map(
-        ([name, meta]) => `- ${name}: ${meta.description} [${meta.category}]`
-      )
-      .join("\n");
-
-    const systemPrompt = `You are a tool selection classifier for a task management app called Larity.
-Your job is to analyze user messages and determine if they need tools to answer.
-
-Available tools:
-${toolDescriptions}
-
-Respond with ONLY a JSON object (no markdown, no explanation):
-{
-  "intent": "none" | "query" | "action" | "both",
-  "confidence": "high" | "medium" | "low",
-  "reason": "brief explanation",
-  "suggestedTools": ["tool1", "tool2"] // optional, only if intent is not "none"
-}
-
-Guidelines:
-- "none": General chat, greetings, questions about the AI itself, or requests that don't need workspace data
-- "query": Questions about workspace name, ID, members, boards, tasks, columns, activity, or any other workspace details
-- "action": Requests to create, update, delete, or modify anything, or CONFIRMING a previous action request (e.g. "yes", "do it")
-- "both": Complex requests that need both reading and writing
-
-Context:
-Previous Assistant Message: "${previousMessage || "none"}"
-
-Be generous with tool detection - if the user asks about the "workspace", "boards", or anything specific to the current context, use "query".
-If the previous message asked for confirmation and the user says "yes" or "confirm", classify as "action".`;
+    const systemPrompt = buildClassifierSystemPrompt(previousMessage);
 
     try {
       const result = await generateText({
         model,
         system: systemPrompt,
         prompt: message,
-        maxOutputTokens: 150,
+        maxOutputTokens: CLASSIFIER_MAX_OUTPUT_TOKENS,
         // Low temperature for consistent classification
         temperature: 0.1,
       });

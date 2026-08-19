@@ -3,6 +3,7 @@ import {
   buildSystemPrompt,
   CLASSIFIER_MODEL,
   classifyToolIntent,
+  estimateClassifierInputTokens,
   getToolsForMessage,
   type StreamEvent,
   type ToolExecutionResult,
@@ -45,12 +46,6 @@ import { isAiEnabled } from "./providers";
 
 const logger = createLogger({ name: "ai:routes" });
 const tracer = getTracer("lumen-ai");
-
-// Token reservation for the tool-classifier request: the classification
-// system prompt (tool descriptions) plus the user message, with the output
-// capped at 150 tokens. Also the fallback reconciliation when the provider
-// doesn't report usage.
-const CLASSIFIER_TOKEN_ESTIMATE = 1024;
 
 export const aiRoutes = new Elysia({ name: "ai-routes" })
   .get("/api/ai/health", () => ({
@@ -325,7 +320,14 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                     | ((actualTokens: number) => Promise<void>)
                     | undefined;
                   let classifierActualTokens = 0;
+                  // Estimate from the real prompt size (tool descriptions +
+                  // user message + context), so long messages reserve enough
                   try {
+                    const classifierTokenEstimate =
+                      estimateClassifierInputTokens(
+                        message,
+                        lastAssistantMessage
+                      );
                     const { result, releaseTokens } =
                       await aiRequestQueue.enqueue(
                         () =>
@@ -337,22 +339,19 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                         {
                           priority: "high",
                           workspaceId,
-                          // Covers the system prompt (tool descriptions)
-                          // plus the user message; output is capped at 150
-                          estimatedTokens: CLASSIFIER_TOKEN_ESTIMATE,
+                          estimatedTokens: classifierTokenEstimate,
                         }
                       );
                     releaseClassifierTokens = releaseTokens;
                     const { selection, classification, queueStatus } = result;
                     tools = selection.tools;
                     // When usage isn't reported, reconcile to the full
-                    // reservation estimate rather than the 150-token output
-                    // cap — the input (system prompt + user message) was
-                    // consumed too, and undercounting lets sustained traffic
-                    // exceed the rolling token budget
+                    // reservation estimate — the input (system prompt +
+                    // user message) was consumed too, and undercounting lets
+                    // sustained traffic exceed the rolling token budget
                     classifierActualTokens =
                       classification.usage?.totalTokens ??
-                      CLASSIFIER_TOKEN_ESTIMATE;
+                      classifierTokenEstimate;
                     classificationInfo = {
                       intent: classification.intent,
                       confidence: classification.confidence,

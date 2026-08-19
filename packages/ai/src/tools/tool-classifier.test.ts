@@ -118,9 +118,34 @@ import {
   type ClassificationResult,
   classifyToolIntent,
   classifyToolIntentSync,
+  estimateClassifierInputTokens,
   getClassifierQueueStats,
   type QueueStatus,
 } from "./tool-classifier";
+
+describe("estimateClassifierInputTokens", () => {
+  it("scales with the user message length", () => {
+    const short = estimateClassifierInputTokens("hi");
+    const long = estimateClassifierInputTokens(
+      "please move every high priority task from the backlog to in review".repeat(
+        20
+      )
+    );
+    expect(short).toBeGreaterThan(0);
+    expect(long).toBeGreaterThan(short);
+  });
+
+  it("accounts for the previous assistant message context", () => {
+    const withoutContext = estimateClassifierInputTokens("yes");
+    const withContext = estimateClassifierInputTokens("yes", "confirm delete?");
+    expect(withContext).toBeGreaterThan(withoutContext);
+  });
+
+  it("always covers the output cap", () => {
+    const estimate = estimateClassifierInputTokens("");
+    expect(estimate).toBeGreaterThanOrEqual(150);
+  });
+});
 
 describe("classifyToolIntentSync", () => {
   describe("empty and invalid inputs", () => {

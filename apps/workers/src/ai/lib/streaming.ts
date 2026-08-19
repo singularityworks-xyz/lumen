@@ -30,6 +30,10 @@ const MAX_STEPS = 5;
 
 // Conservative token estimate for capacity reservation:
 // ~3 chars per token for prompts, plus headroom for the completion.
+// Tool-enabled responses can run up to MAX_STEPS generation steps before the
+// reservation is reconciled with reported usage, so the completion allowance
+// is scaled by the step count — under-reserving would let concurrent
+// multi-step streams exceed the rolling provider budget.
 const CHARS_PER_TOKEN = 3;
 const COMPLETION_TOKEN_RESERVE = 2048;
 
@@ -41,7 +45,10 @@ function estimateTokens(
   for (const message of messages) {
     charCount += JSON.stringify(message)?.length ?? 0;
   }
-  return Math.ceil(charCount / CHARS_PER_TOKEN) + COMPLETION_TOKEN_RESERVE;
+  return (
+    Math.ceil(charCount / CHARS_PER_TOKEN) +
+    COMPLETION_TOKEN_RESERVE * MAX_STEPS
+  );
 }
 
 export async function* streamWithFallback(

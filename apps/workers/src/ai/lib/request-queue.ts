@@ -435,9 +435,13 @@ class RateLimitedQueue {
         };
       } catch (error) {
         // The caller never receives releaseTokens on failure, so release the
-        // reservation here (0 = no tokens actually consumed) to avoid
-        // charging the full estimate until the window expires
-        await acquired.result.releaseTokens(0).catch(() => undefined);
+        // reservation here. The full estimate is counted rather than zero:
+        // a failed call may have consumed provider tokens, and erasing that
+        // accounting lets repeated failures push the budget over the
+        // provider limit. Overcounting is refunded by the window expiring.
+        await acquired.result
+          .releaseTokens(estimatedTokens)
+          .catch(() => undefined);
         throw error;
       } finally {
         this.activeRequests -= 1;
@@ -446,6 +450,8 @@ class RateLimitedQueue {
 
     const startTime = Date.now();
     const resetMs = acquired?.resetMs ?? WINDOW_SIZE_MS;
+
+    const queuedEstimatedTokens = estimatedTokens;
 
     return new Promise((resolve, reject) => {
       const queuedRequest: QueuedRequest = {
@@ -467,8 +473,12 @@ class RateLimitedQueue {
             )
             .catch((error) => {
               // The caller never receives releaseTokens on failure, so
-              // release the reservation here (0 = no tokens consumed)
-              reservation.releaseTokens(0).catch(() => undefined);
+              // release the reservation here with the full estimate — a
+              // failed call may have consumed provider tokens and zeroing
+              // the accounting would undercount the rolling budget
+              reservation
+                .releaseTokens(queuedEstimatedTokens)
+                .catch(() => undefined);
               reject(
                 error instanceof Error ? error : new Error("Unknown error")
               );
