@@ -1,3 +1,9 @@
+// Load the gitignored root .env secrets (override per-app .env.development
+// defaults) BEFORE validating env. Skipped in production, no-op if absent.
+import { loadLocalEnvFiles } from "./env-loader";
+
+loadLocalEnvFiles();
+
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
@@ -55,7 +61,7 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     REDIS_URL: z.url(),
     JWKS_ENCRYPTION_KEY: z.string().min(32),
-    CEREBRAS_API_KEY: z.string().optional(),
+    GENERALCOMPUTE_API_KEY: z.string().optional(),
     AI_ENCRYPTION_KEY: AI_ENCRYPTION_KEY_SCHEMA,
     SUPERMEMORY_API_URL: z.url().optional(),
     SUPERMEMORY_API_KEY: z.string().optional(),
@@ -81,7 +87,7 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     REDIS_URL: process.env.REDIS_URL,
     JWKS_ENCRYPTION_KEY: process.env.JWKS_ENCRYPTION_KEY,
-    CEREBRAS_API_KEY: process.env.CEREBRAS_API_KEY,
+    GENERALCOMPUTE_API_KEY: process.env.GENERALCOMPUTE_API_KEY,
     AI_ENCRYPTION_KEY: process.env.AI_ENCRYPTION_KEY,
     SUPERMEMORY_API_URL: process.env.SUPERMEMORY_API_URL,
     SUPERMEMORY_API_KEY: process.env.SUPERMEMORY_API_KEY,

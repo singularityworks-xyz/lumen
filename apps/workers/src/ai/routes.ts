@@ -1,7 +1,9 @@
 import {
   type ActionInstructionData,
   buildSystemPrompt,
+  CLASSIFIER_MODEL,
   classifyToolIntent,
+  estimateClassifierInputTokens,
   getToolsForMessage,
   type StreamEvent,
   type ToolExecutionResult,
@@ -28,10 +30,18 @@ import {
 } from "./chats/conversation-service";
 import { buildMessagesFromHistory } from "./lib/message-builder";
 import { recordAiRequest, recordStreamDuration } from "./lib/metrics";
-import { getQueueStats, isRedisEnabled } from "./lib/request-queue";
+import {
+  aiRequestQueue,
+  getQueueStats,
+  isRedisEnabled,
+  RATE_LIMIT_PER_MINUTE,
+  TOKEN_LIMIT_PER_MINUTE,
+} from "./lib/request-queue";
 import { streamWithFallback } from "./lib/streaming";
 import type { HistoryMessage } from "./lib/types";
 import { generateMessageId, parseRateLimitError } from "./lib/utils";
+import { recallMemory, retainConversationTurn } from "./memory/memory-service";
+import { isMemoryEnabled } from "./memory/supermemory-client";
 import { isAiEnabled } from "./providers";
 
 const logger = createLogger({ name: "ai:routes" });
@@ -41,6 +51,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
   .get("/api/ai/health", () => ({
     enabled: isAiEnabled(),
     status: isAiEnabled() ? "ready" : "disabled",
+    memory: {
+      enabled: isMemoryEnabled(),
+      status: isMemoryEnabled() ? "ready" : "disabled",
+    },
   }))
 
   .post(
@@ -196,6 +210,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
               }));
           }
 
+          // Recall long-term memory (user + workspace containers) and inject it
+          // into the system prompt. Fails soft: an empty block means no memory.
+          const memoryContext = await recallMemory({
+            query: message,
+            userId: session.user.id,
+            workspaceId: ephemeral ? undefined : workspaceId,
+          });
+          if (!memoryContext.isEmpty) {
+            span.setAttribute(
+              "ai.memory_context_length",
+              memoryContext.text.length
+            );
+          }
+
           const systemPrompt = buildSystemPrompt({
             userName: session.user.name ?? undefined,
             workspaceId,
@@ -205,6 +233,10 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
             collaborators:
               collaboratorList.length > 0 ? collaboratorList : undefined,
           });
+
+          const systemPromptWithMemory = memoryContext.isEmpty
+            ? systemPrompt
+            : `${systemPrompt}\n\n${memoryContext.text}`;
 
           // Only persist conversation for non-ephemeral (shared) workspaces
           let conversation: { id: string } | null = null;
@@ -283,19 +315,47 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 | undefined;
 
               try {
-                if (env.CEREBRAS_API_KEY) {
+                if (env.GENERALCOMPUTE_API_KEY) {
+                  let releaseClassifierTokens:
+                    | ((actualTokens: number) => Promise<void>)
+                    | undefined;
+                  let classifierActualTokens = 0;
+                  // Estimate from the real prompt size (tool descriptions +
+                  // user message + context), so long messages reserve enough
                   try {
-                    const { selection, classification, queueStatus } =
-                      await classifyToolIntent(
+                    const classifierTokenEstimate =
+                      estimateClassifierInputTokens(
                         message,
-                        env.CEREBRAS_API_KEY,
                         lastAssistantMessage
                       );
+                    const { result, releaseTokens } =
+                      await aiRequestQueue.enqueue(
+                        () =>
+                          classifyToolIntent(
+                            message,
+                            env.GENERALCOMPUTE_API_KEY as string,
+                            lastAssistantMessage
+                          ),
+                        {
+                          priority: "high",
+                          workspaceId,
+                          estimatedTokens: classifierTokenEstimate,
+                        }
+                      );
+                    releaseClassifierTokens = releaseTokens;
+                    const { selection, classification, queueStatus } = result;
                     tools = selection.tools;
+                    // When usage isn't reported, reconcile to the full
+                    // reservation estimate — the input (system prompt +
+                    // user message) was consumed too, and undercounting lets
+                    // sustained traffic exceed the rolling token budget
+                    classifierActualTokens =
+                      classification.usage?.totalTokens ??
+                      classifierTokenEstimate;
                     classificationInfo = {
                       intent: classification.intent,
                       confidence: classification.confidence,
-                      model: "llama3.1-8b",
+                      model: CLASSIFIER_MODEL,
                     };
 
                     // Notify frontend if request was queued
@@ -311,6 +371,12 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                   } catch {
                     // Fallback to keyword-based selection
                     tools = getToolsForMessage(message);
+                  } finally {
+                    // Refund the classifier's token reservation with actual
+                    // usage (output is capped at 150 tokens, so that is the
+                    // fallback when usage isn't reported), or release it
+                    // entirely (0) when classification never completed
+                    await releaseClassifierTokens?.(classifierActualTokens);
                   }
                 } else {
                   tools = getToolsForMessage(message);
@@ -324,7 +390,7 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                 };
 
                 for await (const part of streamWithFallback({
-                  systemPrompt,
+                  systemPrompt: systemPromptWithMemory,
                   messages,
                   messageId,
                   tools,
@@ -534,6 +600,20 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
                         : "Unknown",
                   });
                 }
+
+                // Retain this turn into long-term memory (fire-and-forget,
+                // failures are logged and swallowed by the service)
+                retainConversationTurn({
+                  userId: session.user.id,
+                  workspaceId,
+                  conversationId: conversation.id,
+                  userMessage: message,
+                  assistantMessage: fullContent,
+                  toolCalls: toolCalls.map((tc) => ({
+                    name: tc.name,
+                    arguments: tc.arguments,
+                  })),
+                }).catch(() => undefined);
               }
 
               recordStreamDuration(streamDuration, {
@@ -954,7 +1034,9 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
       activeRequests: stats.activeRequests,
       isProcessing: stats.isProcessing,
       usingRedis: isRedisEnabled(),
-      rateLimit: 30,
+      rateLimit: RATE_LIMIT_PER_MINUTE,
+      tokensRemaining: stats.tokensRemaining,
+      tokenLimitPerMinute: TOKEN_LIMIT_PER_MINUTE,
       windowSizeSeconds: 60,
     };
   });

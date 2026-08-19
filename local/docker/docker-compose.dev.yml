@@ -32,20 +32,33 @@ services:
       retries: 20
 
   supermemory:
-    image: supermemory/supermemory:latest
+    build:
+      context: ../../
+      dockerfile: docker/supermemory.Dockerfile
     container_name: lumensupermemory
     restart: unless-stopped
     environment:
-      SUPERMEMORY_API_URL: http://localhost:6767
+      # LLM provider for memory extraction — GeneralCompute's OpenAI-compatible
+      # endpoint. Keys are interpolated from the gitignored root .env
+      # (passed via `docker compose --env-file`, see scripts/dev/infra.sh).
+      OPENAI_BASE_URL: https://api.generalcompute.com/v1
+      OPENAI_API_KEY: ${GENERALCOMPUTE_API_KEY:-}
+      OPENAI_MODEL: deepseek-v3.1
+      # Custom embedder: Google Gemini (gemini-embedding-2, 1024 dims —
+      # pgvector caps at 2000, so full 3072d is not supported)
+      SUPERMEMORY_EMBEDDING_PROVIDER: gemini
+      SUPERMEMORY_EMBEDDING_MODEL: gemini-embedding-2
+      SUPERMEMORY_EMBEDDING_DIMENSIONS: "1024"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
-      - "6767:6767"
+      - "127.0.0.1:6767:6767"
     volumes:
-      - supermemory-data:/app/.supermemory
+      - supermemory-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6767/health"]
-      interval: 10s
+      test: ["CMD", "curl", "-sS", "-o", "/dev/null", "http://127.0.0.1:6767/"]
+      interval: 30s
       timeout: 5s
-      retries: 10
+      retries: 5
       start_period: 30s
 
   openobserve:

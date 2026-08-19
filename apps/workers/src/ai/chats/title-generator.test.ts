@@ -33,7 +33,7 @@ mock.module("@lumen/logger/tracer", () => ({
 }));
 
 const mockGenerateText = mock(() => Promise.resolve({ text: "Test Title" }));
-const mockGetModel = mock(() => ({}));
+const mockGetFastModel = mock(() => ({}));
 const mockIsRateLimitError = mock(() => false);
 
 mock.module("ai", () => ({
@@ -41,7 +41,7 @@ mock.module("ai", () => ({
 }));
 
 mock.module("../providers", () => ({
-  getModel: mockGetModel,
+  getFastModel: mockGetFastModel,
   isRateLimitError: mockIsRateLimitError,
 }));
 
@@ -49,7 +49,11 @@ mock.module("../lib/request-queue", () => ({
   aiRequestQueue: {
     enqueue: mock(async (fn: () => Promise<unknown>) => {
       const result = await fn();
-      return { result, wasQueued: false };
+      return {
+        result,
+        wasQueued: false,
+        releaseTokens: mock(() => Promise.resolve()),
+      };
     }),
   },
 }));
@@ -62,11 +66,12 @@ const { shouldGenerateTitle, generateConversationTitle } = await import(
 
 beforeEach(() => {
   mockGenerateText.mockClear();
-  mockGetModel.mockClear();
+  mockGetFastModel.mockClear();
   mockIsRateLimitError.mockClear();
   mockGenerateText.mockImplementation(() =>
-    Promise.resolve({ text: "Test Title" })
+    Promise.resolve({ text: "Test Title", usage: { totalTokens: 100 } })
   );
+  mockGetFastModel.mockImplementation(() => ({}));
 });
 
 describe("shouldGenerateTitle", () => {
@@ -237,9 +242,9 @@ describe("generateConversationTitle", () => {
     expect(content).not.toContain("Message 7");
   });
 
-  it("calls getModel with llama3.1-8b", async () => {
+  it("calls getFastModel for title generation", async () => {
     mockGenerateText.mockImplementation(() =>
-      Promise.resolve({ text: "Test Title" })
+      Promise.resolve({ text: "Test Title", usage: { totalTokens: 100 } })
     );
 
     await generateConversationTitle({
@@ -249,7 +254,7 @@ describe("generateConversationTitle", () => {
       ],
     });
 
-    expect(mockGetModel).toHaveBeenCalledWith("llama3.1-8b");
+    expect(mockGetFastModel).toHaveBeenCalledTimes(1);
   });
 
   it("sets generation options correctly", async () => {

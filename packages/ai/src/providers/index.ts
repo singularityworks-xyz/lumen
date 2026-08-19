@@ -1,16 +1,17 @@
 // biome-ignore lint/performance/noBarrelFile: Providers barrel export
 export {
-  type CerebrasModel,
-  type CerebrasProviderOptions,
-  createCerebrasProvider,
+  createGeneralComputeProvider,
   createJsonModeFormat,
   createJsonSchemaFormat,
   DEFAULT_PRIMARY_MODEL,
   FALLBACK_MODELS,
-  getCerebrasModel,
+  FAST_MODEL,
+  type GeneralComputeModel,
+  type GeneralComputeProviderOptions,
+  getGeneralComputeModel,
   getModelFallbackChain,
-  isCerebrasConfigured,
+  isGeneralComputeConfigured,
   isRateLimitError,
   type JsonSchema,
   type StructuredOutputFormat,
-} from "./cerebras";
+} from "./generalcompute";

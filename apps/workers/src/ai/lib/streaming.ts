@@ -13,6 +13,7 @@ import {
   recordModelFallback,
   recordRateLimitHit,
 } from "./metrics";
+import { aiRequestQueue } from "./request-queue";
 import type {
   AiSdkMessage,
   StreamOptions,
@@ -27,8 +28,80 @@ const tracer = getTracer("lumen-ai");
 
 const MAX_STEPS = 5;
 
+// Conservative token estimate for capacity reservation:
+// ~3 chars per token for prompts, plus headroom for the completion.
+// Tool-enabled responses can run up to MAX_STEPS generation steps before the
+// reservation is reconciled with reported usage, so the completion allowance
+// is scaled by the step count — under-reserving would let concurrent
+// multi-step streams exceed the rolling provider budget.
+const CHARS_PER_TOKEN = 3;
+const COMPLETION_TOKEN_RESERVE = 2048;
+
+function estimateTokens(
+  systemPrompt: string,
+  messages: AiSdkMessage[]
+): number {
+  let charCount = systemPrompt.length;
+  for (const message of messages) {
+    charCount += JSON.stringify(message)?.length ?? 0;
+  }
+  return (
+    Math.ceil(charCount / CHARS_PER_TOKEN) +
+    COMPLETION_TOKEN_RESERVE * MAX_STEPS
+  );
+}
+
 export async function* streamWithFallback(
   opts: StreamOptions
+): AsyncGenerator<StreamResult, void, unknown> {
+  const { systemPrompt, ctx } = opts;
+  const messages: AiSdkMessage[] = [...opts.messages];
+
+  // Acquire a request slot and token budget before talking to the model, so
+  // concurrent users are queued within GeneralCompute's 100 req/min and
+  // 200k tokens/min limits. Released with real usage once the stream ends.
+  const { reservation } = await aiRequestQueue.reserveCapacity({
+    priority: "normal",
+    workspaceId: ctx.workspaceId,
+    estimatedTokens: estimateTokens(systemPrompt, messages),
+  });
+
+  let actualTokens = 0;
+  let producedOutput = false;
+
+  try {
+    // Manual iteration so we can tell whether the stream produced anything
+    // before being aborted (e.g. the client disconnected mid-stream, which
+    // never emits the usage part)
+    const steps = streamSteps(opts, (usage) => {
+      if (usage.totalTokens > 0) {
+        actualTokens += usage.totalTokens;
+      }
+    });
+    let next = await steps.next();
+    while (!next.done) {
+      producedOutput = true;
+      yield next.value;
+      next = await steps.next();
+    }
+  } finally {
+    // Prefer provider-reported usage; fall back to the initial estimate when
+    // output was produced but no usage event arrived (aborted stream), so
+    // real consumption is never released as zero. Zero is only used when the
+    // stream failed before producing anything (no tokens were consumed).
+    const tokensToRelease =
+      actualTokens > 0
+        ? actualTokens
+        : producedOutput
+          ? estimateTokens(systemPrompt, messages)
+          : 0;
+    await reservation?.releaseTokens(tokensToRelease);
+  }
+}
+
+async function* streamSteps(
+  opts: StreamOptions,
+  onUsage: (usage: { totalTokens: number }) => void
 ): AsyncGenerator<StreamResult, void, unknown> {
   const { systemPrompt, messageId, tools, ctx } = opts;
   const messages: AiSdkMessage[] = [...opts.messages];
@@ -181,12 +254,14 @@ export async function* streamWithFallback(
 
         try {
           const usage = await result.usage;
+          const totalTokens = usage.totalTokens ?? 0;
+          onUsage({ totalTokens });
           yield {
             type: "usage",
             usage: {
               promptTokens: usage.inputTokens ?? 0,
               completionTokens: usage.outputTokens ?? 0,
-              totalTokens: usage.totalTokens ?? 0,
+              totalTokens,
             },
             modelUsed: modelName,
           };

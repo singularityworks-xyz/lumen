@@ -11,6 +11,9 @@ let aiStreamDurationHistogram: Histogram | null = null;
 let aiModelFallbackCounter: Counter | null = null;
 let aiRateLimitCounter: Counter | null = null;
 let aiErrorCounter: Counter | null = null;
+let aiMemoryRecallCounter: Counter | null = null;
+let aiMemoryRecallDurationHistogram: Histogram | null = null;
+let aiMemoryRetainCounter: Counter | null = null;
 
 function ensureAiMetrics(): void {
   if (aiMeter) {
@@ -51,6 +54,21 @@ function ensureAiMetrics(): void {
   // AI errors
   aiErrorCounter = aiMeter.createCounter("ai_errors_total", {
     description: "Total number of AI errors",
+  });
+
+  // Long-term memory
+  aiMemoryRecallCounter = aiMeter.createCounter("ai_memory_recalls_total", {
+    description: "Total number of long-term memory recalls",
+  });
+  aiMemoryRecallDurationHistogram = aiMeter.createHistogram(
+    "ai_memory_recall_duration_seconds",
+    {
+      description: "Duration of long-term memory recall in seconds",
+      unit: "s",
+    }
+  );
+  aiMemoryRetainCounter = aiMeter.createCounter("ai_memory_retains_total", {
+    description: "Total number of conversation turns retained",
   });
 }
 
@@ -124,5 +142,45 @@ export function recordAiError(attributes: {
   aiErrorCounter?.add(1, {
     model: attributes.model,
     error_type: attributes.errorType,
+  });
+}
+
+export function recordMemoryRecall(attributes: {
+  status: "disabled" | "empty" | "error" | "success";
+  containers: number;
+  workspaceId?: string;
+}): void {
+  ensureAiMetrics();
+  aiMemoryRecallCounter?.add(1, {
+    status: attributes.status,
+    containers: String(attributes.containers),
+    workspace_id: attributes.workspaceId ?? "",
+  });
+}
+
+export function recordMemoryRecallDuration(
+  durationSeconds: number,
+  attributes: {
+    status: "disabled" | "empty" | "error" | "success";
+    containers: number;
+    workspaceId?: string;
+  }
+): void {
+  ensureAiMetrics();
+  aiMemoryRecallDurationHistogram?.record(durationSeconds, {
+    status: attributes.status,
+    containers: String(attributes.containers),
+    workspace_id: attributes.workspaceId ?? "",
+  });
+}
+
+export function recordMemoryRetain(attributes: {
+  status: "disabled" | "partial" | "error" | "success";
+  containers: number;
+}): void {
+  ensureAiMetrics();
+  aiMemoryRetainCounter?.add(1, {
+    status: attributes.status,
+    containers: String(attributes.containers),
   });
 }

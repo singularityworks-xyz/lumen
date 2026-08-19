@@ -72,12 +72,17 @@ mock.module("../lib/request-queue", () => ({
   aiRequestQueue: {
     enqueue: mock(async (fn: () => Promise<unknown>) => {
       const result = await fn();
-      return { result, wasQueued: false };
+      return {
+        result,
+        wasQueued: false,
+        releaseTokens: mock(() => Promise.resolve()),
+      };
     }),
   },
 }));
 
 mock.module("../providers", () => ({
+  getFastModel: mock(() => ({})),
   getModel: mock(() => ({})),
 }));
 

@@ -19,8 +19,9 @@ const mockLoggerDebug = mock(() => {
   // intentionally empty mock
 });
 
+// Redis eval result shape: [success, slotsRemaining, tokensRemaining, resetAt]
 const mockEval = mock(() =>
-  Promise.resolve([1, 29, Date.now() + 60_000] as const)
+  Promise.resolve([1, 99, 199_000, Date.now() + 60_000] as const)
 );
 const mockConnect = mock(() => Promise.resolve());
 const mockOn = mock(() => {
@@ -76,6 +77,11 @@ describe("RateLimitedQueue - redis backend", () => {
     expect(mockEval).toHaveBeenCalledTimes(1);
     expect(isRedisEnabled()).toBe(true);
     expect(getQueueStats().usingRedis).toBe(true);
+  });
+
+  it("reports token budget stats", () => {
+    const stats = getQueueStats();
+    expect(stats.tokensRemaining).toBe(199_000);
   });
 
   it("does not log the in-memory fallback warning when redis is available", async () => {

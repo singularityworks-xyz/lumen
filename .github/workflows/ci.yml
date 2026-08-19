@@ -10,9 +10,9 @@ name: CI
 
 on:
   push:
-    branches: [ "**" ]
+    branches: ["**"]
   pull_request:
-    branches: [ origin ]
+    branches: [origin]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,6 +30,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
       presence: ${{ steps.filter.outputs.presence }}
       native: ${{ steps.filter.outputs.native }}
+      supermemory: ${{ steps.filter.outputs.supermemory }}
       web: ${{ steps.filter.outputs.web }}
       workers: ${{ steps.filter.outputs.workers }}
     steps:
@@ -80,17 +81,30 @@ jobs:
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
+          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|package\.json$|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
+            echo "supermemory=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supermemory=false" >> "$GITHUB_OUTPUT"
+          fi
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref_name != 'origin') ||
+      (github.event_name == 'push' && github.ref_name == 'origin' &&
+       !startsWith(github.event.head_commit.message, 'Merge pull request') &&
+       !startsWith(github.event.head_commit.message, 'Merge branch'))
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: useblacksmith/checkout@v1
       - name: Install Linux dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y --no-install-recommends libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -103,6 +117,31 @@ jobs:
           otp-version: "28.2"
           elixir-version: "1.19.0"
           version-type: strict
+      - name: Cache Elixir/Mix dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.hex
+            ~/.cache/rebar3
+            apps/presence/_build
+            apps/presence/deps
+          key: ${{ runner.os }}-beam-lint-${{ hashFiles('apps/presence/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-beam-lint-
+            ${{ runner.os }}-beam-
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            apps/native/src-tauri/target/
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('apps/native/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-lint-
+            ${{ runner.os }}-cargo-
       - name: Install Presence dependencies
         working-directory: apps/presence
         run: |
@@ -114,11 +153,12 @@ jobs:
 
   type-check:
     name: Type Check
-    needs: [ lint ]
-    runs-on: ubuntu-latest
+    needs: [lint]
+    if: always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: useblacksmith/checkout@v1
       - name: Setup Bun
         uses: ./.github/actions/setup-bun-cache
         with:
@@ -130,10 +170,10 @@ jobs:
 
   build:
     name: Build
-    needs: [ changes, type-check ]
+    needs: [changes, type-check]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       (needs.changes.outputs.web == 'true' || needs.changes.outputs.workers == 'true' ||
-       needs.changes.outputs.presence == 'true' || needs.changes.outputs.native == 'true')
+      needs.changes.outputs.presence == 'true' || needs.changes.outputs.native == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -163,7 +203,7 @@ jobs:
 
   unit-web:
     name: Unit Web
-    needs: [ changes, type-check ]
+    needs: [changes, type-check]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
@@ -196,7 +236,7 @@ jobs:
 
   unit-server-and-packages:
     name: Unit Server & Packages
-    needs: [ changes, type-check ]
+    needs: [changes, type-check]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
@@ -229,7 +269,7 @@ jobs:
 
   presence-tests:
     name: Presence Tests
-    needs: [ changes, type-check ]
+    needs: [changes, type-check]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.presence == 'true'
     runs-on: ubuntu-latest
@@ -284,7 +324,7 @@ jobs:
 
   integration-web:
     name: Integration Web
-    needs: [ changes, unit-web ]
+    needs: [changes, unit-web]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
@@ -340,7 +380,7 @@ jobs:
 
   integration-workers:
     name: Integration Workers
-    needs: [ changes, unit-server-and-packages ]
+    needs: [changes, unit-server-and-packages]
     if: (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
@@ -400,7 +440,7 @@ jobs:
     if: |
       (github.event_name == 'pull_request' || github.ref_name == 'origin') &&
       always() &&
-      needs.lint.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       needs.type-check.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.unit-web.result == 'success' || needs.unit-web.result == 'skipped') &&
@@ -435,7 +475,8 @@ jobs:
 
   deploy-workers:
     name: Deploy Workers
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.workers == 'true'
+    if:
+      ${{ github.ref_name == 'origin' && needs.changes.outputs.workers == 'true'
       }}
     needs:
       - changes
@@ -448,7 +489,8 @@ jobs:
 
   deploy-presence:
     name: Deploy Presence
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true'
+    if:
+      ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true'
       }}
     needs:
       - changes
@@ -469,6 +511,20 @@ jobs:
       contents: read
       packages: write
     uses: singularityworks-xyz/lumen/.github/workflows/prisma-sync.yml@origin
+    secrets: inherit
+
+  deploy-supermemory:
+    name: Publish Supermemory Image
+    if:
+      ${{ github.ref_name == 'origin' &&
+      needs.changes.outputs.supermemory == 'true' }}
+    needs:
+      - changes
+      - ci-passed
+    permissions:
+      contents: read
+      packages: write
+    uses: singularityworks-xyz/lumen/.github/workflows/supermemory-image.yml@origin
     secrets: inherit
 
   release-native:

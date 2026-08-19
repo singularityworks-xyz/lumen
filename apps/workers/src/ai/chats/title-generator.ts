@@ -6,7 +6,7 @@ import {
 } from "@lumen/logger/tracer";
 import { generateText } from "ai";
 import { aiRequestQueue } from "../lib/request-queue";
-import { getModel, isRateLimitError } from "../providers";
+import { getFastModel, isRateLimitError } from "../providers";
 
 const logger = createLogger({ name: "ai:title-generator" });
 const tracer = getTracer("lumen-ai");
@@ -49,8 +49,8 @@ export interface TitleGenerationInput {
 async function generateTitleInternal(
   conversationText: string,
   messageCount: number
-): Promise<string | null> {
-  const model = getModel("llama3.1-8b");
+): Promise<{ title: string | null; totalTokens: number }> {
+  const model = getFastModel();
 
   const result = await generateText({
     model,
@@ -66,6 +66,7 @@ async function generateTitleInternal(
   });
 
   const title = result.text.trim();
+  const totalTokens = result.usage?.totalTokens ?? 0;
 
   // Validate the title
   if (!title || title.length < 2 || title.length > 100) {
@@ -73,10 +74,10 @@ async function generateTitleInternal(
       title,
       messageCount,
     });
-    return null;
+    return { title: null, totalTokens };
   }
 
-  return title;
+  return { title, totalTokens };
 }
 
 export async function generateConversationTitle(
@@ -111,10 +112,21 @@ export async function generateConversationTitle(
       }
 
       // Use the queue for rate limiting - title generation is low priority
-      const { result: title, wasQueued } = await aiRequestQueue.enqueue(
+      const {
+        result: { title, totalTokens },
+        wasQueued,
+        releaseTokens,
+      } = await aiRequestQueue.enqueue(
         () => generateTitleInternal(conversationText, input.messages.length),
-        { priority: "low", workspaceId: "title-generation" }
+        {
+          priority: "low",
+          workspaceId: "title-generation",
+          estimatedTokens: 1024,
+        }
       );
+
+      // Refund the over-reservation with the reported usage
+      await releaseTokens(totalTokens);
 
       if (wasQueued) {
         logger.info("Title generation was queued due to rate limiting");

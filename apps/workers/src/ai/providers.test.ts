@@ -12,7 +12,7 @@ process.env.JWKS_ENCRYPTION_KEY = "test-jwks-encryption-key-32chars!!";
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockEnv = {
-  CEREBRAS_API_KEY: "test-api-key",
+  GENERALCOMPUTE_API_KEY: "test-api-key",
 };
 
 // Mock the env module BEFORE importing providers
@@ -27,37 +27,43 @@ const { getModel, getModelChain, isAiEnabled, isRateLimitError } = await import(
 );
 
 describe("isAiEnabled", () => {
-  it("returns true when CEREBRAS_API_KEY is set", () => {
-    mockEnv.CEREBRAS_API_KEY = "test-key";
+  it("returns true when GENERALCOMPUTE_API_KEY is set", () => {
+    mockEnv.GENERALCOMPUTE_API_KEY = "test-key";
     expect(isAiEnabled()).toBe(true);
   });
 
-  it("returns false when CEREBRAS_API_KEY is empty", () => {
-    mockEnv.CEREBRAS_API_KEY = "";
+  it("returns false when GENERALCOMPUTE_API_KEY is empty", () => {
+    mockEnv.GENERALCOMPUTE_API_KEY = "";
     expect(isAiEnabled()).toBe(false);
   });
 });
 
 describe("getModel", () => {
   beforeEach(() => {
-    mockEnv.CEREBRAS_API_KEY = "test-api-key";
+    mockEnv.GENERALCOMPUTE_API_KEY = "test-api-key";
   });
 
   it("returns a language model with default model", () => {
     const model = getModel();
-    expect((model as any).provider).toBe("cerebras.chat");
-    expect((model as any).modelId).toBe(DEFAULT_PRIMARY_MODEL);
+    expect((model as { provider: string }).provider).toBe(
+      "generalcompute.chat"
+    );
+    expect((model as { modelId: string }).modelId).toBe(DEFAULT_PRIMARY_MODEL);
   });
 
   it("returns a language model with specified model", () => {
-    const model = getModel("llama-3.3-70b");
-    expect((model as any).provider).toBe("cerebras.chat");
-    expect((model as any).modelId).toBe("llama-3.3-70b");
+    const model = getModel("deepseek-v3.2");
+    expect((model as { provider: string }).provider).toBe(
+      "generalcompute.chat"
+    );
+    expect((model as { modelId: string }).modelId).toBe("deepseek-v3.2");
   });
 
-  it("throws when CEREBRAS_API_KEY is not configured", () => {
-    mockEnv.CEREBRAS_API_KEY = "";
-    expect(() => getModel()).toThrow("CEREBRAS_API_KEY is not configured");
+  it("throws when GENERALCOMPUTE_API_KEY is not configured", () => {
+    mockEnv.GENERALCOMPUTE_API_KEY = "";
+    expect(() => getModel()).toThrow(
+      "GENERALCOMPUTE_API_KEY is not configured"
+    );
   });
 });
 
