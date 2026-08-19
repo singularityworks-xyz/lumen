@@ -30,6 +30,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
       presence: ${{ steps.filter.outputs.presence }}
       native: ${{ steps.filter.outputs.native }}
+      supermemory: ${{ steps.filter.outputs.supermemory }}
       web: ${{ steps.filter.outputs.web }}
       workers: ${{ steps.filter.outputs.workers }}
     steps:
@@ -79,6 +80,11 @@ jobs:
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+          if grep -qE '^(docker/supermemory\.Dockerfile$|local/supermemory/|\.github/workflows/supermemory-image\.yml$)' changed-files.txt; then
+            echo "supermemory=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supermemory=false" >> "$GITHUB_OUTPUT"
           fi
 
   lint:
@@ -505,6 +511,20 @@ jobs:
       contents: read
       packages: write
     uses: singularityworks-xyz/lumen/.github/workflows/prisma-sync.yml@origin
+    secrets: inherit
+
+  deploy-supermemory:
+    name: Publish Supermemory Image
+    if:
+      ${{ github.ref_name == 'origin' &&
+      needs.changes.outputs.supermemory == 'true' }}
+    needs:
+      - changes
+      - ci-passed
+    permissions:
+      contents: read
+      packages: write
+    uses: singularityworks-xyz/lumen/.github/workflows/supermemory-image.yml@origin
     secrets: inherit
 
   release-native:
