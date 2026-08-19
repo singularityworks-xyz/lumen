@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: write
     outputs:
+      release_id: ${{ steps.release-id.outputs.release_id }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Checkout repository
@@ -109,6 +110,14 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Lumen Native v${{ steps.release.outputs.app_version }}" \
             --notes-file "${NOTES_FILE}"
+
+      - name: Resolve release ID for asset uploads
+        id: release-id
+        shell: bash
+        run: |
+          RELEASE_ID="$(gh release view "${{ steps.release.outputs.tag_name }}" \
+            --repo "${{ github.repository }}" --json id --jq '.id')"
+          echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
 
   # Build and release Tauri app for all platforms
   build-tauri:
@@ -251,5 +260,6 @@ jobs:
           prerelease: false
           uploadUpdaterJson: true
           # The release is created by the create-release job — matrix jobs
-          # only upload their platform assets to it
-          createRelease: false
+          # upload their platform assets to it via its ID, which also
+          # prevents the parallel create/release race
+          releaseId: ${{ needs.create-release.outputs.release_id }}
