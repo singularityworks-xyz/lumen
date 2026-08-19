@@ -112,6 +112,8 @@ describe("db integration", () => {
       const keyData = {
         publicKey: `pub-${Math.random()}`,
         privateKey: "super-secret-private-key-data",
+        alg: "EdDSA",
+        crv: "Ed25519",
       };
 
       // 1. Create - Should encrypt under the hood

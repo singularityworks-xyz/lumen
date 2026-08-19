@@ -106,6 +106,9 @@ function nodeDataEqual(a: CanvasNode, b: CanvasNode): boolean {
   if ((a.draggable ?? undefined) !== (b.draggable ?? undefined)) {
     return false;
   }
+  if ((a.dragHandle ?? undefined) !== (b.dragHandle ?? undefined)) {
+    return false;
+  }
   if (!styleEqual(a.style, b.style)) {
     return false;
   }
@@ -274,6 +277,7 @@ export function useCanvasNodes() {
           style: { zIndex: position.zIndex },
           width: position.width,
           height: position.height,
+          dragHandle: ".area-drag-handle",
         };
       })
       .filter((node): node is AreaNode => node != null);
@@ -678,8 +682,7 @@ export function useCanvasNodes() {
         style: {
           zIndex: computeZIndex(`area-properties-dialog-${dialog.id}`),
         },
-        width: 300,
-        height: 400,
+        dragHandle: ".area-dialog-drag-handle",
         draggable: true,
       })),
     [areaDialogs, computeZIndex]

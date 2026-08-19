@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Handle,
   type Node,
   type NodeProps,
+  Position,
   NodeResizer as Resizer,
   useReactFlow,
 } from "@xyflow/react";
@@ -41,10 +43,10 @@ import { BoardPresenceIndicator } from "./board-presence-indicator";
 import { KanbanBoard } from "./kanban-board";
 import styles from "./styles/board-node.module.css";
 
-type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
+export type BoardNodeProps = NodeProps<Node<BoardNode["data"]>>;
 
 export const BoardNodeComponent = memo<BoardNodeProps>(
-  ({ id, data, selected }) => {
+  ({ id, data, selected, isConnectable }) => {
     const setSelectedBoard = useKanbanStore((state) => state.setSelectedBoard);
     const bringBoardToFront = useKanbanStore(
       (state) => state.bringBoardToFront
@@ -600,9 +602,9 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
     return (
       <>
         <Resizer
-          handleClassName="!w-8 !h-8 !opacity-0"
+          handleClassName="w-8! h-8! opacity-0!"
           isVisible={selected || isSelected || isMultiSelected}
-          lineClassName="!border-0"
+          lineClassName="border-0!"
           lineStyle={{
             borderWidth: 0,
             opacity: 0,
@@ -676,7 +678,7 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
         {/** biome-ignore lint/a11y/useSemanticElements: skip */}
         <div
           aria-pressed={isSelected || selected || isMultiSelected}
-          className={`h-full w-full overflow-hidden rounded bg-card transition-all ${
+          className={`group/board relative h-full w-full rounded bg-card transition-all ${
             isMultiSelected
               ? "border-2 border-gray-500 shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)] ring-2 ring-gray-500/20 dark:shadow-[0_0_20px_rgba(128,128,128,0.4),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
               : isSelected || selected
@@ -706,6 +708,71 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
           }}
           tabIndex={0}
         >
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-top-target"
+            id="top-target"
+            isConnectable={isConnectable}
+            position={Position.Top}
+            type="target"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-right-target"
+            id="right-target"
+            isConnectable={isConnectable}
+            position={Position.Right}
+            type="target"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-bottom-target"
+            id="bottom-target"
+            isConnectable={isConnectable}
+            position={Position.Bottom}
+            type="target"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-left-target"
+            id="left-target"
+            isConnectable={isConnectable}
+            position={Position.Left}
+            type="target"
+          />
+
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-top"
+            id="top"
+            isConnectable={isConnectable}
+            position={Position.Top}
+            type="source"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-right"
+            id="right"
+            isConnectable={isConnectable}
+            position={Position.Right}
+            type="source"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-bottom"
+            id="bottom"
+            isConnectable={isConnectable}
+            position={Position.Bottom}
+            type="source"
+          />
+          <Handle
+            className="border-0! bg-transparent! opacity-0!"
+            data-testid="board-handle-left"
+            id="left"
+            isConnectable={isConnectable}
+            position={Position.Left}
+            type="source"
+          />
           {/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: it's a draggable handle */}
           {/** biome-ignore lint/a11y/noStaticElementInteractions: it's a draggable handle */}
           <div
@@ -959,45 +1026,3 @@ export const BoardNodeComponent = memo<BoardNodeProps>(
 );
 
 BoardNodeComponent.displayName = "BoardNode";
-
-// Dialog components are rendered as React Flow nodes; they still use portals internally
-// for certain elements like connector edges.
-
-import { AreaPropertiesDialogNodeComponent } from "@/src/components/dialogs/area-properties-dialog-node";
-import { BoardPropertiesDialogNodeComponent } from "@/src/components/dialogs/board/board-properties-dialog-node";
-import { BoardQuickActionsNodeComponent } from "@/src/components/dialogs/board/board-quick-actions-node";
-import { ConnectionDialogNodeComponent } from "@/src/components/dialogs/board/connection-dialog-node";
-import { DeleteBoardDialogNodeComponent } from "@/src/components/dialogs/board/delete-board-dialog-node";
-import { DuplicateBoardDialogNodeComponent } from "@/src/components/dialogs/board/duplicate-board-dialog-node";
-import { RenameBoardDialogNodeComponent } from "@/src/components/dialogs/board/rename-board-dialog-node";
-import { ColorIconPickerDialogNodeComponent } from "@/src/components/dialogs/color-icon-picker-dialog-node";
-import { ColumnQuickActionsNodeComponent } from "@/src/components/dialogs/column/column-quick-actions-node";
-import { DeleteColumnDialogNodeComponent } from "@/src/components/dialogs/column/delete-column-dialog-node";
-import { MoveColumnDialogNodeComponent } from "@/src/components/dialogs/column/move-column-dialog-node";
-import { RenameColumnDialogNodeComponent } from "@/src/components/dialogs/column/rename-column-dialog-node";
-import { ShareDialogNodeComponent } from "@/src/components/dialogs/share-dialog-node";
-import { TaskDetailModalNodeComponent } from "@/src/components/tasks/task-detail-modal-node";
-import { TaskModalNodeComponent } from "@/src/components/tasks/task-modal-node";
-import { TaskQuickActionsNodeComponent } from "@/src/components/tasks/task-quick-actions-node";
-import { AreaNodeComponent } from "./area-node";
-
-export const nodeTypes = {
-  area: AreaNodeComponent,
-  areaPropertiesDialog: AreaPropertiesDialogNodeComponent,
-  board: BoardNodeComponent,
-  taskModal: TaskModalNodeComponent,
-  taskDetailModal: TaskDetailModalNodeComponent,
-  boardQuickActions: BoardQuickActionsNodeComponent,
-  taskQuickActions: TaskQuickActionsNodeComponent,
-  columnQuickActions: ColumnQuickActionsNodeComponent,
-  boardRenameDialog: RenameBoardDialogNodeComponent,
-  boardDuplicateDialog: DuplicateBoardDialogNodeComponent,
-  boardDeleteDialog: DeleteBoardDialogNodeComponent,
-  connectionDialog: ConnectionDialogNodeComponent,
-  columnRenameDialog: RenameColumnDialogNodeComponent,
-  columnDeleteDialog: DeleteColumnDialogNodeComponent,
-  columnMoveDialog: MoveColumnDialogNodeComponent,
-  boardPropertiesDialog: BoardPropertiesDialogNodeComponent,
-  colorIconPickerDialog: ColorIconPickerDialogNodeComponent,
-  shareDialog: ShareDialogNodeComponent,
-};

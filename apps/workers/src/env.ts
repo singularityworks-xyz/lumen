@@ -97,3 +97,60 @@ export const env = createEnv({
     throw error;
   },
 });
+
+// Production startup gate: the container refuses to boot until every
+// environment variable production needs is set with a real value.
+// Vars required by the schema above (DATABASE_URL, REDIS_URL,
+// BETTER_AUTH_SECRET, GITHUB_CLIENT_ID/SECRET, JWKS_ENCRYPTION_KEY,
+// BETTER_AUTH_URL) already fail hard via createEnv; these are optional in
+// development but mandatory in production — a half-configured container
+// must not start silently (AI disabled, no observability, no memory).
+const PRODUCTION_REQUIRED_ENV: Array<{ key: string; purpose: string }> = [
+  {
+    key: "GENERALCOMPUTE_API_KEY",
+    purpose: "LLM provider for chat and memory extraction",
+  },
+  { key: "AI_ENCRYPTION_KEY", purpose: "conversation content encryption" },
+  {
+    key: "SUPERMEMORY_API_URL",
+    purpose: "self-hosted long-term memory server",
+  },
+  { key: "SUPERMEMORY_API_KEY", purpose: "long-term memory server auth" },
+  {
+    key: "OTEL_EXPORTER_OTLP_ENDPOINT",
+    purpose: "OpenTelemetry export (OpenObserve)",
+  },
+  { key: "OPENOBSERVE_USER", purpose: "OpenObserve auth" },
+  { key: "OPENOBSERVE_PASSWORD", purpose: "OpenObserve auth" },
+  {
+    key: "INTERNAL_API_KEY",
+    purpose: "shared secret with the presence service",
+  },
+];
+
+const PLACEHOLDER_VALUE = /^(your-|sm_\.\.\.|change-me|test-|dev-only-)/i;
+
+if (env.NODE_ENV === "production") {
+  const missing = PRODUCTION_REQUIRED_ENV.filter(
+    ({ key }) =>
+      !process.env[key]?.trim() ||
+      PLACEHOLDER_VALUE.test(process.env[key]?.trim() ?? "")
+  );
+
+  if (missing.length > 0) {
+    const detail = missing
+      .map(({ key, purpose }) => `  - ${key} (${purpose})`)
+      .join("\n");
+    console.error(
+      [
+        "",
+        "Production startup check failed:",
+        `${missing.length} required environment variable(s) are missing or still placeholders.`,
+        detail,
+        "Set them in the deployment environment (Dokploy) before starting the container.",
+        "",
+      ].join("\n")
+    );
+    process.exit(1);
+  }
+}

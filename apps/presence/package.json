@@ -1,6 +1,6 @@
 {
   "name": "@lumen/presence",
-  "version": "1.0.41",
+  "version": "1.0.43",
   "private": true,
   "scripts": {
     "dev": "mix phx.server",

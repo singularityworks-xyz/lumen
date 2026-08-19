@@ -26,6 +26,7 @@ const getInitials = (name: string): string =>
 
 interface ColumnCreateDialogProps {
   boardId: string;
+  initialValue?: string;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (columnName: string) => void;
@@ -34,22 +35,25 @@ interface ColumnCreateDialogProps {
 }
 
 const DIALOG_WIDTH = 320;
+const DIALOG_HEIGHT = 180;
 
 export const ColumnCreateDialog = memo(
   ({
     boardId,
+    initialValue,
     isOpen,
     onClose,
     onSubmit,
-    position,
+    position: initialPosition,
     sourceElement,
   }: ColumnCreateDialogProps) => {
     const { flowToScreenPosition } = useReactFlow();
     useViewport();
     const [isFocused, setIsFocused] = useState(false);
-    const [columnName, setColumnName] = useState("");
+    const [columnName, setColumnName] = useState(initialValue ?? "");
     const [nameError, setNameError] = useState<string | null>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
+    const dialogRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
 
     const board = useKanbanStore((state) => state.boards.byId[boardId]);
@@ -67,6 +71,38 @@ export const ColumnCreateDialog = memo(
     const dialogId = `column-create-dialog-${boardId}`;
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
+    const clampPosition = useCallback((pos: { x: number; y: number }) => {
+      const viewportWidth =
+        typeof window === "undefined" ? 1920 : window.innerWidth;
+      const viewportHeight =
+        typeof window === "undefined" ? 1080 : window.innerHeight;
+      const left = Math.max(
+        20,
+        Math.min(pos.x, viewportWidth - DIALOG_WIDTH - 20)
+      );
+      const top = Math.max(
+        20,
+        Math.min(pos.y, viewportHeight - DIALOG_HEIGHT - 20)
+      );
+      return { x: left, y: top };
+    }, []);
+
+    const getDefaultPosition = useCallback(() => {
+      const viewportWidth =
+        typeof window === "undefined" ? 1920 : window.innerWidth;
+      const viewportHeight =
+        typeof window === "undefined" ? 1080 : window.innerHeight;
+      return clampPosition({
+        x: (viewportWidth - DIALOG_WIDTH) / 2,
+        y: (viewportHeight - DIALOG_HEIGHT) / 2,
+      });
+    }, [clampPosition]);
+
+    const [currentPos, setCurrentPos] = useState<{ x: number; y: number }>(
+      () =>
+        initialPosition ? clampPosition(initialPosition) : getDefaultPosition()
+    );
+
     useEffect(() => {
       setMounted(true);
       setPortalTarget(document.getElementById("board-connector-layer"));
@@ -74,26 +110,41 @@ export const ColumnCreateDialog = memo(
 
     useEffect(() => {
       if (isOpen) {
+        if (initialPosition) {
+          setCurrentPos(clampPosition(initialPosition));
+        } else {
+          setCurrentPos(getDefaultPosition());
+        }
         registerDialog(dialogId);
         // Focus input when opened
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           nameInputRef.current?.focus();
         }, 100);
+        return () => {
+          clearTimeout(timer);
+          unregisterDialog(dialogId);
+        };
       }
       return () => {
-        if (isOpen) {
-          unregisterDialog(dialogId);
-        }
+        unregisterDialog(dialogId);
       };
-    }, [isOpen, dialogId, registerDialog, unregisterDialog]);
+    }, [
+      isOpen,
+      dialogId,
+      registerDialog,
+      unregisterDialog,
+      initialPosition,
+      clampPosition,
+      getDefaultPosition,
+    ]);
 
     // Reset form when opened
     useEffect(() => {
       if (isOpen) {
-        setColumnName("");
+        setColumnName(initialValue ?? "");
         setNameError(null);
       }
-    }, [isOpen]);
+    }, [isOpen, initialValue]);
 
     const isTopmost = dialogFocusStack.at(-1) === dialogId;
 
@@ -108,10 +159,59 @@ export const ColumnCreateDialog = memo(
       return 1000 + (index + 1) * 10;
     }, [dialogFocusStack, dialogId]);
 
+    const dragRef = useRef<{
+      startX: number;
+      startY: number;
+      initialX: number;
+      initialY: number;
+    } | null>(null);
+
+    const handleDragStart = useCallback(
+      (e: React.PointerEvent) => {
+        if ((e.target as HTMLElement).closest("button")) {
+          return;
+        }
+        dragRef.current = {
+          startX: e.clientX,
+          startY: e.clientY,
+          initialX: currentPos.x,
+          initialY: currentPos.y,
+        };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      },
+      [currentPos]
+    );
+
+    const handleDragMove = useCallback(
+      (e: React.PointerEvent) => {
+        if (!dragRef.current) {
+          return;
+        }
+        const deltaX = e.clientX - dragRef.current.startX;
+        const deltaY = e.clientY - dragRef.current.startY;
+        setCurrentPos(
+          clampPosition({
+            x: dragRef.current.initialX + deltaX,
+            y: dragRef.current.initialY + deltaY,
+          })
+        );
+      },
+      [clampPosition]
+    );
+
+    const handleDragEnd = useCallback((e: React.PointerEvent) => {
+      if (dragRef.current) {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        dragRef.current = null;
+      }
+    }, []);
+
     const connectorState = useMemo(() => {
-      if (!position) {
+      if (!isOpen) {
         return null;
       }
+
+      const endPoint = { x: currentPos.x, y: currentPos.y + 24 };
 
       if (sourceElement) {
         const rect = sourceElement.getBoundingClientRect();
@@ -120,7 +220,7 @@ export const ColumnCreateDialog = memo(
             x: rect.right,
             y: rect.top + rect.height / 2,
           },
-          end: { x: position.x, y: position.y + 24 },
+          end: endPoint,
         };
       }
 
@@ -130,15 +230,20 @@ export const ColumnCreateDialog = memo(
           x: boardPosition.x,
           y: boardPosition.y + 100,
         });
-        // position is already in screen coordinates (from AddColumnPlaceholder)
         return {
           start: boardScreenPos,
-          end: { x: position.x, y: position.y + 20 },
+          end: endPoint,
         };
       }
 
       return null;
-    }, [position, sourceElement, boardPosition, flowToScreenPosition]);
+    }, [
+      isOpen,
+      currentPos,
+      sourceElement,
+      boardPosition,
+      flowToScreenPosition,
+    ]);
 
     const handleSubmit = useCallback(
       (e: React.FormEvent) => {
@@ -171,219 +276,228 @@ export const ColumnCreateDialog = memo(
       }
     }, []);
 
-    const handleKeyDown = useCallback(
-      (e: React.KeyboardEvent) => {
+    useEffect(() => {
+      if (!isOpen) {
+        return;
+      }
+
+      const handleClickOutside = (e: MouseEvent | PointerEvent) => {
+        const target = e.target as Node | null;
+        if (
+          target &&
+          dialogRef.current &&
+          !dialogRef.current.contains(target) &&
+          !sourceElement?.contains(target)
+        ) {
+          handleCancel();
+        }
+      };
+
+      const handleEscape = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
           handleCancel();
         }
-      },
-      [handleCancel]
-    );
+      };
 
-    if (!(isOpen && board)) {
+      document.addEventListener("pointerdown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+
+      return () => {
+        document.removeEventListener("pointerdown", handleClickOutside);
+        document.removeEventListener("keydown", handleEscape);
+      };
+    }, [isOpen, handleCancel, sourceElement]);
+
+    if (!(mounted && isOpen && board)) {
       return null;
     }
 
     const hasAccentColor = !!board?.accentColor;
     const hasNameError = !!nameError;
 
-    const dialogStyle = (() => {
-      const x = position?.x ?? 0;
-      const y = position?.y ?? 0;
-      const viewportWidth =
-        typeof window === "undefined" ? 1920 : window.innerWidth;
-      const viewportHeight =
-        typeof window === "undefined" ? 1080 : window.innerHeight;
-      const DIALOG_HEIGHT = 180;
-
-      let left = x;
-      let top = y;
-
-      if (x + DIALOG_WIDTH > viewportWidth - 20) {
-        left = Math.max(20, viewportWidth - DIALOG_WIDTH - 20);
-      }
-
-      if (y + DIALOG_HEIGHT > viewportHeight - 20) {
-        top = Math.max(20, viewportHeight - DIALOG_HEIGHT - 20);
-      }
-
-      return { left, top };
-    })();
-
-    return (
-      <div
-        className="absolute rounded-lg"
-        style={{
-          width: DIALOG_WIDTH,
-          zIndex: getDialogZIndex(dialogId),
-          ...dialogStyle,
-        }}
-      >
-        {dialogCollaborator && (
-          <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
-        )}
-        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
-        <div
-          aria-labelledby="column-create-dialog-title"
-          className={cn(
-            "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
-            isFocused || isTopmost
-              ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
-              : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
-            "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+    const dialogContent = (
+      <>
+        {connectorState &&
+          portalTarget &&
+          createPortal(
+            <ConnectorEdge
+              color="primary"
+              customColor={board?.accentColor}
+              endX={connectorState.end.x}
+              endY={connectorState.end.y}
+              hideStartNode
+              startX={connectorState.start.x}
+              startY={connectorState.start.y}
+              zIndex={connectorZIndex}
+            />,
+            portalTarget
           )}
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setIsFocused(false);
-            }
+
+        <div
+          className="fixed z-9999 rounded-lg"
+          ref={dialogRef}
+          style={{
+            left: currentPos.x,
+            top: currentPos.y,
+            width: DIALOG_WIDTH,
+            zIndex: Math.max(9999, getDialogZIndex(dialogId)),
           }}
-          onFocus={() => setIsFocused(true)}
-          onKeyDown={handleKeyDown}
-          onPointerDown={() => {
-            bringDialogToFront(dialogId);
-            handleDialogPointerDown();
-          }}
-          role="dialog"
         >
-          <h2 className="sr-only" id="column-create-dialog-title">
-            Create Column
-          </h2>
-          {connectorState &&
-            portalTarget &&
-            mounted &&
-            createPortal(
-              <ConnectorEdge
-                color="primary"
-                customColor={board?.accentColor}
-                endX={connectorState.end.x}
-                endY={connectorState.end.y}
-                hideStartNode
-                startX={connectorState.start.x}
-                startY={connectorState.start.y}
-                zIndex={connectorZIndex}
-              />,
-              portalTarget
-            )}
-
+          {dialogCollaborator && (
+            <DialogPresenceIndicator activeCollaborator={dialogCollaborator} />
+          )}
+          {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: skip */}
           <div
-            className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
-            style={
-              hasAccentColor
-                ? {
-                    background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
-                  }
-                : {}
-            }
+            aria-labelledby="column-create-dialog-title"
+            className={cn(
+              "flex flex-col overflow-hidden rounded-lg border-2 border-border/50 bg-card transition-all duration-200",
+              isFocused || isTopmost
+                ? "scale-[1.02] shadow-xl ring-2 ring-primary/50"
+                : "shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_0_2px_8px_rgba(0,0,0,0.2),inset_0_-1px_4px_rgba(255,255,255,0.05)]",
+              "dark:shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_2px_8px_rgba(255,255,255,0.15),inset_0_-2px_6px_rgba(0,0,0,0.5)]"
+            )}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setIsFocused(false);
+              }
+            }}
+            onFocus={() => setIsFocused(true)}
+            onPointerDown={() => {
+              bringDialogToFront(dialogId);
+              handleDialogPointerDown();
+            }}
+            role="dialog"
           >
-            <div className="flex items-center gap-2">
-              <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-              <span
-                className={cn(
-                  "flex h-5 w-5 items-center justify-center rounded",
-                  !hasAccentColor &&
-                    "bg-violet-500/20 text-violet-600 dark:text-violet-400"
-                )}
-                style={
-                  hasAccentColor
-                    ? {
-                        backgroundColor: `${board.accentColor}25`,
-                        color: board.accentColor,
-                      }
-                    : {}
-                }
-              >
-                {(() => {
-                  const IconComponent = board?.icon
-                    ? ICON_MAP[board.icon]
-                    : null;
-                  if (IconComponent) {
-                    return <IconComponent className="h-3 w-3" />;
-                  }
-                  return <Columns className="h-3 w-3" />;
-                })()}
-              </span>
-              <span className="font-semibold text-xs">Create Column</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10px] text-primary">
-                <span className="flex h-4 w-4 items-center justify-center rounded bg-primary/20 font-bold text-[9px]">
-                  {getInitials(board?.name ?? "")}
-                </span>
-                <span className="max-w-20 truncate">{board?.name}</span>
-              </span>
-              <button
-                aria-label="Close create column dialog"
-                className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
-                data-testid="column-create-close"
-                onClick={handleCancel}
-                type="button"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
+            <h2 className="sr-only" id="column-create-dialog-title">
+              Create Column
+            </h2>
 
-          <form onSubmit={handleSubmit}>
-            <div className="nodrag space-y-3 p-3">
-              <div className="space-y-2">
-                <Label
-                  className="font-medium text-foreground text-xs"
-                  htmlFor={`${dialogId}-name-input`}
-                >
-                  Column Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  autoFocus
-                  className={cn(
-                    "h-8 rounded-md border border-border/30 bg-muted/80 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
-                    hasNameError &&
-                      "border-destructive/50 focus:border-destructive/50"
-                  )}
-                  data-testid="column-name-input"
-                  id={`${dialogId}-name-input`}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Escape") {
-                      e.stopPropagation();
+            <div
+              className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted/95 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:bg-secondary/95 dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]"
+              onPointerCancel={handleDragEnd}
+              onPointerDown={handleDragStart}
+              onPointerMove={handleDragMove}
+              onPointerUp={handleDragEnd}
+              style={
+                hasAccentColor
+                  ? {
+                      background: `linear-gradient(to right, ${board.accentColor}15, ${board.accentColor}08, transparent)`,
                     }
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  placeholder="Enter column name..."
-                  ref={nameInputRef}
-                  value={columnName}
-                />
-                {hasNameError && (
-                  <p className="text-destructive text-xs">{nameError}</p>
-                )}
+                  : {}
+              }
+            >
+              <div className="flex items-center gap-2">
+                <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                <span
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded",
+                    !hasAccentColor &&
+                      "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+                  )}
+                  style={
+                    hasAccentColor
+                      ? {
+                          backgroundColor: `${board.accentColor}25`,
+                          color: board.accentColor,
+                        }
+                      : {}
+                  }
+                >
+                  {(() => {
+                    const IconComponent = board?.icon
+                      ? ICON_MAP[board.icon]
+                      : null;
+                    if (IconComponent) {
+                      return <IconComponent className="h-3 w-3" />;
+                    }
+                    return <Columns className="h-3 w-3" />;
+                  })()}
+                </span>
+                <span className="font-semibold text-xs">Create Column</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10px] text-primary">
+                  <span className="flex h-4 w-4 items-center justify-center rounded bg-primary/20 font-bold text-[9px]">
+                    {getInitials(board?.name ?? "")}
+                  </span>
+                  <span className="max-w-20 truncate">{board?.name}</span>
+                </span>
+                <button
+                  aria-label="Close create column dialog"
+                  className="nodrag ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-destructive/20 hover:text-destructive dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)]"
+                  data-testid="column-create-close"
+                  onClick={handleCancel}
+                  type="button"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
             </div>
 
-            <div className="nodrag flex gap-2 border-t bg-muted/30 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
-              <Button
-                className="h-7 flex-1 rounded-md bg-card/80 px-3 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
-                data-testid="column-create-cancel"
-                onClick={handleCancel}
-                type="button"
-                variant="ghost"
-              >
-                Cancel
-              </Button>
-              <Button
-                className="h-7 flex-1 rounded-md bg-primary/90 px-3 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
-                data-testid="column-create-submit"
-                disabled={!columnName.trim()}
-                type="submit"
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                Create
-              </Button>
-            </div>
-          </form>
+            <form onSubmit={handleSubmit}>
+              <div className="nodrag space-y-3 p-3">
+                <div className="space-y-2">
+                  <Label
+                    className="font-medium text-foreground text-xs"
+                    htmlFor={`${dialogId}-name-input`}
+                  >
+                    Column Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    autoFocus
+                    className={cn(
+                      "h-8 rounded-md border border-border/30 bg-muted/80 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-all focus:border-primary/50 focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_0_0_3px_rgba(var(--primary),0.1)] dark:bg-secondary/80 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.05)] dark:focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.3),0_0_0_3px_rgba(var(--primary),0.2)]",
+                      hasNameError &&
+                        "border-destructive/50 focus:border-destructive/50"
+                    )}
+                    data-testid="column-name-input"
+                    id={`${dialogId}-name-input`}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Escape") {
+                        e.stopPropagation();
+                      }
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    placeholder="Enter column name..."
+                    ref={nameInputRef}
+                    value={columnName}
+                  />
+                  {hasNameError && (
+                    <p className="text-destructive text-xs">{nameError}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="nodrag flex gap-2 border-t bg-muted/30 px-3 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_6px_rgba(255,255,255,0.08),inset_0_-1px_3px_rgba(0,0,0,0.4)]">
+                <Button
+                  className="h-7 flex-1 rounded-md bg-card/80 px-3 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-card dark:bg-card/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.3)] dark:hover:bg-card/70"
+                  data-testid="column-create-cancel"
+                  onClick={handleCancel}
+                  type="button"
+                  variant="ghost"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="h-7 flex-1 rounded-md bg-primary/90 px-3 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-1px_1px_rgba(0,0,0,0.4)]"
+                  data-testid="column-create-submit"
+                  disabled={!columnName.trim()}
+                  type="submit"
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  Create
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      </>
     );
+
+    return createPortal(dialogContent, document.body);
   }
 );
 
