@@ -19,6 +19,7 @@ import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
+import { serverGuestRateLimiter } from "../common/guest-rate-limit";
 import { recordWsRoomJoinDuration } from "./metrics";
 
 const logger = createLogger({ name: "collab:room-manager" });
@@ -377,6 +378,22 @@ export class RoomManager {
         syncMsgType,
         isWrite,
       });
+
+      // Server-side spam protection for guest viewers
+      if (isWrite && connection.user.role === "VIEWER") {
+        const rateCheck = serverGuestRateLimiter.checkChatRateLimit(
+          connection.user.id
+        );
+        if (!rateCheck.allowed) {
+          logger.warn("Viewer chat/sync rate limit exceeded", {
+            connectionId: connection.id,
+            userId: connection.user.id,
+            reason: rateCheck.reason,
+          });
+          return false;
+        }
+        serverGuestRateLimiter.recordChatMessage(connection.user.id);
+      }
 
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);

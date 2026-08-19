@@ -223,8 +223,8 @@ export function useYjsSync(
     let bootstrapTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Server is source of truth - only push local state if server is empty
-    // IMPORTANT: Only push data for the CURRENT workspace, not all workspaces
-    if (boardsMap.size === 0 && currentWorkspaceId) {
+    // IMPORTANT: Only push data for the CURRENT workspace, not all workspaces. Guests never bootstrap.
+    if (!state.isGuestMode && boardsMap.size === 0 && currentWorkspaceId) {
       bootstrapTimeout = setTimeout(() => {
         const latestBoardsMap = doc.getMap("boards");
         if (latestBoardsMap.size > 0) {

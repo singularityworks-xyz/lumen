@@ -19,6 +19,7 @@ import {
 import { Elysia, sse, t } from "elysia";
 import { auth } from "../auth/config/auth";
 import { getCollaborator, getShareInfo } from "../collab/helpers";
+import { serverGuestRateLimiter } from "../common/guest-rate-limit";
 import { env } from "../env";
 import { toHeaders } from "../utils/headers";
 import {
@@ -123,6 +124,24 @@ export const aiRoutes = new Elysia({ name: "ai-routes" })
           isGuest = true;
           span.setAttribute("ai.guest_token", guestToken);
           span.setAttribute("ai.is_guest", true);
+
+          const guestIdentifier = guestToken || effectiveUserId;
+          const rateLimitCheck =
+            serverGuestRateLimiter.checkLarityRateLimit(guestIdentifier);
+          if (!rateLimitCheck.allowed) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: rateLimitCheck.message || "Guest rate limit reached",
+            });
+            span.end();
+            set.status = 429;
+            return {
+              error: rateLimitCheck.message,
+              isRateLimit: true,
+              retryAfterSeconds: rateLimitCheck.retryAfterSeconds,
+            };
+          }
+          serverGuestRateLimiter.recordLarityMessage(guestIdentifier);
         } else {
           span.setStatus({
             code: SpanStatusCode.ERROR,
