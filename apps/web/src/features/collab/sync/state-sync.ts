@@ -445,40 +445,7 @@ export function applyYjsToState(
     }
   );
 
-  // Helper: Check if a connection belongs to synced workspace
-  const connectionBelongsToSyncedWorkspace = (conn: {
-    source_board_id: string;
-    target_board_id: string;
-  }): boolean => {
-    const sourceBoard = boards.byId[conn.source_board_id];
-    const targetBoard = boards.byId[conn.target_board_id];
-    return (
-      sourceBoard?.workspace_id === currentWorkspaceId &&
-      targetBoard?.workspace_id === currentWorkspaceId
-    );
-  };
-
-  const boardConnections = mergeEntityMaps(
-    currentState?.boardConnections,
-    syncedBoardConnections,
-    {
-      filterFn: (conn): boolean =>
-        !currentWorkspaceId ||
-        Boolean(
-          conn.source_board_id &&
-            workspaceBoardIds.has(conn.source_board_id) &&
-            conn.target_board_id &&
-            workspaceBoardIds.has(conn.target_board_id)
-        ),
-      belongsToWorkspaceFn: connectionBelongsToSyncedWorkspace,
-      rawYjsMap: doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
-      previouslySyncedIds: previouslySyncedIds.boardConnections,
-      newSyncedIds: newSyncedIds.boardConnections,
-    }
-  );
-
-  // STRICT: Area belongs to synced workspace
-  // Text boards follow the same pattern as boards: strict workspace filtering
+  // STRICT: Text board belongs to synced workspace
   const textBoardBelongsToSyncedWorkspace = (textBoard: {
     workspace_id?: string;
   }): boolean => textBoard.workspace_id === currentWorkspaceId;
@@ -518,6 +485,47 @@ export function applyYjsToState(
       rawYjsMap: doc.getMap(YJS_MAP_NAMES.TEXT_BOARD_POSITIONS),
       previouslySyncedIds: previouslySyncedIds.textBoardPositions,
       newSyncedIds: newSyncedIds.textBoardPositions,
+    }
+  );
+
+  const allWorkspaceBoardIds = new Set([
+    ...workspaceBoardIds,
+    ...textBoardIdsSet,
+  ]);
+
+  // Helper: Check if a connection belongs to synced workspace
+  const connectionBelongsToSyncedWorkspace = (conn: {
+    source_board_id: string;
+    target_board_id: string;
+  }): boolean => {
+    const sourceBoard =
+      boards.byId[conn.source_board_id] ??
+      textBoards.byId[conn.source_board_id];
+    const targetBoard =
+      boards.byId[conn.target_board_id] ??
+      textBoards.byId[conn.target_board_id];
+    return (
+      sourceBoard?.workspace_id === currentWorkspaceId &&
+      targetBoard?.workspace_id === currentWorkspaceId
+    );
+  };
+
+  const boardConnections = mergeEntityMaps(
+    currentState?.boardConnections,
+    syncedBoardConnections,
+    {
+      filterFn: (conn): boolean =>
+        !currentWorkspaceId ||
+        Boolean(
+          conn.source_board_id &&
+            allWorkspaceBoardIds.has(conn.source_board_id) &&
+            conn.target_board_id &&
+            allWorkspaceBoardIds.has(conn.target_board_id)
+        ),
+      belongsToWorkspaceFn: connectionBelongsToSyncedWorkspace,
+      rawYjsMap: doc.getMap(YJS_MAP_NAMES.BOARD_CONNECTIONS),
+      previouslySyncedIds: previouslySyncedIds.boardConnections,
+      newSyncedIds: newSyncedIds.boardConnections,
     }
   );
 

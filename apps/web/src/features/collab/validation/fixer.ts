@@ -139,7 +139,10 @@ export function fixOrphanedBoardPositions(state: KanbanState): KanbanState {
 
 // Remove board connections referencing non-existent boards
 export function fixOrphanedConnections(state: KanbanState): KanbanState {
-  const validBoardIds = new Set(state.boards.allIds);
+  const validBoardIds = new Set([
+    ...(state.boards?.allIds || []),
+    ...(state.textBoards?.allIds || []),
+  ]);
   const fixedConnections: Record<string, BoardConnection> = {};
   let removedCount = 0;
 

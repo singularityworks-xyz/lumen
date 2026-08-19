@@ -9,6 +9,10 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { TEXT_BOARD_DEFAULT_WIDTH } from "@/src/features/kanban/store/slices/text-board-slice";
 import { Z_INDEX_BASE } from "@/src/features/kanban/store/slices/z-index-slice";
+import type {
+  BoardPosition,
+  TextBoardPosition,
+} from "@/src/features/kanban/types";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import type {
   AreaNode,
@@ -344,7 +348,9 @@ export function useCanvasNodes() {
     [showWelcomeScreen]
   );
 
-  const boardIds = currentWorkspace?.board_ids ?? boards.allIds;
+  const boardIds = isGuestMode
+    ? boards.allIds
+    : (currentWorkspace?.board_ids ?? boards.allIds);
 
   const boardNodes = useStableNodeFactory<KanbanNode>(
     () =>
@@ -353,16 +359,20 @@ export function useCanvasNodes() {
           const board = boards.byId[boardId];
           return (
             board &&
-            (!currentWorkspaceId || board.workspace_id === currentWorkspaceId)
+            (isGuestMode ||
+              !currentWorkspaceId ||
+              board.workspace_id === currentWorkspaceId)
           );
         })
         .map((boardId) => {
           // Read boardPositions lazily to avoid subscribing to position changes
-          const position =
-            useKanbanStore.getState().boardPositions.byId[boardId];
-          if (!position) {
-            return null as unknown as KanbanNode;
-          }
+          const position: BoardPosition = useKanbanStore.getState()
+            .boardPositions.byId[boardId] ?? {
+            id: boardId,
+            x: 80,
+            y: 80,
+            zIndex: 1,
+          };
 
           const board = boards.byId[boardId];
           const columnCount = board?.column_ids?.length ?? 0;
@@ -398,9 +408,9 @@ export function useCanvasNodes() {
             }
           }
 
-          return {
+          const node: KanbanNode = {
             id: boardId,
-            type: "board" as const,
+            type: "board",
             position: pPos,
             data: {
               boardId,
@@ -411,9 +421,10 @@ export function useCanvasNodes() {
             height: position.height,
             parentId,
           };
-        })
-        .filter((node): node is KanbanNode => node != null),
+          return node;
+        }),
     [
+      isGuestMode,
       boardStructuralSig,
       boardIds.join(","),
       boards,
@@ -426,7 +437,9 @@ export function useCanvasNodes() {
     ]
   );
 
-  const textBoardIds = currentWorkspace?.text_board_ids ?? textBoards.allIds;
+  const textBoardIds = isGuestMode
+    ? textBoards.allIds
+    : (currentWorkspace?.text_board_ids ?? textBoards.allIds);
 
   const textBoardNodes = useStableNodeFactory<TextBoardCanvasNode>(
     () =>
@@ -435,20 +448,24 @@ export function useCanvasNodes() {
           const textBoard = textBoards.byId[textBoardId];
           return (
             textBoard &&
-            (!currentWorkspaceId ||
+            (isGuestMode ||
+              !currentWorkspaceId ||
               textBoard.workspace_id === currentWorkspaceId)
           );
         })
         .map((textBoardId) => {
-          const position =
-            useKanbanStore.getState().textBoardPositions.byId[textBoardId];
-          if (!position) {
-            return null as unknown as TextBoardCanvasNode;
-          }
-
-          return {
+          const position: TextBoardPosition = useKanbanStore.getState()
+            .textBoardPositions.byId[textBoardId] ?? {
             id: textBoardId,
-            type: "textBoard" as const,
+            x: 400,
+            y: 80,
+            zIndex: 1,
+            width: TEXT_BOARD_DEFAULT_WIDTH,
+          };
+
+          const node: TextBoardCanvasNode = {
+            id: textBoardId,
+            type: "textBoard",
             position: { x: position.x, y: position.y },
             data: {
               textBoardId,
@@ -458,9 +475,10 @@ export function useCanvasNodes() {
             width: position.width ?? TEXT_BOARD_DEFAULT_WIDTH,
             height: position.height,
           };
-        })
-        .filter((node): node is TextBoardCanvasNode => node != null),
+          return node;
+        }),
     [
+      isGuestMode,
       textBoardStructuralSig,
       textBoardIds.join(","),
       textBoards,

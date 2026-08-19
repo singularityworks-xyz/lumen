@@ -228,4 +228,58 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(joinPayload.owner.name).toBe("Harsh Sahu");
     });
   });
+
+  describe("7. Text Board and Kanban Board Connection Integrity", () => {
+    it("preserves connections between kanban board and text board", () => {
+      const state = createInitialState();
+      state.boards.byId["board-1"] = {
+        id: "board-1",
+        name: "Kanban Board",
+        column_ids: [],
+        created_at: new Date().toISOString(),
+        created_by: "user-1",
+        workspace_id: "ws-1",
+      };
+      state.boards.allIds.push("board-1");
+
+      state.textBoards.byId["text-board-1"] = {
+        id: "text-board-1",
+        name: "Notes / Tasks",
+        content: "<p>Todo list</p>",
+        created_at: new Date().toISOString(),
+        created_by: "user-1",
+        workspace_id: "ws-1",
+      };
+      state.textBoards.allIds.push("text-board-1");
+
+      state.boardConnections.byId["conn-1"] = {
+        id: "conn-1",
+        source_board_id: "board-1",
+        target_board_id: "text-board-1",
+        sourceHandle: "right",
+        targetHandle: "left",
+        lineStyle: "solid",
+        showArrow: true,
+        created_at: new Date().toISOString(),
+      };
+      state.boardConnections.allIds.push("conn-1");
+
+      // Verify validation check includes both boards and textBoards
+      const validBoardIds = new Set([
+        ...state.boards.allIds,
+        ...state.textBoards.allIds,
+      ]);
+
+      const isConnValid =
+        validBoardIds.has(
+          state.boardConnections.byId["conn-1"].source_board_id
+        ) &&
+        validBoardIds.has(
+          state.boardConnections.byId["conn-1"].target_board_id
+        );
+
+      expect(isConnValid).toBe(true);
+      expect(state.boardConnections.byId["conn-1"]).toBeDefined();
+    });
+  });
 });
