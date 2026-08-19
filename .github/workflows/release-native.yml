@@ -72,28 +72,41 @@ jobs:
             echo "Release ${TAG_NAME} already exists — skipping creation"
             exit 0
           fi
+
+          # Build the notes in bash (never inline multi-line outputs into the
+          # script — backtick-wrapped commit hashes would be executed)
+          NOTES_FILE="$(mktemp)"
+          {
+            echo "## Native Release \`${TAG_NAME}\`"
+            echo ""
+            echo "**Native Version:** ${{ steps.release.outputs.app_version }}"
+            echo "**Root Version:** ${{ steps.release.outputs.root_version }}"
+            echo "**Branch:** ${{ github.ref_name }}"
+            echo "**Commit:** ${{ steps.release.outputs.sha_full }}"
+            echo "**Latest Commit Message:** ${{ steps.release.outputs.message }}"
+            echo "**Previous Native Tag:** ${{ steps.release.outputs.previous_tag || 'none' }}"
+            echo ""
+            echo "### Changes Since Previous Native Release"
+            PREVIOUS_TAG="${{ steps.release.outputs.previous_tag || '' }}"
+            if [ -n "${PREVIOUS_TAG}" ] && [ "${PREVIOUS_TAG}" != "none" ]; then
+              git log --pretty='- `%h` %s' "${PREVIOUS_TAG}..HEAD"
+            else
+              git log --pretty='- `%h` %s'
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Downloads"
+            echo "- **Windows:** \`.msi\` or \`.exe\` installer"
+            echo "- **macOS Intel:** \`x64.dmg\` or \`.app\`"
+            echo "- **macOS Apple Silicon:** \`aarch64.dmg\` or \`.app\`"
+            echo "- **Linux:** \`.AppImage\`"
+          } > "${NOTES_FILE}"
+
           gh release create "${TAG_NAME}" \
             --repo "${{ github.repository }}" \
             --title "Lumen Native v${{ steps.release.outputs.app_version }}" \
-            --notes "## Native Release \`${TAG_NAME}\`
-
-            **Native Version:** ${{ steps.release.outputs.app_version }}
-            **Root Version:** ${{ steps.release.outputs.root_version }}
-            **Branch:** ${{ github.ref_name }}
-            **Commit:** ${{ steps.release.outputs.sha_full }}
-            **Latest Commit Message:** ${{ steps.release.outputs.message }}
-            **Previous Native Tag:** ${{ steps.release.outputs.previous_tag || 'none' }}
-
-            ### Changes Since Previous Native Release
-            ${{ steps.release.outputs.commit_list }}
-
-            ---
-
-            ### Downloads
-            - **Windows:** \`.msi\` or \`.exe\` installer
-            - **macOS Intel:** \`x64.dmg\` or \`.app\`
-            - **macOS Apple Silicon:** \`aarch64.dmg\` or \`.app\`
-            - **Linux:** \`.AppImage\`"
+            --notes-file "${NOTES_FILE}"
 
   # Build and release Tauri app for all platforms
   build-tauri:
