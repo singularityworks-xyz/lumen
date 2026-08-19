@@ -3,6 +3,7 @@
 import { useReactFlow } from "@xyflow/react";
 import {
   CheckCircle2,
+  ClipboardList,
   Layout,
   LayoutGrid,
   Link2,
@@ -14,16 +15,75 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { SwitchButtons } from "@/src/components/ui/switch-buttons";
 import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
-import type { Board, Task } from "@/src/features/kanban/types";
+import type { Task } from "@/src/features/kanban/types";
 import { ICON_MAP } from "@/src/features/kanban/utils/color-icon-utils";
 import { cn } from "@/src/lib/utils";
 import LarityOrb from "../../ai/components/animations/larity-orb";
 
+// Shared display shape for kanban boards and text boards in the sidebar
+interface DrawerBoard {
+  accentColor?: string;
+  description?: string;
+  icon?: string;
+  id: string;
+  name: string;
+}
+
+type BoardKind = "board" | "textBoard";
+
 interface BoardStats {
-  board: Board;
+  board: DrawerBoard;
   completedTasks: number;
   connections: number;
+  kind: BoardKind;
   totalTasks: number;
+}
+
+// Count todo items inside a serialized TipTap document (text boards).
+// taskItems carry attrs.checked, so we can show real task stats.
+function countTextBoardTasks(content: string | undefined): {
+  completedTasks: number;
+  totalTasks: number;
+} {
+  if (!content) {
+    return { completedTasks: 0, totalTasks: 0 };
+  }
+  try {
+    const doc = JSON.parse(content) as {
+      content?: Array<{
+        attrs?: { checked?: boolean };
+        content?: unknown;
+        type: string;
+      }>;
+    };
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    const walk = (
+      nodes:
+        | Array<{
+            attrs?: { checked?: boolean };
+            content?: unknown;
+            type: string;
+          }>
+        | undefined
+    ): void => {
+      for (const node of nodes ?? []) {
+        if (node.type === "taskItem") {
+          totalTasks += 1;
+          if (node.attrs?.checked === true) {
+            completedTasks += 1;
+          }
+        }
+        walk(node.content as typeof nodes);
+      }
+    };
+
+    walk(doc.content);
+    return { completedTasks, totalTasks };
+  } catch {
+    return { completedTasks: 0, totalTasks: 0 };
+  }
 }
 
 interface BoardCardProps {
@@ -33,10 +93,15 @@ interface BoardCardProps {
 }
 
 const BoardCard = memo(({ stats, onClick }: BoardCardProps) => {
-  const { board, totalTasks, completedTasks, connections } = stats;
+  const { board, totalTasks, completedTasks, connections, kind } = stats;
   const completionPercent =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const IconComponent = board.icon ? ICON_MAP[board.icon] : Layout;
+  const IconComponent =
+    kind === "textBoard"
+      ? ClipboardList
+      : board.icon
+        ? ICON_MAP[board.icon]
+        : Layout;
   const accentColor = board.accentColor || "#6e6e6e";
 
   return (
@@ -497,6 +562,7 @@ export const BoardsDrawer = memo(
   }: BoardsDrawerProps) => {
     const [mounted, setMounted] = useState(false);
     const boards = useKanbanStore((state) => state.boards);
+    const textBoards = useKanbanStore((state) => state.textBoards);
     const columns = useKanbanStore((state) => state.columns);
     const tasks = useKanbanStore((state) => state.tasks);
     const boardConnections = useKanbanStore((state) => state.boardConnections);
@@ -505,11 +571,15 @@ export const BoardsDrawer = memo(
     );
     const workspaces = useKanbanStore((state) => state.workspaces);
     const boardPositions = useKanbanStore((state) => state.boardPositions);
+    const textBoardPositions = useKanbanStore(
+      (state) => state.textBoardPositions
+    );
     const { setCenter } = useReactFlow();
 
     const handleBoardClick = useCallback(
       (boardId: string) => {
-        const position = boardPositions.byId[boardId];
+        const position =
+          boardPositions.byId[boardId] ?? textBoardPositions.byId[boardId];
         if (position) {
           const centerX = position.x + (position.width ?? 400) / 2;
           const centerY = position.y + (position.height ?? 300) / 2;
@@ -517,7 +587,20 @@ export const BoardsDrawer = memo(
           onOpenChange(false);
         }
       },
-      [boardPositions, setCenter, onOpenChange]
+      [boardPositions, textBoardPositions, setCenter, onOpenChange]
+    );
+
+    const countConnections = useCallback(
+      (boardId: string): number =>
+        boardConnections.allIds.filter((connId) => {
+          const conn = boardConnections.byId[connId];
+          return (
+            conn &&
+            (conn.source_board_id === boardId ||
+              conn.target_board_id === boardId)
+          );
+        }).length,
+      [boardConnections]
     );
 
     const boardStats = useMemo((): BoardStats[] => {
@@ -531,9 +614,10 @@ export const BoardsDrawer = memo(
       }
 
       const workspaceBoardIds = workspace.board_ids || [];
+      const workspaceTextBoardIds = workspace.text_board_ids || [];
 
-      return workspaceBoardIds
-        .map((boardId) => {
+      const kanbanStats: BoardStats[] = workspaceBoardIds
+        .map((boardId): BoardStats | null => {
           const board = boards.byId[boardId];
           if (!board) {
             return null;
@@ -558,30 +642,46 @@ export const BoardsDrawer = memo(
             (t) => t.status === "done"
           ).length;
 
-          const connections = boardConnections.allIds.filter((connId) => {
-            const conn = boardConnections.byId[connId];
-            return (
-              conn &&
-              (conn.source_board_id === boardId ||
-                conn.target_board_id === boardId)
-            );
-          }).length;
-
           return {
             board,
             totalTasks: boardTasks.length,
             completedTasks,
-            connections,
+            connections: countConnections(boardId),
+            kind: "board" as const,
           };
         })
         .filter((s): s is BoardStats => s !== null);
+
+      const textBoardStats: BoardStats[] = workspaceTextBoardIds
+        .map((textBoardId): BoardStats | null => {
+          const textBoard = textBoards.byId[textBoardId];
+          if (!textBoard) {
+            return null;
+          }
+
+          const { completedTasks, totalTasks } = countTextBoardTasks(
+            textBoard.content
+          );
+
+          return {
+            board: textBoard,
+            totalTasks,
+            completedTasks,
+            connections: countConnections(textBoardId),
+            kind: "textBoard" as const,
+          };
+        })
+        .filter((s): s is BoardStats => s !== null);
+
+      return [...kanbanStats, ...textBoardStats];
     }, [
       boards,
+      textBoards,
       columns,
       tasks,
-      boardConnections,
       currentWorkspaceId,
       workspaces,
+      countConnections,
     ]);
 
     useEffect(() => {

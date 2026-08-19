@@ -47,6 +47,9 @@ function createMockSpan() {
     setStatus(status: unknown) {
       this._status = status;
     },
+    setAttribute(key: string, value: unknown) {
+      this._attributes[key] = value;
+    },
     setAttributes(attrs: Record<string, unknown>) {
       Object.assign(this._attributes, attrs);
     },

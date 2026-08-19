@@ -37,7 +37,7 @@ const DESCRIPTIONS = {
   getWorkspaceOverview:
     "Get high-level overview of the workspace including boards and task counts",
   getBoardDetails:
-    "Get detailed information about a specific board including columns and tasks",
+    "Get detailed information about a specific board (kanban columns and tasks, or a text board's todo list content)",
   getTaskDetails: "Get detailed information about a specific task",
   searchTasks: "Search for tasks by query, status, priority, or board",
   getRecentActivity: "Get recent activity and changes in the workspace",
