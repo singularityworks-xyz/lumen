@@ -2,7 +2,7 @@
 
 import { createLogger } from "@lumen/logger";
 import { withSpanAsync } from "@lumen/logger/tracer";
-import { User } from "lucide-react";
+import { Eye, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { env } from "@/src/env";
@@ -270,6 +270,20 @@ export function JoinWorkspaceHandler({
     openProfileModal();
   };
 
+  const handleContinueAsGuest = () => {
+    const effectiveToken = shareToken || guestToken;
+    if (workspaceInfo && effectiveToken) {
+      useKanbanStore.getState().setGuestMode(true, effectiveToken);
+      onComplete?.({
+        workspaceId: workspaceInfo.workspaceId,
+        workspaceName: workspaceInfo.workspaceName,
+        owner: workspaceInfo.owner,
+        role: "VIEWER",
+        isGuest: true,
+      });
+    }
+  };
+
   if (!(shareToken || guestToken)) {
     return null;
   }
@@ -310,15 +324,27 @@ export function JoinWorkspaceHandler({
             Please login to join this workspace collaboration.
           </p>
           <p className="text-muted-foreground text-xs">
-            After logging in, you'll automatically join the workspace.
+            After logging in, you'll automatically join the workspace as an
+            editor.
           </p>
-          <Button
-            className="mt-6 w-full gap-2 rounded-xl bg-[#1a1a1a] font-medium text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_4px_8px_rgba(0,0,0,0.15)] transition-all hover:bg-[#000000] hover:shadow-[inset_0_1px_3px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.2)] active:scale-[0.98] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] dark:bg-[#e0e0e0] dark:text-black dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(255,255,255,0.1)] dark:active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] dark:hover:bg-[#ffffff] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.2)]"
-            onClick={handleLogin}
-          >
-            <User className="h-4 w-4" />
-            Continue to Lumen
-          </Button>
+          <div className="mt-6 flex flex-col gap-2.5">
+            <Button
+              className="w-full gap-2 rounded-xl bg-[#1a1a1a] font-medium text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_4px_8px_rgba(0,0,0,0.15)] transition-all hover:bg-[#000000] hover:shadow-[inset_0_1px_3px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.2)] active:scale-[0.98] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] dark:bg-[#e0e0e0] dark:text-black dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(255,255,255,0.1)] dark:active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] dark:hover:bg-[#ffffff] dark:hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.2)]"
+              onClick={handleLogin}
+            >
+              <User className="h-4 w-4" />
+              Continue to Lumen
+            </Button>
+            <Button
+              className="w-full gap-2 rounded-xl border border-border/70 bg-secondary/50 font-medium text-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-[0.98]"
+              data-testid="continue-as-guest-button"
+              onClick={handleContinueAsGuest}
+              variant="outline"
+            >
+              <Eye className="h-4 w-4 text-emerald-500" />
+              Continue as Guest
+            </Button>
+          </div>
         </div>
       </div>
     );

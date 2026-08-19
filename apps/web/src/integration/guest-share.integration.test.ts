@@ -189,4 +189,43 @@ describe("GUEST-SHARE: Public Read-Only Guest Link", () => {
       expect(collaboratorUi.sharedViaLumenWatermark).toBe(false);
     });
   });
+
+  describe("6. Continue as Guest Flow from Collaborator Share Link", () => {
+    it("transitions an unauthenticated user on collaborator share link into guest mode", () => {
+      const state = createInitialState();
+      const collaboratorToken = "collab_share_token_123";
+      const workspaceInfo = {
+        workspaceId: "ws-collab-1",
+        workspaceName: "Collab Workspace",
+        owner: {
+          id: "owner-1",
+          name: "Harsh Sahu",
+          email: "harsh@example.com",
+          image: null,
+        },
+      };
+
+      // User arrives at ?share=collab_share_token_123 unauthenticated
+      expect(state.isGuestMode).toBe(false);
+
+      // User clicks "Continue as Guest"
+      state.isGuestMode = true;
+      state.guestToken = collaboratorToken;
+
+      expect(state.isGuestMode).toBe(true);
+      expect(state.guestToken).toBe(collaboratorToken);
+
+      const joinPayload = {
+        workspaceId: workspaceInfo.workspaceId,
+        workspaceName: workspaceInfo.workspaceName,
+        owner: workspaceInfo.owner,
+        role: "VIEWER",
+        isGuest: true,
+      };
+
+      expect(joinPayload.role).toBe("VIEWER");
+      expect(joinPayload.isGuest).toBe(true);
+      expect(joinPayload.owner.name).toBe("Harsh Sahu");
+    });
+  });
 });

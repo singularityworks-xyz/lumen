@@ -148,18 +148,6 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
             };
           }
 
-          if (!share.isGuest && share.role !== "VIEWER") {
-            logger.warn("Token is not a guest viewer token", {
-              workspaceId,
-              token: effectiveGuestToken,
-            });
-            set.status = 403;
-            return {
-              error: "Forbidden",
-              message: "Token is not a guest viewer token",
-            };
-          }
-
           let initialStateVector: Uint8Array | undefined;
           if (query.stateVector) {
             try {
@@ -963,14 +951,14 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         setSpanAttributes({ token });
 
         const shareInfo = await getShareInfo(token);
-        if (!shareInfo || (!shareInfo.isGuest && shareInfo.role !== "VIEWER")) {
+        if (!shareInfo) {
           set.status = 404;
-          return { error: "Guest share link not found or disabled" };
+          return { error: "Share link not found or disabled" };
         }
 
         if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
           set.status = 410;
-          return { error: "Guest share link has expired" };
+          return { error: "Share link has expired" };
         }
 
         return {
@@ -995,14 +983,14 @@ export const collabRoutes = new Elysia({ name: "collab-routes" })
         setSpanAttributes({ token });
 
         const shareInfo = await getShareInfo(token);
-        if (!shareInfo || (!shareInfo.isGuest && shareInfo.role !== "VIEWER")) {
+        if (!shareInfo) {
           set.status = 404;
-          return { error: "Guest share link not found or disabled" };
+          return { error: "Share link not found or disabled" };
         }
 
         if (shareInfo.expiresAt && shareInfo.expiresAt < new Date()) {
           set.status = 410;
-          return { error: "Guest share link has expired" };
+          return { error: "Share link has expired" };
         }
 
         const workspaceId = shareInfo.workspaceId;
