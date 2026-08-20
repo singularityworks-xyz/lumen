@@ -27,6 +27,30 @@ const logger = createLogger({ name: "collab:room-manager" });
 // biome-ignore lint/performance/noBarrelFile: re-export needed for backward compatibility with existing imports
 export { MESSAGE_WORKSPACE_DELETED } from "@lumen/yjs-shared";
 
+// Awareness fields that let a client move/ghost entities on other clients'
+// canvases. Read-only viewers must never publish these; they are stripped
+// server-side using the authoritative DB-backed role before relay.
+const VIEWER_BLOCKED_AWARENESS_FIELDS = [
+  "draggingBoard",
+  "draggingTask",
+  "draggingColumn",
+] as const;
+
+function containsUint8Array(haystack: Uint8Array, needle: Uint8Array): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return false;
+  }
+  outer: for (let i = 0; i <= haystack.length - needle.length; i += 1) {
+    for (let j = 0; j < needle.length; j += 1) {
+      if (haystack[i + j] !== needle[j]) {
+        continue outer;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 export interface CollaboratorInfo {
   color: string;
   email: string;
@@ -476,19 +500,63 @@ export class RoomManager {
       setSpanAttributes({ connectionId: connection.id });
 
       const update = decoding.readVarUint8Array(decoder);
+      const effectiveUpdate =
+        connection.user.role === "VIEWER"
+          ? this.sanitizeViewerAwareness(update)
+          : update;
+
       awarenessProtocol.applyAwarenessUpdate(
         room.awareness,
-        update,
+        effectiveUpdate,
         "client-update"
       );
 
       // Explicitly broadcast awareness updates to other clients
       // The awareness.on('change') listener also broadcasts, but this ensures
       // immediate propagation of cursor updates without waiting for change processing
-      this.broadcastAwarenessToOthers(room, connection.id, update);
+      this.broadcastAwarenessToOthers(room, connection.id, effectiveUpdate);
 
       return true;
     });
+  }
+
+  // Read-only viewers may still publish cursor/user awareness so other
+  // clients see them, but position-override fields (draggingBoard, etc.)
+  // must never be relayed. Without this, a guest could craft awareness
+  // claiming to drag a board and ghost-move it on every connected client's
+  // canvas. The field names are scanned as raw UTF-8 bytes in the encoded
+  // update, so the common case (plain cursor moves) stays on the zero-copy
+  // fast path and only messages that actually carry a blocked field are
+  // decoded and stripped.
+  private sanitizeViewerAwareness(update: Uint8Array): Uint8Array {
+    const needsFiltering = VIEWER_BLOCKED_AWARENESS_FIELDS.some((field) =>
+      containsUint8Array(update, new TextEncoder().encode(field))
+    );
+    if (!needsFiltering) {
+      return update;
+    }
+
+    const tempDoc = new Y.Doc();
+    const tempAwareness = new awarenessProtocol.Awareness(tempDoc);
+    try {
+      awarenessProtocol.applyAwarenessUpdate(tempAwareness, update, "server");
+      for (const state of tempAwareness.getStates().values()) {
+        if (!state || typeof state !== "object") {
+          continue;
+        }
+        const record = state as Record<string, unknown>;
+        for (const field of VIEWER_BLOCKED_AWARENESS_FIELDS) {
+          delete record[field];
+        }
+      }
+      return awarenessProtocol.encodeAwarenessUpdate(
+        tempAwareness,
+        Array.from(tempAwareness.getStates().keys())
+      );
+    } finally {
+      tempAwareness.destroy();
+      tempDoc.destroy();
+    }
   }
 
   // Broadcast awareness update to all clients except sender

@@ -164,6 +164,29 @@ function buildAwarenessMessage(): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
+function buildAwarenessMessageWithPayload(payload: Uint8Array): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+  encoding.writeVarUint8Array(encoder, payload);
+  return encoding.toUint8Array(encoder);
+}
+
+function containsText(haystack: Uint8Array, needle: string): boolean {
+  const encoded = new TextEncoder().encode(needle);
+  if (encoded.length === 0 || encoded.length > haystack.length) {
+    return false;
+  }
+  outer: for (let i = 0; i <= haystack.length - encoded.length; i += 1) {
+    for (let j = 0; j < encoded.length; j += 1) {
+      if (haystack[i + j] !== encoded[j]) {
+        continue outer;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 afterEach(() => {
   roomManager.reset();
 });
@@ -317,6 +340,101 @@ describe("RoomManager - awareness broadcast", () => {
 
     expect(sent2.length).toBeGreaterThan(0);
     expect(sent3.length).toBeGreaterThan(0);
+  });
+});
+
+describe("RoomManager - viewer awareness sanitization", () => {
+  const dragPayload = (): Uint8Array =>
+    new Uint8Array([...new TextEncoder().encode("draggingBoard"), 0, 1, 2]);
+
+  it("relays draggingBoard awareness from editors verbatim", async () => {
+    const { ws: wsViewer, sent: sentViewer } = createMockWs();
+    const { ws: wsEditor } = createMockWs();
+
+    await roomManager.join({
+      connectionId: "conn-se-edit",
+      ws: wsEditor,
+      user: makeUser({ id: "user-edit", role: "EDITOR" }),
+      workspaceId: "ws-secure",
+    });
+    await roomManager.join({
+      connectionId: "conn-se-viewer",
+      ws: wsViewer,
+      user: makeUser({ id: "user-viewer", role: "VIEWER" }),
+      workspaceId: "ws-secure",
+    });
+
+    sentViewer.length = 0;
+
+    const msg = buildAwarenessMessageWithPayload(dragPayload());
+    const handled = roomManager.handleMessage("conn-se-edit", msg);
+
+    expect(handled).toBe(true);
+    // The peer (viewer) receives the raw awareness including the drag field
+    expect(sentViewer.some((m) => containsText(m, "draggingBoard"))).toBe(true);
+  });
+
+  it("strips draggingBoard awareness from read-only viewers before relay", async () => {
+    const { ws: wsEditor, sent: sentEditor } = createMockWs();
+    const { ws: wsViewer } = createMockWs();
+
+    await roomManager.join({
+      connectionId: "conn-sv-edit",
+      ws: wsEditor,
+      user: makeUser({ id: "user-edit2", role: "EDITOR" }),
+      workspaceId: "ws-secure2",
+    });
+    await roomManager.join({
+      connectionId: "conn-sv-viewer",
+      ws: wsViewer,
+      user: makeUser({ id: "user-viewer2", role: "VIEWER" }),
+      workspaceId: "ws-secure2",
+    });
+
+    sentEditor.length = 0;
+
+    const msg = buildAwarenessMessageWithPayload(dragPayload());
+    const handled = roomManager.handleMessage("conn-sv-viewer", msg);
+
+    expect(handled).toBe(true);
+    // The peer must NOT receive the blocked drag field from a viewer
+    expect(sentEditor.some((m) => containsText(m, "draggingBoard"))).toBe(
+      false
+    );
+  });
+
+  it("relays viewer cursor awareness unchanged when it has no blocked fields", async () => {
+    const { ws: wsEditor, sent: sentEditor } = createMockWs();
+    const { ws: wsViewer } = createMockWs();
+
+    await roomManager.join({
+      connectionId: "conn-sc-edit",
+      ws: wsEditor,
+      user: makeUser({ id: "user-edit3", role: "EDITOR" }),
+      workspaceId: "ws-secure3",
+    });
+    await roomManager.join({
+      connectionId: "conn-sc-viewer",
+      ws: wsViewer,
+      user: makeUser({ id: "user-viewer3", role: "VIEWER" }),
+      workspaceId: "ws-secure3",
+    });
+
+    sentEditor.length = 0;
+
+    const plainCursor = new Uint8Array([9, 8, 7]);
+    const handled = roomManager.handleMessage(
+      "conn-sc-viewer",
+      buildAwarenessMessageWithPayload(plainCursor)
+    );
+
+    expect(handled).toBe(true);
+    // Plain cursor awareness is relayed unchanged on the zero-copy fast path
+    expect(
+      sentEditor.some((m) =>
+        containsText(m, String.fromCharCode(...plainCursor))
+      )
+    ).toBe(true);
   });
 });
 

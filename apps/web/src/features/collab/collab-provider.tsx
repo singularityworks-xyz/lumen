@@ -261,9 +261,16 @@ export function CollaborationProvider({
         const draggingColumn = Object.hasOwn(state, "draggingColumn")
           ? state.draggingColumn
           : existing?.draggingColumn;
-        const draggingBoard = Object.hasOwn(state, "draggingBoard")
-          ? state.draggingBoard
-          : existing?.draggingBoard;
+        // Read-only viewers cannot drag, so their draggingBoard must never
+        // reach livePositions/displayedNodes. The server also strips this
+        // field for VIEWER connections; this is defense in depth that also
+        // ignores any already-relayed state.
+        const draggingBoard =
+          state.user?.role === "viewer"
+            ? undefined
+            : Object.hasOwn(state, "draggingBoard")
+              ? state.draggingBoard
+              : existing?.draggingBoard;
 
         collaboratorMap.set(state.user.id, {
           id: state.user.id,

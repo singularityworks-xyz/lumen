@@ -100,6 +100,10 @@ class MockAwareness {
     this._states.set(this.clientID, { ...current, [key]: value });
   }
 
+  _seedRemote(clientId: number, state: Record<string, unknown>) {
+    this._states.set(clientId, state);
+  }
+
   on(event: string, fn: (...args: unknown[]) => void) {
     if (!this._listeners.has(event)) {
       this._listeners.set(event, new Set());
@@ -960,6 +964,75 @@ describe("CollaborationProvider", () => {
 
       expect(getContext().collaborators).toBeDefined();
       expect(Array.isArray(getContext().collaborators)).toBe(true);
+    });
+
+    it("ignores draggingBoard from read-only viewer collaborators", async () => {
+      const { getContext } = renderProvider();
+      await act(async () => {
+        await getContext().connect("ws-1");
+      });
+
+      act(() => {
+        wsInstances[0]?._simulateOpen();
+      });
+      act(() => {
+        /* no-op */
+      });
+
+      const awareness = getContext().awareness as unknown as {
+        _seedRemote: (clientId: number, state: Record<string, unknown>) => void;
+        _emit: (event: string, ...args: unknown[]) => void;
+      };
+
+      act(() => {
+        awareness._seedRemote(9999, {
+          user: { id: "guest-1", name: "Guest", role: "viewer" },
+          draggingBoard: { id: "board-1", kind: "board", x: 500, y: 500 },
+        });
+        awareness._emit("change", [], undefined);
+      });
+
+      const guest = getContext().collaborators.find((c) => c.id === "guest-1");
+      expect(guest).toBeDefined();
+      expect(guest?.draggingBoard).toBeUndefined();
+    });
+
+    it("keeps draggingBoard from editor collaborators", async () => {
+      const { getContext } = renderProvider();
+      await act(async () => {
+        await getContext().connect("ws-1");
+      });
+
+      act(() => {
+        wsInstances[0]?._simulateOpen();
+      });
+      act(() => {
+        /* no-op */
+      });
+
+      const awareness = getContext().awareness as unknown as {
+        _seedRemote: (clientId: number, state: Record<string, unknown>) => void;
+        _emit: (event: string, ...args: unknown[]) => void;
+      };
+
+      act(() => {
+        awareness._seedRemote(9998, {
+          user: { id: "editor-1", name: "Editor", role: "editor" },
+          draggingBoard: { id: "board-2", kind: "board", x: 300, y: 300 },
+        });
+        awareness._emit("change", [], undefined);
+      });
+
+      const editor = getContext().collaborators.find(
+        (c) => c.id === "editor-1"
+      );
+      expect(editor).toBeDefined();
+      expect(editor?.draggingBoard).toEqual({
+        id: "board-2",
+        kind: "board",
+        x: 300,
+        y: 300,
+      });
     });
 
     it("filters out local user by both clientId AND userId", async () => {
