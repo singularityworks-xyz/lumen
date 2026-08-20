@@ -1,7 +1,6 @@
 name: CI
 
 # Event matrix:
-# - push to non-origin branches: lint + type-check only (fast feedback)
 # - pull_request targeting origin: full CI quality gate (no deploy)
 # - push to origin (post-merge): full CI + deploy/release jobs
 #
@@ -10,7 +9,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [origin]
   pull_request:
     branches: [origin]
 

@@ -677,6 +677,10 @@ describe("WORKERS-I-06: HTTP routes integration", () => {
         columns: {},
         tasks: {},
         boardPositions: {},
+        textBoards: {},
+        textBoardPositions: {},
+        boardConnections: {},
+        taskDetailModals: {},
       });
     });
 

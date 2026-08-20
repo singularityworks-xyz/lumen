@@ -101,6 +101,7 @@ const helpersMock = {
   ),
   getWorkspaceCollaboratorCount: mock(() => Promise.resolve(0)),
   getWorkspaceName: mock(() => Promise.resolve(null as any)),
+  revokeGuestShareToken: mock(() => Promise.resolve(true)),
 };
 
 mock.module("./helpers", () => helpersMock);
