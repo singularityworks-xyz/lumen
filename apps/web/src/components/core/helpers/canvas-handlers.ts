@@ -458,6 +458,23 @@ interface CommentCluster {
 const DRAG_ATTACH_PADDING = 20;
 
 interface UseNodeDragHandlersProps {
+  boardDragPresence?: {
+    startDragging: (state: {
+      cursorX?: number;
+      cursorY?: number;
+      id: string;
+      kind: "board" | "area" | "textBoard";
+      x: number;
+      y: number;
+    }) => void;
+    stopDragging: () => void;
+    updateDragPosition: (
+      x: number,
+      y: number,
+      cursorX?: number,
+      cursorY?: number
+    ) => void;
+  };
   commentClusters: CommentCluster[];
   finalizeAreaDrag: (id: string) => void;
   finalizeBoardDrag: (id: string) => void;
@@ -484,13 +501,37 @@ export function useNodeDragHandlers({
   commentClusters,
   pendingPositionsRef,
   isDraggingRef,
+  boardDragPresence,
 }: UseNodeDragHandlersProps) {
-  const handleNodeDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-  }, [isDraggingRef]);
+  const handleNodeDragStart: OnNodeDrag<CanvasNode> = useCallback(
+    (_event, node) => {
+      isDraggingRef.current = true;
+      if (isCollaborating && node) {
+        const id = node.id;
+        const kind: "board" | "area" | "textBoard" | null = id.startsWith(
+          "area_"
+        )
+          ? "area"
+          : id.startsWith("tb_")
+            ? "textBoard"
+            : id.startsWith("board_")
+              ? "board"
+              : null;
+        if (kind) {
+          boardDragPresence?.startDragging({
+            id,
+            kind,
+            x: node.position.x,
+            y: node.position.y,
+          });
+        }
+      }
+    },
+    [isDraggingRef, isCollaborating, boardDragPresence]
+  );
 
   const handleNodeDrag: OnNodeDrag<CanvasNode> = useCallback(
-    (event) => {
+    (event, node) => {
       if (!isCollaborating) {
         return;
       }
@@ -503,13 +544,35 @@ export function useNodeDragHandlers({
         y: clientY,
       });
       updateCursor({ x: flowPos.x, y: flowPos.y });
+      if (node) {
+        // Broadcast live board/area/textBoard drag via awareness (ephemeral, covers guest).
+        const id = node.id;
+        const kind: "board" | "area" | "textBoard" | null = id.startsWith(
+          "area_"
+        )
+          ? "area"
+          : id.startsWith("tb_")
+            ? "textBoard"
+            : id.startsWith("board_")
+              ? "board"
+              : null;
+        if (kind) {
+          boardDragPresence?.updateDragPosition(
+            node.position.x,
+            node.position.y,
+            flowPos.x,
+            flowPos.y
+          );
+        }
+      }
     },
-    [isCollaborating, screenToFlowPosition, updateCursor]
+    [isCollaborating, screenToFlowPosition, updateCursor, boardDragPresence]
   );
 
   const handleNodeDragStop: OnNodeDrag<CanvasNode> = useCallback(
     (_event, node) => {
       isDraggingRef.current = false;
+      boardDragPresence?.stopDragging();
 
       // Flush all accumulated positions to the store in one go
       const pending = new Map(pendingPositionsRef.current);
@@ -651,6 +714,7 @@ export function useNodeDragHandlers({
       commentClusters,
       pendingPositionsRef,
       isDraggingRef,
+      boardDragPresence,
     ]
   );
 

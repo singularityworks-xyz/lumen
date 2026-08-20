@@ -87,9 +87,19 @@ export interface DraggingColumnState {
   sourceBoardId: string;
 }
 
+export interface DraggingBoardState {
+  cursorX?: number;
+  cursorY?: number;
+  id: string;
+  kind: "board" | "area" | "textBoard";
+  x: number;
+  y: number;
+}
+
 export interface Collaborator {
   color: string;
   cursor?: CursorPosition;
+  draggingBoard?: DraggingBoardState | null;
   draggingColumn?: DraggingColumnState;
   draggingTask?: DraggingTaskState;
   id: string;
@@ -251,6 +261,9 @@ export function CollaborationProvider({
         const draggingColumn = Object.hasOwn(state, "draggingColumn")
           ? state.draggingColumn
           : existing?.draggingColumn;
+        const draggingBoard = Object.hasOwn(state, "draggingBoard")
+          ? state.draggingBoard
+          : existing?.draggingBoard;
 
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
@@ -264,6 +277,7 @@ export function CollaborationProvider({
           openDialogs: state.openDialogs,
           draggingTask,
           draggingColumn,
+          draggingBoard,
           isTyping: state.isTyping,
         });
       }

@@ -45,6 +45,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
+import { useBoardDragPresence } from "@/src/hooks/use-board-drag-presence";
 import { useCanvasEdges } from "./helpers/canvas-edges";
 import {
   useColumnDragHandlers,
@@ -140,6 +141,7 @@ export function KanbanCanvas() {
   const isDraggingRef = useRef(false);
 
   const { handleMoveEnd } = useViewportHandlers(setViewport);
+  const boardDragPresence = useBoardDragPresence();
   const { handleNodeDragStart, handleNodeDrag, handleNodeDragStop } =
     useNodeDragHandlers({
       isCollaborating,
@@ -151,6 +153,7 @@ export function KanbanCanvas() {
       commentClusters,
       pendingPositionsRef,
       isDraggingRef,
+      boardDragPresence,
     });
 
   // Local state for smooth React Flow interactions during drag/resize.
@@ -210,6 +213,25 @@ export function KanbanCanvas() {
     // positions would hide remote (guest) board movements.
     setLocalNodes(storeNodes);
   }, [storeNodes]);
+
+  // Ephemeral live-drag overlay for guests (awareness) — overrides positions while dragging.
+  const displayedNodes = useMemo(() => {
+    if (boardDragPresence.livePositions.size === 0) {
+      return localNodes;
+    }
+    return localNodes.map((n) => {
+      const live = boardDragPresence.livePositions.get(n.id);
+      if (!live) {
+        return n;
+      }
+      // For boards: awareness holds the absolute flow position already (node.position)
+      // For areas/textBoards: same - keep it simple, use live x/y.
+      if (n.position.x === live.x && n.position.y === live.y) {
+        return n;
+      }
+      return { ...n, position: { x: live.x, y: live.y } };
+    });
+  }, [localNodes, boardDragPresence.livePositions]);
 
   useEffect(() => {
     setLocalEdges(edges);
@@ -596,7 +618,7 @@ export function KanbanCanvas() {
             noDragClassName="nodrag"
             nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
-            nodes={localNodes}
+            nodes={displayedNodes}
             nodesConnectable={!isGuestMode}
             nodesDraggable={!isGuestMode && interactionMode === "drag"}
             nodeTypes={{
