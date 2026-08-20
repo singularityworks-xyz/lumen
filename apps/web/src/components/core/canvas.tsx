@@ -205,40 +205,10 @@ export function KanbanCanvas() {
     prevStoreNodesRef.current = storeNodes;
     prevNodeCountRef.current = storeNodes.length;
 
-    // MERGE instead of replacing: preserve React Flow's local positions for
-    // existing nodes. storeNodes may have STALE positions from cached factories,
-    // but localNodes always has the correct positions (updated by
-    // applyNodeChanges during drag). Only new nodes use the store position.
-    setLocalNodes((prev) => {
-      // Fast path: empty → full replace (initial load or workspace switch)
-      if (prev.length === 0) {
-        return storeNodes;
-      }
-
-      // Build position lookup from current local state
-      const localPositions = new Map<string, { x: number; y: number }>();
-      for (const node of prev) {
-        localPositions.set(node.id, node.position);
-      }
-
-      return storeNodes.map((storeNode) => {
-        const localPos = localPositions.get(storeNode.id);
-        if (localPos) {
-          // Existing node: use store data/structure but preserve local position
-          // (React Flow's position is authoritative — store positions may be stale)
-          if (
-            storeNode.position.x === localPos.x &&
-            storeNode.position.y === localPos.y
-          ) {
-            // Positions match — use store node as-is (avoids object spread)
-            return storeNode;
-          }
-          return { ...storeNode, position: localPos };
-        }
-        // New node: use store position
-        return storeNode;
-      });
-    });
+    // Adopt store positions directly. Structural sigs now include x/y, so
+    // cached factories rebuild with fresh positions; preserving stale local
+    // positions would hide remote (guest) board movements.
+    setLocalNodes(storeNodes);
   }, [storeNodes]);
 
   useEffect(() => {
