@@ -12,6 +12,7 @@ process.env.LOG_LEVEL = "error";
 import { afterAll, afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
+import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 
 const prismaMock = {
@@ -57,6 +58,28 @@ mock.module("./metrics", () => ({
 
 const mockEncodeAwarenessUpdate = mock(() => new Uint8Array(0));
 
+// Faithful copy of y-protocols' modifyAwarenessUpdate (decode -> modify ->
+// re-encode). Used by the sanitizer; providing a real implementation here
+// keeps the sanitization tests exercising the real wire format.
+const mockModifyAwarenessUpdate = mock(
+  (update: Uint8Array, modify: (state: unknown) => unknown): Uint8Array => {
+    const decoder = decoding.createDecoder(update);
+    const encoder = encoding.createEncoder();
+    const len = decoding.readVarUint(decoder);
+    encoding.writeVarUint(encoder, len);
+    for (let i = 0; i < len; i += 1) {
+      const clientID = decoding.readVarUint(decoder);
+      const clock = decoding.readVarUint(decoder);
+      const state: unknown = JSON.parse(decoding.readVarString(decoder));
+      const modifiedState = modify(state);
+      encoding.writeVarUint(encoder, clientID);
+      encoding.writeVarUint(encoder, clock);
+      encoding.writeVarString(encoder, JSON.stringify(modifiedState));
+    }
+    return encoding.toUint8Array(encoder);
+  }
+);
+
 mock.module("y-protocols/awareness", () => ({
   Awareness: class MockAwareness {
     clientID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
@@ -92,6 +115,7 @@ mock.module("y-protocols/awareness", () => ({
   },
   applyAwarenessUpdate: mock(),
   encodeAwarenessUpdate: mockEncodeAwarenessUpdate,
+  modifyAwarenessUpdate: mockModifyAwarenessUpdate,
   removeAwarenessStates: mock(),
 }));
 
@@ -157,11 +181,61 @@ function buildSyncMessage(syncType: number): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-function buildAwarenessMessage(): Uint8Array {
+function buildAwarenessMessage(payload?: Uint8Array): Uint8Array {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(encoder, new Uint8Array([1, 2, 3]));
+  encoding.writeVarUint8Array(encoder, payload ?? new Uint8Array([1, 2, 3]));
   return encoding.toUint8Array(encoder);
+}
+
+// Build a VALID awareness update (same var-encoded layout y-protocols uses:
+// client count, then per-client clientID / clock / JSON state var-string).
+function buildAwarenessUpdateState(
+  state: Record<string, unknown>,
+  clientId = 42,
+  clock = 1
+): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, 1);
+  encoding.writeVarUint(encoder, clientId);
+  encoding.writeVarUint(encoder, clock);
+  encoding.writeVarString(encoder, JSON.stringify(state));
+  return encoding.toUint8Array(encoder);
+}
+
+// Same as buildAwarenessUpdateState but accepts a raw JSON string, so tests
+// can place a JSON-escaped field name on the wire exactly as an attacker would.
+function buildAwarenessUpdateJson(
+  json: string,
+  clientId = 42,
+  clock = 1
+): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, 1);
+  encoding.writeVarUint(encoder, clientId);
+  encoding.writeVarUint(encoder, clock);
+  encoding.writeVarString(encoder, json);
+  return encoding.toUint8Array(encoder);
+}
+
+// Decode the relayed awareness message and return the parsed client state.
+function decodeRelayedAwareness(message: Uint8Array): {
+  clientId: number;
+  clock: number;
+  state: unknown;
+} {
+  const decoder = decoding.createDecoder(message);
+  decoding.readVarUint(decoder); // MESSAGE_AWARENESS
+  const payload = decoding.readVarUint8Array(decoder);
+  const inner = decoding.createDecoder(payload);
+  const len = decoding.readVarUint(inner);
+  if (len < 1) {
+    return { clientId: 0, clock: 0, state: null };
+  }
+  const clientId = decoding.readVarUint(inner);
+  const clock = decoding.readVarUint(inner);
+  const state: unknown = JSON.parse(decoding.readVarString(inner));
+  return { clientId, clock, state };
 }
 
 afterEach(() => {
@@ -317,6 +391,127 @@ describe("RoomManager - awareness broadcast", () => {
 
     expect(sent2.length).toBeGreaterThan(0);
     expect(sent3.length).toBeGreaterThan(0);
+  });
+});
+
+describe("RoomManager - viewer awareness sanitization", () => {
+  // Joins an editor and a viewer in the same room, clears sent buffers, and
+  // returns { editorSent, viewerSent } plus connection ids.
+  async function joinEditorAndViewer(workspaceId: string) {
+    const editorWs = createMockWs();
+    const viewerWs = createMockWs();
+    await roomManager.join({
+      connectionId: `conn-${workspaceId}-edit`,
+      ws: editorWs.ws,
+      user: makeUser({ id: `user-${workspaceId}-edit`, role: "EDITOR" }),
+      workspaceId,
+    });
+    await roomManager.join({
+      connectionId: `conn-${workspaceId}-viewer`,
+      ws: viewerWs.ws,
+      user: makeUser({ id: `user-${workspaceId}-viewer`, role: "VIEWER" }),
+      workspaceId,
+    });
+    editorWs.sent.length = 0;
+    viewerWs.sent.length = 0;
+    return {
+      editorConnectionId: `conn-${workspaceId}-edit`,
+      editorSent: editorWs.sent,
+      viewerConnectionId: `conn-${workspaceId}-viewer`,
+      viewerSent: viewerWs.sent,
+    };
+  }
+
+  it("relays draggingBoard awareness from editors verbatim", async () => {
+    const { editorConnectionId, viewerSent } =
+      await joinEditorAndViewer("ws-secure");
+
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-edit", name: "Editor", role: "editor" },
+      draggingBoard: { id: "board-1", kind: "board", x: 100, y: 200 },
+    });
+    const handled = roomManager.handleMessage(
+      editorConnectionId,
+      buildAwarenessMessage(payload)
+    );
+
+    expect(handled).toBe(true);
+    const relayed = decodeRelayedAwareness(viewerSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toEqual({
+      id: "board-1",
+      kind: "board",
+      x: 100,
+      y: 200,
+    });
+  });
+
+  it("strips draggingBoard awareness from read-only viewers before relay", async () => {
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure2");
+
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-viewer", name: "Guest", role: "viewer" },
+      cursor: { x: 10, y: 20 },
+      draggingBoard: { id: "board-1", kind: "board", x: 999, y: 999 },
+    });
+    const handled = roomManager.handleMessage(
+      viewerConnectionId,
+      buildAwarenessMessage(payload)
+    );
+
+    expect(handled).toBe(true);
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toBeUndefined();
+    // Non-blocked fields (user, cursor) survive sanitization.
+    expect(state.cursor).toEqual({ x: 10, y: 20 });
+    expect((state.user as Record<string, unknown>).id).toBe("user-viewer");
+  });
+
+  it("strips JSON-escaped draggingBoard and ignores forged roles from viewers", async () => {
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure4");
+
+    // "dragging\u0042oard" is valid JSON that decodes to "draggingBoard".
+    // The payload also forges role: "editor"; the server must still gate on
+    // the connection's VIEWER role, not the payload.
+    const escapedJson =
+      '{"user":{"id":"user-viewer","role":"editor"},"cursor":{"x":1,"y":2},"dragging\\u0042oard":{"id":"board-1","kind":"board","x":500,"y":500}}';
+    const handled = roomManager.handleMessage(
+      viewerConnectionId,
+      buildAwarenessMessage(buildAwarenessUpdateJson(escapedJson))
+    );
+
+    expect(handled).toBe(true);
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toBeUndefined();
+    // Cursor still relayed, forged role still present (role is not a blocked
+    // field), but the drag override is gone.
+    expect(state.cursor).toEqual({ x: 1, y: 2 });
+  });
+
+  it("relays viewer cursor awareness unchanged when it has no blocked fields", async () => {
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure3");
+
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-viewer", name: "Guest", role: "viewer" },
+      cursor: { x: 42, y: 43 },
+    });
+    const handled = roomManager.handleMessage(
+      viewerConnectionId,
+      buildAwarenessMessage(payload)
+    );
+
+    expect(handled).toBe(true);
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.cursor).toEqual({ x: 42, y: 43 });
+    expect(state.draggingBoard).toBeUndefined();
+    expect(state.draggingTask).toBeUndefined();
+    expect(state.draggingColumn).toBeUndefined();
   });
 });
 

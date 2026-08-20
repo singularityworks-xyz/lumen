@@ -87,9 +87,19 @@ export interface DraggingColumnState {
   sourceBoardId: string;
 }
 
+export interface DraggingBoardState {
+  cursorX?: number;
+  cursorY?: number;
+  id: string;
+  kind: "board" | "area" | "textBoard";
+  x: number;
+  y: number;
+}
+
 export interface Collaborator {
   color: string;
   cursor?: CursorPosition;
+  draggingBoard?: DraggingBoardState | null;
   draggingColumn?: DraggingColumnState;
   draggingTask?: DraggingTaskState;
   id: string;
@@ -251,6 +261,16 @@ export function CollaborationProvider({
         const draggingColumn = Object.hasOwn(state, "draggingColumn")
           ? state.draggingColumn
           : existing?.draggingColumn;
+        // Read-only viewers cannot drag, so their draggingBoard must never
+        // reach livePositions/displayedNodes. The server also strips this
+        // field for VIEWER connections; this is defense in depth that also
+        // ignores any already-relayed state.
+        const draggingBoard =
+          state.user?.role === "viewer"
+            ? undefined
+            : Object.hasOwn(state, "draggingBoard")
+              ? state.draggingBoard
+              : existing?.draggingBoard;
 
         collaboratorMap.set(state.user.id, {
           id: state.user.id,
@@ -264,6 +284,7 @@ export function CollaborationProvider({
           openDialogs: state.openDialogs,
           draggingTask,
           draggingColumn,
+          draggingBoard,
           isTyping: state.isTyping,
         });
       }

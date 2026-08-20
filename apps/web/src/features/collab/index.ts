@@ -2,6 +2,7 @@ export type {
   Collaborator,
   ConnectionState,
   CursorPosition,
+  DraggingBoardState,
   DraggingColumnState,
   DraggingTaskState,
   OpenDialog,

@@ -27,6 +27,15 @@ const logger = createLogger({ name: "collab:room-manager" });
 // biome-ignore lint/performance/noBarrelFile: re-export needed for backward compatibility with existing imports
 export { MESSAGE_WORKSPACE_DELETED } from "@lumen/yjs-shared";
 
+// Awareness fields that let a client move/ghost entities on other clients'
+// canvases. Read-only viewers must never publish these; they are stripped
+// server-side using the authoritative DB-backed role before relay.
+const VIEWER_BLOCKED_AWARENESS_FIELDS = [
+  "draggingBoard",
+  "draggingTask",
+  "draggingColumn",
+] as const;
+
 export interface CollaboratorInfo {
   color: string;
   email: string;
@@ -476,18 +485,50 @@ export class RoomManager {
       setSpanAttributes({ connectionId: connection.id });
 
       const update = decoding.readVarUint8Array(decoder);
+      const effectiveUpdate =
+        connection.user.role === "VIEWER"
+          ? this.sanitizeViewerAwareness(update)
+          : update;
+
       awarenessProtocol.applyAwarenessUpdate(
         room.awareness,
-        update,
+        effectiveUpdate,
         "client-update"
       );
 
       // Explicitly broadcast awareness updates to other clients
       // The awareness.on('change') listener also broadcasts, but this ensures
       // immediate propagation of cursor updates without waiting for change processing
-      this.broadcastAwarenessToOthers(room, connection.id, update);
+      this.broadcastAwarenessToOthers(room, connection.id, effectiveUpdate);
 
       return true;
+    });
+  }
+
+  // Read-only viewers may still publish cursor/user awareness so other
+  // clients see them, but position-override fields (draggingBoard, etc.)
+  // must never be relayed. Without this, a guest could craft awareness
+  // claiming to drag a board and ghost-move it on every connected client's
+  // canvas.
+  //
+  // Every viewer update is decoded, stripped, and re-encoded via
+  // y-protocols' modifyAwarenessUpdate. This is deliberately NOT a raw-byte
+  // scan: awareness state is JSON.stringify'd on the wire, so a field name
+  // can hide from a literal-byte scan as a JSON escape (e.g.
+  // "dragging\u0042oard" decodes to "draggingBoard"). modifyAwarenessUpdate
+  // JSON.parses each state before the modify callback runs, so escaped keys
+  // are resolved and then deleted here. The role gate uses the connection's
+  // authoritative DB-backed role, not anything a client puts in the payload.
+  private sanitizeViewerAwareness(update: Uint8Array): Uint8Array {
+    return awarenessProtocol.modifyAwarenessUpdate(update, (state) => {
+      if (!state || typeof state !== "object") {
+        return state;
+      }
+      const record = state as Record<string, unknown>;
+      for (const field of VIEWER_BLOCKED_AWARENESS_FIELDS) {
+        delete record[field];
+      }
+      return record;
     });
   }
 

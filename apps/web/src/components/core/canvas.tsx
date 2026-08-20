@@ -45,6 +45,7 @@ import { useKanbanStore } from "@/src/features/kanban/store/kanban-store";
 import { useShowWelcomeScreen } from "@/src/features/kanban/store/selectors";
 import { calculateBoardWidth } from "@/src/features/kanban/utils/board-resize-rules";
 import { WorkspaceSelector } from "@/src/features/workspace/components/workspace-selector";
+import { useBoardDragPresence } from "@/src/hooks/use-board-drag-presence";
 import { useCanvasEdges } from "./helpers/canvas-edges";
 import {
   useColumnDragHandlers,
@@ -101,6 +102,7 @@ export function KanbanCanvas() {
     flowToScreenPosition,
     setViewport: setReactFlowViewport,
     fitView,
+    getInternalNode,
   } = useReactFlow();
   const {
     collaborators,
@@ -140,6 +142,7 @@ export function KanbanCanvas() {
   const isDraggingRef = useRef(false);
 
   const { handleMoveEnd } = useViewportHandlers(setViewport);
+  const boardDragPresence = useBoardDragPresence();
   const { handleNodeDragStart, handleNodeDrag, handleNodeDragStop } =
     useNodeDragHandlers({
       isCollaborating,
@@ -151,6 +154,7 @@ export function KanbanCanvas() {
       commentClusters,
       pendingPositionsRef,
       isDraggingRef,
+      boardDragPresence,
     });
 
   // Local state for smooth React Flow interactions during drag/resize.
@@ -205,41 +209,39 @@ export function KanbanCanvas() {
     prevStoreNodesRef.current = storeNodes;
     prevNodeCountRef.current = storeNodes.length;
 
-    // MERGE instead of replacing: preserve React Flow's local positions for
-    // existing nodes. storeNodes may have STALE positions from cached factories,
-    // but localNodes always has the correct positions (updated by
-    // applyNodeChanges during drag). Only new nodes use the store position.
-    setLocalNodes((prev) => {
-      // Fast path: empty → full replace (initial load or workspace switch)
-      if (prev.length === 0) {
-        return storeNodes;
-      }
-
-      // Build position lookup from current local state
-      const localPositions = new Map<string, { x: number; y: number }>();
-      for (const node of prev) {
-        localPositions.set(node.id, node.position);
-      }
-
-      return storeNodes.map((storeNode) => {
-        const localPos = localPositions.get(storeNode.id);
-        if (localPos) {
-          // Existing node: use store data/structure but preserve local position
-          // (React Flow's position is authoritative — store positions may be stale)
-          if (
-            storeNode.position.x === localPos.x &&
-            storeNode.position.y === localPos.y
-          ) {
-            // Positions match — use store node as-is (avoids object spread)
-            return storeNode;
-          }
-          return { ...storeNode, position: localPos };
-        }
-        // New node: use store position
-        return storeNode;
-      });
-    });
+    // Adopt store positions directly. Structural sigs now include x/y, so
+    // cached factories rebuild with fresh positions; preserving stale local
+    // positions would hide remote (guest) board movements.
+    setLocalNodes(storeNodes);
   }, [storeNodes]);
+
+  // Ephemeral live-drag overlay for guests (awareness) — overrides positions while dragging.
+  // React Flow diffs the controlled `nodes` prop by object identity. A fresh node object
+  // (created here for the dragged node) makes adoptUserNodes rebuild the internal node,
+  // and parseHandles returns undefined handleBounds unless the user node carries `measured`.
+  // That un-initializes the node (isNodeInitialized false) and getEdgePosition then returns
+  // null, so every edge connected to it disappears. Preserve measured from the current
+  // internal node so handleBounds survive and edges stay rendered while dragging.
+  const displayedNodes = useMemo(() => {
+    if (boardDragPresence.livePositions.size === 0) {
+      return localNodes;
+    }
+    return localNodes.map((n) => {
+      const live = boardDragPresence.livePositions.get(n.id);
+      if (!live) {
+        return n;
+      }
+      if (n.position.x === live.x && n.position.y === live.y) {
+        return n;
+      }
+      const internal = getInternalNode(n.id);
+      return {
+        ...n,
+        position: { x: live.x, y: live.y },
+        ...(internal?.measured ? { measured: internal.measured } : {}),
+      };
+    });
+  }, [localNodes, boardDragPresence.livePositions, getInternalNode]);
 
   useEffect(() => {
     setLocalEdges(edges);
@@ -626,7 +628,7 @@ export function KanbanCanvas() {
             noDragClassName="nodrag"
             nodeDragThreshold={3}
             nodeOrigin={[0, 0]}
-            nodes={localNodes}
+            nodes={displayedNodes}
             nodesConnectable={!isGuestMode}
             nodesDraggable={!isGuestMode && interactionMode === "drag"}
             nodeTypes={{

@@ -260,7 +260,7 @@ export function useCanvasNodes() {
       state.areaPositions.allIds
         .map((id) => {
           const ap = state.areaPositions.byId[id];
-          return `${id}:${Math.round(ap?.width ?? 0)}:${Math.round(ap?.height ?? 0)}:${ap?.zIndex ?? 0}`;
+          return `${id}:${Math.round(ap?.x ?? 0)}:${Math.round(ap?.y ?? 0)}:${Math.round(ap?.width ?? 0)}:${Math.round(ap?.height ?? 0)}:${ap?.zIndex ?? 0}`;
         })
         .join("|")
     )
@@ -273,7 +273,7 @@ export function useCanvasNodes() {
           const bp = state.boardPositions.byId[id];
           const b = state.boards.byId[id];
           const colCount = b?.column_ids?.length ?? 0;
-          return `${id}:${colCount}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+          return `${id}:${colCount}:${Math.round(bp?.x ?? 0)}:${Math.round(bp?.y ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
         })
         .join("|")
     )
@@ -284,7 +284,7 @@ export function useCanvasNodes() {
       (currentWorkspace?.text_board_ids ?? state.textBoards.allIds)
         .map((id) => {
           const bp = state.textBoardPositions.byId[id];
-          return `${id}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
+          return `${id}:${Math.round(bp?.x ?? 0)}:${Math.round(bp?.y ?? 0)}:${Math.round(bp?.width ?? 0)}:${Math.round(bp?.height ?? 0)}:${bp?.zIndex ?? 0}`;
         })
         .join("|")
     )
