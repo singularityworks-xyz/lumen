@@ -102,6 +102,7 @@ export function KanbanCanvas() {
     flowToScreenPosition,
     setViewport: setReactFlowViewport,
     fitView,
+    getInternalNode,
   } = useReactFlow();
   const {
     collaborators,
@@ -215,6 +216,12 @@ export function KanbanCanvas() {
   }, [storeNodes]);
 
   // Ephemeral live-drag overlay for guests (awareness) — overrides positions while dragging.
+  // React Flow diffs the controlled `nodes` prop by object identity. A fresh node object
+  // (created here for the dragged node) makes adoptUserNodes rebuild the internal node,
+  // and parseHandles returns undefined handleBounds unless the user node carries `measured`.
+  // That un-initializes the node (isNodeInitialized false) and getEdgePosition then returns
+  // null, so every edge connected to it disappears. Preserve measured from the current
+  // internal node so handleBounds survive and edges stay rendered while dragging.
   const displayedNodes = useMemo(() => {
     if (boardDragPresence.livePositions.size === 0) {
       return localNodes;
@@ -224,14 +231,17 @@ export function KanbanCanvas() {
       if (!live) {
         return n;
       }
-      // For boards: awareness holds the absolute flow position already (node.position)
-      // For areas/textBoards: same - keep it simple, use live x/y.
       if (n.position.x === live.x && n.position.y === live.y) {
         return n;
       }
-      return { ...n, position: { x: live.x, y: live.y } };
+      const internal = getInternalNode(n.id);
+      return {
+        ...n,
+        position: { x: live.x, y: live.y },
+        ...(internal?.measured ? { measured: internal.measured } : {}),
+      };
     });
-  }, [localNodes, boardDragPresence.livePositions]);
+  }, [localNodes, boardDragPresence.livePositions, getInternalNode]);
 
   useEffect(() => {
     setLocalEdges(edges);
