@@ -12,6 +12,7 @@ process.env.LOG_LEVEL = "error";
 import { afterAll, afterEach, describe, expect, it, mock } from "bun:test";
 import type { Role } from "@lumen/db";
 import { YJS_MAP_NAMES } from "@lumen/yjs-shared";
+import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 
 const prismaMock = {
@@ -57,6 +58,28 @@ mock.module("./metrics", () => ({
 
 const mockEncodeAwarenessUpdate = mock(() => new Uint8Array(0));
 
+// Faithful copy of y-protocols' modifyAwarenessUpdate (decode -> modify ->
+// re-encode). Used by the sanitizer; providing a real implementation here
+// keeps the sanitization tests exercising the real wire format.
+const mockModifyAwarenessUpdate = mock(
+  (update: Uint8Array, modify: (state: unknown) => unknown): Uint8Array => {
+    const decoder = decoding.createDecoder(update);
+    const encoder = encoding.createEncoder();
+    const len = decoding.readVarUint(decoder);
+    encoding.writeVarUint(encoder, len);
+    for (let i = 0; i < len; i += 1) {
+      const clientID = decoding.readVarUint(decoder);
+      const clock = decoding.readVarUint(decoder);
+      const state: unknown = JSON.parse(decoding.readVarString(decoder));
+      const modifiedState = modify(state);
+      encoding.writeVarUint(encoder, clientID);
+      encoding.writeVarUint(encoder, clock);
+      encoding.writeVarString(encoder, JSON.stringify(modifiedState));
+    }
+    return encoding.toUint8Array(encoder);
+  }
+);
+
 mock.module("y-protocols/awareness", () => ({
   Awareness: class MockAwareness {
     clientID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
@@ -92,6 +115,7 @@ mock.module("y-protocols/awareness", () => ({
   },
   applyAwarenessUpdate: mock(),
   encodeAwarenessUpdate: mockEncodeAwarenessUpdate,
+  modifyAwarenessUpdate: mockModifyAwarenessUpdate,
   removeAwarenessStates: mock(),
 }));
 
@@ -157,34 +181,61 @@ function buildSyncMessage(syncType: number): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-function buildAwarenessMessage(): Uint8Array {
+function buildAwarenessMessage(payload?: Uint8Array): Uint8Array {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(encoder, new Uint8Array([1, 2, 3]));
+  encoding.writeVarUint8Array(encoder, payload ?? new Uint8Array([1, 2, 3]));
   return encoding.toUint8Array(encoder);
 }
 
-function buildAwarenessMessageWithPayload(payload: Uint8Array): Uint8Array {
+// Build a VALID awareness update (same var-encoded layout y-protocols uses:
+// client count, then per-client clientID / clock / JSON state var-string).
+function buildAwarenessUpdateState(
+  state: Record<string, unknown>,
+  clientId = 42,
+  clock = 1
+): Uint8Array {
   const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(encoder, payload);
+  encoding.writeVarUint(encoder, 1);
+  encoding.writeVarUint(encoder, clientId);
+  encoding.writeVarUint(encoder, clock);
+  encoding.writeVarString(encoder, JSON.stringify(state));
   return encoding.toUint8Array(encoder);
 }
 
-function containsText(haystack: Uint8Array, needle: string): boolean {
-  const encoded = new TextEncoder().encode(needle);
-  if (encoded.length === 0 || encoded.length > haystack.length) {
-    return false;
+// Same as buildAwarenessUpdateState but accepts a raw JSON string, so tests
+// can place a JSON-escaped field name on the wire exactly as an attacker would.
+function buildAwarenessUpdateJson(
+  json: string,
+  clientId = 42,
+  clock = 1
+): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, 1);
+  encoding.writeVarUint(encoder, clientId);
+  encoding.writeVarUint(encoder, clock);
+  encoding.writeVarString(encoder, json);
+  return encoding.toUint8Array(encoder);
+}
+
+// Decode the relayed awareness message and return the parsed client state.
+function decodeRelayedAwareness(message: Uint8Array): {
+  clientId: number;
+  clock: number;
+  state: unknown;
+} {
+  const decoder = decoding.createDecoder(message);
+  decoding.readVarUint(decoder); // MESSAGE_AWARENESS
+  const payload = decoding.readVarUint8Array(decoder);
+  const inner = decoding.createDecoder(payload);
+  const len = decoding.readVarUint(inner);
+  if (len < 1) {
+    return { clientId: 0, clock: 0, state: null };
   }
-  outer: for (let i = 0; i <= haystack.length - encoded.length; i += 1) {
-    for (let j = 0; j < encoded.length; j += 1) {
-      if (haystack[i + j] !== encoded[j]) {
-        continue outer;
-      }
-    }
-    return true;
-  }
-  return false;
+  const clientId = decoding.readVarUint(inner);
+  const clock = decoding.readVarUint(inner);
+  const state: unknown = JSON.parse(decoding.readVarString(inner));
+  return { clientId, clock, state };
 }
 
 afterEach(() => {
@@ -344,97 +395,123 @@ describe("RoomManager - awareness broadcast", () => {
 });
 
 describe("RoomManager - viewer awareness sanitization", () => {
-  const dragPayload = (): Uint8Array =>
-    new Uint8Array([...new TextEncoder().encode("draggingBoard"), 0, 1, 2]);
+  // Joins an editor and a viewer in the same room, clears sent buffers, and
+  // returns { editorSent, viewerSent } plus connection ids.
+  async function joinEditorAndViewer(workspaceId: string) {
+    const editorWs = createMockWs();
+    const viewerWs = createMockWs();
+    await roomManager.join({
+      connectionId: `conn-${workspaceId}-edit`,
+      ws: editorWs.ws,
+      user: makeUser({ id: `user-${workspaceId}-edit`, role: "EDITOR" }),
+      workspaceId,
+    });
+    await roomManager.join({
+      connectionId: `conn-${workspaceId}-viewer`,
+      ws: viewerWs.ws,
+      user: makeUser({ id: `user-${workspaceId}-viewer`, role: "VIEWER" }),
+      workspaceId,
+    });
+    editorWs.sent.length = 0;
+    viewerWs.sent.length = 0;
+    return {
+      editorConnectionId: `conn-${workspaceId}-edit`,
+      editorSent: editorWs.sent,
+      viewerConnectionId: `conn-${workspaceId}-viewer`,
+      viewerSent: viewerWs.sent,
+    };
+  }
 
   it("relays draggingBoard awareness from editors verbatim", async () => {
-    const { ws: wsViewer, sent: sentViewer } = createMockWs();
-    const { ws: wsEditor } = createMockWs();
+    const { editorConnectionId, viewerSent } =
+      await joinEditorAndViewer("ws-secure");
 
-    await roomManager.join({
-      connectionId: "conn-se-edit",
-      ws: wsEditor,
-      user: makeUser({ id: "user-edit", role: "EDITOR" }),
-      workspaceId: "ws-secure",
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-edit", name: "Editor", role: "editor" },
+      draggingBoard: { id: "board-1", kind: "board", x: 100, y: 200 },
     });
-    await roomManager.join({
-      connectionId: "conn-se-viewer",
-      ws: wsViewer,
-      user: makeUser({ id: "user-viewer", role: "VIEWER" }),
-      workspaceId: "ws-secure",
-    });
-
-    sentViewer.length = 0;
-
-    const msg = buildAwarenessMessageWithPayload(dragPayload());
-    const handled = roomManager.handleMessage("conn-se-edit", msg);
+    const handled = roomManager.handleMessage(
+      editorConnectionId,
+      buildAwarenessMessage(payload)
+    );
 
     expect(handled).toBe(true);
-    // The peer (viewer) receives the raw awareness including the drag field
-    expect(sentViewer.some((m) => containsText(m, "draggingBoard"))).toBe(true);
+    const relayed = decodeRelayedAwareness(viewerSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toEqual({
+      id: "board-1",
+      kind: "board",
+      x: 100,
+      y: 200,
+    });
   });
 
   it("strips draggingBoard awareness from read-only viewers before relay", async () => {
-    const { ws: wsEditor, sent: sentEditor } = createMockWs();
-    const { ws: wsViewer } = createMockWs();
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure2");
 
-    await roomManager.join({
-      connectionId: "conn-sv-edit",
-      ws: wsEditor,
-      user: makeUser({ id: "user-edit2", role: "EDITOR" }),
-      workspaceId: "ws-secure2",
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-viewer", name: "Guest", role: "viewer" },
+      cursor: { x: 10, y: 20 },
+      draggingBoard: { id: "board-1", kind: "board", x: 999, y: 999 },
     });
-    await roomManager.join({
-      connectionId: "conn-sv-viewer",
-      ws: wsViewer,
-      user: makeUser({ id: "user-viewer2", role: "VIEWER" }),
-      workspaceId: "ws-secure2",
-    });
-
-    sentEditor.length = 0;
-
-    const msg = buildAwarenessMessageWithPayload(dragPayload());
-    const handled = roomManager.handleMessage("conn-sv-viewer", msg);
+    const handled = roomManager.handleMessage(
+      viewerConnectionId,
+      buildAwarenessMessage(payload)
+    );
 
     expect(handled).toBe(true);
-    // The peer must NOT receive the blocked drag field from a viewer
-    expect(sentEditor.some((m) => containsText(m, "draggingBoard"))).toBe(
-      false
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toBeUndefined();
+    // Non-blocked fields (user, cursor) survive sanitization.
+    expect(state.cursor).toEqual({ x: 10, y: 20 });
+    expect((state.user as Record<string, unknown>).id).toBe("user-viewer");
+  });
+
+  it("strips JSON-escaped draggingBoard and ignores forged roles from viewers", async () => {
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure4");
+
+    // "dragging\u0042oard" is valid JSON that decodes to "draggingBoard".
+    // The payload also forges role: "editor"; the server must still gate on
+    // the connection's VIEWER role, not the payload.
+    const escapedJson =
+      '{"user":{"id":"user-viewer","role":"editor"},"cursor":{"x":1,"y":2},"dragging\\u0042oard":{"id":"board-1","kind":"board","x":500,"y":500}}';
+    const handled = roomManager.handleMessage(
+      viewerConnectionId,
+      buildAwarenessMessage(buildAwarenessUpdateJson(escapedJson))
     );
+
+    expect(handled).toBe(true);
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.draggingBoard).toBeUndefined();
+    // Cursor still relayed, forged role still present (role is not a blocked
+    // field), but the drag override is gone.
+    expect(state.cursor).toEqual({ x: 1, y: 2 });
   });
 
   it("relays viewer cursor awareness unchanged when it has no blocked fields", async () => {
-    const { ws: wsEditor, sent: sentEditor } = createMockWs();
-    const { ws: wsViewer } = createMockWs();
+    const { editorSent, viewerConnectionId } =
+      await joinEditorAndViewer("ws-secure3");
 
-    await roomManager.join({
-      connectionId: "conn-sc-edit",
-      ws: wsEditor,
-      user: makeUser({ id: "user-edit3", role: "EDITOR" }),
-      workspaceId: "ws-secure3",
+    const payload = buildAwarenessUpdateState({
+      user: { id: "user-viewer", name: "Guest", role: "viewer" },
+      cursor: { x: 42, y: 43 },
     });
-    await roomManager.join({
-      connectionId: "conn-sc-viewer",
-      ws: wsViewer,
-      user: makeUser({ id: "user-viewer3", role: "VIEWER" }),
-      workspaceId: "ws-secure3",
-    });
-
-    sentEditor.length = 0;
-
-    const plainCursor = new Uint8Array([9, 8, 7]);
     const handled = roomManager.handleMessage(
-      "conn-sc-viewer",
-      buildAwarenessMessageWithPayload(plainCursor)
+      viewerConnectionId,
+      buildAwarenessMessage(payload)
     );
 
     expect(handled).toBe(true);
-    // Plain cursor awareness is relayed unchanged on the zero-copy fast path
-    expect(
-      sentEditor.some((m) =>
-        containsText(m, String.fromCharCode(...plainCursor))
-      )
-    ).toBe(true);
+    const relayed = decodeRelayedAwareness(editorSent[0]!);
+    const state = relayed.state as Record<string, unknown>;
+    expect(state.cursor).toEqual({ x: 42, y: 43 });
+    expect(state.draggingBoard).toBeUndefined();
+    expect(state.draggingTask).toBeUndefined();
+    expect(state.draggingColumn).toBeUndefined();
   });
 });
 

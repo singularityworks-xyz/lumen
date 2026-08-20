@@ -36,21 +36,6 @@ const VIEWER_BLOCKED_AWARENESS_FIELDS = [
   "draggingColumn",
 ] as const;
 
-function containsUint8Array(haystack: Uint8Array, needle: Uint8Array): boolean {
-  if (needle.length === 0 || needle.length > haystack.length) {
-    return false;
-  }
-  outer: for (let i = 0; i <= haystack.length - needle.length; i += 1) {
-    for (let j = 0; j < needle.length; j += 1) {
-      if (haystack[i + j] !== needle[j]) {
-        continue outer;
-      }
-    }
-    return true;
-  }
-  return false;
-}
-
 export interface CollaboratorInfo {
   color: string;
   email: string;
@@ -524,39 +509,27 @@ export class RoomManager {
   // clients see them, but position-override fields (draggingBoard, etc.)
   // must never be relayed. Without this, a guest could craft awareness
   // claiming to drag a board and ghost-move it on every connected client's
-  // canvas. The field names are scanned as raw UTF-8 bytes in the encoded
-  // update, so the common case (plain cursor moves) stays on the zero-copy
-  // fast path and only messages that actually carry a blocked field are
-  // decoded and stripped.
+  // canvas.
+  //
+  // Every viewer update is decoded, stripped, and re-encoded via
+  // y-protocols' modifyAwarenessUpdate. This is deliberately NOT a raw-byte
+  // scan: awareness state is JSON.stringify'd on the wire, so a field name
+  // can hide from a literal-byte scan as a JSON escape (e.g.
+  // "dragging\u0042oard" decodes to "draggingBoard"). modifyAwarenessUpdate
+  // JSON.parses each state before the modify callback runs, so escaped keys
+  // are resolved and then deleted here. The role gate uses the connection's
+  // authoritative DB-backed role, not anything a client puts in the payload.
   private sanitizeViewerAwareness(update: Uint8Array): Uint8Array {
-    const needsFiltering = VIEWER_BLOCKED_AWARENESS_FIELDS.some((field) =>
-      containsUint8Array(update, new TextEncoder().encode(field))
-    );
-    if (!needsFiltering) {
-      return update;
-    }
-
-    const tempDoc = new Y.Doc();
-    const tempAwareness = new awarenessProtocol.Awareness(tempDoc);
-    try {
-      awarenessProtocol.applyAwarenessUpdate(tempAwareness, update, "server");
-      for (const state of tempAwareness.getStates().values()) {
-        if (!state || typeof state !== "object") {
-          continue;
-        }
-        const record = state as Record<string, unknown>;
-        for (const field of VIEWER_BLOCKED_AWARENESS_FIELDS) {
-          delete record[field];
-        }
+    return awarenessProtocol.modifyAwarenessUpdate(update, (state) => {
+      if (!state || typeof state !== "object") {
+        return state;
       }
-      return awarenessProtocol.encodeAwarenessUpdate(
-        tempAwareness,
-        Array.from(tempAwareness.getStates().keys())
-      );
-    } finally {
-      tempAwareness.destroy();
-      tempDoc.destroy();
-    }
+      const record = state as Record<string, unknown>;
+      for (const field of VIEWER_BLOCKED_AWARENESS_FIELDS) {
+        delete record[field];
+      }
+      return record;
+    });
   }
 
   // Broadcast awareness update to all clients except sender
