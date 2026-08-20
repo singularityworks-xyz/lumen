@@ -459,7 +459,12 @@ jobs:
 
   deploy-web:
     name: Deploy Web
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.web == 'true' }}
+    # always(): without it, a skipped prerequisite anywhere in the ci-passed
+    # chain (e.g. presence-tests when no presence files changed) propagates a
+    # "skipped" down the dependency graph and silently cancels every deploy.
+    # The ci-passed.result gate preserves the intended behavior: deploy only
+    # when the full CI gate passed on the origin branch.
+    if: ${{ always() && github.ref_name == 'origin' && needs.changes.outputs.web == 'true' && needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
@@ -472,8 +477,9 @@ jobs:
   deploy-workers:
     name: Deploy Workers
     if:
-      ${{ github.ref_name == 'origin' && needs.changes.outputs.workers == 'true'
-      }}
+      ${{ always() && github.ref_name == 'origin' &&
+      needs.changes.outputs.workers == 'true' &&
+      needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
@@ -486,8 +492,9 @@ jobs:
   deploy-presence:
     name: Deploy Presence
     if:
-      ${{ github.ref_name == 'origin' && needs.changes.outputs.presence == 'true'
-      }}
+      ${{ always() && github.ref_name == 'origin' &&
+      needs.changes.outputs.presence == 'true' &&
+      needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
@@ -499,7 +506,7 @@ jobs:
 
   deploy-db:
     name: Prisma Schema Sync
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.db == 'true' }}
+    if: ${{ always() && github.ref_name == 'origin' && needs.changes.outputs.db == 'true' && needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
@@ -512,8 +519,9 @@ jobs:
   deploy-supermemory:
     name: Publish Supermemory Image
     if:
-      ${{ github.ref_name == 'origin' &&
-      needs.changes.outputs.supermemory == 'true' }}
+      ${{ always() && github.ref_name == 'origin' &&
+      needs.changes.outputs.supermemory == 'true' &&
+      needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
@@ -525,7 +533,7 @@ jobs:
 
   release-native:
     name: Release Native
-    if: ${{ github.ref_name == 'origin' && needs.changes.outputs.native == 'true' }}
+    if: ${{ always() && github.ref_name == 'origin' && needs.changes.outputs.native == 'true' && needs.ci-passed.result == 'success' }}
     needs:
       - changes
       - ci-passed
