@@ -83,6 +83,51 @@ describe("buildMessagesFromHistory", () => {
     });
   });
 
+  it("synthesizes tool-result messages from inline results on assistant tool calls", () => {
+    const history: HistoryMessage[] = [
+      {
+        role: "assistant",
+        content: "Let me check that for you.",
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "get_weather",
+            arguments: { city: "London" },
+            result: { success: true, data: { temp: 20 } },
+          },
+          {
+            id: "call-2",
+            name: "get_time",
+            arguments: { city: "London" },
+          },
+        ],
+      },
+    ];
+
+    const result = buildMessagesFromHistory(history);
+
+    expect(result).toHaveLength(2);
+    const assistantMsg = result[0] as AiSdkMessage;
+    expect(assistantMsg.role).toBe("assistant");
+
+    // The tool message contains the result for call-1 only (call-2 has no result)
+    const toolMsg = result[1] as AiSdkMessage;
+    expect(toolMsg.role).toBe("tool");
+    const parts = toolMsg.content as Array<{
+      type: string;
+      toolCallId: string;
+      toolName: string;
+      output: { type: string; value: unknown };
+    }>;
+    expect(parts).toHaveLength(1);
+    expect(parts[0]!.toolCallId).toBe("call-1");
+    expect(parts[0]!.toolName).toBe("get_weather");
+    expect(parts[0]!.output).toEqual({
+      type: "json",
+      value: { success: true, data: { temp: 20 } },
+    });
+  });
+
   it("converts assistant with multiple tool calls", () => {
     const history: HistoryMessage[] = [
       {
