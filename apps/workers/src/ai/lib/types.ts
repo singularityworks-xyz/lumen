@@ -106,6 +106,7 @@ export interface HistoryMessage {
     id: string;
     name: string;
     arguments: Record<string, unknown>;
+    result?: unknown;
   }>;
   toolName?: string;
   toolResult?: unknown;

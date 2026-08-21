@@ -57,6 +57,27 @@ export function buildMessagesFromHistory(
           role: "assistant",
           content: assistantContent,
         });
+
+        // Synthesize tool-result messages for any inline tool calls that carry
+        // their result. The client stores tool results inline on the assistant
+        // message (no separate role:"tool" message), so without this the AI SDK
+        // receives a tool-call with no matching result and throws
+        // AI_MissingToolResultsError on the next turn.
+        const toolResults = validToolCalls
+          .filter((tc) => tc.result !== undefined && tc.result !== null)
+          .map((tc) => ({
+            type: "tool-result" as const,
+            toolCallId: tc.id,
+            toolName: tc.name,
+            output: { type: "json" as const, value: tc.result },
+          }));
+
+        if (toolResults.length > 0) {
+          messages.push({
+            role: "tool",
+            content: toolResults,
+          });
+        }
       } else {
         // No valid tool calls, just use content
         messages.push({
