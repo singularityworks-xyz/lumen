@@ -45,6 +45,17 @@ config :presence,
   internal_api_key: System.get_env("INTERNAL_API_KEY"),
   telemetry_console_reporter: telemetry_console_reporter_enabled
 
+# Origins allowed to talk to presence (REST + WebSocket). Comma-separated.
+# The canvas web app connects its realtime socket from its own origin, so it
+# must be listed here or OriginGuard rejects the connection.
+allowed_origins =
+  System.get_env("ALLOWED_ORIGINS", "")
+  |> String.split(",")
+  |> Enum.map(&String.trim/1)
+  |> Enum.reject(&(&1 == ""))
+
+config :presence, allowed_origins: allowed_origins
+
 # OpenTelemetry OTLP Configuration. OpenTelemetry is mandatory (no opt-out);
 # it is only skipped in :test so tests stay hermetic. OpenObserve routes each
 # signal to a per-app stream using the org in the URL path plus the
