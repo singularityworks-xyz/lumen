@@ -18,7 +18,10 @@ COPY packages/configs ./packages/configs
 COPY packages/yjs-shared ./packages/yjs-shared
 COPY apps/workers ./apps/workers
 WORKDIR /app/apps/workers
-RUN bun build src/index.ts --outdir=dist --target=bun --minify
+# Bun inlines process.env.NODE_ENV into the bundle at build time. Without
+# this, the baked value is "development" and the container runs in dev mode
+# even when the runtime env sets NODE_ENV=production.
+RUN NODE_ENV=production bun build src/index.ts --outdir=dist --target=bun --minify
 
 FROM oven/bun:1.3.11-alpine
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
