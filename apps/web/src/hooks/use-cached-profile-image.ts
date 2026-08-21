@@ -12,7 +12,6 @@ export function useCachedProfileImage(imageUrl: string | null | undefined) {
 
       return new Promise<string>((resolve) => {
         const img = new Image();
-        img.crossOrigin = "anonymous";
 
         img.onload = () => {
           resolve(imageUrl);
